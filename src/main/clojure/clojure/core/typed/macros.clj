@@ -1,11 +1,13 @@
 (ns clojure.core.typed.macros
-  (:refer-clojure :exclude [type defprotocol fn loop dotimes let for doseq])
+  (:refer-clojure :exclude [type defprotocol fn loop dotimes let for doseq
+                            defn])
   (:require [clojure.core :as core]
             [clojure.core.typed.internal :as internal]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.special-form :as spec]))
 
-(defn core-kw [kw]
+(core/defn core-kw [kw]
   (keyword "clojure.core.typed"
            (name kw)))
 
@@ -214,3 +216,32 @@
   [t init & args]
   `(ref (ann-form ~init ~t) ~@args))
 
+(defmacro
+  ^{:forms '[(defn poly? name docstring? [param :- type *] :- type exprs*)
+             (defn poly? name docstring? ([param :- type *] :- type exprs*)+)]}
+  defn
+  "Like defn, but with optional annotations. All annotations default to Any,
+  like the typed fn macro. Rest parameters default to starred.
+
+  eg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)
+
+  ;annotate return
+  (defn fname [a :- String] :- String ...)
+
+  ;multi-arity
+  (defn fname 
+    ([a :- String] :- String ...)
+    ([a :- String, b :- Number] :- Long ...))"
+  [& args]
+  (let [[poly args] (internal/take-when vector? args)
+        _ (when poly
+            (err/nyi-error "Poly for defn"))
+        [name & args] args
+        _ (assert (symbol? name) "defn name should be a symbol")
+        [docstring args] (internal/take-when string? args)]
+    `(def
+       ~(vary-meta name #(merge
+                           %
+                           (when docstring
+                             {:doc docstring})))
+       (fn ~@args))))

@@ -4,6 +4,7 @@ and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
+                            defn
                             #_def #_filter #_remove])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
@@ -23,7 +24,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (import-m/import-macros clojure.core.typed.macros
   [def fn loop let ann-form tc-ignore defprotocol
-   when-let-fail atom> ref>])
+   when-let-fail atom> ref> defn])
 
 ;=============================================================
 ; # core.typed
@@ -727,10 +728,13 @@ for checking namespaces, cf for checking individual forms."}
     `(IFn ~@(map defn>-parse-typesig forms))))
 
 (defmacro
+  ^{:deprecated "0.2.57"}
   ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
              (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
   defn>
-  "Like defn, but with annotations. Annotations are mandatory for
+  "DEPRECATED: Use defn
+  
+  Like defn, but with annotations. Annotations are mandatory for
   parameters and for return type.
 
   eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
@@ -743,6 +747,10 @@ for checking namespaces, cf for checking individual forms."}
     (:- String [a :- String] ...)
     (:- Long   [a :- String, b :- Number] ...))"
   [name & fdecl]
+  (err/deprecated-renamed-macro
+    &form
+    'defn>
+    'defn)
   (let [[docstring fdecl] (internal/take-when string? fdecl)
         signature (defn>-parse-typesig fdecl)]
     `(do (ann ~name ~signature)
@@ -750,6 +758,7 @@ for checking namespaces, cf for checking individual forms."}
                  (concat
                    (when docstring [docstring])
                    [`(fn> ~name ~@fdecl)])))))
+
 
 (defmacro
   ^{:forms '[(def> name docstring? :- type expr)]}
