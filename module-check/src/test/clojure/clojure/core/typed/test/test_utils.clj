@@ -27,7 +27,7 @@
                *file* *file*]
        (ns ~(gensym 'clojure.core.typed.test.temp)
          ~'(:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                                     #_def filter remove defn])
+                                     #_def filter remove defn atom ref])
          ~'(:require [clojure.core.typed :refer :all :as t]
                      [clojure.core.typed.unsafe :as unsafe]
                      [clojure.core :as core]))

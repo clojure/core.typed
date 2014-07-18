@@ -4,7 +4,7 @@ and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                            defn
+                            defn atom ref
                             #_def #_filter #_remove])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
@@ -24,7 +24,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (import-m/import-macros clojure.core.typed.macros
   [def fn loop let ann-form tc-ignore defprotocol
-   when-let-fail atom> ref> defn])
+   when-let-fail defn atom ref])
 
 ;=============================================================
 ; # core.typed
@@ -1195,6 +1195,42 @@ for checking namespaces, cf for checking individual forms."}
                                                       @clojure.lang.Compiler/COLUMN)}]
              (ast/parse-clj t))))
   nil)
+
+(defmacro
+  ^{:deprecated "0.2.58"}
+  atom>
+  "DEPRECATED: use clojure.core.typed/atom
+  
+  Like atom, but creates an Atom1 of type t.
+  
+  Same as (atom (ann-form init t) args*)
+  
+  eg. (atom> Number 1)
+      (atom> (Vec Any) [])"
+  [t init & args]
+  (err/deprecated-renamed-macro
+    &form
+    'atom>
+    'atom)
+  `(core/atom (ann-form ~init ~t) ~@args))
+
+(defmacro
+  ^{:deprecated "0.2.58"}
+  ref>
+  "DEPRECATED: use clojure.core.typed/ref
+
+  Like ref, but creates a Ref1 of type t.
+  
+  Same as (ref (ann-form init t) args*)
+  
+  eg. (ref> Number 1)
+      (ref> (Vec Any) [])"
+  [t init & args]
+  (err/deprecated-renamed-macro
+    &form
+    'ref>
+    'ref)
+  `(core/ref (ann-form ~init ~t) ~@args))
 
 (defmacro 
   ^{:deprecated "0.2.45"}

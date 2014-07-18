@@ -1,6 +1,6 @@
 (ns clojure.core.typed.macros
   (:refer-clojure :exclude [type defprotocol fn loop dotimes let for doseq
-                            defn])
+                            defn atom ref])
   (:require [clojure.core :as core]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
@@ -10,6 +10,14 @@
 (core/defn core-kw [kw]
   (keyword "clojure.core.typed"
            (name kw)))
+
+(core/defn parse-colon
+  "Returns a vector of [provided? t args]"
+  [fdecl name]
+  (if (#{:-} (first fdecl))
+    (core/let [[colon t & body] fdecl]
+      [true t body])
+    [false nil fdecl]))
 
 (defmacro
   ^{:forms '[(def name docstring? :- type? expr)]}
@@ -35,15 +43,8 @@
         1)"
   [name & fdecl]
   (core/let [[docstring fdecl] (internal/take-when string? fdecl)
-             [provided? t body] (if (#{:-} (first fdecl))
-                                  (core/let [_ (assert (#{3} (count fdecl))
-                                                       "Bad arguments to clojure.core.typed/def")
-                                             [colon t body] fdecl]
-                                    [true t body])
-                                  (core/let [_ (assert (#{1} (count fdecl))
-                                                       "Bad arguments to clojure.core.typed/def")
-                                             [body] fdecl]
-                                    [false nil body]))]
+             [provided? t [body :as args]] (parse-colon fdecl 'def)]
+    (assert (= 1 (count args)) "Wrong arguments to def")
     `(def ~(vary-meta name #(merge
                               %
                               (when docstring
@@ -194,25 +195,35 @@
      (do ~@body)
      (throw (ex-info (str "Expression was nil or false") {:form '~(second b)}))))
 
-(defmacro atom>
-  "Like atom, but creates an Atom1 of type t.
+(defmacro atom
+  "Like atom, but with optional type annotations.
   
   Same as (atom (ann-form init t) args*)
   
-  eg. (atom> Number 1)
-      (atom> (Vec Any) [])"
-  [t init & args]
-  `(atom (ann-form ~init ~t) ~@args))
+  eg. (atom 1) : (Atom1 (Value 1))
+      (atom :- Num, 1) : (Atom1 Num)"
+  [& args]
+  (let [[provided? t args] (parse-colon args 'atom)
+        [init & args] args]
+    `(core/atom ~(if provided?
+                   `(ann-form ~init ~t)
+                   init)
+                ~@args)))
 
-(defmacro ref>
-  "Like ref, but creates a Ref1 of type t.
+(defmacro ref
+  "Like ref, but with optional type annotations.
   
   Same as (ref (ann-form init t) args*)
   
-  eg. (ref> Number 1)
-      (ref> (Vec Any) [])"
-  [t init & args]
-  `(ref (ann-form ~init ~t) ~@args))
+  eg. (ref 1) : (Ref1 (Value 1))
+      (ref :- Num, 1) : (Ref1 Num)"
+  [& args]
+  (let [[provided? t args] (parse-colon args 'ref)
+        [init & args] args]
+    `(core/ref ~(if provided?
+                  `(ann-form ~init ~t)
+                  init)
+               ~@args)))
 
 (defmacro
   ^{:forms '[(defn poly? name docstring? [param :- type *] :- type exprs*)

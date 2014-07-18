@@ -47,7 +47,7 @@
 ; The :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
   (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
-                                             for doseq def remove filter]])
+                                             for doseq def remove filter defn atom ref]])
   (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap
                          ExceptionInfo Var Seqable)))
 
@@ -3190,6 +3190,18 @@
 
 (deftest CTYP146-test
   (is (check-ns 'clojure.core.typed.test.CTYP146)))
+
+(deftest defn-test
+  (is-tc-e (defn foo [a :- Number]
+             (inc a))))
+
+(deftest atom-test
+  (is-tc-e @(atom 1) Any)
+  (is-tc-e @(atom :- Number 1) Number))
+
+(deftest ref-test
+  (is-tc-e @(ref 1) Any)
+  (is-tc-e @(ref :- Number 1) Number))
 
 (ann-form vector [Number * -> '[Number]])
 #_(cf (inst vector Number Number))
