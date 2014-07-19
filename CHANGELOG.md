@@ -8,9 +8,9 @@
 
 # 0.2.57 - 17th July 2014
 
-- clojure.core.typed/{fn,defprotocol} preserves metadata in parameter vector
+- `clojure.core.typed/{fn,defprotocol}` preserves metadata in parameter vector
 - imported clojure.core.typed macros preserve their docstrings
-- Bump tools.analyzer 0.2.5
+- Bump tools.namespace 0.2.5
 
 # 0.2.56 - 5th July 2014
 
