@@ -160,7 +160,7 @@ clojure.core/read (IFn [-> Any]
                       [java.io.Reader -> Any]
                       [java.io.Reader Boolean Any -> Any]
                       [java.io.Reader Boolean Any Boolean -> Any])
-clojure.core/read-line [-> Any]
+clojure.core/read-line [-> String]
 
 clojure.core/add-classpath [(U String java.net.URL) -> nil]
 
@@ -515,7 +515,7 @@ clojure.core/print [Any * -> nil]
 clojure.core/println [Any * -> nil]
 clojure.core/print-str [Any * -> String]
 clojure.core/println-str [Any * -> String]
-clojure.core/printf [String Any * -> String]
+clojure.core/printf [String Any * -> nil]
 clojure.core/format [String Any  * -> String]
 clojure.core/pr [Any * -> nil]
 clojure.core/prn [Any * -> nil]
@@ -535,8 +535,6 @@ clojure.core/namespace-munge [(U Symbol Namespace) -> String]
 
 ;clojure.core/find-protocol-impl ['{:on-interface Class
 ;                                   :impls ?}]
-
-clojure.core/format [String Any * -> String]
 
 
 clojure.core/re-matcher [java.util.regex.Pattern String -> java.util.regex.Matcher]
