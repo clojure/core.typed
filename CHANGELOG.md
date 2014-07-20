@@ -1,3 +1,7 @@
+# 0.2.59 - SNAPSHOT
+
+- CTYP-163: fix some annotations (Thanks Andy Fingerhut)
+
 # 0.2.58 - 19th July 2014
 
 - Add `clojure.core.typed/defn`
