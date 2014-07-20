@@ -11,17 +11,29 @@
             [clojure.core.typed.current-impl :as impl])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
-                                        Bounds Name Scope CountRange Intersection DataType Extends
+                                        Bounds Name Scope CountRange DataType Extends
                                         JSNominal Protocol HeterogeneousVector GetType HSequential
                                         HeterogeneousList HeterogeneousSeq HSet)
            (clojure.lang IPersistentMap IPersistentVector)))
 
 ;supporting assoc functionality
 
+(declare assoc-type-pairs)
+
 (defprotocol AssocableType
   (-assoc-pair [left kv]))
 
 (extend-protocol AssocableType
+  Intersection
+  (-assoc-pair
+    [old-i assoc-entry]
+    ; attempt to simplify the intersection before recursing. Parsing an
+    ; intersection type does not simplify it.
+    (let [new-i (apply c/In (:types old-i))]
+      (if (r/Intersection? new-i)
+        (apply c/In (map #(assoc-type-pairs % assoc-entry) (:types new-i)))
+        (assoc-type-pairs new-i assoc-entry))))
+
   ; use the upper bound if bounds below (Map t/Any t/Any)
   F
   (-assoc-pair
