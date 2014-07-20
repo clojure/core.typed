@@ -26,7 +26,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.2.53</version>
+  <version>0.2.58</version>
   <!-- slim jar -->
   <!-- <classifier>slim</classifier> -->
 </dependency>
