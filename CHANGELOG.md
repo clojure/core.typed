@@ -1,6 +1,7 @@
 # 0.2.59 - SNAPSHOT
 
-- CTYP-163: fix some annotations (Thanks Andy Fingerhut)
+- [CTYP-161](http://dev.clojure.org/jira/browse/CTYP-161): support intersections of HMaps in assoc
+- [CTYP-163](http://dev.clojure.org/jira/browse/CTYP-163): fix some annotations (Thanks Andy Fingerhut)
 
 # 0.2.58 - 19th July 2014
 
