@@ -4,6 +4,12 @@
 - [CTYP-161](http://dev.clojure.org/jira/browse/CTYP-161): support intersections of HMaps in assoc
 - [CTYP-163](http://dev.clojure.org/jira/browse/CTYP-163): fix some annotations (Thanks Andy Fingerhut)
 
+## Breaking
+
+- core.typed.async
+  - <!! now takes 1 type variable
+  - Fixed some annotations
+
 # 0.2.58 - 19th July 2014
 
 - Add `clojure.core.typed/defn`
