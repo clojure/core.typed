@@ -160,7 +160,7 @@ clojure.core/read (IFn [-> Any]
                       [java.io.Reader -> Any]
                       [java.io.Reader Boolean Any -> Any]
                       [java.io.Reader Boolean Any Boolean -> Any])
-clojure.core/read-line [-> String]
+clojure.core/read-line [-> (U nil String)]
 
 clojure.core/add-classpath [(U String java.net.URL) -> nil]
 
