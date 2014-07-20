@@ -20,19 +20,21 @@
   #_(assert (empty? (set/difference (set (keys opt))
                                   #{:expected :ret}))))
 
-(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret] :as opt}]
+(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret requires] :as opt}]
   (check-opt opt)
   `(let [expected-ret# ~expected-ret]
      (binding [*ns* *ns*
                *file* *file*]
-       (ns ~(gensym 'clojure.core.typed.test.temp)
-         ~'(:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                                     #_def filter remove defn atom ref])
-         ~'(:require [clojure.core.typed :refer :all :as t]
-                     [clojure.core.typed.unsafe :as unsafe]
-                     [clojure.core :as core]))
        (t/check-form-info 
-         '~frm
+         '(do (ns ~(gensym 'clojure.core.typed.test.temp)
+                (:refer-clojure :exclude 
+                                ~'[type defprotocol #_letfn fn loop dotimes let for doseq
+                                   #_def filter remove defn atom ref])
+                (:require ~@'[[clojure.core.typed :refer :all :as t]
+                              [clojure.core.typed.unsafe :as unsafe]
+                              [clojure.core :as core]]
+                          ~@requires))
+              ~frm)
          :expected-ret expected-ret#
          :expected '~syn
          :type-provided? ~provided?))))

@@ -67,11 +67,11 @@
 (defalias 
   ^{:forms [(Port2 t t)]}
   Port2
-  "A port that can read type p and write type t"
-  (TFn [[p :variance :contravariant]
-        [t :variance :covariant]]
-    (I (impl/ReadPort t) 
-       (impl/WritePort p))))
+  "A port that can write type w and read type r"
+  (TFn [[w :variance :contravariant]
+        [r :variance :covariant]]
+    (I (impl/WritePort w)
+       (impl/ReadPort r))))
 
 (defalias 
   ^{:forms [(Port t)]}
@@ -84,9 +84,9 @@
   ^{:forms '[(Chan2 t t)]}
   Chan2
   "A core.async channel that can take type w and put type r"
-  (TFn [[p :variance :contravariant]
-        [t :variance :covariant]]
-    (I (Port2 p t)
+  (TFn [[w :variance :contravariant]
+        [r :variance :covariant]]
+    (I (Port2 w r)
        impl/Channel)))
 
 (defalias 
@@ -162,9 +162,10 @@
 (ann ^:no-check clojure.core.async.impl.ioc-macros/return-chan (t/All [x] [AtomicReferenceArray x :-> (Chan x)]))
 
 (ann ^:no-check clojure.core.async/<!! (t/All [t] [(ReadOnlyPort t) :-> (t/U nil t)]))
+; should this use Port's?
 (ann ^:no-check clojure.core.async/<! (t/All [p t] [(Chan2 p t) :-> (Chan2 p t)]))
-(ann ^:no-check clojure.core.async/>!! (t/All [p [a :< p]] [(Port2 p Any) a :-> Any]))
-(ann ^:no-check clojure.core.async/>! (t/All [p t [a :< p]] [(Chan2 p t) a :-> (Chan2 p t)]))
+(ann ^:no-check clojure.core.async/>!! (t/All [p] [(Port2 p Any) p :-> Any]))
+(ann ^:no-check clojure.core.async/>! (t/All [p t] [(Chan2 p t) p :-> (Chan2 p t)]))
 (t/ann-many 
   (t/All [x d]
          (IFn [(Seqable (t/U (Port x) '[(Port x) x])) 
@@ -198,25 +199,25 @@
 
 (defmacro go
   "Like go but with optional annotations. Channel annotation defaults to Any.
-  
+
   eg.
     (let [c (chan :- Str)]
       ;; same as (go :- Any ...)
       (go (a/>! c \"hello\"))
       (assert (= \"hello\" (a/<!! (go :- Str (a/<! c)))))
-      (a/close! c))"
+      (a/close! c))
+  
+  Notes
+    This macro will macroexpand the body twice: once for type checking
+    and again for the actual return value."
   [& body]
   (let [[t? t body] (maybe-annotation body)]
-    `(let [c# ((inst async/chan ~@(or (when t? [t t])
-                                      [`t/Nothing `t/Any]))
-               1)
+    `(let [c# (chan :- ~(if t? t `t/Any), 1)
            captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
        ~(when vs/*checking*
           ; wrap unexpanded go body in a thunk for type checking.
           ; Will result in the body expanding twice.
-          `(t/fn [] 
-             ~@body 
-             nil))
+          `(fn [] ~@body))
        ; we don't want to touch this.
        (t/tc-ignore
          (dispatch/run
@@ -227,23 +228,6 @@
                                              ioc/BINDINGS-IDX captured-bindings#))]
                (ioc/run-state-machine-wrapped state#)))))
        c#)))
-
-(defmacro go>
-  "DEPRECATED: use go"
-  [& body]
-  (prn "DEPRECATED: go>, use go")
-  `(let [c# (chan> ~'Any 1)
-         captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
-     (tc-ignore
-       (clojure.core.async.impl.dispatch/run
-         (fn []
-           (let [f# ~(ioc/state-machine body 1 &env ioc/async-custom-terminators)
-                 state# (-> (f#)
-                            (ioc/aset-all! 
-                              ioc/USER-START-IDX c#
-                              ioc/BINDINGS-IDX captured-bindings#))]
-             (ioc/run-state-machine state#)))))
-     c#))
 
 (comment
 (t/cf
@@ -273,66 +257,62 @@
 )
 
 (defmacro chan
-  "Like chan but with optional type annotations. Channel annotation defaults to Any.
+  "Like chan but with optional type annotations.
 
   (chan :- t ...) creates a buffer that can read and write type t.
   Subsequent arguments are passed directly to clojure.core.async/chan.
-
-  (chan ...) is the same as (chan :- Any ....)
   
   Note: 
     (chan :- t ...) is the same as ((inst async/chan t) ...)"
   [& args]
-  (let [[t? t args] (maybe-annotation args)
-        a (or (when t? t) `t/Any)]
-    `((inst async/chan ~a ~a) ~@args)))
-
-(defmacro chan>
-  "DEPRECATED: use chan"
-  [t & args]
-  `((inst async/chan ~t) ~@args))
+  (let [[t? t args] (maybe-annotation args)]
+    (if t?
+      `((inst async/chan ~t ~t) ~@args)
+      `(async/chan ~@args))))
 
 (defmacro buffer
-  "Like buffer but with optional type annotations. Buffer annotation defaults to Any.
+  "Like buffer but with optional type annotations.
 
   (buffer :- t ...) creates a buffer that can read and write type t.
   Subsequent arguments are passed directly to clojure.core.async/buffer.
 
-  (buffer ...) is the same as (buffer :- Any ....)
-
   Note: (buffer :- t ...) is the same as ((inst buffer t) ...)"
   [& args]
-  (let [[t? t args] (maybe-annotation args)
-        a (or (when t? t) `t/Any)]
-    `((inst async/buffer ~a ~a) ~@args)))
+  (let [[t? t args] (maybe-annotation args)]
+    (if t?
+      `((inst async/buffer ~t ~t) ~@args)
+      `(async/buffer ~@args))))
 
 (defmacro sliding-buffer
-  "Like sliding-buffer but with optional type annotations. Buffer annotation defaults to Any.
+  "Like sliding-buffer but with optional type annotations.
 
   (sliding-buffer :- t ...) creates a sliding buffer that can read and write type t.
   Subsequent arguments are passed directly to clojure.core.async/sliding-buffer.
-
-  (sliding-buffer ...) is the same as (sliding-buffer :- Any ....)
   
   Note: (sliding-buffer :- t ...) is the same as ((inst sliding-buffer t t) ...)"
   [& args]
-  (let [[t? t args] (maybe-annotation args)
-        a (or (when t? t) `t/Any)]
-    `((inst async/sliding-buffer ~a ~a) ~@args)))
+  (let [[t? t args] (maybe-annotation args)]
+    (if t?
+      `((inst async/sliding-buffer ~t ~t) ~@args)
+      `(async/sliding-buffer ~@args))))
+
 
 (defmacro dropping-buffer
-  "Like dropping-buffer but with optional type annotations. Buffer annotation defaults to Any.
-  
+  "Like dropping-buffer but with optional type annotations.
+
   (dropping-buffer :- t ...) creates a dropping buffer that can read and write type t.
   Subsequent arguments are passed directly to clojure.core.async/dropping-buffer.
 
-  (dropping-buffer ...) is the same as (dropping-buffer :- Any ....)
-  
   Note: (dropping-buffer :- t ...) is the same as ((inst dropping-buffer t) ...)"
   [& args]
-  (let [[t? t args] (maybe-annotation args)
-        a (or (when t? t) `t/Any)]
-    `((inst async/dropping-buffer ~a ~a) ~@args)))
+  (let [[t? t args] (maybe-annotation args)]
+    (if t?
+      `((inst async/dropping-buffer ~t ~t) ~@args)
+      `(async/dropping-buffer ~@args))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Deprecated
 
 (defmacro chan>
   "DEPRECATED: use chan"
@@ -357,3 +337,20 @@
   [t & args]
   (prn "DEPRECATED: dropping-buffer>, use dropping-buffer")
   `((inst async/dropping-buffer ~t) ~@args))
+
+(defmacro go>
+  "DEPRECATED: use go"
+  [& body]
+  (prn "DEPRECATED: go>, use go")
+  `(let [c# (chan> ~'Any 1)
+         captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
+     (tc-ignore
+       (clojure.core.async.impl.dispatch/run
+         (fn []
+           (let [f# ~(ioc/state-machine body 1 &env ioc/async-custom-terminators)
+                 state# (-> (f#)
+                            (ioc/aset-all! 
+                              ioc/USER-START-IDX c#
+                              ioc/BINDINGS-IDX captured-bindings#))]
+             (ioc/run-state-machine state#)))))
+     c#))

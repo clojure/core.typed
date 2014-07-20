@@ -1,5 +1,6 @@
 # 0.2.59 - SNAPSHOT
 
+- [CTYP-157](http://dev.clojure.org/jira/browse/CTYP-157): compilation issue fixed with lein-typed 0.3.5
 - [CTYP-161](http://dev.clojure.org/jira/browse/CTYP-161): support intersections of HMaps in assoc
 - [CTYP-163](http://dev.clojure.org/jira/browse/CTYP-163): fix some annotations (Thanks Andy Fingerhut)
 

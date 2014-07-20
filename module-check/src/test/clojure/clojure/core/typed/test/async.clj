@@ -1,22 +1,32 @@
 (ns clojure.core.typed.test.async
-  (:require [clojure.core.typed.async :refer :all]
-            [clojure.core.typed :as t]
-            [clojure.core.async :as a]))
+  (:require 
+    [clojure.core.typed.test.test-utils :refer :all]
+    [clojure.test :refer :all]
+    [clojure.core.typed :as t]
+    [clojure.core.async :as a]))
 
-#_(let [c (chan :- t/Str)]
-;this call randomly fails to be inferred. Try and make In/Un sorted.
-  (go (a/>! c "hello"))
-  (prn (a/<!! (go :- Str (a/<! c))))
-  (a/close! c))
+; wrap all these tests in thunks to prevent side effects
 
-;(let [c1 (chan :- t/Str)
-;      c2 (chan :- t/Str)]
-;  (a/thread (while true
-;              (let [[v ch] (a/alts!! [c1 c2])]
-;                (println "Read" v "from" ch))))
-;  (a/>!! c1 "hi")
-;  (a/>!! c2 "there"))
-;
+(deftest async-test
+  (is-tc-e 
+    #(let [c (chan :- t/Str)]
+       (go (a/>! c "hello"))
+       (prn (a/<!! (go :- Str (a/<! c))))
+       (a/close! c))
+    :requires [[clojure.core.async :as a]
+               [clojure.core.typed.async :refer [go chan]]])
+  (is-tc-e 
+    #(let [c1 (chan :- t/Str)
+           c2 (chan :- t/Str)]
+       (a/thread (while true
+                   (let [[v ch] (a/alts!! [c1 c2])]
+                     (println "Read" v "from" ch))))
+       (a/>!! c1 "hi")
+       (a/>!! c2 "there"))
+    :requires [[clojure.core.async :as a]
+               [clojure.core.typed.async :as ta :refer [go chan]]])
+  )
+
 ;(let [c1 (chan)
 ;      c2 (chan :- t/Str)]
 ;  (go (while true
