@@ -3,6 +3,7 @@
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.reset-caches :as reset-caches]
+            [clojure.core.cache :as cache]
             [clojure.core.typed.file-mapping :as file-map]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
@@ -26,7 +27,7 @@
                   vs/*already-collected* (atom #{})
                   vs/*already-checked* (atom #{})
                   vs/*delayed-errors* (err/-init-delayed-errors)
-                  vs/*analyze-ns-cache* (atom {})]
+                  vs/*analyze-ns-cache* (cache/soft-cache-factory {})]
           (let [terminal-error? (atom nil)
                 expected (or
                            expected-ret
