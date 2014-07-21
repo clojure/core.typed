@@ -83,6 +83,7 @@
                  '[clojure.core.typed.tvar-env]
                  '[clojure.core.typed.tvar-bnds]
                  '[clojure.core.typed.rclass-ancestor-env]
+                 '[clojure.core.typed.all-envs]
                  '[clojure.reflect])
         (when (io/resource "cljs/analyzer.clj")
           (do

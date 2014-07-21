@@ -58,6 +58,16 @@
 (t/ann *current-name-env* (t/U nil (t/Atom1 NameEnv)))
 (defonce ^:dynamic *current-name-env* nil)
 
+(t/ann current-name-env [-> (t/Atom1 NameEnv)])
+(defn current-name-env []
+  (let [env *current-name-env*]
+    (assert env "No name environment bound")
+    env))
+
+(t/ann name-env [-> NameEnv])
+(defn name-env []
+  @(current-name-env))
+
 (t/tc-ignore
 (set-validator! #'*current-name-env* (some-fn nil? #(instance? clojure.lang.Atom %)))
 )
@@ -68,22 +78,16 @@
 (t/ann ^:no-check CLJS-TYPE-NAME-ENV (t/Atom1 NameEnv))
 (defonce CLJS-TYPE-NAME-ENV (atom {} :validator name-env?))
 
-(t/ann assert-name-env [-> nil])
-(defn assert-name-env []
-  (assert *current-name-env* "No name environment bound"))
-
 (t/ann update-name-env! [NameEnv -> nil])
 (defn update-name-env! [nme-env]
-  (assert-name-env)
-  (t/when-let-fail [e *current-name-env*]
+  (let [e (current-name-env)]
     (swap! e (t/fn [n :- NameEnv]
                (merge n nme-env))))
   nil)
 
 (t/ann reset-name-env! [NameEnv -> nil])
 (defn reset-name-env! [nme-env]
-  (assert-name-env)
-  (t/when-let-fail [e *current-name-env*]
+  (let [e (current-name-env)]
     (reset! e nme-env))
   nil)
 
@@ -92,14 +96,12 @@
   "Return the name with var symbol sym.
   Returns nil if not found."
   [sym]
-  (assert-name-env)
-  (t/when-let-fail [e *current-name-env*]
+  (let [e (current-name-env)]
     (@e sym)))
 
 (t/ann ^:no-check add-type-name [t/Sym (t/U t/Kw r/Type) -> nil])
 (defn add-type-name [sym ty]
-  (assert-name-env)
-  (t/when-let-fail [e *current-name-env*]
+  (let [e (current-name-env)]
     (swap! e
            (t/fn [e :- NameEnv]
             (assoc e sym (if (r/Type? ty)
