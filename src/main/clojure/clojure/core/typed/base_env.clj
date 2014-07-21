@@ -1414,6 +1414,7 @@ clojure.math.numeric-tower/abs
 clojure.core.match/backtrack Exception
 
 clojure.core/eval [Any -> Any]
+clojure.core/rand-nth (All [x] [(U (Indexed x) (SequentialSeqable x)) -> x])
 
       )
 (h/var-mappings
