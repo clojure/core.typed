@@ -1,6 +1,7 @@
 # 0.2.60 - SNAPSHOT
 
 - [CTYP-81](http://dev.clojure.org/jira/browse/CTYP-81): bad annotation for alts{!,!!}
+- Better formatting for c.c/apply error message
 
 # 0.2.59 - 21st July 2014
 
