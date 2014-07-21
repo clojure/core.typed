@@ -31,10 +31,12 @@
               (cond
                 ;we've run out of cases to try, so error out
                 (empty? fs)
-                (err/tc-delayed-error (str "Bad arguments to apply: "
-                                           "\n\nTarget: \t" (prs/unparse-type ftype) 
-                                           "\n\nArguments:\t" (str/join " " (mapv prs/unparse-type (concat arg-tys [tail-ty]))))
-                                      :return (cu/error-ret expected))
+                (err/tc-delayed-error 
+                  (prs/with-unparse-ns (cu/expr-ns expr)
+                    (str "Bad arguments to apply: "
+                         "\n\nTarget: \t" (prs/unparse-type ftype) 
+                         "\n\nArguments:\t" (str/join " " (mapv prs/unparse-type (concat arg-tys [tail-ty])))))
+                  :return (cu/error-ret expected))
 
                 ;this case of the function type has a rest argument
                 (and rest

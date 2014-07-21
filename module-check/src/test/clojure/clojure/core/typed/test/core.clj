@@ -3203,6 +3203,16 @@
   (is-tc-e @(ref 1) Any)
   (is-tc-e @(ref :- Number 1) Number))
 
+;(deftest dotted-apply-test
+;  (is-tc-e
+;    (do (ann foo (All [x y ...] [[y ... y -> x] -> [y ... y -> x]]))
+;        (defn foo
+;          [f]
+;          (let [mem (memoize (fn [& args] #(apply f args)))]
+;            (fn [& args]
+;              ((apply mem args))))))))
+
+
 (ann-form vector [Number * -> '[Number]])
 #_(cf (inst vector Number Number))
 #_(is (cf (juxt (inst vector clojure.core.typed/Any))))
