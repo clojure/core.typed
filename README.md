@@ -76,15 +76,9 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 `(clojure.core.typed/cf t)` type checks the form `t`.
 
-<!---
 ## Examples
 
-(These don't completely type check yet)
-
-* [clojure.core.typed.test.rbt](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/rbt.clj) for examples of mutually recursive types and heterogenous maps
-* [typed.test.core-logic](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/core_logic.clj) for examples of typing (tightly coupled) datatypes and protocols
-* [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
--->
+[core.async Rock-paper-scissors](https://github.com/clojure/core.typed/blob/master/module-check/src/test/clojure/clojure/core/typed/test/rps_async.clj)
 
 ## Developer Information
 
