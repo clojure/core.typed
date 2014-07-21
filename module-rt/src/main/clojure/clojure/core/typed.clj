@@ -2243,6 +2243,24 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    ((impl/v 'clojure.core.typed.statistics/var-coverage) nsyms-or-nsym)))
 
+(defn envs
+  "Returns a map of type environments, according to the current state of the
+  type checker.
+  
+  Output map:
+  - :vars      map from var symbols to their verbosely printed types
+  - :aliases   map from alias var symbols (made with defalias) to their verbosely printed types
+  - :special-types  a set of Vars that are special to the type checker (like Any, U, I)
+  "
+  []
+  (load-if-needed)
+  (merge ((impl/v 'clojure.core.typed.all-envs/all-envs-clj))
+         {:special-types (set (->> (ns-publics 'clojure.core.typed)
+                                vals
+                                (filter (fn [v]
+                                          (when (var? v)
+                                            (-> v meta ::special-type))))))}))
+
 (defn pred* [tsyn nsym pred]
   pred)
 

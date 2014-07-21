@@ -25,79 +25,81 @@
 
 (defonce CLJS-JSVAR-ANNOTATIONS (atom {} :validator (con/hash-c? symbol? r/Type?)))
 
+(defn current-var-annotations []
+  (let [env *current-var-annotations*]
+    (assert env "No var annotations env bound")
+    env))
+
+(defn current-nocheck-var? []
+  (let [env *current-nocheck-var?*]
+    (assert env "No var nocheck env bound")
+    env))
+
+(defn current-used-vars []
+  (let [env *current-used-vars*]
+    (assert env "No used var env bound")
+    env))
+
+(defn current-checked-var-defs []
+  (let [env *current-checked-var-defs*]
+    (assert env "No checked var env bound")
+    env))
+
 (defmacro with-lexical-env [env & body]
   `(binding [lex/*lexical-env* ~env]
      ~@body))
 
-(defn assert-var-env []
-  (assert *current-var-annotations*)
-  (assert *current-nocheck-var?*)
-  (assert *current-used-vars*)
-  (assert *current-checked-var-defs*))
-
 (defn var-annotations []
-  @*current-var-annotations*)
+  @(current-var-annotations))
 
 (defn var-no-checks []
-  (assert-var-env)
-  @*current-nocheck-var?*)
+  @(current-nocheck-var?))
 
 (defn used-vars []
-  (assert-var-env)
-  @*current-used-vars*)
+  @(current-used-vars))
 
 (defn checked-vars []
-  (assert-var-env)
-  @*current-checked-var-defs*)
+  @(current-checked-var-defs))
 
 (defn add-var-type [sym type]
-  (assert-var-env)
-  (when-let [old-t (@*current-var-annotations* sym)]
+  (when-let [old-t (@(current-var-annotations) sym)]
     (when (not= old-t type)
       (println "WARNING: Duplicate var annotation: " sym)
       (flush)))
-  (swap! *current-var-annotations* assoc sym type)
+  (swap! (current-var-annotations) assoc sym type)
   nil)
 
 (defn check-var? [sym]
-  (assert-var-env)
-  (not (contains? @*current-nocheck-var?* sym)))
+  (not (contains? @(current-nocheck-var?) sym)))
 
 (defn checked-var-def? [sym]
-  (assert-var-env)
-  (contains? @*current-checked-var-defs* sym))
+  (contains? @(current-checked-var-defs) sym))
 
 (defn used-var? [sym]
-  (assert-var-env)
-  (contains? @*current-used-vars* sym))
+  (contains? @(current-used-vars) sym))
 
 (defn add-nocheck-var [sym]
-  (assert-var-env)
-  (swap! *current-nocheck-var?* conj sym)
+  (swap! (current-nocheck-var?) conj sym)
   nil)
 
 (defn add-used-var [sym]
-  (assert-var-env)
-  (swap! *current-used-vars* conj sym)
+  (swap! (current-used-vars) conj sym)
   nil)
 
 (defn add-checked-var-def [sym]
-  (assert-var-env)
-  (swap! *current-checked-var-defs* conj sym)
+  (swap! (current-checked-var-defs) conj sym)
   nil)
 
 (defn vars-with-unchecked-defs []
-  (assert-var-env)
-  (set/difference @*current-used-vars*
-                  @*current-checked-var-defs*
-                  @*current-nocheck-var?*))
+  (set/difference @(current-used-vars)
+                  @(current-checked-var-defs)
+                  @(current-nocheck-var?)))
 
 (defn reset-var-type-env! [m nocheck]
-  (assert-var-env)
-  (reset! *current-var-annotations* m)
-  (reset! *current-nocheck-var?* nocheck)
-  (reset! *current-used-vars* #{})
-  (reset! *current-checked-var-defs* #{})
+  (reset! (current-var-annotations) m)
+  (reset! (current-nocheck-var?) nocheck)
+  (reset! (current-used-vars) #{})
+  (reset! (current-checked-var-defs) #{})
   nil)
 
 (defn reset-jsvar-type-env! [m]
@@ -105,15 +107,13 @@
   nil)
 
 (defn lookup-Var-nofail [nsym]
-  (assert-var-env)
-  (or (t/when-let-fail [e *current-var-annotations*]
+  (or (let [e (current-var-annotations)]
         (@e nsym))
       (when (impl/checking-clojurescript?)
         (@CLJS-JSVAR-ANNOTATIONS nsym))))
 
 (defn lookup-Var [nsym]
   {:post [%]}
-  (assert-var-env)
   (if-let [t (lookup-Var-nofail nsym)]
     t
     (err/int-error
