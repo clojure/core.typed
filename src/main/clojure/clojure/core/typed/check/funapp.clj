@@ -184,9 +184,11 @@
                                 (let [{:keys [mandatory optional]} kws
                                       [normal-argtys flat-kw-argtys] (split-at (count dom) arg-types)
                                       _ (when-not (even? (count flat-kw-argtys))
-                                          (err/int-error (str "Uneven number of keyword arguments "
-                                                            "provided to polymorphic function "
-                                                            "with keyword parameters.")))
+                                          ; move to next arity
+                                          (cgen/fail! nil nil)
+                                          #_(err/int-error (str "Uneven number of keyword arguments "
+                                                                "provided to polymorphic function "
+                                                                "with keyword parameters.")))
                                       paired-kw-argtys (apply hash-map flat-kw-argtys)
 
                                       ;generate two vectors identical in length with actual kw val types
@@ -203,7 +205,9 @@
                                                                        (every-pred vector? (con/every-c? r/Type?)))
                                                          %)]}
                                                 (when-not (r/Value? kw-key-t)
-                                                  (err/int-error 
+                                                  ; move to next arity
+                                                  (cgen/fail! nil nil)
+                                                  #_(err/int-error 
                                                     (str "Can only check keyword arguments with Value keys, found"
                                                          (pr-str (prs/unparse-type kw-key-t)))))
                                                 (let [expected-val-t ((some-fn optional mandatory) kw-key-t)]

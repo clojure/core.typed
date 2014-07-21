@@ -25,6 +25,10 @@
        (a/>!! c2 "there"))
     :requires [[clojure.core.async :as a]
                [clojure.core.typed.async :as ta :refer [go chan]]])
+  (is-tc-e 
+    #(a/alts!! [(a/chan) (a/chan)] :priority true)
+    :requires [[clojure.core.async :as a]
+               [clojure.core.typed.async]])
   )
 
 ;(let [c1 (chan)
