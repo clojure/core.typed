@@ -169,7 +169,6 @@
 (t/ann-many 
   (t/All [x d]
          (IFn [(Seqable (t/U (Port x) '[(Port x) x])) 
-               (Seqable (Port x)) 
                & :mandatory {:default d} 
                :optional {:priority (t/U nil true)} 
                :-> (t/U '[d ':default] '[(t/U nil x) (Port x)])]
