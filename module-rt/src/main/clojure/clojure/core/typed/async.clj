@@ -161,11 +161,11 @@
 (ann ^:no-check clojure.core.async.impl.ioc-macros/put! (t/All [x] [t/Int Any (Chan x) x :-> Any]))
 (ann ^:no-check clojure.core.async.impl.ioc-macros/return-chan (t/All [x] [AtomicReferenceArray x :-> (Chan x)]))
 
-(ann ^:no-check clojure.core.async/<!! (t/All [t] [(ReadOnlyPort t) :-> (t/U nil t)]))
+(ann ^:no-check clojure.core.async/<!! (t/All [t] [(Port2 t/Nothing t) :-> (t/U nil t)]))
 ; should this use Port's?
-(ann ^:no-check clojure.core.async/<! (t/All [p t] [(Chan2 p t) :-> (Chan2 p t)]))
+(ann ^:no-check clojure.core.async/<! (t/All [t] [(Port2 t/Nothing t) :-> (t/U nil t)]))
 (ann ^:no-check clojure.core.async/>!! (t/All [p] [(Port2 p Any) p :-> Any]))
-(ann ^:no-check clojure.core.async/>! (t/All [p t] [(Chan2 p t) p :-> (Chan2 p t)]))
+(ann ^:no-check clojure.core.async/>! (t/All [p t] [(Port2 p t) p :-> (Port2 p t)]))
 (t/ann-many 
   (t/All [x d]
          (IFn [(Seqable (t/U (Port x) '[(Port x) x])) 
