@@ -2,6 +2,7 @@
 
 - [CTYP-81](http://dev.clojure.org/jira/browse/CTYP-81): bad annotation for alts{!,!!}
 - Better formatting for c.c/apply error message
+- add clojure.core.typed/envs for querying the current type checker state
 
 # 0.2.59 - 21st July 2014
 
