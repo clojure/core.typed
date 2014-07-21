@@ -22,22 +22,30 @@
 
 (defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret requires] :as opt}]
   (check-opt opt)
-  `(let [expected-ret# ~expected-ret]
-     (binding [*ns* *ns*
-               *file* *file*]
-       (t/check-form-info 
-         '(do (ns ~(gensym 'clojure.core.typed.test.temp)
-                (:refer-clojure :exclude 
-                                ~'[type defprotocol #_letfn fn loop dotimes let for doseq
-                                   #_def filter remove defn atom ref])
-                (:require ~@'[[clojure.core.typed :refer :all :as t]
-                              [clojure.core.typed.unsafe :as unsafe]
-                              [clojure.core :as core]]
-                          ~@requires))
-              ~frm)
-         :expected-ret expected-ret#
-         :expected '~syn
-         :type-provided? ~provided?))))
+  (let [ns-form 
+        `(ns ~(gensym 'clojure.core.typed.test.temp)
+           (:refer-clojure :exclude 
+                           ~'[type defprotocol #_letfn fn loop dotimes let for doseq
+                              #_def filter remove defn atom ref])
+           (:require ~@'[[clojure.core.typed :refer :all :as t]
+                         [clojure.core.typed.unsafe :as unsafe]
+                         [clojure.core :as core]]
+                     ~@requires))]
+    `(let [expected-ret# ~expected-ret]
+       (binding [*ns* *ns*
+                 *file* *file*]
+         ; checking (do ~ns-form ~frm) doesn't seem to work too well.
+         ; Don't check the ns form if we don't have extra requires, it's
+         ; much faster.
+         ~(if requires
+            `(t/check-form-info
+               '~ns-form)
+            ns-form)
+         (t/check-form-info 
+           '~frm
+           :expected-ret expected-ret#
+           :expected '~syn
+           :type-provided? ~provided?)))))
 
 (defmacro tc-e 
   "Type check an an expression in namespace that :refer's
