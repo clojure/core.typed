@@ -1,4 +1,4 @@
-# 0.2.61 - SNAPSHOT
+# 0.2.61 - 21st July 2014
 
 - add rand-nth annotation
 - core.typed.async
