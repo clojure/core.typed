@@ -75,6 +75,42 @@
   ([] (init "Alice" "Bob"))
   ([n1 n2] (judge (rand-player n1) (rand-player n2))))
 
+(t/ann report [PlayerMove PlayerMove PlayerName -> nil])
+(defn report
+  "Report results of a match to the console."
+  [[name1 move1] [name2 move2] winner]
+  (println)
+  (println name1 "throws" move1)
+  (println name2 "throws" move2)
+  (println winner "wins!"))
+
+(t/ann play [(ta/Chan RPSResult) -> nil])
+(defn play
+  "Play by taking a match reporting channel and reporting the results of the latest match."
+  [out-chan]
+  (let [[move1 move2 winner] (a/<!! out-chan)]
+    (assert move1)
+    (assert move2)
+    (assert winner)
+    (report move1 move2 winner)))
+
+(t/ann play-many [(ta/Chan RPSResult) t/Int -> (t/Map t/Any t/Any)])
+(defn play-many
+  "Play n matches from out-chan and report a summary of the results."
+  [out-chan n]
+  (t/loop [remaining :- t/Int, n
+           results :- (t/Map PlayerName t/Int), {}]
+    (if (zero? remaining)
+      results
+      (let [[m1 m2 winner] (a/<!! out-chan)]
+        (assert m1)
+        (assert m2)
+        (assert winner)
+        (recur (dec remaining)
+               (merge-with + results {winner 1}))))))
+
+
 (fn []
   (t/ann-form (a/<!! (init))
               (t/U nil RPSResult)))
+
