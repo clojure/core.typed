@@ -1,3 +1,7 @@
+# 0.2.60 - SNAPSHOT
+
+- [CTYP-81](http://dev.clojure.org/jira/browse/CTYP-81): bad annotation for alts{!,!!}
+
 # 0.2.59 - 21st July 2014
 
 - [CTYP-157](http://dev.clojure.org/jira/browse/CTYP-157): compilation issue fixed with lein-typed 0.3.5
