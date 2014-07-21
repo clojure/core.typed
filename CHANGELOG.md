@@ -1,12 +1,9 @@
-# 0.2.61 - SNAPSHOT
-
-- Bump math.combinatorics to 0.0.8
-
 # 0.2.60 - 21st July 2014
 
 - [CTYP-81](http://dev.clojure.org/jira/browse/CTYP-81): bad annotation for alts{!,!!}
 - Better formatting for c.c/apply error message
 - add clojure.core.typed/envs for querying the current type checker state
+- Bump math.combinatorics to 0.0.8
 
 # 0.2.59 - 21st July 2014
 
