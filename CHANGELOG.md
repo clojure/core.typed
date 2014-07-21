@@ -1,3 +1,10 @@
+# 0.2.61 - SNAPSHOT
+
+- add rand-nth annotation
+- core.typed.async
+  - <!!, <! and >! use ports. <! now takes 1 type variable
+- add core.async example
+
 # 0.2.60 - 21st July 2014
 
 - [CTYP-81](http://dev.clojure.org/jira/browse/CTYP-81): bad annotation for alts{!,!!}
