@@ -1498,6 +1498,7 @@
         (not= cu/not-special spec) spec
         :else
         (let [inst-types *inst-ctor-types*
+              cls (ast-u/new-op-class expr)
               clssym (coerce/ctor-Class->symbol cls)
               cargs (mapv check args)
               ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
@@ -1794,7 +1795,7 @@
              u/expr-type case-result))))
 
 (add-check-method :catch
-  [{ecls :class, handler :body :keys [local] :as expr} & [expected]]
+  [{handler :body :keys [local] :as expr} & [expected]]
   (catch/check-catch check expr expected))
 
 (add-check-method :try
