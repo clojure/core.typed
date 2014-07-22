@@ -14,3 +14,7 @@ target
 /.project
 /.settings
 /bin
+.gitignore
+.nrepl-port
+.repl
+.\#*
