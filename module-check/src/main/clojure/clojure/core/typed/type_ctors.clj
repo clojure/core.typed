@@ -273,7 +273,9 @@
       In 
       (impl/impl-case
         :clojure (RClass-of clojure.lang.APersistentVector [tp])
-        :cljs    (Protocol-of 'cljs.core/IVector [tp]))
+        :cljs    (In (Protocol-of 'cljs.core/IVector [tp])
+                     (Protocol-of 'cljs.core/ICollection [tp])
+                     (Protocol-of 'cljs.core/ISeqable [tp])))
       (when-not drest
         [(r/make-CountRange
            (count types)
@@ -985,7 +987,7 @@
               res (r/sorted-type-set
                     (set/union (binding [*current-RClass-super* the-class]
                                  (let [rs (for [csym not-replaced]
-                                            (RClass-of-with-unknown-params 
+                                            (RClass-of-with-unknown-params
                                               csym
                                               :warn-msg (when (.contains (str the-class) "clojure.lang")
                                                           (str "RClass ancestor for " the-class " defaulting "

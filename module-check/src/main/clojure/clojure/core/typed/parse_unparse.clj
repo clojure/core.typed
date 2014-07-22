@@ -383,7 +383,7 @@
 
 (defn parse-Array 
   [[_ syn & none]]
-  (when-not (empty? none) 
+  (when-not (empty? none)
     (err/int-error "Expected 1 argument to Array"))
   (let [t (parse-type syn)]
     (impl/impl-case
@@ -612,6 +612,7 @@
   (err/deprecated-plain-op 'HSequential)
   (parse-HSequential t))
 (defmethod parse-type-list 'clojure.core.typed/HSequential [t] (parse-HSequential t))
+(defmethod parse-type-list 'cljs.core.typed/HSequential [t] (parse-HSequential t))
 
 (def parse-hseq-type (parse-types-with-rest-drest
                       "Invalid heterogeneous seq syntax:"))
@@ -1153,7 +1154,7 @@
   [k]
   (err/int-error (str "Bad type syntax: " (pr-str k)
                       (when ((some-fn symbol? keyword?) k)
-                        (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor."  
+                        (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor." 
                              " eg. '" (pr-str k) " or (Value " (pr-str k)")")))))
 
 (indu/add-indirection ind/parse-type parse-type)
