@@ -3,6 +3,7 @@
             [cljs.repl.rhino :as rhino]
             [cljs.repl :as repl]
             [cljs.analyzer :as ana]
+            [clojure.core.typed.analyze-cljs :as ana-cljs]
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]))
 
@@ -21,12 +22,6 @@
          '[cljs.env :as env])
 
 (def cljs-env (env/default-compiler-env))
-(def repl-env (env/with-compiler-env @cljs-env
-                (rhino/repl-env)))
-
-(binding [ana/*cljs-ns* ana/*cljs-ns*]
-  (env/with-compiler-env @cljs-env
-    (rhino/rhino-setup repl-env)))
 
 (defmacro cljs [& body]
   `(impl/with-cljs-impl
@@ -54,11 +49,12 @@
                @e#)
              @cljs-env)
          (let [expected-ret# ~expected-ret
+               ; first element of this list must be the symbol ns
                ns-form# '(~'ns ~nsym
                            ;~'(:refer-clojure :exclude [fn])
                            ~'(:require [cljs.core.typed :as t :include-macros true]
                                        [cljs.core :as core]))
-               _# (repl/evaluate-form repl-env @cljs-env "NO_SOURCE" ns-form#)]
+               _# (ana/analyze (ana/empty-env) ns-form#)]
            (t/check-form-info 
              '~frm
              :expected-ret expected-ret#
