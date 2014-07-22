@@ -690,9 +690,7 @@
 
 (deftest assoc-test
   (is-clj (= (tc-t (assoc {} :a :b))
-         (ret (-complete-hmap {(-val :a) (-val :b)})
-              (-FS -top -bot)
-              -empty)))
+         (ret (-complete-hmap {(-val :a) (-val :b)}))))
   ;see `invoke-special` for assoc for TODO
   ;FIXME
   #_(is-clj (= (-> (tc-t (-> (fn [m]
