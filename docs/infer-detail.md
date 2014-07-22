@@ -60,3 +60,12 @@ I am wondering if we could construct expected type when we are done inference
 of all arguments, and then check constructed type with `expected` type. This
 will makes inference much easier to do, but I have not tried this way, and not
 sure if this works.
+
+## problem with cs-gen `Assoc`, `HMap`
+
+This case is very difficult to handle, not only because `HMap` has so many
+attributes, but also because `Assoc` is not a complete type(it just simulate a
+function). So, when we do
+`(cs-gen (Assoc m k v c ... c) (HMap :mandatory {:a Number :b String}))`
+`m` could be either `{}`, `{:a Number}`, `{:b String}` or
+`{:a Number :b String}`, and type of `k`, `v` and `c` is also uncertain.
