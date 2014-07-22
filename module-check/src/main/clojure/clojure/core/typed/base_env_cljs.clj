@@ -199,7 +199,10 @@ cljs.core/prim-seq
 
 ;;;;;;;
 cljs.core/key-test [Keyword Any -> boolean]
-      )))
+
+cljs.core/clj->js [Any -> Any]
+cljs.core/js->clj [Any -> Any]
+cljs.core/js-obj  [Any * -> Any])))
 
 (delay-and-cache-env ^:private init-var-nochecks
   (set (keys (init-var-env))))

@@ -65,13 +65,6 @@
 (foo (seq [1 2 3]))
 
 
-(ann cljs.core/second
-     (All [x]
-          (IFn [(HSequential [Any x Any *]) -> x
-                :object {:id 0 :path [(Nth 1)]}]
-               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
-               [(I (Seqable x) (CountRange 2)) -> x]
-               [(Option (Seqable x)) -> (Option x)])))
 
 (ann second-vec number)
 (def second-vec (second [1 2 3]))
@@ -86,6 +79,13 @@
 (def second-seq (second (seq [1 2 3])))
 
 
+
+(ann clj-to-jsjs Any)
+(def clj-to-js (clj->js {:a 1}))
+
+;use of js-obj triggers "js-op missing" in check_cljs
+;(ann js-to-clj Any)
+;(def js-to-clj (js->clj (js-obj "a" 1 "b" 2)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
