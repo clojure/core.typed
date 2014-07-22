@@ -65,7 +65,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Check CLJS AST
 
-(defmulti check (fn [expr & [expected]]
+(defmulti check (fn [expr & [expected]] 
                   (:op expr)))
 
 (u/add-defmethod-generator check)
@@ -90,7 +90,7 @@
   (let [citems (mapv check items)
         actual (r/HeterogeneousList-maker (mapv (comp ret-t expr-type) citems))
         _ (binding [vs/*current-env* (:env expr)]
-            (when expected
+            (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
                 (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
@@ -257,9 +257,9 @@
 (add-check-method :fn
   [{:keys [methods] :as expr} & [expected]]
   (let [found-meta? (atom nil)
-        parse-meta (fn [{:keys [ann] :as m}]
+        parse-meta (fn [{:keys [ann] :as m}] 
                      (or (when (contains? m :ann)
-                           (assert ((some-fn list? seq?) ann)
+                           (assert ((some-fn list? seq?) ann) 
                                    (str "Annotations must be quoted: " m))
                            (reset! found-meta? true)
                            (prs/with-parse-ns (cu/expr-ns expr)
@@ -279,7 +279,7 @@
 
   (binding [fn-method-u/*check-fn-method1-checkfn* check
             ;this is identical to the Clojure implementation
-            fn-method-u/*check-fn-method1-rest-type*
+            fn-method-u/*check-fn-method1-rest-type* 
             (fn [rest drest kws]
               {:pre [(or (r/Type? rest)
                          (r/DottedPretype? drest)
@@ -291,11 +291,11 @@
               ;(prn "kws" kws)
               (cond
                 (or rest drest)
-                (c/Un r/-nil
+                (c/Un r/-nil 
                       (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
                                     [(or rest (.pre-type ^DottedPretype drest))]))
                 :else (c/KwArgs->Type kws)))]
-    (fn/check-fn
+    (fn/check-fn 
       expr
       (or (when @found-meta?
             manual-annot)
