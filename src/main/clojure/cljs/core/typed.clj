@@ -140,8 +140,8 @@
   (let [bindings fn-specs-and-annotations
         ; (Vector (U '[Symbol TypeSyn] LetFnInit))
         normalised-bindings
-        (loop [[fbnd :as bindings] bindings
-               norm []]
+        (core/loop [[fbnd :as bindings] bindings
+                    norm []]
           (cond
             (empty? bindings) norm
             (symbol? fbnd) (do
@@ -170,8 +170,11 @@
 
 (defmacro 
   ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
+  ^{:deprecated "0.2.61"}
   loop>
-  "Like loop, except loop variables require annotation.
+  "DEPRECATED: use loop
+
+  Like loop, except loop variables require annotation.
 
   Suggested idiom: use a comma between the type and the initial
   expression.
@@ -181,8 +184,8 @@
         ...)"
   [bndings* & forms]
   (let [normalise-args
-        (fn [seq-exprs]
-          (loop [flat-result ()
+        (core/fn [seq-exprs]
+          (core/loop [flat-result ()
                  seq-exprs seq-exprs]
             (cond
               (empty? seq-exprs) flat-result
