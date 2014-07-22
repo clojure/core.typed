@@ -60,9 +60,9 @@
   [args]
   (cond
     (= 1 (count args)) (first args)
-    :else
+    :else 
     (let [{unions true non-unions false} (group-by r/Union? args)]
-      (r/Union-maker (r/sorted-type-set
+      (r/Union-maker (r/sorted-type-set 
                        (concat (mapcat :types unions)
                                non-unions))))))
 
@@ -111,15 +111,15 @@
 (t/ann -complete-hmap [(t/Map r/Type r/Type) -> r/Type])
 (defn -complete-hmap [types]
   (make-HMap
-    :mandatory types
+    :mandatory types 
     :complete? true))
 
 (t/ann -partial-hmap (t/IFn [(t/Map r/Type r/Type) -> r/Type]
                          [(t/Map r/Type r/Type) (t/Set r/Type) -> r/Type]))
-(defn -partial-hmap
+(defn -partial-hmap 
   ([types] (-partial-hmap types #{}))
-  ([types absent-keys] (make-HMap
-                         :mandatory types
+  ([types absent-keys] (make-HMap 
+                         :mandatory types 
                          :absent-keys absent-keys)))
 
 (t/defalias TypeMap
@@ -133,7 +133,7 @@
   (keyword-value? k))
 
 ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap t/Any t/Any)
-(t/ann ^:no-check upcast-hmap*
+(t/ann ^:no-check upcast-hmap* 
        [(t/Map r/Type r/Type) (t/Map r/Type r/Type) (t/Set r/Type) Boolean -> r/Type])
 (defn upcast-hmap* [mandatory optional absent-keys complete?]
   (if complete?
@@ -142,7 +142,7 @@
           (impl/impl-case
             :clojure (RClass-of 'clojure.lang.APersistentMap [ks vs])
             :cljs (Protocol-of 'cljs.core/IMap [ks vs])))
-        (r/make-CountRange
+        (r/make-CountRange 
           ; assume all optional entries are absent
           #_:lower
           (count mandatory)
@@ -153,7 +153,7 @@
     (In (impl/impl-case
           :clojure (RClass-of 'clojure.lang.APersistentMap [r/-any r/-any])
           :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any]))
-        (r/make-CountRange
+        (r/make-CountRange 
           ; assume all optional entries are absent
           #_:lower
           (count mandatory)
@@ -171,12 +171,12 @@
                 (complete-hmap? hmap)))
 
 (t/ann ^:no-check make-HMap [& :optional {:mandatory (t/Map r/Type r/Type) :optional (t/Map r/Type r/Type)
-                                          :absent-keys (t/Set r/Type) :complete? Boolean}
+                                          :absent-keys (t/Set r/Type) :complete? Boolean} 
                              -> r/Type])
-(defn make-HMap
+(defn make-HMap 
   "Make a heterogeneous map type for the given options.
   Handles duplicate keys between map properties.
-
+  
   Options:
   - :mandatory    a map of mandatory entries
                   Default: {}
@@ -202,7 +202,7 @@
   (assert (con/boolean? complete?)
           (pr-str complete?))
   ; simplifies to bottom with contradictory keys
-  (cond
+  (cond 
     (or (seq (set/intersection (set (keys mandatory))
                                (set absent-keys)))
         (some #{bottom} (concat (vals mandatory)
@@ -223,10 +223,10 @@
             optional-now-absent (set/intersection
                                   (set (keys optional))
                                   absent-keys)
-            _ (assert (empty?
+            _ (assert (empty? 
                         (set/intersection optional-now-mandatory
                                           optional-now-absent)))]
-        (r/HeterogeneousMap-maker
+        (r/HeterogeneousMap-maker 
           (merge-with In mandatory (select-keys optional optional-now-mandatory))
           (apply dissoc optional (set/union optional-now-absent
                                             optional-now-mandatory))
@@ -264,13 +264,13 @@
   {:pre [(r/HeterogeneousVector? hvec)]
    :post [(r/Type? %)]}
   (let [tp (if-not drest
-             (apply Un
+             (apply Un 
                     (concat types
                             (when rest
                               [rest])))
              r/-any)]
     (apply
-      In
+      In 
       (impl/impl-case
         :clojure (RClass-of clojure.lang.APersistentVector [tp])
         :cljs    (In (Protocol-of 'cljs.core/IVector [tp])
@@ -296,7 +296,7 @@
   (apply (impl/v 'clojure.core.typed.subtype/subtype?) args))
   )
 
-(t/defalias TypeCache
+(t/defalias TypeCache 
   (t/Map (t/Set r/Type) r/Type))
 
 (t/ann ^:no-check initial-Un-cache TypeCache)
@@ -342,7 +342,7 @@
                                     (some (some-fn r/Name? r/TApp?) (conj b a)) (conj b a)
                                     (subtype? a b*) b
                                     (subtype? b* a) #{a}
-                                    :else (set (cons a
+                                    :else (set (cons a 
                                                      (remove #(subtype? % a) b))))]
                           ;(prn "res" res)
                           res))]
@@ -350,12 +350,12 @@
                   (cond
                     (empty? types) r/empty-union
                     (= 1 (count types)) (first types)
-                    :else
-                    (p :Un-merge-type
+                    :else 
+                    (p :Un-merge-type 
                        (make-Union
                          (reduce (fn [acc t] (p :Un-merge-type-inner (merge-type t acc)))
                                  #{}
-                                 (p :Un-flatten-unions
+                                 (p :Un-flatten-unions 
                                     (set (flatten-unions types))))))))))]
     (swap! Un-cache assoc (set (map p/type-id types)) res)
     res))))
@@ -389,11 +389,11 @@
 (t/ann ^:no-check HMap-with-Value-keys? [HeterogeneousMap * -> Boolean])
 (defn HMap-with-Value-keys? [& args]
   {:pre [(every? r/HeterogeneousMap? args)]}
-  (every? r/Value?
-          (apply concat
+  (every? r/Value? 
+          (apply concat 
                  (mapcat (juxt (comp keys :types)
                                (comp keys :optional)
-                               :absent-keys)
+                               :absent-keys) 
                          args))))
 
 (t/ann ^:no-check intersect-HMap [HeterogeneousMap HeterogeneousMap -> r/Type])
@@ -508,13 +508,13 @@
                               ;_ (prn "unions" (map ind/unparse-type unions))
                               ;_ (prn "non-unions" (map ind/unparse-type non-unions))
                               ;intersect all the non-unions to get a possibly-nil type
-                              intersect-non-unions
+                              intersect-non-unions 
                               (p :intersect-in-In (when (seq non-unions)
                                                     (reduce intersect non-unions)))
                               ;if we have an intersection above, use it to update each
                               ;member of the unions we're intersecting
                               flat-unions (set (flatten-unions unions))
-                              intersect-union-ts (cond
+                              intersect-union-ts (cond 
                                                    intersect-non-unions
                                                    (if (seq flat-unions)
                                                      (reduce (fn [acc union-m]
@@ -540,7 +540,7 @@
 (t/ann ^:no-check JSNominal*
   (t/IFn [t/Sym -> r/Type]
       [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Seqable Bounds) -> r/Type]))
-(defn JSNominal*
+(defn JSNominal* 
   ([name] (JSNominal* nil nil nil name nil))
   ([names variances poly? name bnds]
    {:pre [(every? symbol? names)
@@ -570,7 +570,7 @@
      ; parameterised nominals must be previously annotated
      (assert (or (r/TypeFn? p) (empty? args))
              (str "Cannot instantiate non-polymorphic JS nominal " sym))
-     (cond
+     (cond 
        (r/TypeFn? p) (instantiate-typefn p args)
        (r/JSNominal? p) p
        ; allow unannotated nominals if unparameterised
@@ -606,7 +606,7 @@
      ; parameterised datatypes must be previously annotated
      (assert (or (r/TypeFn? p) (empty? args))
              (str "Cannot instantiate non-polymorphic datatype " sym))
-     (cond
+     (cond 
        (r/TypeFn? p) (instantiate-typefn p args)
        (r/DataType? p) p
        ; allow unannotated datatypes if unparameterised
@@ -616,7 +616,7 @@
 ;; Protocol
 
 (t/ann ^:no-check Protocol*
-  [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym t/Sym (t/Map t/Sym r/Type) (t/Seqable Bounds)
+  [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym t/Sym (t/Map t/Sym r/Type) (t/Seqable Bounds) 
    & :optional {:declared? Boolean} -> r/Type])
 (defn Protocol* [names variances poly? the-var on-class methods bnds
                  & {:keys [declared?] :or {declared? false}}]
@@ -634,7 +634,7 @@
       p)))
 
 (t/ann ^:no-check Protocol-var->on-class [t/Sym -> t/Sym])
-(defn Protocol-var->on-class
+(defn Protocol-var->on-class 
   "Given the var symbol of a protocol, returns the corresponding
   class the protocol is based on as a munged symbol."
   [sym]
@@ -670,7 +670,7 @@
 
 (t/ann ^:no-check Protocol-of (t/IFn [t/Sym -> r/Type]
                                   [t/Sym (t/U nil (t/Seqable r/Type)) -> r/Type]))
-(defn Protocol-of
+(defn Protocol-of 
   ([sym] (Protocol-of sym nil))
   ([sym args]
    {:pre [(symbol? sym)
@@ -681,7 +681,7 @@
      ; parameterised protocols must be previously annotated
      (assert (or (r/TypeFn? p) (empty? args))
              (str "Cannot instantiate non-polymorphic Protocol " sym))
-     (cond
+     (cond 
        (r/TypeFn? p) (instantiate-typefn p args)
        (r/Protocol? p) p
        ; allow unannotated protocols if unparameterised
@@ -693,11 +693,11 @@
 (defonce ^:dynamic *current-RClass-super* nil)
 
 ;smart constructor
-(t/ann ^:no-check RClass*
+(t/ann ^:no-check RClass* 
   (t/IFn [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Map t/Sym r/Type) -> r/Type]
-      [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym
+      [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym 
        (t/Map t/Sym r/Type) (t/Set r/Type) -> r/Type]))
-(defn RClass*
+(defn RClass* 
   ([names variances poly? the-class replacements]
    (RClass* names variances poly? the-class replacements #{}))
   ([names variances poly? the-class replacements unchecked-ancestors]
@@ -754,7 +754,7 @@
 
 (t/ann ^:no-check RClass-of (t/IFn [(t/U t/Sym Class) -> r/Type]
                                [(t/U t/Sym Class) (t/U nil (t/Seqable r/Type)) -> r/Type]))
-(defn RClass-of
+(defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
   ([sym-or-cls args]
    {:pre [((some-fn class? symbol?) sym-or-cls)
@@ -770,7 +770,7 @@
        (u/p :ctors/RClass-of-cache-hit
             cache-hit)
        (u/p :ctors/RClass-of-cache-miss
-         (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass)
+         (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
                    sym)
                _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
                _ (when-not (or (r/TypeFn? rc) (empty? args))
@@ -778,7 +778,7 @@
                      (str "Cannot instantiate non-polymorphic RClass " sym
                           (when *current-RClass-super*
                             (str " when checking supertypes of RClass " *current-RClass-super*)))))
-               res (cond
+               res (cond 
                      (r/TypeFn? rc) (instantiate-typefn rc args)
                      ((some-fn r/DataType? r/RClass?) rc) rc
                      :else
@@ -799,7 +799,7 @@
 (t/ann ^:no-check most-general-on-variance [(t/Seqable r/Variance) (t/Seqable Bounds) -> r/Type])
 (defn most-general-on-variance [variances bnds]
   (doall
-    (for [[variance {:keys [upper-bound lower-bound] :as bnd}]
+    (for [[variance {:keys [upper-bound lower-bound] :as bnd}] 
           (map vector variances bnds)]
       (case variance
         (:invariant :constant :covariant) upper-bound
@@ -907,7 +907,7 @@
 (declare make-simple-substitution)
 
 (t/ann ^:no-check inst-and-subst [(t/U r/Type Scope) (t/U nil (t/Seqable r/Type)) -> r/Type])
-(defn inst-and-subst
+(defn inst-and-subst 
   "Instantiate target type with ts number of
   free names. Target must be wrapped in ts number
   of Scopes. Substitutes the temporary names with
@@ -957,7 +957,7 @@
 
 ;TODO won't type check because records+destructuring
 (t/ann ^:no-check RClass-supers* [RClass -> (t/SortedSet r/Type)])
-(defn RClass-supers*
+(defn RClass-supers* 
   "Return a set of ancestors to the RClass"
   [{:keys [the-class] :as rcls}]
   {:pre [(r/RClass? rcls)]
@@ -999,7 +999,7 @@
           ;(prn "supers" the-class res)
           (when-not (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
                         1)
-            (err/int-error
+            (err/int-error 
               (str "Found more than one function supertype for RClass " (ind/unparse-type rcls) ": \n"
                    (mapv ind/unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
                    "\nReplacements:" (into {} (map (fn [[k v]] [k (ind/unparse-type v)]) replacements))
@@ -1030,7 +1030,7 @@
   (let [original-names (map (comp r/F-original-name r/make-F) names)]
     (if (empty? names)
       body
-      (let [t (r/TypeFn-maker (count names)
+      (let [t (r/TypeFn-maker (count names) 
                               variances
                               (vec
                                 (for [bnd bbnds]
@@ -1057,14 +1057,14 @@
         ; we check at instantiation time. This avoids some implementation headaches,
         ; like dealing with partially defined types.
         fv-variances (impl/v 'clojure.core.typed.frees/fv-variances)
-        vs (free-ops/with-bounded-frees
+        vs (free-ops/with-bounded-frees 
              (zipmap (map r/make-F names) bbnds)
              (fv-variances body))
         _ (when *TypeFn-variance-check*
             (doseq [[nme variance] (map vector names (:variances typefn))]
               (when-let [actual-v (vs nme)]
                 (when-not (= (vs nme) variance)
-                  (err/int-error (str "Type variable " (-> nme r/make-F r/F-original-name)
+                  (err/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
                                     " appears in " (name actual-v) " position "
                                     "when declared " (name variance)
                                     ", in " (binding [*TypeFn-variance-check* false]
@@ -1084,8 +1084,8 @@
 (t/ann ^:no-check TypeFn-free-names* [TypeFn -> (t/Seqable t/Sym)])
 (defn ^:private TypeFn-free-names* [tfn]
   {:pre [(r/TypeFn? tfn)]
-   :post [((some-fn nil?
-                    (every-pred seq (con/every-c? symbol?)))
+   :post [((some-fn nil? 
+                    (every-pred seq (con/every-c? symbol?))) 
            %)]}
   (get-original-names tfn))
 
@@ -1108,10 +1108,10 @@
 ;; Provide #:original-names if the names that you are closing off
 ;; are *different* from the names you want recorded in the table.
 ;;
-(t/ann ^:no-check Poly* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type (t/Seqable t/Sym)
+(t/ann ^:no-check Poly* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type (t/Seqable t/Sym) 
                          & :optional {:original-names (t/Seqable t/Sym)} -> r/Type])
-(defn Poly* [names bbnds body & {:keys [original-names]
-                                 :or {original-names
+(defn Poly* [names bbnds body & {:keys [original-names] 
+                                 :or {original-names 
                                       (map (comp r/F-original-name r/make-F) names)}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
@@ -1130,7 +1130,7 @@
 (t/ann ^:no-check Poly-free-names* [Poly -> (t/U nil (t/Seqable t/Sym))])
 (defn Poly-free-names* [poly]
   {:pre [(r/Poly? poly)]
-   :post [((some-fn nil?
+   :post [((some-fn nil? 
                     (every-pred seq (con/every-c? symbol?)))
            %)]}
   (get-original-names poly))
@@ -1168,9 +1168,9 @@
 ;; PolyDots
 
 ;smart constructor
-(t/ann ^:no-check PolyDots* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type
+(t/ann ^:no-check PolyDots* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type 
                              & :optional {:original-names (t/Seqable t/Sym)} -> r/Type])
-(defn PolyDots* [names bbnds body & {:keys [original-names]
+(defn PolyDots* [names bbnds body & {:keys [original-names] 
                                      :or {original-names (map (comp r/F-original-name r/make-F) names)}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
@@ -1178,8 +1178,8 @@
   (assert (= (count names) (count bbnds)) "Wrong number of names")
   (if (empty? names)
     body
-    (let [v (r/PolyDots-maker (count names)
-                              (mapv (fn [bnd]
+    (let [v (r/PolyDots-maker (count names) 
+                              (mapv (fn [bnd] 
                                       (r/visit-bounds bnd #(abstract-many names %)))
                                     bbnds)
                               (abstract-many names body))]
@@ -1205,8 +1205,8 @@
 (t/ann ^:no-check PolyDots-free-names* [Poly -> (t/U nil (t/Seqable t/Sym))])
 (defn ^:private PolyDots-free-names* [poly]
   {:pre [(r/PolyDots? poly)]
-   :post [((some-fn nil?
-                    (every-pred seq (con/every-c? symbol?)))
+   :post [((some-fn nil? 
+                    (every-pred seq (con/every-c? symbol?))) 
            %)]}
   (get-original-names poly))
 
@@ -1233,7 +1233,7 @@
                                      :or {names (TypeFn-fresh-symbols* t)}}]
   (let [subst-all @(subst-all-var)]
     (when-not (r/TypeFn? t) (err/int-error (str "instantiate-typefn requires a TypeFn: " (ind/unparse-type t))))
-    (do (when-not (= (:nbound t) (count types))
+    (do (when-not (= (:nbound t) (count types)) 
           (err/int-error
             (str "Wrong number of arguments passed to type function. Expected "
                  (:nbound t) ", actual " (count types) ": "
@@ -1248,9 +1248,9 @@
 (defn instantiate-poly [t types]
   (let [subst-all @(subst-all-var)]
     (cond
-      (r/Poly? t) (let [_ (when-not (= (:nbound t) (count types))
-                            (err/int-error
-                              (str "Wrong number of arguments (" (count types)
+      (r/Poly? t) (let [_ (when-not (= (:nbound t) (count types)) 
+                            (err/int-error 
+                              (str "Wrong number of arguments (" (count types) 
                                    ") passed to polymorphic type: "
                                    (ind/unparse-type t)
                                    (when (bound? #'*current-RClass-super*)
@@ -1277,12 +1277,12 @@
 (defn resolve-tapp* [rator rands & {:keys [tapp]}]
   {:pre [(r/TApp? tapp)]}
   (let [rator (fully-resolve-type rator)
-        _ (when-not (r/TypeFn? rator)
+        _ (when-not (r/TypeFn? rator) 
             (err/int-error (str "First argument to TApp must be TFn, actual: " (ind/unparse-type rator))))]
     (when-not (= (count rands) (:nbound rator))
       (binding [vs/*current-env* (-> tapp meta :env)] ;must override env, or clear it
         (err/int-error (str "Wrong number of arguments (" (count rands) ") passed to type function: "
-                          (ind/unparse-type tapp)
+                          (ind/unparse-type tapp) 
                           (when-let [syn (-> tapp meta :syn)]
                             (str " in " (pr-str syn)))))))
     (instantiate-typefn rator rands)))
@@ -1318,7 +1318,7 @@
   {:pre [(r/AnyType? ty)]
    :post [(r/AnyType? %)]}
   (u/p :type-ctors/-resolve
-  (cond
+  (cond 
     (r/Name? ty) (resolve-Name ty)
     (r/Mu? ty) (unfold ty)
     (r/App? ty) (resolve-App ty)
@@ -1344,10 +1344,10 @@
   (let [resolve-name* (t/var> clojure.core.typed.name-env/resolve-name*)]
     (resolve-name* (:id nme))))
 
-(t/ann fully-resolve-type
+(t/ann fully-resolve-type 
        (t/IFn [r/Type -> r/Type]
            [r/Type (t/Set r/Type) -> r/Type]))
-(defn fully-resolve-type
+(defn fully-resolve-type 
   ([t seen]
    (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
          seen (conj seen t)]
@@ -1356,10 +1356,10 @@
        t)))
   ([t] (u/p :ctors/fully-resolve-type (fully-resolve-type t #{}))))
 
-(t/ann fully-resolve-non-rec-type
+(t/ann fully-resolve-non-rec-type 
        (t/IFn [r/Type -> r/Type]
            [r/Type (t/Set r/Type) -> r/Type]))
-(defn fully-resolve-non-rec-type
+(defn fully-resolve-non-rec-type 
   ([t seen]
    (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
          seen (conj seen t)]
@@ -1440,14 +1440,14 @@
 
 ;; FIXME much better algorithms around I'm sure
 (t/ann ^:no-check countrange-overlap? [CountRange CountRange -> t/Any])
-(defn countrange-overlap?
+(defn countrange-overlap? 
   [{lowerl :lower upperl :upper :as l}
    {lowerr :lower upperr :upper :as r}]
   {:pre [(r/CountRange? l)
          (r/CountRange? r)]}
-  (cond
+  (cond 
     (and upperl upperr)
-        (or
+        (or 
           ;; -----
           ;;   -------
           ;; and
@@ -1470,7 +1470,7 @@
           false)
 
     upperl ;; and (not upperr)
-      (or
+      (or 
         ;; ----
         ;;  ----->>
         ;; and
@@ -1490,7 +1490,7 @@
         ;;  ----->>
         ;;  ---
         (<= lowerl lowerr)
-
+        
         ;;   --->>
         ;; ----
         (<= lowerr lowerl upperr)
@@ -1529,7 +1529,7 @@
                                 (subtype? s (impl/impl-case
                                               :clojure (RClass-of clojure.lang.ISeq [r/-any])
                                               :cljs (Protocol-of 'cljs.core/ISeq [r/-any])))))]
-    (cond
+    (cond 
       eq eq
 
       (and (r/Value? t1)
@@ -1537,11 +1537,11 @@
       eq
 
       (r/Union? t1)
-      (boolean
+      (boolean 
         (some #(overlap % t2) (.types ^Union t1)))
 
       (r/Union? t2)
-      (boolean
+      (boolean 
         (some #(overlap t1 %) (.types ^Union t2)))
 
       (r/Intersection? t1)
@@ -1604,20 +1604,20 @@
                (not-any? (fn [neg] (overlap neg other-type)) (.without the-extends)))))
 
       (or (r/Value? t1)
-          (r/Value? t2))
+          (r/Value? t2)) 
       (or (subtype? t1 t2)
           (subtype? t2 t1))
 
       (and (r/CountRange? t1)
-           (r/CountRange? t2))
+           (r/CountRange? t2)) 
       (countrange-overlap? t1 t2)
 
       (and (r/HeterogeneousMap? t1)
-           (r/HeterogeneousMap? t2))
-        (let [common-mkeys (set/intersection
+           (r/HeterogeneousMap? t2)) 
+        (let [common-mkeys (set/intersection 
                              (set (-> t1 :types keys))
                              (set (-> t2 :types keys)))]
-          (cond
+          (cond 
             ; if there is an intersection in the mandatory keys
             ; each entry in common should overlap
             (not (empty? common-mkeys))
@@ -1700,17 +1700,17 @@
 ;; Variable rep
 
 (t/ann ^:no-check add-scopes [t/AnyInteger r/Type -> (t/U r/Type Scope)])
-(defn add-scopes
+(defn add-scopes 
   "Wrap type in n Scopes"
   [n t]
   {:pre [(con/nat? n)
          (r/Type? t)]
    :post [((some-fn r/Scope? r/Type?) %)]}
-  (last
+  (last 
     (take (inc n) (iterate r/Scope-maker t))))
 
 (t/ann ^:no-check remove-scopes [t/AnyInteger (t/U Scope r/Type) -> (t/U Scope r/Type)])
-(defn remove-scopes
+(defn remove-scopes 
   "Unwrap n Scopes"
   [n sc]
   {:pre [(con/nat? n)
@@ -1724,7 +1724,7 @@
                            sc))))
 
 (t/ann ^:no-check rev-indexed (t/All [x] [(t/Seqable x) -> (t/Seqable '[t/AnyInteger x])]))
-(defn- rev-indexed
+(defn- rev-indexed 
   "'(a b c) -> '([2 a] [1 b] [0 c])"
   [c]
   (map vector (iterate dec (dec (count c))) c))
@@ -1778,7 +1778,7 @@
 (f/add-fold-case ::abstract-many
                  HSequential
                  (fn [ty {{:keys [name count outer sb]} :locals}]
-                   (r/-hsequential
+                   (r/-hsequential 
                             (vec (map sb (:types ty)))
                             :filters (mapv sb (:fs ty))
                             :objects (mapv sb (:objects ty))
@@ -1805,7 +1805,7 @@
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
-                     (r/PolyDots-maker n
+                     (r/PolyDots-maker n 
                                        (mapv #(r/visit-bounds % as) bbnds)
                                        (as body)
                                        :meta (meta ty)))))
@@ -1817,7 +1817,7 @@
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
-                     (r/Poly-maker n
+                     (r/Poly-maker n 
                              (mapv #(r/visit-bounds % as) bbnds)
                              (as body)
                                    :meta (meta poly)))))
@@ -1830,7 +1830,7 @@
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
-                     (r/TypeFn-maker n
+                     (r/TypeFn-maker n 
                                      variances
                                      (mapv #(r/visit-bounds % as) bbnds)
                                      (as body)
@@ -1838,12 +1838,12 @@
   )
 
 (t/ann ^:no-check abstract-many [(t/Seqable t/Sym) r/Type -> (t/U r/Type Scope)])
-(defn abstract-many
+(defn abstract-many 
   "Names Type -> Scope^n  where n is (count names)"
   [names ty]
   {:pre [(every? symbol? names)
          ((some-fn r/Type? r/TypeFn?) ty)]}
-  (letfn [(name-to
+  (letfn [(name-to 
             ([name count type] (name-to name count type 0 type))
             ([name count type outer ty]
              (letfn [(sb [t] (name-to name count type outer t))]
@@ -1919,7 +1919,7 @@
 (f/add-fold-case ::instantiate-many
                  HSequential
                  (fn [ty {{:keys [count outer image sb]} :locals}]
-                   (r/-hsequential
+                   (r/-hsequential 
                             (mapv sb (:types ty))
                             :filters (mapv sb (:fs ty))
                             :objects (mapv sb (:objects ty))
@@ -1946,33 +1946,33 @@
                        body (rs body*)
                        bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                        as #(add-scopes n (replace image count type (+ n outer) %))]
-                   (r/PolyDots-maker n
+                   (r/PolyDots-maker n 
                                      (mapv #(r/visit-bounds % as) bbnds)
                                      (as body)
                                      :meta (meta ty)))))
 
 (f/add-fold-case ::instantiate-many
                  Poly
-                 (fn [{bbnds* :bbnds n :nbound body* :scope :as poly}
+                 (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} 
                       {{:keys [replace count outer image sb type]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (replace image count type (+ n outer) %))]
-                     (r/Poly-maker n
+                     (r/Poly-maker n 
                                    (mapv #(r/visit-bounds % as) bbnds)
                                    (as body)
                                    :meta (meta poly)))))
 
 (f/add-fold-case ::instantiate-many
                  TypeFn
-                 (fn [{bbnds* :bbnds n :nbound body* :scope :keys [variances] :as t}
+                 (fn [{bbnds* :bbnds n :nbound body* :scope :keys [variances] :as t} 
                       {{:keys [replace count outer image sb type]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (replace image count type (+ n outer) %))]
-                     (r/TypeFn-maker n
+                     (r/TypeFn-maker n 
                                      variances
                                      (mapv #(r/visit-bounds % as) bbnds)
                                      (as body)
@@ -1980,7 +1980,7 @@
   )
 
 (t/ann ^:no-check instantiate-many [(t/Seqable t/Sym) p/IScope -> r/Type])
-(defn instantiate-many
+(defn instantiate-many 
   "instantiate-many : List[Symbols] Scope^n -> Type
   Instantiate de Bruijn indices in sc to frees named by
   images, preserving upper/lower bounds"
@@ -1990,14 +1990,14 @@
              (empty? images))]
    :post [((some-fn r/Type? r/TypeFn?) %)]}
   (u/p :ctors/instantiate-many
-  (letfn [(replace
+  (letfn [(replace 
             ([image count type] (replace image count type 0 type))
             ([image count type outer ty]
              (letfn [(sb [t] (replace image count type outer t))]
                (let [sf (f/sub-f sb ::instantiate-many)]
                  (f/fold-rhs ::instantiate-many
-                   {:type-rec sb
-                    :filter-rec sf
+                   {:type-rec sb 
+                    :filter-rec sf 
                     :object-rec (f/sub-o sb ::instantiate-many)
                     :locals {:count count
                              :outer outer
@@ -2019,7 +2019,7 @@
                    (dec count)))))))))
 
 (t/ann abstract [t/Sym r/Type -> Scope])
-(defn abstract
+(defn abstract 
   "Make free name bound"
   [name ty]
   {:pre [(symbol? name)
@@ -2028,7 +2028,7 @@
   (abstract-many [name] ty))
 
 (t/ann instantiate [t/Sym p/IScope -> r/Type])
-(defn instantiate
+(defn instantiate 
   "Instantiate bound name to free"
   [f sc]
   {:pre [(symbol? f)
@@ -2096,7 +2096,7 @@
 (defn KwArgsSeq->HMap [kws]
   {:pre [(r/KwArgsSeq? kws)]
    :post [(r/Type? %)]}
-  (make-HMap :mandatory (:mandatory kws)
+  (make-HMap :mandatory (:mandatory kws) 
              :optional (:optional kws)))
 
 (t/ann HMap->KwArgsSeq [HeterogeneousMap Boolean -> r/Type])
@@ -2124,11 +2124,11 @@
    (doall
      (map fully-resolve-type
           (type-into-vector (-> t :t fully-resolve-type))))
-
+   
    (r/Type? t)
-   (doall
+   (doall 
      (map fully-resolve-type (type-into-vector (fully-resolve-type t))))
-
+   
    :else
    [t]))
 
@@ -2138,11 +2138,11 @@
 (defn reduce-type-transform
   "Given a function f, left hand type t, and arguments, reduce the function
   over the left hand types with each argument in turn.
-
+  
   Arguments will not be touched, it is up to f to resolve TCResults as needed.
   However, unions returned by f will be expanded, so the left hand type argument
   will not be a (raw) Union.
-
+  
   Reduction is skipped once nil is returned, or optional predicate :when
   returns false."
   [func t args & {pred :when}]
@@ -2161,7 +2161,7 @@
 
 ;; Inferring bounds
 
-(defn find-bound*
+(defn find-bound* 
   "Find upper bound if polarity is true, otherwise lower bound"
   [t* polarity]
   {:pre [(r/Type? t*)]}
@@ -2202,7 +2202,7 @@
   [upper-or-nil lower-or-nil]
   {:pre [(every? (some-fn nil? r/AnyType?) [upper-or-nil lower-or-nil])]
    :post [(r/Bounds? %)]}
-  (let [{:keys [upper lower]} (cond
+  (let [{:keys [upper lower]} (cond 
                                 ;both bounds provided
                                 (and upper-or-nil lower-or-nil) {:upper upper-or-nil :lower lower-or-nil}
                                 ;only upper
@@ -2251,7 +2251,7 @@
                                           (complete-hmap? t))
                                     (do
                                       #_(tc-warning
-                                        "Looking up key " (ind/unparse-type k)
+                                        "Looking up key " (ind/unparse-type k) 
                                         " in heterogeneous map type " (ind/unparse-type t)
                                         " that declares the key always absent.")
                                       (or default r/-nil))
@@ -2266,7 +2266,7 @@
 
       (r/Record? t) (find-val-type (Record->HMap t) k default)
 
-      (r/Intersection? t) (apply In
+      (r/Intersection? t) (apply In 
                                (for [t* (:types t)]
                                  (find-val-type t* k default)))
       (r/Union? t) (apply Un
@@ -2274,10 +2274,10 @@
                           (find-val-type t* k default)))
       (r/RClass? t)
       (->
-        (ind/check-funapp nil nil (r/ret (ind/parse-type
+        (ind/check-funapp nil nil (r/ret (ind/parse-type 
                                      ;same as clojure.core/get
                                      `(t/All [x# y#]
-                                           (t/IFn
+                                           (t/IFn 
                                              ;no default
                                              [(t/Set x#) t/Any ~'-> (t/Option x#)]
                                              [nil t/Any ~'-> nil]
