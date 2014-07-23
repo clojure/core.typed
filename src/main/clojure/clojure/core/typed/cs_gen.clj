@@ -713,6 +713,10 @@
               val-cset (map cg entries-vals (repeat (second poly?)))]
           (cset-meet* (concat (when map-cset [map-cset]) key-cset val-cset)))
 
+        (and (r/AssocType? S)
+             (r/Record? T))
+        (cs-gen V X Y S (c/Record->HMap T))
+
 ; Completeness matters:
 ;
 ; (Assoc x ':a Number ':b Long) <: (HMap {:a Number :b Long} :complete? true)
