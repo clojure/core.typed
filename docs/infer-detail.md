@@ -69,3 +69,36 @@ function). So, when we do
 `(cs-gen (Assoc m k v c ... c) (HMap :mandatory {:a Number :b String}))`
 `m` could be either `{}`, `{:a Number}`, `{:b String}` or
 `{:a Number :b String}`, and type of `k`, `v` and `c` is also uncertain.
+
+### example
+
+Right now we annotate `assoc` as
+
+    (All [m k v c ...]
+       [m k v (HSeq [c c] :repeat true) <... c
+        -> (Assoc m k v c ... c)])
+
+and if we do
+
+    => (t/cf (assoc {:a 1} :b "a") (HMap :mandatory {:a Number :b String}))
+
+this will cause NYI error, because we have not supported cs-gen `Assoc` with
+dentries and `HMap` right now.
+
+But if we do, we should generate constraint on `Assoc` and `HMap`, this is
+because `HMap` is our expected type. So how should we generate that constraints?
+
+Should `m` be `{}` or `{:a Number}` or `{:a Number :b String}`, they are both
+possible type of first argument, like `(assoc {} :a 1 :b "c")`,
+`(assoc {:a 1} :b "c")` and `(assoc {:a 1 :b "c"} :a 2)`.
+
+Other variables like `k`, `v` and `c` are even more complicated, because order
+of arguments also matters. For example, `(assoc {} :a 1 :b "c")` will constraint
+`k` to be `:a`, `v` to be `1`, and so on. But `(assoc {} :b "c" :a 1)` will
+constraint `k` to be `:b`, `v` to be `"c"`. But they will generate same output,
+so the type of output should be same.
+
+So I am wondering if we could delay the checking of expected type? We could
+check substituted `Assoc` with constraints we generated on arguments, and then
+check that substituted `Assoc` with expected type? But I am not sure where to
+insert this special case, in `infer-pdot`?
