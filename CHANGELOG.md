@@ -1,3 +1,14 @@
+# 0.2.62 - 23st July 2014
+
+- (cast Integer nil) => nil
+  - now handled correctly
+  - previously assumed equivalent to (assert (instance? Integer nil))
+- core.async
+  - add Buffer protocol methods
+  - annotate Unblocking protocol
+
+- prepare for future tools.analyzer breaking changes (Thanks Nicola Mometto for the heads up)
+
 # 0.2.61 - 21st July 2014
 
 - add rand-nth annotation
