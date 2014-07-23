@@ -272,7 +272,7 @@
         ct (-> (first cargs) u/expr-type r/ret-t c/fully-resolve-type)]
     (if (and (r/Value? ct) (class? (:val ct)))
       (let [v-t (-> (check (second args)) u/expr-type r/ret-t)
-            t (c/In v-t (c/RClass-of-with-unknown-params (:val ct)))
+            t (c/In v-t (c/Un r/-nil (c/RClass-of-with-unknown-params (:val ct))))
             _ (when (and t expected)
                 (when-not (sub/subtype? t (r/ret-t expected))
                   (cu/expected-error t (r/ret-t expected))))]
