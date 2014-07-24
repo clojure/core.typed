@@ -12,7 +12,7 @@
   (let [cargs (mapv check items)
         ts (map (comp c/fully-resolve-type r/ret-t u/expr-type) cargs)
         res-type (if (every? r/Value? ts)
-                   (r/-hset (set ts))
+                   (r/-hset (r/sorted-type-set ts))
                    (impl/impl-case
                      :clojure (c/RClass-of PersistentHashSet [(apply c/Un ts)])
                      :cljs (c/Protocol-of 'cljs.core/ISet [(apply c/Un ts)])))
