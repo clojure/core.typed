@@ -753,6 +753,7 @@
             :cljs (cond
                     (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
                     (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
+                    (string? (.val s)) (subtype (r/StringCLJS-maker) t)
                     (con/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
                     (symbol? (.val s)) (subtype (c/DataType-of 'cljs.core/Symbol) t)
                     (keyword? (.val s)) (subtype (c/DataType-of 'cljs.core/Keyword) t)

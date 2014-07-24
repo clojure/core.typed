@@ -344,7 +344,12 @@
                                         (string? (.val S)) [(r/make-ExactCountRange (count (.val S)))]))
                                T))
             :cljs (cond
+                    (integer? (.val S)) (cs-gen V X Y (r/IntegerCLJS-maker) T)
                     (number? (.val S)) (cs-gen V X Y (r/NumberCLJS-maker) T)
+                    (string? (.val S)) (cs-gen V X Y (r/StringCLJS-maker) T)
+                    (con/boolean? (.val S)) (cs-gen V X Y (r/BooleanCLJS-maker) T)
+                    (symbol? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Symbol) T)
+                    (keyword? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Keyword) T)
                     :else (fail! S T)))))
 
         ;; constrain body to be below T, but don't mention the new vars
