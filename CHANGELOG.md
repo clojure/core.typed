@@ -1,3 +1,11 @@
+# 0.2.64 - SNAPSHOT
+
+## clojure.string Annotations
+
+Thanks to Aravind K N for this patch.
+
+- annotations for clojure.string/{blank?,capitalize,lower-case,replace{,-first},reverse,trim{,rl}}
+
 # 0.2.63 - 24st July 2014
 
 ## Set membership idiom
