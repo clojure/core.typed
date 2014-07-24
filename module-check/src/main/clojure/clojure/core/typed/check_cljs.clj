@@ -75,6 +75,7 @@
   (assoc expr
          expr-type (ret r/-any)))
 
+;FIXME call constant-type
 (add-check-method :constant
   [{:keys [form env] :as expr} & [expected]]
   (let [t (r/-val form)

@@ -22,6 +22,8 @@
 
 (def namespace? #(instance? clojure.lang.Namespace %))
 
+(def character? #(instance? Character %))
+
 (defn =-c? [& as]
   #(apply = (concat as %&)))
 

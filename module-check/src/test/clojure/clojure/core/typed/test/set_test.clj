@@ -17,3 +17,15 @@
   (is-tc-e (conj #{1 2 3} 1)
            :expected
            (Set Num)))
+
+(deftest set-pred-test
+  (is-tc-e (let [foo :- (U false nil ':a ':b), :a]
+             (if (#{:a :b false nil} foo)
+               (ann-form foo (U ':a ':b))
+               (ann-form foo (U false nil)))))
+  (is-tc-e (let [foo :- (U false nil ':a ':b), :a]
+             (when (#{:a :b nil} foo)
+               (ann-form foo (U ':a ':b)))))
+  (is-tc-e (let [foo :- (U nil ':a ':b), :a]
+             (when (#{:a :b nil} foo)
+               (ann-form foo (U ':a ':b))))))

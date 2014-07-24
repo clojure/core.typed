@@ -1,3 +1,20 @@
+# 0.2.63 - 24st July 2014
+
+## Set membership idiom
+
+- Support `(#{:a :b} x)` set membership idiom
+  - literal symbols, keywords, strings, numbers, booleans, characters and nil are supported
+    as set members
+  - also correctly handles the nil/false special cases
+
+```clojure
+(let [foo :- (U false nil ':a ':b), :a]
+  (if (#{:a :b false nil} foo)
+    (ann-form foo (U ':a ':b false nil))
+    (ann-form foo (U false nil ':a ':b))))
+```
+
+
 # 0.2.62 - 23st July 2014
 
 - (cast Integer nil) => nil
