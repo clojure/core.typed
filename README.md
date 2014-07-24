@@ -110,6 +110,7 @@ Thanks to the following people for contributing to core.typed:
 * Chas Emerick (cemerick)
 * Jake Goulding (shepmaster)
 * Andy Fingerhut
+* Aravind K N (arav93)
 
 ## Sponsors
 
