@@ -713,9 +713,14 @@
               val-cset (map cg entries-vals (repeat (second poly?)))]
           (cset-meet* (concat (when map-cset [map-cset]) key-cset val-cset)))
 
+        ; transform Record to HMap, this is not so useful until we can do
+        ; cs-gen Assoc with dentries with HMap
         (and (r/AssocType? S)
              (r/Record? T))
-        (cs-gen V X Y S (c/Record->HMap T))
+        (let [{:keys [target]} S
+              target-cset (cs-gen V X Y target T)
+              cset (cs-gen V X Y S (c/Record->HMap T))]
+          (cset-meet* [target cset]))
 
 ; Completeness matters:
 ;
