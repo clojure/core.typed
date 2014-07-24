@@ -50,7 +50,7 @@
 (deftest check-ns-test
   (is-cljs (t/check-ns* 'cljs.core.typed.test.ann)))
 
-(deftest parse-protocol-test
+(deftest parse-protocol-test 
   (is-cljs (prs/parse-cljs '(cljs.core/IMap number number))))
 
 (deftest Protocol-of-test
@@ -87,24 +87,24 @@
 (deftest letfn-test
   (is-tc-e (t/letfn> [a :- (t/All [x] [x -> x])
                       (a [b] b)]
-                     (a 1))))
+             (a 1))))
 
 #_(deftest async-test
-    (is-cljs (t/check-ns* 'cljs.core.typed.async)))
+  (is-cljs (t/check-ns* 'cljs.core.typed.async)))
 
 (deftest inline-annotation-test
-                                        ; code from David Nolen's blog
+  ; code from David Nolen's blog
   (is-tc-e
-   (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
-     index-of [xs x]
-     (let [len (count xs)]
-       (t/loop>
-        [i :- int, 0]
-        (if (< i len)
-          (if (= (nth xs i) x)
-            i
-            (recur (inc i)))
-          -1))))))
+    (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
+      index-of [xs x]
+      (let [len (count xs)]
+        (t/loop>
+         [i :- int, 0]
+         (if (< i len)
+           (if (= (nth xs i) x)
+             i
+             (recur (inc i)))
+           -1))))))
 
 #_(clojure.core.typed.analyze-cljs/ast-for-form '(fn [x] (instance? Atom x)))
 
