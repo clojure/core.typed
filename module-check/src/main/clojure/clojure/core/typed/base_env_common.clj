@@ -10,13 +10,13 @@
     `(do
        (def ~thread-bindings (get-thread-bindings))
        (defn ~(with-meta generator-sym {:private true}) []
-                                        ; switch namespace to where this def is defined
-                                        ; Also helps parse CLJS syntax.
+         ; switch namespace to where this def is defined
+         ; Also helps parse CLJS syntax.
          (let [r# (with-bindings ~thread-bindings
                     ~@body)]
-                                        ;(prn "r" r#)
+           ;(prn "r" r#)
            r#))
-                                        ; cache is original nil, then is updated only once
+       ; cache is original nil, then is updated only once
        (def ~(with-meta cache-sym {:private true})
          (atom nil))
        (defn ~interface-sym []
