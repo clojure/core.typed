@@ -117,7 +117,8 @@
   (is-tc-e 1 int)
   (is-tc-e 1.1 number)
   (is-tc-e 1 number)
-  (is-tc-e true boolean))
+  (is-tc-e true boolean)
+  (is-tc-e "a" string))
 
 (deftest ns-deps-test
   (is (t/check-ns* 'cljs.core.typed.test.dep-one))
@@ -126,12 +127,12 @@
 (deftest hvec-infer
   (is-tc-e (fn [a]
              (a [1 2]))
-           [[(cljs.core/IVector Any) -> Any]
-            -> Any])
+           [[(cljs.core/IVector t/Any) -> t/Any]
+            -> t/Any])
   (is-tc-e (fn [a]
              (a [1 2]))
            [(t/All [x] [(cljs.core/IVector x) -> x])
-            -> Any]))
+            -> t/Any]))
 
 (deftest seq-test
   (is-tc-e [1 2 3] (t/Coll int))
@@ -146,7 +147,6 @@
 
 (deftest core-fns-test
   (t/check-ns* 'cljs.core.typed.test.ympbyc.test-base-env))
-
 
 (declare cljs-core-vars)
 
