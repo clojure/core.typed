@@ -116,8 +116,8 @@
     clojure.core/= [Any Any * -> Boolean]
     ;clojure.core/reduced (All [x] [x -> (Reduced x)])
     ;clojure.core/reduced? (Pred (Reduced Any))
-    ;clojure.core/second
-    #_(All [x]
+    clojure.core/second
+    (All [x]
          (IFn [(HSequential [Any x Any *]) -> x
                :object {:id 0 :path [(Nth 1)]}]
               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
@@ -652,7 +652,6 @@
                                          [Number Number Number (Coll a) -> (ASeq (ASeq a))]))
     clojure.core/name [(U Keyword String Symbol) -> String]
     clojure.core/rseq (All [a] [(Seqable a) -> (ASeq a)])
-    clojure.core/second (All [a] [(Seqable a) -> a])
     ;todo clojure.core/replace
     clojure.core/fnext (All [a] [(Seqable a) -> a])
     clojure.core/rem [Number Number -> Number]
