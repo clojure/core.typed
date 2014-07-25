@@ -547,7 +547,8 @@
                                                       (assoc e :c :b))))
                       (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MapName)]
                                                             (make-Result (make-HMap :mandatory {(-val :a) (-val 1)
-                                                                                 (-val :c) (-val :b)}))
+                                                                                 (-val :c) (-val :b)})
+                                                                         (-FS -top -bot) -empty)
                                                             nil nil nil nil nil))
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
@@ -690,7 +691,9 @@
 
 (deftest assoc-test
   (is-clj (= (tc-t (assoc {} :a :b))
-         (ret (-complete-hmap {(-val :a) (-val :b)}))))
+         (ret (-complete-hmap {(-val :a) (-val :b)})
+              (-FS -top -bot)
+              -empty)))
   ;see `invoke-special` for assoc for TODO
   ;FIXME
   #_(is-clj (= (-> (tc-t (-> (fn [m]
@@ -1962,16 +1965,26 @@
   
   ; HVecs
   (equal-types-noparse (assoc [] 0 1)
-                       (-hvec [(-val 1)]))
+                       (-hvec [(-val 1)]
+                              :filters [(-true-filter)]
+                              :objects [-empty]))
   
   (equal-types-noparse (assoc [3] 1 2)
-                       (-hvec [(-val 3) (-val 2)]))
+                       (-hvec [(-val 3) (-val 2)]
+                              :filters [(-FS -top -top) ; embedded literals dont get any
+                                                        ; filter information (yet)?
+                                        (-true-filter)]
+                              :objects [-empty -empty]))
   
   (equal-types-noparse (assoc [0] 0 1)
-                       (-hvec [(-val 1)]))
+                       (-hvec [(-val 1)]
+                              :filters [(-true-filter)]
+                              :objects [-empty]))
   
   (equal-types-noparse (assoc [0] 0 (if (clojure.core.typed/ann-form 1 Any) 1 2))
-                       (-hvec [(Un (-val 1) (-val 2))]))
+                       (-hvec [(Un (-val 1) (-val 2))]
+                              :filters [(-true-filter)]
+                              :objects [-empty]))
   
   ; Basic types
   (equal-types (assoc {} 'a 5)
@@ -3478,7 +3491,3 @@
     (is-clj (do (cg (parse-type '(HSeq []))) true))
     (is-clj (do (cg nil-t) true))
   ))
-
-(deftest function-pdot
-  (is (check-ns 'clojure.core.typed.test.pdot-cs-gen))
-  )
