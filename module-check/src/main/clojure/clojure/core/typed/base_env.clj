@@ -721,7 +721,7 @@ clojure.string/join
 clojure.string/upper-case
       [CharSequence -> String]
 
-clojure.string/blank? [String -> Boolean]
+clojure.string/blank? [(U nil String) -> Boolean]
 clojure.string/capitalize [String -> String]
 clojure.string/lower-case [String -> String]
 clojure.string/replace (IFn [String String String -> String]  [String Character Character -> String]  [String java.util.regex.Pattern (U String [String -> String]) -> String] )
