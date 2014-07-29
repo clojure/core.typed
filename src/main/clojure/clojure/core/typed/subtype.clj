@@ -610,13 +610,6 @@
                    (c/HSeq->HSequential s))
                  t)
 
-        ; FIXME, wait for comment
-        ;(and (r/Nil? s)
-        ;     (r/RClass? t)
-        ;     ; (Map xx yy)
-        ;     (= 'clojure.lang.IPersistentMap (:the-class t)))
-        ;  *sub-current-seen*
-
         ; repeat Heterogeneous* can always accept nil
         (and (r/Nil? s)
              (or (r/HeterogeneousVector? t)
