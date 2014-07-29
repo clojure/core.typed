@@ -160,3 +160,77 @@ of `map` is
 `[[Number String Number -> Number] (Seqable Number) (Seqable String) (Seqable Number) -> (t/Seq Number)]`, and this type passed follow-up subtype check of arguments.
 
 ## Prest and pdot extends
+
+Why we need to extends existed function type? Well, some functions in Clojure
+have special constraint on their argument, for example, arguments for `hash-map`
+should be partitioned with 2, and each partition should have type like
+`[key-type val-type]` to produce type `(Map key-type val-type)`, this
+constraint is very similar to rest type of function because it also has
+repeated pattern, but item to repeat is not one, but two. So we invented a new
+syntax `<*` to express this constraint, we call it prest, that is, push rest,
+so we annotate `hash-map` as
+`(All [x y] [(HSeq [x y] :repeat true) <* -> (Map x y)])`. This way `<*` looks
+like accept rest arguments, and push them to compare with repeated HSeq. Repeat
+attribute in HSeq is useful here, it can extends itself with repeat body. For
+example, `(HSeq [Number String Number String])` is subtype of
+`(HSeq [Number String] :repeat true)`, and so do `(HSeq [])`, but
+`(HSeq [Number String Number])` is not. So combination of repeated `HSeq` and
+`<*` can express constraint on `hash-map` and similar function in a very
+expressive way.
+
+Let me give you an example, suppose we are doing
+`(t/cf (hash-map "a" 1 "b" 2 "c" 3))`, function in this case has type
+variables, so we have to infer them. We have 6 arguments here, they are all
+captured by `<*`, and pushed to compare with type befor it, that is, `HSeq`
+with `repeat` attribute. Because 6(number of arguments) is multiple of 2(number
+of type in `HSeq` body), so it is valid, otherwise we fail. We then extends
+body of `HSeq` to `(HSeq [x y x y x y])`, note here, it is not
+`(HSeq [x1 y1 x2 y2 x3 y3])`, because `x` and `y` is not dotted type. So our
+next job is to infer `(HVec ["a" 1 "b" 2 "c" 3]` with `(HSeq [x y x y x y])`,
+`HVec` here is just use to embark types captured by `<*`, and `HVec` is subtype
+of `HSeq`, so there will be no problem. And from this, we will get `x` is
+`String` and `y` is `Number`, right? So, we inferred `hash-map` in this case is
+`(HSeq [String Number String Number String Number] :repeat true) <* -> (Map String Number)`,
+and this type passed follow-up subtype check of arguments, and it returns type
+`(Map String Number)`.
+
+And now, we just have one special type of function left, that is pdot. It just
+like prest, except that it contains dotted type and behave like dotted type.
+
+For example, simplified `assoc` function is annotated as:
+
+    (All [m k v c ...]
+      [m k v (HSeq [c c] :repeat true) <... c
+       -> (Assoc m k v c ... c)])
+
+the only thing we have not met in this documentation is
+`(HSeq [c c] :repeat true) <... c`, `<...` here is pdot, and it looks just like
+dotted type, `HSeq` is like dotted pre-type, and `c` is the dotted type
+variable.
+
+Suppose we are doing `(t/cf (assoc {} "a" 1 "b" 2))`, we will get `m` is empty
+map, `k` is `"a"`, `v` is `1`, but we got two arguments remain, they are
+captured by `<...`, and since remain args is multiple of number of types in
+body of `HSeq`, it is valid, and we extends `HSeq` to
+`(HSeq [c1 c2] :repeat true)`, note here it is `c1 c2`, not `c c`, because `c`
+is dotted type variable. And then we check `"b" 2` with `c1 c2`, we will know
+`c` has type `["b" 2]`. So inferred `assoc` has type
+`[{} "a" 1 "b" 2 -> (Assoc {} "a" 1 "b" 2)]`. And we finished.
+
+But that is not we actually doing. Why? Because we should first check expected
+type. But `Assoc` type is to difficult to be constrained on, since serveral
+different call to `assoc` will still produce same output, for example
+`(assoc {} "a" 1 "b" 2)`, `(assoc {} "b" 2 "a" 1)` and even
+`(assoc {"a" 1} "b" 2)` will produce same outpt. How could we constrain on its
+result type, that is `Assoc`? So I think we should first check arguments of
+call, not result type. And only after we get all constraint on argument, will
+we construct result type, and do subtype check of expected type, I call this
+delay check of expected type. This is workable from my experiment, but Ambrose
+think we should figure out what this will cause before we going on, because
+if we do not check result first, we will get less information when we do type
+inference. So before we fully understand what this will caused, we will not
+being able to use annotated `assoc`, just original special handler to do the
+check.
+
+Ok, we finished our tutorial, here is question: Isn't rest and dot is just
+special case of prest and pdot?
