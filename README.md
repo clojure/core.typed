@@ -6,12 +6,12 @@ Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.2.48.
+Latest stable release is 0.2.63.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.2.48"]
+[org.clojure/core.typed "0.2.63"]
 
 ...
 ; for very recent releases
@@ -26,7 +26,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.2.48</version>
+  <version>0.2.63</version>
   <!-- slim jar -->
   <!-- <classifier>slim</classifier> -->
 </dependency>
@@ -76,15 +76,9 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 `(clojure.core.typed/cf t)` type checks the form `t`.
 
-<!---
 ## Examples
 
-(These don't completely type check yet)
-
-* [clojure.core.typed.test.rbt](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/rbt.clj) for examples of mutually recursive types and heterogenous maps
-* [typed.test.core-logic](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/core_logic.clj) for examples of typing (tightly coupled) datatypes and protocols
-* [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
--->
+[core.async Rock-paper-scissors](https://github.com/clojure/core.typed/blob/master/module-check/src/test/clojure/clojure/core/typed/test/rps_async.clj)
 
 ## Developer Information
 
@@ -105,12 +99,18 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 ## Contributors
 
+Thanks to the following people for contributing to core.typed:
+
 * Stephen Compall (S11001001)
 * Andrew Brehaut (brehaut)
 * Christopher Spencer (cspencer)
 * Reid McKenzie (arrdem)
 * Di Xu (xudifsd)
 * Nicola Mometto (Bronsa)
+* Chas Emerick (cemerick)
+* Jake Goulding (shepmaster)
+* Andy Fingerhut
+* Aravind K N (arav93)
 
 ## Sponsors
 
