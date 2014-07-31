@@ -278,8 +278,15 @@ cljs.core.typed/APersistentMap IMap
   ^{:doc "associative -- alias for common anns"}
 cljs.core.typed/Associative IAssociative
 
-  ^{:doc "atom -- alias for common anns"}
-cljs.core.typed/Atom2 Atom
+  ^{:doc "An atom that can read and write type x."
+    :forms [(Atom1 t)]}
+cljs.core.typed/Atom1 (TFn [[x :variance :invariant]] 
+                           (cljs.core/Atom x x))
+  ^{:doc "An atom that can write type w and read type r."
+    :forms [(Atom2 t)]}
+cljs.core.typed/Atom2 (TFn [[w :variance :contravariant]
+                            [r :variance :covariant]] 
+                           (cljs.core/Atom w r))
 
   ^{:doc "sequential -- alias for common anns"}
 cljs.core.typed/Sequential ISequential

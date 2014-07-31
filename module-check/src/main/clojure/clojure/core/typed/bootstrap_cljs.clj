@@ -7,7 +7,7 @@
   '#{AnyInteger Integer Seqable NonEmptySeq Number String Boolean Seq
      EmptySeqable NonEmptySeqable Option Coll NonEmptyColl NonEmptyASeq NonEmptyAVec
      EmptyCount NonEmptyCount Vec Nilable AVec NilableNonEmptyASeq PersistentList Collection Set
-     IPersistentSet IPersistentVector IPersistentMap APersistentMap Associative Map Atom2 Sequential})
+     IPersistentSet IPersistentVector IPersistentMap APersistentMap Associative Map Atom1 Atom2 Sequential})
 
 (def -specials 
   '#{All U Any Pred Int Bool Num Str Object ReadOnlyArray

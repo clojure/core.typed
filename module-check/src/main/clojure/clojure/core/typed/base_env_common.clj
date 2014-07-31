@@ -152,7 +152,7 @@
                                     (IMapEntry x y) '[x y]) * -> (IPersistentMap x y)]
                                         [(IPersistentSet x) x x * -> (IPersistentSet x)]
                                 [(ASeq x) x x * -> (ASeq x)]
-                                [nil x x * -> (clojure.lang.PersistentList x)]
+                                ;[nil x x * -> (clojure.lang.PersistentList x)]
                                 [(Coll Any) Any Any * -> (Coll Any)]))
     clojure.core/get (All [x y]
                           (IFn
@@ -201,8 +201,8 @@
                              [(Option (Seqable Any)) -> Boolean])
     clojure.core/coll? (Pred (Coll Any))
                                         ;clojure.core/set? (Pred (Set Any))
-    clojure.core/associative? (Pred (clojure.lang.Associative Any Any))
-    clojure.core/sequential? (Pred clojure.lang.Sequential)
+    ;clojure.core/associative? (Pred (clojure.lang.Associative Any Any))
+    ;clojure.core/sequential? (Pred clojure.lang.Sequential)
                                         ;clojure.core/sorted? (Pred Sorted)
     clojure.core/map? (Pred (Map Any Any))
     clojure.core/vector? (Pred (Vec Any))
@@ -211,7 +211,7 @@
     clojure.core/true? (Pred true)
     clojure.core/seq? (Pred (Seq Any))
     clojure.core/boolean [Any -> Boolean]
-    clojure.core/ifn? (Pred clojure.lang.IFn)
+    ;clojure.core/ifn? (Pred clojure.lang.IFn)
     clojure.core/integer? (Pred AnyInteger)
     clojure.core/contains? [(Option (Seqable Any)) Any -> Boolean]
     clojure.core/find (All [x y]
@@ -288,19 +288,20 @@
     clojure.core/namespace [(U Symbol String Keyword) -> (Option String)]
     clojure.core/keyword (IFn [(U Keyword Symbol String) -> Keyword]
                               [String String -> Keyword])
-    clojure.core/chunk-cons
-    (All [x]
+    #_clojure.core/chunk-cons
+    #_(All [x]
          [(clojure.lang.IChunk x) (Option (Seqable x)) -> (Option (Seqable x))])
-    clojure.core/chunk-append (All [x]
+    #_clojure.core/chunk-append 
+    #_(All [x]
                                    [(clojure.lang.ChunkBuffer x) x -> Any])
-    clojure.core/chunk
-    (All [x]
+    #_clojure.core/chunk
+    #_(All [x]
          [(clojure.lang.ChunkBuffer x) -> (clojure.lang.IChunk x)])
-    clojure.core/chunk-first (All [x]
+    #_clojure.core/chunk-first #_(All [x]
                                   ;;should be IChunkedSeq -> IChunk
                                   [(Seqable x) -> (clojure.lang.IChunk x)])
-    clojure.core/chunk-rest
-    (All [x]
+    #_clojure.core/chunk-rest
+    #_(All [x]
          ;;should be IChunkRest -> Seq
          [(clojure.lang.Seqable x) -> (ASeq x)])
     clojure.core/int-array
@@ -603,7 +604,7 @@
     clojure.core/force (All [x]
                             (IFn [(Delay x) -> x]
                                  [Any -> Any]))
-    clojure.core/realized? [clojure.lang.IPending -> Boolean]
+    ;clojure.core/realized? [clojure.lang.IPending -> Boolean]
     clojure.core/memoize (All [x y ...]
                               [[y ... y -> x] -> [y ... y -> x]])
     clojure.core/trampoline
