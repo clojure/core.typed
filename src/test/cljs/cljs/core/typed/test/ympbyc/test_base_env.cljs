@@ -1,6 +1,6 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
   (:require-macros [cljs.core.typed :refer [ann] :as ct])
-  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable]]
+  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable Atom1 Set]]
             [cljs.core :refer [IVector ISeq ASeq]]))
 
 ;;seq
@@ -102,3 +102,12 @@
 
 (ann get-set (Option int))
 (def get-set (get #{1 2 3} 2))
+
+(ann sym-test Symbol)
+(def sym-test 'foo)
+
+(ann atom-test (Atom1 number))
+(def atom-test (atom 3))
+
+(ann set-test (Set number))
+(def set-test #{5})
