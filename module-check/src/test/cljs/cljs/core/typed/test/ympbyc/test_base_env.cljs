@@ -1,7 +1,7 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
   (:require-macros [cljs.core.typed :refer [ann] :as ct])
-  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable Atom1 Set Coll List]]
-            [cljs.core :refer [IVector ISeq ASeq]]))
+  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable Atom1 Set Coll]]
+            [cljs.core :refer [IVector ISeq ASeq List]]))
 
 ;;seq
 (ann seq-vec (NonEmptySeqable number))
@@ -146,6 +146,12 @@
 
 ;currently use of `list` invokes an error
 ;(ann cljs.core/-conj [Any Any -> (Coll Any)])
-;(ann cljs.core.List.EMPTY (List Any))
+;(ann cljs.core.List.EMPTY (List Any)) ;;this fails somehow
 ;(ann list?-test boolean)
 ;(def list?-test (list? (list 1 2 3)))
+
+(ann apply-test number)
+(def apply-test (apply + [2 3]))
+
+(ann apply-test-str string)
+(def apply-test-str (apply str ["hello, " "world"]))
