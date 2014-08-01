@@ -141,16 +141,16 @@
                            (IFn [(IPersistentVector x) x x * -> (IPersistentVector x)]
                                 [(APersistentMap x y)
                                  (U nil (Seqable (IMapEntry x y))
-                                    (IMapEntry x y) '[x y])
+                                    (IMapEntry x y) '[x y] (Map x y))
                                  (U nil (Seqable (IMapEntry x y))
-                                    (IMapEntry x y) '[x y]) *
+                                    (IMapEntry x y) '[x y] (Map x y)) *
                                     -> (APersistentMap x y)]
                                 [(IPersistentMap x y)
                                  (U nil (Seqable (IMapEntry x y))
-                                    (IMapEntry x y) '[x y])
+                                    (IMapEntry x y) '[x y] (Map x y))
                                  (U nil (Seqable (IMapEntry x y))
-                                    (IMapEntry x y) '[x y]) * -> (IPersistentMap x y)]
-                                        [(IPersistentSet x) x x * -> (IPersistentSet x)]
+                                    (IMapEntry x y) '[x y] (Map x y)) * -> (IPersistentMap x y)]
+                                [(IPersistentSet x) x x * -> (IPersistentSet x)]
                                 [(ASeq x) x x * -> (ASeq x)]
                                 ;[nil x x * -> (clojure.lang.PersistentList x)]
                                 [(Coll Any) Any Any * -> (Coll Any)]))
@@ -158,11 +158,13 @@
                           (IFn
                            ;;no default
                            [(U nil (Set x) (ILookup Any x)) Any -> (Option x)]
-                           [(Option java.util.Map) Any -> Any]
-                                        ;[(Option String) Any -> (Option Character)]
+                           ;[(Option String) Any -> (Option Character)]
                            ;;default
                            [(U nil (Set x) (ILookup Any x)) Any y -> (U y x)]
-                           [(Option java.util.Map) Any y -> (U y Any)]
+                           [(Option (Map x y)) x -> (Option y)]
+                           [(Option (Map x y)) x y -> y]
+                           [(Option (Map Any Any)) Any -> (Option Any)]
+                           [(Option (Map Any Any)) Any y -> (U y Any)]
                            ;[(Option String) Any y -> (U y Character)]
                            ))
     clojure.core/assoc (All [b c d]
@@ -170,21 +172,19 @@
                                  [(Vec d) AnyInteger d -> (Vec d)]))
     clojure.core/dissoc (All [k v]
                              (IFn [(Map k v) Any * -> (Map k v)]))
-                                        ;clojure.core/fn? (Pred t/Fn)
                                         ;clojure.core/with-meta
     #_(All [[x :< clojure.lang.IObj]]
            [x (U nil (Map Any Any)) -> x])
     clojure.core/meta [Any -> (U nil (Map Any Any))]
-                                        ;clojure.core/peek
-    #_(All [x]
+    clojure.core/peek
+    (All [x]
            (IFn [(I NonEmptyCount (Stack x)) -> x]
                 [(Stack x) -> x]))
-    clojure.core/pop (All [x]
-                          (IFn
-                           [(List x) -> (List x)]
-                           [(Vec x) -> (Vec x)]
-                                        ;[(Stack x) -> (Stack x)]
-                           ))
+    ;;clojure.core/pop (All [x]
+    ;;                      (IFn
+    ;;                       [(List x) -> (List x)]
+    ;;                       [(Vec x) -> (Vec x)]
+    ;;                       [(Stack x) -> (Stack x)]))
     clojure.core/disj
     (All [x]
          (IFn #_[(SortedSet x) Any Any * -> (SortedSet x)]

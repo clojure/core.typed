@@ -10,7 +10,8 @@
 
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
              :as common]
-            [clojure.core.typed.var-env :as var-env]))
+            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.test.cljs-core :as core-test]))
 
 (deftest parse-prims-cljs-test
   (is-cljs (= (prs/parse-cljs 'number)
@@ -145,7 +146,7 @@
                                         ;(t/check-ns* 'cljs.core.typed.async)
 
 
-(deftest core-fns-test
+(comment deftest core-fns-test
   (t/check-ns* 'cljs.core.typed.test.ympbyc.test-base-env))
 
 (declare cljs-core-vars)
