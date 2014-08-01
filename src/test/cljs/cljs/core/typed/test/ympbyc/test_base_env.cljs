@@ -1,6 +1,6 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
   (:require-macros [cljs.core.typed :refer [ann] :as ct])
-  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable Atom1 Set Coll]]
+  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable Vec HSequential NonEmptyASeq NonEmptySeqable Atom1 Set Coll Map] :as t]
             [cljs.core :refer [IVector ISeq ASeq List]]))
 
 ;;seq
@@ -58,7 +58,7 @@
 (def butlast-empty (butlast []))
 
 
-;;utest if NonEmptySeqable is Seqable
+;;test if NonEmptySeqable is Seqable
 (ann nonemp (All [x] [(NonEmptySeqable x) -> number]))
 (defn foo [xs] 1)
 
@@ -83,7 +83,7 @@
 (ann clj-to-jsjs Any)
 (def clj-to-js (clj->js {:a 1}))
 
-;use of js-obj triggers "js-op missing" in check_cljs
+;BUG: Use of js-obj triggers "js-op missing" in check_cljs
 ;(ann js-to-clj Any)
 ;(def js-to-clj (js->clj (js-obj "a" 1 "b" 2)))
 
@@ -123,6 +123,8 @@
 (ann sym-test Symbol)
 (def sym-test 'foo)
 
+
+;BUG: subtyping fails
 ;(ann atom-test (Atom1 number))
 ;(def atom-test (atom 3))
 
@@ -144,7 +146,7 @@
 (ann seq?-f boolean)
 (def seq-f (seq? [1 2 3]))
 
-;currently use of `list` invokes an error
+;BUG: Use of `list` invokes an error
 ;(ann cljs.core/-conj [Any Any -> (Coll Any)])
 ;(ann cljs.core.List.EMPTY (List Any)) ;;this fails somehow
 ;(ann list?-test boolean)
@@ -155,3 +157,53 @@
 
 (ann apply-test-str string)
 (def apply-test-str (apply str ["hello, " "world"]))
+
+
+(ann conj-1 (IVector string))
+(def conj-1 (conj ["foo"] "bar"))
+
+(ann conj-2 (ASeq number))
+(def conj-2 (conj (seq [3 4 5]) 1 2))
+
+(ann conj-3 (ASeq (Vec number)))
+(def conj-3 (conj (seq [[1] [2 3]]) [8] [9]))
+
+;BUG: this throws assert failed
+;(ann conj-4 (t/Map Keyword number))
+;(def conj-4 (conj {:foo 5} [:bar 8]))
+;(ann conj-5 (t/Map Keyword Any))
+;(def conj-5 (conj {:foo "bar"} {:baz 123}))
+
+
+(ann get-1 (Option number))
+(def get-1 (get #{1 2 3} 3))
+
+(ann get-2 boolean)
+(def get-2 (get {:a true :b false} :c false))
+
+
+(ann assoc-vec (Vec string))
+(def assoc-vec (assoc ["foo" "bar"] 2 "baz"))
+
+(ann assoc-map (t/Map (Vec number) string))
+(def assoc-map (assoc {[2 3] "foo"} [4 5] "bar"))
+
+(ann dissoc-1 (t/Map Keyword number))
+(def dissoc-1 (dissoc {:foo 8 :bar 9} :foo))
+
+(ann fn?-1 boolean)
+(def fn?-1 (fn? (fn [x y] y)))
+
+(ann fn?-2 boolean)
+(def fn?-2 (fn? cljs.core/map))
+
+(ann peek-1 (t/Map Keyword string))
+(def peek-1 (peek [{:foo "bar" :baz "zot"} {:foo "bar"}]))
+
+
+(ann pop-1 (Vec number))
+(def pop-1 (pop [1 2 3]))
+
+(ann disj-1 (Set number))
+(def disj-1 (disj #{1 2 3 4} 3 4))
+

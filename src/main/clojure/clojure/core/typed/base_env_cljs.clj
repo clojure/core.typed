@@ -200,7 +200,16 @@ cljs.core/prim-seq
 
 cljs.core/key-test [Keyword Any -> boolean]
 
+cljs.core/fn? [Any -> boolean]
 cljs.core/ifn? [Any -> boolean]
+
+;;pop needs to be defined here because
+;;definition of List differs between clj and cljs
+cljs.core/pop (All [x]
+                      (IFn
+                        [(IList x) -> (IList x)]
+                        [(Vec x) -> (Vec x)]
+                        [(Stack x) -> (Stack x)]))
 
 cljs.core/clj->js [Any -> Any]
 cljs.core/js->clj [Any -> Any]
@@ -208,7 +217,8 @@ cljs.core/js-obj  [Any * -> Any]
 
 ;;pseudo-private vars
 cljs.core/-conj [Any Any -> Any]
-cljs/core.List.Empty (All [x] (PersistentList x)))))
+;cljs.core.List.Empty (IList Any)
+)))
 
 (delay-and-cache-env ^:private init-var-nochecks
   (set (keys (init-var-env))))
@@ -273,13 +283,19 @@ cljs.core.typed/IPersistentVector (TFn [[x :variance :covariant]]
                                        (IVector x))
 
   ^{:doc "map -- alias for common anns"}
-cljs.core.typed/Map IMap
+cljs.core.typed/Map (TFn [[k :variance :covariant]
+                          [v :variance :covariant]]
+                         (IMap k v))
 
   ^{:doc "map -- alias for common anns"}
-cljs.core.typed/IPersistentMap IMap
+cljs.core.typed/IPersistentMap (TFn [[k :variance :covariant]
+                                     [v :variance :covariant]]
+                         (IMap k v))
 
   ^{:doc "map -- alias for common anns"}
-cljs.core.typed/APersistentMap IMap
+cljs.core.typed/APersistentMap (TFn [[k :variance :covariant]
+                                     [v :variance :covariant]]
+                         (IMap k v))
 
   ^{:doc "associative -- alias for common anns"}
 cljs.core.typed/Associative IAssociative
@@ -358,7 +374,8 @@ cljs.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
     :forms [(NonEmptyASeq t)]}
 cljs.core.typed/NonEmptyASeq
    (TFn [[x :variance :covariant]]
-        (I (cljs.core/ISeq x)
+        (I (cljs.core/ASeq x)
+           (cljs.core/ISeq x)
            (cljs.core/ISeqable x)
            cljs.core/ISequential
            ;(Iterable x)
@@ -407,7 +424,8 @@ cljs.core.typed/NonEmptyAVec (TFn [[x :variance :covariant]]
 cljs.core.typed/NilableNonEmptyASeq
    (TFn [[x :variance :covariant]]
         (U nil
-           (I (cljs.core/ISeq x)
+           (I (cljs.core/ASeq x)
+              (cljs.core/ISeq x)
               cljs.core/ISequential
               ;(Iterable x)
               (cljs.core/ICollection x)
@@ -419,12 +437,17 @@ cljs.core.typed/NilableNonEmptyASeq
     :forms [(PersistentList t)]}
 cljs.core.typed/PersistentList
    (TFn [[x :variance :covariant]]
-        (IList x))
+        (cljs.core/IList x))
 
   ^{:doc "Collection"}
 cljs.core.typed/Collection
    (TFn [[x :variance :covariant]]
-        (ICollection x))))
+        (cljs.core/ICollection x))
+  ^{:doc "A Clojure stack."
+    :forms [(Stack t)]}
+cljs.core.typed/Stack
+   (TFn [[x :variance :covariant]]
+        (cljs.core/IStack x))))
 
 
 (defn reset-alias-env! []
@@ -455,6 +478,7 @@ cljs.core/Atom [[[w :variance :contravariant]
                  [r :variance :covariant]]]
 cljs.core/Symbol [[]]
 cljs.core/Keyword [[]]
+cljs.core/List [[[a :variance :covariant]]]
     ))
 )
 
