@@ -1,6 +1,6 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
   (:require-macros [cljs.core.typed :refer [ann] :as ct])
-  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable Atom1 Set]]
+  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable Atom1 Set Coll List]]
             [cljs.core :refer [IVector ISeq ASeq]]))
 
 ;;seq
@@ -87,9 +87,28 @@
 ;(ann js-to-clj Any)
 ;(def js-to-clj (js->clj (js-obj "a" 1 "b" 2)))
 
+(ann cljs.core/nil? [Any -> boolean])
+
+(ann nil-pred-t boolean)
+(def nil-pred-t (nil? nil))
+
+(ann nil-pred-f boolean)
+(def nil-pred-f (nil? "nil"))
+
+
+
+(ann ifn?-test-t boolean)
+(def ifn?-test-t (ifn? (fn [x] x)))
+
+(ann ifn?-test-f boolean)
+(def ifn-test-f (ifn? "foo"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; test vars in base-env-common
+
+
+(ann id-test number)
+(def id-test (identity 8))
 
 (ann take-vec (ASeq int))
 (def take-vec (take 2 [1 2 3 4]))
@@ -98,16 +117,35 @@
 (ann drop-vec (ASeq int))
 (def drop-vec (drop 2 [1 2 3 4]))
 
-
-
 (ann get-set (Option int))
 (def get-set (get #{1 2 3} 2))
 
 (ann sym-test Symbol)
 (def sym-test 'foo)
 
-(ann atom-test (Atom1 number))
-(def atom-test (atom 3))
+;(ann atom-test (Atom1 number))
+;(def atom-test (atom 3))
 
 (ann set-test (Set number))
 (def set-test #{5})
+
+(ann number?-t boolean)
+(def number?-t (number? 8))
+
+(ann number?-f boolean)
+(def number?-f (number? [1 2]))
+
+(ann string?-t boolean)
+(def string?-t (string? "hello"))
+
+(ann seq?-t boolean)
+(def seq-t (seq? (seq [1 2 3])))
+
+(ann seq?-f boolean)
+(def seq-f (seq? [1 2 3]))
+
+;currently use of `list` invokes an error
+;(ann cljs.core/-conj [Any Any -> (Coll Any)])
+;(ann cljs.core.List.EMPTY (List Any))
+;(ann list?-test boolean)
+;(def list?-test (list? (list 1 2 3)))

@@ -115,7 +115,6 @@ goog.events.EventTarget [[]]
     ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
      (init-jsnominals))))
 
-
 ;;; vars specific to cljs
 (delay-and-cache-env ^:private init-var-env
   (reset-protocol-env!)
@@ -153,6 +152,8 @@ cljs.core/*print-length* (U nil int)
 cljs.core/enable-console-print! [-> Any]
 
 cljs.core/truth_ [Any -> Any]
+
+cljs.core/coercive-= [Any Any -> boolean]
 
 cljs.core/nil? (Pred nil)
 
@@ -197,12 +198,17 @@ cljs.core/prim-seq
       (All [x]
            [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
 
-;;;;;;;
 cljs.core/key-test [Keyword Any -> boolean]
+
+cljs.core/ifn? [Any -> boolean]
 
 cljs.core/clj->js [Any -> Any]
 cljs.core/js->clj [Any -> Any]
-cljs.core/js-obj  [Any * -> Any])))
+cljs.core/js-obj  [Any * -> Any]
+
+;;pseudo-private vars
+cljs.core/-conj [Any Any -> Any]
+cljs/core.List.Empty (All [x] (PersistentList x)))))
 
 (delay-and-cache-env ^:private init-var-nochecks
   (set (keys (init-var-env))))
@@ -413,7 +419,7 @@ cljs.core.typed/NilableNonEmptyASeq
     :forms [(PersistentList t)]}
 cljs.core.typed/PersistentList
    (TFn [[x :variance :covariant]]
-        (List x))
+        (IList x))
 
   ^{:doc "Collection"}
 cljs.core.typed/Collection

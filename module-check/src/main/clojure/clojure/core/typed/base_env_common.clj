@@ -211,7 +211,6 @@
     clojure.core/true? (Pred true)
     clojure.core/seq? (Pred (Seq Any))
     clojure.core/boolean [Any -> Boolean]
-    ;clojure.core/ifn? (Pred clojure.lang.IFn)
     clojure.core/integer? (Pred AnyInteger)
     clojure.core/contains? [(Option (Seqable Any)) Any -> Boolean]
     clojure.core/find (All [x y]
