@@ -563,29 +563,6 @@
   (err/deprecated-plain-op 'Vector* 'HVec)
   (parse-quoted-hvec (rest syn)))
 
-; FIXME merge conflict, should be removed?
-;(declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
-;
-;(defn parse-HVec [[_ syn & opts]]
-;  (let [_ (when-not (vector? syn)
-;            (err/int-error "First argument to HVec must be a vector"))
-;        _ (when-not (even? (count opts))
-;            (err/int-error "Uneven keyword arguments to HVec"))
-;        {:keys [filter-sets objects]} opts
-;        {:keys [fixed drest rest]} (parse-hvec-types syn)]
-;    (r/-hvec fixed
-;             :filters (when filter-sets
-;                        (mapv parse-filter-set filter-sets))
-;             :objects (when objects
-;                        (mapv parse-object objects))
-;             :drest drest
-;             :rest rest)))
-;
-;(defmethod parse-type-list 'HVec [t] 
-;  (err/deprecated-plain-op 'HVec)
-;  (parse-HVec t))
-;(defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
-
 ;; parse-HVec, parse-HSequential and parse-HSeq have many common patterns
 ;; so we reuse them
 (defn parse-types-with-rest-drest [err-msg]
