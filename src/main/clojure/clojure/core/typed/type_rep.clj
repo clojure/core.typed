@@ -1082,6 +1082,9 @@
   :methods
   [p/TCType])
 
+(t/ann -integer-cljs Type)
+(def -integer-cljs (IntegerCLJS-maker))
+
 (u/ann-record ArrayCLJS [input-type :- Type
                          output-type :- Type])
 (u/def-type ArrayCLJS [input-type output-type]

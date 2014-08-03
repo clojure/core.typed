@@ -562,6 +562,7 @@
   (err/deprecated-plain-op 'HVec)
   (parse-HVec t))
 (defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
+(defmethod parse-type-list 'cljs.core.typed/HVec [t] (parse-HVec t))
 
 (defn parse-types-with-rest-drest [err-msg]
   (fn [syns]
