@@ -150,3 +150,25 @@
   (impl/impl-case
     :clojure (coerce/var->symbol (:var expr))
     :cljs (:name expr)))
+
+(defn new-op-class [expr]
+  {:pre [(#{:new} (:op expr))]
+   :post [(class? %)]}
+  (or ; tools.analyzer 0.3.x
+      (let [cls (:class expr)]
+        (when (class? cls)
+          cls))
+      ; future tools.analyzer
+      (let [{:keys [val]} (:class expr)]
+        val)))
+
+(defn catch-op-class [expr]
+  {:pre [(#{:catch} (:op expr))]
+   :post [(class? %)]}
+  (or ; tools.analyzer 0.3.x
+      (let [cls (:class expr)]
+        (when (class? cls)
+          cls))
+      ; future tools.analyzer
+      (let [{:keys [val]} (:class expr)]
+        val)))

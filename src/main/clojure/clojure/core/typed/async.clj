@@ -51,7 +51,13 @@
 
 (ann-protocol [[w :variance :contravariant]
                [r :variance :covariant]]
-               clojure.core.async.impl.protocols/Buffer)
+               clojure.core.async.impl.protocols/Buffer
+               full? [(impl/Buffer w r) :-> t/Any]
+               remove! [(impl/Buffer w r) :-> nil]
+               add!* [(impl/Buffer w r) w :-> (impl/Buffer w r)]
+               )
+
+(ann-protocol clojure.core.async.impl.protocols/UnblockingBuffer)
 
 (ann-datatype [[w :variance :contravariant]
                [r :variance :covariant]]
@@ -126,10 +132,11 @@
 (defalias 
   ^{:forms [(Buffer2 t t)]}
   Buffer2
-  "A buffer of type x."
+  "A buffer of that can write type w and read type t."
   (TFn [[w :variance :contravariant]
         [r :variance :covariant]]
-    (impl/Buffer w r)))
+    (t/I (impl/Buffer w r)
+         clojure.lang.Counted)))
 
 (defalias 
   ^{:forms [(Buffer t)]}
@@ -137,6 +144,22 @@
   "A buffer of type x."
   (TFn [[x :variance :invariant]]
     (Buffer2 x x)))
+
+(defalias 
+  ^{:forms [(UnblockingBuffer2 t t)]}
+  UnblockingBuffer2
+  "An unblocking buffer that can write type w and read type t."
+  (TFn [[w :variance :contravariant]
+        [r :variance :covariant]]
+    (t/I (Buffer2 w r)
+         impl/UnblockingBuffer)))
+
+(defalias 
+  ^{:forms [(UnblockingBuffer t)]}
+  UnblockingBuffer
+  "An unblocking buffer of type x."
+  (TFn [[x :variance :invariant]]
+    (UnblockingBuffer2 x x)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Var annotations
@@ -147,11 +170,36 @@
 
 (ann ^:no-check clojure.core.async/thread-call (t/All [x] [[:-> x] :-> (Chan x)]))
 
+(ann ^:no-check clojure.core.async/pipe
+     (t/All [t]
+            (t/IFn
+              [(Chan t) (Chan t) :-> (Chan t)]
+              [(Chan t) (Chan t) t/Any :-> (Chan t)])))
+
 (ann ^:no-check clojure.core.async/timeout [t/Int :-> TimeoutChan])
 
-(ann ^:no-check clojure.core.async/chan (t/All [p t]
-                                            (IFn [:-> (Chan2 p t)]
-                                                 [(t/U (Buffer2 p t) t/Int) :-> (Chan2 p t)])))
+; TODO buffer must be supplied when xform is
+(ann ^:no-check clojure.core.async/chan
+     (t/All [p t]
+            (IFn [:-> (Chan2 p t)]
+                 [(t/U (Buffer2 p t) t/Int nil) :-> (Chan2 p t)]
+                 [(t/U (Buffer2 p t) t/Int nil)
+                  ; xform
+                  (t/U nil
+                       [[(Buffer2 p t) p :-> (Buffer2 p t)]
+                        :->
+                        [(Buffer2 p t) p :-> (Buffer2 p t)]])
+                  :-> (Chan2 p t)]
+                 [(t/U (Buffer2 p t) t/Int nil)
+                  ; xform
+                  (t/U nil
+                       [[(Buffer2 p t) p :-> (Buffer2 p t)]
+                        :->
+                        [(Buffer2 p t) p :-> (Buffer2 p t)]])
+                  ; ex-handler
+                  (t/U nil
+                       [Throwable :-> (t/U nil p)])
+                  :-> (Chan2 p t)])))
 
 (ann ^:no-check clojure.core.async.impl.ioc-macros/aget-object [AtomicReferenceArray t/Int :-> Any])
 (ann ^:no-check clojure.core.async.impl.ioc-macros/aset-object [AtomicReferenceArray Any :-> nil])
@@ -182,6 +230,62 @@
 
 (ann ^:no-check clojure.core.async.impl.dispatch/run [[:-> (ReadOnlyChan Any)] :-> Executor])
 ;(ann clojure.core.async.impl.ioc-macros/async-chan-wrapper kV
+
+(ann ^:no-check clojure.core.async/put!
+     (t/All [p]
+            (IFn [(Port2 p Any) p :-> Any]
+                 [(Port2 p Any) p [Any :-> Any] :-> Any]
+                 [(Port2 p Any) p [Any :-> Any] Any :-> Any])))
+
+(ann ^:no-check clojure.core.async/map<
+     (t/All [t o]
+            [[t -> o]
+             (Chan2 t/Nothing t)
+             :->
+             (Chan o)]))
+
+(ann ^:no-check clojure.core.async/map>
+     (t/All [p t]
+            [[t -> p]
+             (Chan2 p t)
+             :->
+             (Chan2 p t)]))
+
+;(ann ^:no-check clojure.core.async/filter>
+;     (t/All [t t']
+;            (IFn
+;              [[t :-> Any :filters {:then (is t' 0)}] (Chan2 t/Nothing t) :-> (Chan t')]
+;              [[t :-> Any] (Chan2 t/Nothing t) :-> (Chan t)])))
+;
+;(ann ^:no-check clojure.core.async/remove>
+;     (t/All [p t]
+;            (IFn
+;              [[t :-> Any :filters {:then (! p 0)}] (Chan2 p t) :-> (Chan2 p t)]
+;              [[t :-> Any] (Chan2 p t) :-> (Chan2 p t)])))
+;
+;(ann ^:no-check clojure.core.async/filter<
+;     (t/All [p t]
+;            (IFn
+;              [[t :-> Any :filters {:then (is p 0)}] (Chan2 t/Nothing t) :-> (Chan2 p t)]
+;              [[t :-> Any] (Chan2 t/Nothing t) :-> (Chan2 t t)])))
+
+(ann ^:no-check clojure.core.async/onto-chan
+     (t/All [x]
+            [(Chan x)
+             (t/U nil (t/Seqable x))
+             :->
+             (Chan Any)]))
+
+(ann ^:no-check clojure.core.async/to-chan
+     (t/All [x]
+            [(t/U nil (t/Seqable x))
+             :-> (Chan x)]))
+
+;(ann ^:no-check clojure.core.async/map
+;     (All [x]
+;          [[x :-> y]
+;           (t/U nil (t/Seqable (Chan x)))))
+
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Typed wrappers
@@ -227,6 +331,14 @@
                                              ioc/BINDINGS-IDX captured-bindings#))]
                (ioc/run-state-machine-wrapped state#)))))
        c#)))
+
+(defmacro go-loop
+  "Like (go (t/loop ...))"
+  [& body]
+  (let [[t? t body] (maybe-annotation body)]
+    (if t?
+      `(go :- ~t (t/loop ~@body))
+      `(go (t/loop ~@body)))))
 
 (comment
 (t/cf
