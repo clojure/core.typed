@@ -219,8 +219,7 @@
     clojure.core/compare [Any Any -> Number]
     clojure.core/sort (All [x]
                            (IFn [(U nil (Seqable x)) -> (U nil (ASeq x))]
-                                #_[(I Comparator [x x -> AnyInteger])
-                                   (U nil (Seqable x)) -> (U nil (ASeq x))]))
+                                [[x x -> AnyInteger] (U nil (Seqable x)) -> (U nil (ASeq x))]))
     clojure.core/shuffle (All [x]
                               (IFn [(I (Collection x) (Seqable x)) -> (Vec x)]
                                    [(Collection x) -> (Vec x)]))
