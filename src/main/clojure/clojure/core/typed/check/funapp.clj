@@ -15,11 +15,13 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.filter-ops :as fops]
             [clojure.set :as set]
             [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed.frees :as frees]))
+            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.hset-utils :as hset]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -119,6 +121,33 @@
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
       (r/ret r/Err)
+
+      (r/HSet? fexpr-type)
+      (let [fixed (:fixed fexpr-type)]
+        (cond
+          (not (#{1} (count arg-ret-types))) 
+          (do (err/tc-delayed-error (str "Wrong number of arguments to set (" (count args)")"))
+              (r/ret r/Err))
+
+          :else
+          (let [[argt] arg-ret-types
+                ; default value is nil
+                set-return (apply c/Un r/-nil fixed)]
+            (if (and (:complete? fexpr-type)
+                     (every? (every-pred
+                               r/Value?
+                               (comp hset/valid-fixed? :val))
+                             fixed))
+              (let [; (#{false nil} a) returns false even if a is nil/false
+                    filter-type (apply c/Un
+                                       (disj (r/sorted-type-set fixed) 
+                                             (r/-val nil)
+                                             (r/-val false)))]
+                (r/ret set-return
+                       (fops/-FS
+                         (fops/-filter-at filter-type (r/ret-o argt))
+                         (fops/-not-filter-at filter-type (r/ret-o argt)))))
+              (r/ret set-return)))))
 
   ; FIXME error messages are worse here because we don't use line numbers for
   ; specific arguments

@@ -36,7 +36,7 @@
   (constant-ret [v] 
     (ret
       (if (every? hset/valid-fixed? v)
-        (r/-hset (set (map r/-val v)))
+        (r/-hset (r/sorted-type-set (map r/-val v)))
         (c/RClass-of PersistentHashSet [(apply c/Un (map constant-type v))]))))
 
   ;nothing specific, Cons seems like an implementation detail
