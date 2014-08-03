@@ -1,3 +1,41 @@
+# 0.2.65 - SNAPSHOT
+
+(0.2.64 is a dud)
+
+## clojure.string Annotations
+
+Thanks to Aravind K N for this patch.
+
+- annotations for clojure.string/{blank?,capitalize,lower-case,replace{,-first},reverse,trim{,rl}}
+
+# 0.2.63 - 24st July 2014
+
+## Set membership idiom
+
+- Support `(#{:a :b} x)` set membership idiom
+  - literal symbols, keywords, strings, numbers, booleans, characters and nil are supported
+    as set members
+  - also correctly handles the nil/false special cases
+
+```clojure
+(let [foo :- (U false nil ':a ':b), :a]
+  (if (#{:a :b false nil} foo)
+    (ann-form foo (U ':a ':b false nil))
+    (ann-form foo (U false nil ':a ':b))))
+```
+
+
+# 0.2.62 - 23st July 2014
+
+- (cast Integer nil) => nil
+  - now handled correctly
+  - previously assumed equivalent to (assert (instance? Integer nil))
+- core.async
+  - add Buffer protocol methods
+  - annotate Unblocking protocol
+
+- prepare for future tools.analyzer breaking changes (Thanks Nicola Mometto for the heads up)
+
 # 0.2.61 - 21st July 2014
 
 - add rand-nth annotation

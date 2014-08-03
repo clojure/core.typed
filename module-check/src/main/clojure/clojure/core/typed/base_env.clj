@@ -191,7 +191,7 @@ clojure.core/aget (All [x] (IFn [(ReadOnlyArray x)
                                [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
                                 AnyInteger AnyInteger AnyInteger AnyInteger -> x]
                                ; don't support unsound cases
-                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))))) 
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
                                 AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger -> x]))
 
 clojure.core/aset
@@ -282,7 +282,7 @@ clojure.core/remove (All [x y]
 
 
 clojure.core/take-while (All [x y]
-                               (IFn
+                               (IFn 
                                  [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (ASeq y)]
                                  [[x -> Any] (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/drop-while (All [x]
@@ -298,8 +298,8 @@ clojure.core/split-at
      (All [x y z] 
           [AnyInteger (Option (Seqable x)) -> '[(ASeq x) (ASeq x)]])
 
-clojure.core/partition-all (All [x]
-                             (IFn [Int (Nilable (Seqable x)) -> (ASeq (ASeq x))]
+clojure.core/partition-all (All [x] 
+                             (IFn [Int (Nilable (Seqable x)) -> (ASeq (ASeq x))] 
                                  [Int Int (Nilable (Seqable x)) -> (ASeq (ASeq x))]))
 
 clojure.core/repeatedly
@@ -313,7 +313,7 @@ clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 ; Unions need to support dots for this to work:
 ;
 ; (All [t0 b ...]
-;    (IFn [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}]
+;    (IFn [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
 ;         [Any -> Any :filters {:then (is b 0) :else (! b 0)}] ... b
 ;         -> (IFn [Any -> Any :filters {:then (is (U t0 b ... b) 0) :else (! (U t0 b ... b) 0)}]
 ;                [Any * -> Any])]))
@@ -588,7 +588,7 @@ clojure.core/select-keys (All [k v] [(Map k v) (U nil (Seqable Any))
 ; could possibly return nil in some insane mutable situtation
 clojure.core/sort (All [x] 
                        (IFn [(U nil (Seqable x)) -> (U nil (ASeq x))]
-                           [(I Comparator [x x -> AnyInteger])
+                           [(I Comparator [x x -> AnyInteger]) 
                             (U nil (Seqable x)) -> (U nil (ASeq x))]))
 
 ; this is insane
@@ -687,8 +687,8 @@ clojure.core/alter-meta!
       (All [b ...]
       [clojure.lang.IReference [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> (U nil (Map Any Any))])
 
-clojure.core/commute 
-      (All [w r b ...]
+clojure.core/commute
+      (All [w r b ...] 
            [(Ref2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/alter
@@ -723,6 +723,18 @@ clojure.string/join
 clojure.string/upper-case
       [CharSequence -> String]
 
+clojure.string/blank? [(U nil String) -> Boolean]
+clojure.string/capitalize [String -> String]
+clojure.string/lower-case [String -> String]
+clojure.string/replace (IFn [String String String -> String]  [String Character Character -> String]  [String java.util.regex.Pattern (U String [String -> String]) -> String] )
+clojure.string/replace-first (IFn [String String String -> String]  [String Character Character -> String]  [String java.util.regex.Pattern (U String [String -> String]) -> String] )
+clojure.string/reverse [String -> String]
+clojure.string/trim [String -> String]
+clojure.string/trimr [String -> String]
+clojure.string/triml [String -> String]
+
+
+
 clojure.core/interpose (All [x] (IFn [x (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (ASeq x)])
 
@@ -730,14 +742,14 @@ clojure.core/repeat (All [x]
                          (IFn [x -> (ASeq x)]
                              [AnyInteger x -> (ASeq x)]))
 
-;clojure.core/every? (All [x y]
+;clojure.core/every? (All [x y] 
 ;                         (IFn [[x -> Any :filters {:then (is y 0)}] (Coll x) -> Boolean
 ;                              :filters {:then (is (Coll (I x y)) 1)}]
 ;                             ; argument could be nil
 ;                             [[x -> Any :filters {:then (is y 0)}] (U nil (Coll x)) -> Boolean
 ;                              :filters {:then (is (U nil (Coll (I x y))) 1)}]
 ;                             [[x -> Any] (U nil (Seqable x)) -> Boolean]))
-clojure.core/every? (All [x y] 
+clojure.core/every? (All [x y]
                          (IFn [[x -> Any :filters {:then (is y 0)}] (Coll x) -> Boolean
                               :filters {:then (is (Coll y) 1)}]
                              ; argument could be nil
@@ -1346,7 +1358,7 @@ clojure.core/ex-data (IFn [ExInfo -> (Map Any Any)]
 
 ;; START CHUNK HACKS
 ;; These are hacks to get around the expansion of doseq>
-;; Basically, inference isn't good enough to narrow a (Seqable x) to
+;; Basically, inference isn't good enough to narrow a (Seqable x) to 
 ;; an (IChunk x), because chunked-seq? needs to be (Pred (IChunk Any)).
 clojure.core/chunked-seq? [Any -> Any]
 clojure.core/chunk-first 
@@ -1464,10 +1476,10 @@ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
 ;
 ;  clojure.core/aget 
 ;       (Label [rec]
-;              (All [x :dotted [b]]
+;              (All [x :dotted [b]] 
 ;                   (IFn [(Array _ x) AnyInteger -> x]
 ;                       [(Array _ x) AnyInteger b ... b
-;                        :recur
+;                        :recur 
 ;                        (rec x b ... b)])))
 ;
 ;  clojure.core/assoc 
@@ -1799,9 +1811,9 @@ clojure.lang.Delay (All [x]
     ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
      (init-protocol-env))
     (base-rclass/reset-rclass-env!)
-    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!)
+    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
      (init-declared-kinds))
-    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!)
+    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
      (init-datatype-env))
     ((v 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!)
      (init-datatype-ancestor-env)))

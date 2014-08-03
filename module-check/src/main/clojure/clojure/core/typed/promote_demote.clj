@@ -413,16 +413,15 @@
 
 (defmethod promote Extends
   [T V] 
-  (-> T
-    (update-in [:extends] #(mapv promote % (repeat V)))
-    (update-in [:without] #(mapv demote % (repeat V)))))
+  (c/-extends
+    (map promote (:extends T) (repeat V))
+    :without (map demote (:without T) (repeat V))))
 
 (defmethod demote Extends
   [T V] 
-  (-> T
-    (update-in [:extends] #(mapv demote % (repeat V)))
-    (update-in [:without] #(mapv promote % (repeat V)))))
-
+  (c/-extends
+    (map demote (:extends T) (repeat V))
+    :without (map promote (:without T) (repeat V))))
 
 (defmethod promote Intersection
   [T V] 

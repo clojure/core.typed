@@ -29,7 +29,27 @@
     #(a/alts!! [(a/chan) (a/chan)] :priority true)
     :requires [[clojure.core.async :as a]
                [clojure.core.typed.async]])
-  )
+  (is-tc-e
+    (do
+      (ann lift-chan (All [x y] [[x -> y] -> [(Chan x) -> (Chan y)]]))
+      (defn lift-chan [function]
+        (fn [in :- (Chan x)]
+          (let [out (chan :- y)]
+            (go
+              (loop []
+                (let [rcv (<! in)]
+                  (when rcv
+                    (>! out (function rcv))))))
+            out)))
+
+      (ann upper-case [Str -> Str])
+      (defn upper-case [s] s)
+
+      (ann upcase [(Chan Str) -> (Chan Str)])
+      (def upcase (lift-chan upper-case))
+      (upcase (chan :- Str)))
+    :requires [[clojure.core.async :as a :refer [<! >!]]
+               [clojure.core.typed.async :refer [chan go Chan]]]))
 
 ;(let [c1 (chan)
 ;      c2 (chan :- t/Str)]

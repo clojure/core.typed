@@ -215,9 +215,13 @@
 (defn predicate-for [on-type]
   (let [RClass-of @(RClass-of-var)]
     (r/make-FnIntersection
-      (r/make-Function [r/-any] (RClass-of Boolean) nil nil
-                       :filter (fl/-FS (fl/-filter on-type 0)
-                                       (fl/-not-filter on-type 0))))))
+      (r/make-Function [r/-any] 
+        (impl/impl-case
+          :clojure (RClass-of Boolean)
+          :cljs    (r/BooleanCLJS-maker))
+        nil nil
+        :filter (fl/-FS (fl/-filter on-type 0)
+                        (fl/-not-filter on-type 0))))))
 
 (defn parse-Pred [[_ & [t-syn :as args]]]
   (when-not (== 1 (count args))
@@ -558,6 +562,7 @@
   (err/deprecated-plain-op 'HVec)
   (parse-HVec t))
 (defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
+(defmethod parse-type-list 'cljs.core.typed/HVec [t] (parse-HVec t))
 
 (defn parse-types-with-rest-drest [err-msg]
   (fn [syns]

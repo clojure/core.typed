@@ -141,7 +141,9 @@
               vs (apply Un (mapcat vals [mandatory optional]))]
           (impl/impl-case
             :clojure (RClass-of 'clojure.lang.APersistentMap [ks vs])
-            :cljs (Protocol-of 'cljs.core/IMap [ks vs])))
+            :cljs (In (Protocol-of 'cljs.core/IMap [ks vs])
+                      (Protocol-of 'cljs.core/ICollection [r/-any])
+                      (Protocol-of 'cljs.core/IAssociative [ks vs]))))
         (r/make-CountRange 
           ; assume all optional entries are absent
           #_:lower
@@ -256,7 +258,9 @@
              r/-any)]
     (impl/impl-case
       :clojure (RClass-of 'clojure.lang.APersistentSet [tp])
-      :cljs    (Protocol-of 'cljs.core/ISet [tp]))))
+      :cljs    (In (Protocol-of 'cljs.core/ISet [tp])
+                   (Protocol-of 'cljs.core/ICollection [tp])
+                   (Protocol-of 'cljs.core/ISeqable [tp])))))
 
 ; Should update this with prest
 (t/ann ^:no-check upcast-hvec [HeterogeneousVector -> r/Type])
@@ -275,7 +279,9 @@
         :clojure (RClass-of clojure.lang.APersistentVector [tp])
         :cljs    (In (Protocol-of 'cljs.core/IVector [tp])
                      (Protocol-of 'cljs.core/ICollection [tp])
-                     (Protocol-of 'cljs.core/ISeqable [tp])))
+                     (Protocol-of 'cljs.core/ISeqable [tp])
+                     (Protocol-of 'cljs.core/IStack [tp])
+                     (Protocol-of 'cljs.core/IAssociative [r/-integer-cljs tp])))
       (when-not drest
         [(r/make-CountRange
            (count types)

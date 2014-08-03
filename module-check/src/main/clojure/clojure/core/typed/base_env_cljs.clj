@@ -12,9 +12,9 @@
 (env/ensure
 (ucljs/with-core-cljs-typed
 (binding [ana/*cljs-ns* 'cljs.core.typed]
-(delay-and-cache-env ^:private init-protocol-env
+(delay-and-cache-env ^:private init-protocol-env 
   (h/protocol-mappings
-
+    
 cljs.core/Fn [[]]
 cljs.core/IFn [[]]
 cljs.core/ICloneable [[]]
@@ -75,7 +75,7 @@ cljs.core/Reduced [[[x :variance :covariant]]]
     ((impl/v 'clojure.core.typed.protocol-env/reset-protocol-env!)
      (init-protocol-env))))
 
-(delay-and-cache-env ^:private init-jsnominals
+(delay-and-cache-env ^:private init-jsnominals 
   (reset-protocol-env!)
   (h/jsnominal-mappings
 
@@ -85,7 +85,7 @@ string [[]
         {}
         :methods
         {toLowerCase [-> string]}]
-
+    
 js/Document [[]
           :fields
           {}
@@ -96,8 +96,8 @@ js/HTMLElement [[]
              :fields
              {innerHTML string
               tagName (U nil string)}]
-
-
+    
+    
 js/Event [[]
        :methods
        {preventDefault [-> nil]}]
@@ -105,16 +105,15 @@ js/Event [[]
 
     ;http://dom.spec.whatwg.org/#interface-eventtarget
 js/EventTarget [[]]
-
+    
 goog.events.Listenable [[]]
 goog.events.EventTarget [[]]
     ))
 
 (defn reset-jsnominal-env! []
   (impl/with-cljs-impl
-    ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!)
+    ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
      (init-jsnominals))))
-
 
 ;;; vars specific to cljs
 (delay-and-cache-env ^:private init-var-env
@@ -154,6 +153,8 @@ cljs.core/enable-console-print! [-> Any]
 
 cljs.core/truth_ [Any -> Any]
 
+cljs.core/coercive-= [Any Any -> boolean]
+
 cljs.core/nil? (Pred nil)
 
 cljs.core/array? (ReadOnlyArray Any)
@@ -169,7 +170,7 @@ cljs.core/*main-cli-fn* (U nil [Any * -> Any])
 cljs.core/missing-protocol [Any Any -> Any]
 cljs.core/type->str [Any -> string]
 
-cljs.core/make-array (All [r]
+cljs.core/make-array (All [r] 
                           (IFn [int -> (Array r)]
                                [Any int -> (Array r)]))
 
@@ -178,7 +179,7 @@ cljs.core/array (All [r]
 
 cljs.core/alength [(ReadOnlyArray Any) -> int]
 
-cljs.core/into-array (All [x]
+cljs.core/into-array (All [x] 
                           (IFn [(U nil (cljs.core/ISeqable x)) -> (Array x)]
                               [Any (U nil (cljs.core/ISeqable x)) -> (Array x)]))
 
@@ -197,12 +198,27 @@ cljs.core/prim-seq
       (All [x]
            [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
 
-;;;;;;;
 cljs.core/key-test [Keyword Any -> boolean]
+
+cljs.core/fn? [Any -> boolean]
+cljs.core/ifn? [Any -> boolean]
+
+;;pop needs to be defined here because
+;;definition of List differs between clj and cljs
+cljs.core/pop (All [x]
+                      (IFn
+                        [(IList x) -> (IList x)]
+                        [(Vec x) -> (Vec x)]
+                        [(Stack x) -> (Stack x)]))
 
 cljs.core/clj->js [Any -> Any]
 cljs.core/js->clj [Any -> Any]
-cljs.core/js-obj  [Any * -> Any])))
+cljs.core/js-obj  [Any * -> Any]
+
+;;pseudo-private vars
+cljs.core/-conj [Any Any -> Any]
+;cljs.core.List.Empty (IList Any)
+)))
 
 (delay-and-cache-env ^:private init-var-nochecks
   (set (keys (init-var-env))))
@@ -212,13 +228,13 @@ cljs.core/js-obj  [Any * -> Any])))
   (reset-jsnominal-env!)
   (h/js-var-mappings
 ;; js
-
+    
 js/document js/Document
 
 ;; goog.dom
 
 goog.dom/setTextContent [js/Element (U string number) -> js/Window]
-goog.dom/getElementsByTagNameAndClass
+goog.dom/getElementsByTagNameAndClass 
       [(U nil string) (U nil string) (U nil js/Document js/Element) -> (cljs.core/ISeqable js/Element)]
 goog.dom.classes/set [(U js/Node nil) string -> Any]
 goog.dom.classes/add [(U js/Node nil) (U nil string) * -> boolean]
@@ -238,72 +254,85 @@ goog.events.EventType.MOUSEOUT string
 goog.events.EventType.MOUSEMOVE string
     ))
 
-(delay-and-cache-env init-alias-env
+(delay-and-cache-env init-alias-env 
   (reset-protocol-env!)
   (reset-jsnominal-env!)
   (h/alias-mappings
 
-   ^{:doc "A type that returns true for cljs.core/integer?"}
-   cljs.core.typed/AnyInteger int
+  ^{:doc "A type that returns true for cljs.core/integer?"}
+cljs.core.typed/AnyInteger int
 
-   ^{:doc "A type that returns true for cljs.core/integer?"}
-   cljs.core.typed/Integer int
+  ^{:doc "A type that returns true for cljs.core/integer?"}
+cljs.core.typed/Integer int
 
-   ^{:doc "A type that returns true for cljs.core/number?"}
-   cljs.core.typed/Number number
+  ^{:doc "A type that returns true for cljs.core/number?"}
+cljs.core.typed/Number number
 
-   ^{:doc "A type that returns true for cljs.core/string?"}
-   cljs.core.typed/String string
+  ^{:doc "A type that returns true for cljs.core/string?"}
+cljs.core.typed/String string
 
-   ^{:doc "A type that returns true for cljs.core/boolean?"}
-   cljs.core.typed/Boolean boolean
+  ^{:doc "A type that returns true for cljs.core/boolean?"}
+cljs.core.typed/Boolean boolean
 
-   ^{:doc "vector -- alias for common anns"}
-   cljs.core.typed/Vec (TFn [[x :variance :covariant]]
-                            (IVector x))
+  ^{:doc "vector -- alias for common anns"}
+cljs.core.typed/Vec (TFn [[x :variance :covariant]]
+                         (IVector x))
 
-   ^{:doc "vector -- alias for common anns"}
-   cljs.core.typed/IPersistentVector (TFn [[x :variance :covariant]]
-                                          (IVector x))
+  ^{:doc "vector -- alias for common anns"}
+cljs.core.typed/IPersistentVector (TFn [[x :variance :covariant]]
+                                       (IVector x))
 
-   ^{:doc "map -- alias for common anns"}
-   cljs.core.typed/Map IMap
+  ^{:doc "map -- alias for common anns"}
+cljs.core.typed/Map (TFn [[k :variance :covariant]
+                          [v :variance :covariant]]
+                         (IMap k v))
 
-   ^{:doc "map -- alias for common anns"}
-   cljs.core.typed/IPersistentMap IMap
+  ^{:doc "map -- alias for common anns"}
+cljs.core.typed/IPersistentMap (TFn [[k :variance :covariant]
+                                     [v :variance :covariant]]
+                         (IMap k v))
 
-   ^{:doc "map -- alias for common anns"}
-   cljs.core.typed/APersistentMap IMap
+  ^{:doc "map -- alias for common anns"}
+cljs.core.typed/APersistentMap (TFn [[k :variance :covariant]
+                                     [v :variance :covariant]]
+                         (IMap k v))
 
-   ^{:doc "associative -- alias for common anns"}
-   cljs.core.typed/Associative IAssociative
+  ^{:doc "associative -- alias for common anns"}
+cljs.core.typed/Associative IAssociative
 
-   ^{:doc "atom -- alias for common anns"}
-   cljs.core.typed/Atom2 Atom
+  ^{:doc "An atom that can read and write type x."
+    :forms [(Atom1 t)]}
+cljs.core.typed/Atom1 (TFn [[x :variance :invariant]] 
+                           (cljs.core/Atom x x))
+  ^{:doc "An atom that can write type w and read type r."
+    :forms [(Atom2 t)]}
+cljs.core.typed/Atom2 (TFn [[w :variance :contravariant]
+                            [r :variance :covariant]] 
+                           (cljs.core/Atom w r))
 
-   ^{:doc "sequential -- alias for common anns"}
-   cljs.core.typed/Sequential ISequential
+  ^{:doc "sequential -- alias for common anns"}
+cljs.core.typed/Sequential ISequential
 
-   ^{:doc "set -- alias for common anns"}
-   cljs.core.typed/Set ISet
+  ^{:doc "set -- alias for common anns"}
+cljs.core.typed/Set ISet
 
-   ^{:doc "set -- alias for common anns"}
-   cljs.core.typed/IPersistentSet ISet
+  ^{:doc "set -- alias for common anns"}
+cljs.core.typed/IPersistentSet ISet
 
 
-   ^{:doc "A type that can be used to create a sequence of member type x."}
-   cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
-                                (cljs.core/ISeqable x))
+  ^{:doc "A type that can be used to create a sequence of member type x."}
+cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
+                             (cljs.core/ISeqable x))
 
-   ^{:doc "A persistent sequence of member type x."
-     :forms [(Seq t)]}
-   cljs.core.typed/Seq (TFn [[x :variance :covariant]]
-                            (cljs.core/ISeq x))
+  ^{:doc "A persistent sequence of member type x."
+    :forms [(Seq t)]}
+cljs.core.typed/Seq (TFn [[x :variance :covariant]]
+                         (cljs.core/ISeq x))
 
-   ^{:doc "A persistent sequence of member type x with count greater than 0."
-     :forms [(NonEmptySeq t)]}
-   cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
-                                    (I (cljs.core/ISeq x) (CountRange 1)))
+  ^{:doc "A persistent sequence of member type x with count greater than 0."
+    :forms [(NonEmptySeq t)]}
+cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
+                                 (I (cljs.core/ISeq x) (CountRange 1)))
 
 
 
@@ -311,41 +340,42 @@ goog.events.EventType.MOUSEMOVE string
    ;;copied from impl/init-aliases
 
    ;;Seqables
-   ^{:doc "A type that can be used to create a sequence of member type x
+  ^{:doc "A type that can be used to create a sequence of member type x
 with count 0."
-     :forms [(EmptySeqable t)]}
-   cljs.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
-                                        (I (cljs.core.typed/Seqable x) (ExactCount 0)))
+    :forms [(EmptySeqable t)]}
+cljs.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
+                                  (I (cljs.core.typed/Seqable x) (ExactCount 0)))
 
-    ^{:doc "A type that can be used to create a sequence of member type x
+   ^{:doc "A type that can be used to create a sequence of member type x
 with count greater than 0."
-      :forms [(NonEmptySeqable t)]}
-    cljs.core.typed/NonEmptySeqable
+     :forms [(NonEmptySeqable t)]}
+cljs.core.typed/NonEmptySeqable
     (TFn [[x :variance :covariant]]
          (I (cljs.core.typed/Seqable x) (CountRange 1)))
 
     ;;Option
-   ^{:doc "A union of x and nil."
-     :forms [(Option t)]}
-   cljs.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
+  ^{:doc "A union of x and nil."
+    :forms [(Option t)]}
+cljs.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
 
 
-   ^{:doc "A persistent collection with member type x."
-     :forms [(Coll t)]}
-   cljs.core.typed/Coll (TFn [[x :variance :covariant]]
-                             (cljs.core/ICollection x))
+  ^{:doc "A persistent collection with member type x."
+    :forms [(Coll t)]}
+cljs.core.typed/Coll (TFn [[x :variance :covariant]]
+                          (cljs.core/ICollection x))
 
-   ^{:doc "A persistent collection with member type x and count greater than 0."
-     :forms [(NonEmptyColl t)]}
-   cljs.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
-                                     (I (cljs.core/ICollection x)
-                                        (CountRange 1)))
+  ^{:doc "A persistent collection with member type x and count greater than 0."
+    :forms [(NonEmptyColl t)]}
+cljs.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
+                                  (I (cljs.core/ICollection x)
+                                     (CountRange 1)))
 
-   ^{:doc "A sequential non-empty seq retured from clojure.core/seq"
-     :forms [(NonEmptyASeq t)]}
-   cljs.core.typed/NonEmptyASeq
+  ^{:doc "A sequential non-empty seq retured from clojure.core/seq"
+    :forms [(NonEmptyASeq t)]}
+cljs.core.typed/NonEmptyASeq
    (TFn [[x :variance :covariant]]
-        (I (cljs.core/ISeq x)
+        (I (cljs.core/ASeq x)
+           (cljs.core/ISeq x)
            (cljs.core/ISeqable x)
            cljs.core/ISequential
            ;(Iterable x)
@@ -355,23 +385,23 @@ with count greater than 0."
            (CountRange 1)))
 
 
-   ^{:doc "The type of all things with count 0. Use as part of an intersection.
+  ^{:doc "The type of all things with count 0. Use as part of an intersection.
            eg. See EmptySeqable."
-     :forms [EmptyCount]}
-   cljs.core.typed/EmptyCount (ExactCount 0)
+    :forms [EmptyCount]}
+cljs.core.typed/EmptyCount (ExactCount 0)
 
-   ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
+  ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
            eg. See NonEmptySeq"
-      :forms [NonEmptyCount]}
-   cljs.core.typed/NonEmptyCount (CountRange 1)
+     :forms [NonEmptyCount]}
+cljs.core.typed/NonEmptyCount (CountRange 1)
 
-   ^{:doc "A union of x and nil."
-     :forms [(Nilable t)]}
-   cljs.core.typed/Nilable (TFn [[x :variance :covariant]] (U nil x))
+  ^{:doc "A union of x and nil."
+    :forms [(Nilable t)]}
+cljs.core.typed/Nilable (TFn [[x :variance :covariant]] (U nil x))
 
-   ^{:doc "A persistent vector returned from clojure.core/vector (and others)"
-     :forms [(AVec t)]}
-   cljs.core.typed/AVec (TFn [[x :variance :covariant]]
+  ^{:doc "A persistent vector returned from clojure.core/vector (and others)"
+    :forms [(AVec t)]}
+cljs.core.typed/AVec (TFn [[x :variance :covariant]]
                              (I (IPersistentVector x)
                                 ;(java.lang.Iterable x)
                                 (ICollection x)
@@ -379,9 +409,9 @@ with count greater than 0."
                                 ;clojure.lang.IObj
                                 ))
 
-   ^{:doc "A persistent vector returned from clojure.core/vector (and others) and count greater than 0."
-     :forms [(NonEmptyAVec t)]}
-   cljs.core.typed/NonEmptyAVec (TFn [[x :variance :covariant]]
+  ^{:doc "A persistent vector returned from clojure.core/vector (and others) and count greater than 0."
+    :forms [(NonEmptyAVec t)]}
+cljs.core.typed/NonEmptyAVec (TFn [[x :variance :covariant]]
                                         (I (IPersistentVector x)
                                            ;(java.lang.Iterable x)
                                            (ICollection x)
@@ -389,12 +419,13 @@ with count greater than 0."
                                            ;clojure.lang.IObj
                                            (CountRange 1)))
 
-   ^{:doc "The result of clojure.core/seq."
-     :forms [(NilableNonEmptyASeq t)]}
-   cljs.core.typed/NilableNonEmptyASeq
+  ^{:doc "The result of clojure.core/seq."
+    :forms [(NilableNonEmptyASeq t)]}
+cljs.core.typed/NilableNonEmptyASeq
    (TFn [[x :variance :covariant]]
         (U nil
-           (I (cljs.core/ISeq x)
+           (I (cljs.core/ASeq x)
+              (cljs.core/ISeq x)
               cljs.core/ISequential
               ;(Iterable x)
               (cljs.core/ICollection x)
@@ -402,16 +433,21 @@ with count greater than 0."
               ;clojure.lang.IObj
               (CountRange 1))))
 
-   ^{:doc "A Clojure persistent list."
-     :forms [(PersistentList t)]}
-   cljs.core.typed/PersistentList
+  ^{:doc "A Clojure persistent list."
+    :forms [(PersistentList t)]}
+cljs.core.typed/PersistentList
    (TFn [[x :variance :covariant]]
-        (List x))
+        (cljs.core/IList x))
 
-   ^{:doc "Collection"}
-   cljs.core.typed/Collection
+  ^{:doc "Collection"}
+cljs.core.typed/Collection
    (TFn [[x :variance :covariant]]
-        (ICollection x))))
+        (cljs.core/ICollection x))
+  ^{:doc "A Clojure stack."
+    :forms [(Stack t)]}
+cljs.core.typed/Stack
+   (TFn [[x :variance :covariant]]
+        (cljs.core/IStack x))))
 
 
 (defn reset-alias-env! []
@@ -442,6 +478,8 @@ cljs.core/Atom [[[w :variance :contravariant]
                  [r :variance :covariant]]]
 cljs.core/Symbol [[]]
 cljs.core/Keyword [[]]
+cljs.core/List [[[a :variance :covariant]]]
+cljs.core/Reduced [[[x :variance :covariant]]]
     ))
 )
 
