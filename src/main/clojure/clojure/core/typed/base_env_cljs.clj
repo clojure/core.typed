@@ -479,6 +479,7 @@ cljs.core/Atom [[[w :variance :contravariant]
 cljs.core/Symbol [[]]
 cljs.core/Keyword [[]]
 cljs.core/List [[[a :variance :covariant]]]
+cljs.core/Reduced [[[x :variance :covariant]]]
     ))
 )
 
