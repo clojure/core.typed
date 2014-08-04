@@ -111,6 +111,7 @@ Thanks to the following people for contributing to core.typed:
 * Jake Goulding (shepmaster)
 * Andy Fingerhut
 * Aravind K N (arav93)
+* Allen Rohner (arohner)
 
 ## Sponsors
 
