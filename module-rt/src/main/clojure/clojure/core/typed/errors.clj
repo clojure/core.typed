@@ -114,6 +114,9 @@
                       {:type-error tc-error-parent}
                       {:env (env-for-error env)})))))
 
+(defn warn [msg]
+  (println (str "WARNING:" msg)))
+
 (defn deprecated-warn
   [msg]
   (let [env *current-env*
