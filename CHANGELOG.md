@@ -1,4 +1,4 @@
-# 0.2.65 - SNAPSHOT
+# 0.2.{65,66} - 6th August 2014
 
 (0.2.64 is a dud)
 
