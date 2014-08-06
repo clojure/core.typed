@@ -14,6 +14,10 @@ Thanks to Allen Rohner for this patch.
 
 - [http://dev.clojure.org/jira/browse/CTYP-166](CTYP-166) - more forgiving on ns dependencies without source files
 
+## Dependency changes
+
+- core.cache 0.6.4
+
 # 0.2.63 - 24st July 2014
 
 ## Set membership idiom
