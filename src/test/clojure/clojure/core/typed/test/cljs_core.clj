@@ -23,12 +23,12 @@
        '~pairs]))
 
 (defmacro run-core-tests []
-  (cons 'do 
-      (for [[f cases] @core-tests
-            [args expected] (partition 2 cases)]
-        (if (:single-arg (meta f))
-            `(is-tc-e (~f ~args) ~expected)
-            `(is-tc-e (~f ~@args) ~expected)))))
+  (cons 'do
+    (for [[f cases] @core-tests
+          [args expected] (partition 2 cases)]
+      (if (:single-arg (meta f))
+          `(is-tc-e (~f ~args) ~expected)
+          `(is-tc-e (~f ~@args) ~expected)))))
 
 
 ;;; core vars test
@@ -221,6 +221,51 @@
      #{8 36 2}] int
     [(t/fn [x :- int y :- int] :- (core/Reduced int) (reduced 0))
      #{8 36 2} 0] int)
+
+(add-test reduce-kv
+    [(t/fn [a :- int k :- Keyword v :- int] :- int (+ a v))
+     0 {:a 1 :b 2 :c 3}] int)
+
+(add-test <
+    [1 5]     boolean
+    [1.8 0.8] boolean
+    [1/2 3/2] boolean)
+
+(add-test1 int
+    1      int)
+
+(add-test mod
+    [8 2] t/AnyInteger
+    [8.1 2.1] number)
+
+(add-test rand
+    []  number
+    [8] number)
+
+(add-test1 rand-int
+    1    int
+    1000 int)
+
+(add-test nthnext
+    [nil 8] nil
+    [#{2 3 1} 1] (t/Option (t/NonEmptyASeq int))
+    [[1 2 3]  9] (t/Option (t/NonEmptyASeq int)))
+
+(comment add-test1 rseq
+    [1 2 3] (t/Option (t/NonEmptyASeq int)))
+
+(add-test1 reverse
+    [1 2 3] (core/ASeq int)
+    {:a 1 :b 2} (core/ASeq t/Any)
+    #{1 2 3}  (core/ASeq int))
+
+(comment add-test list
+    [1 2 3] (t/PersistentList int)
+    [:a 2]  (t/PersistentList t/Any))
+
+(add-test cons
+    [1 [2 3]]   (core/ASeq int)
+    [[1] [[2]]] (core/ASeq (t/Vec int)))
 
 
 

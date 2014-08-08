@@ -49,7 +49,7 @@ cljs.core/IEquiv [[]]
 cljs.core/IHash [[]]
 cljs.core/ISequential [[]]
 cljs.core/Record [[]]
-cljs.core/Reversible [[]]
+cljs.core/IReversible [[[x :variance :covariant]]]
 cljs.core/ISorted [[]]
 cljs.core/IWriter [[]]
 cljs.core/IPrintWithWriter [[]]
@@ -443,11 +443,18 @@ cljs.core.typed/PersistentList
 cljs.core.typed/Collection
    (TFn [[x :variance :covariant]]
         (cljs.core/ICollection x))
+
   ^{:doc "A Clojure stack."
     :forms [(Stack t)]}
 cljs.core.typed/Stack
    (TFn [[x :variance :covariant]]
-        (cljs.core/IStack x))))
+        (cljs.core/IStack x))
+
+   ^{:doc "Reversible maps to IReversible"
+     :forms [(Reversible t)]}
+cljs.core.typed/Reversible
+   (TFn [[x :variance :covariant]]
+        (cljs.core/IReversible x))))
 
 
 (defn reset-alias-env! []

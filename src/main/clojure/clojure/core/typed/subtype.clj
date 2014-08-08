@@ -635,7 +635,9 @@
           (subtype (c/In (impl/impl-case
                            :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
                                           (c/RClass-of clojure.lang.Sequential))
-                           :cljs (throw (Exception. "TODO cljs HSequential")))
+                           :cljs (c/In (c/Protocol-of 'cljs.core/ICollection [ss])
+                                       (c/Protocol-of 'cljs.core/ISequential))
+                           #_(throw (Exception. "TODO cljs HSequential")))
                          ((if (or (:rest s)
                                   (:drest s))
                             r/make-CountRange

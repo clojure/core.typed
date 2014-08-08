@@ -234,8 +234,8 @@
           ;; default
           ;; (reduce + 3 my-coll)
           [[a c -> (U (Reduced a) a)] a (Option (Seqable c)) -> a]))
-    ;;clojure.core/reduce-kv
-    #_(All [a c k v]
+    clojure.core/reduce-kv
+    (All [a c k v]
          [[a k v -> (U (Reduced a) a)] a (Option (Associative k v)) -> a])
     clojure.core/< [Number Number * -> Boolean]
     clojure.core/<= [Number Number * -> Boolean]
@@ -244,7 +244,9 @@
     clojure.core/== [Number Number * -> Boolean]
     clojure.core/max [Number Number * -> Number]
     clojure.core/min [Number Number * -> Number]
-    clojure.core/int [Any -> Integer]
+    clojure.core/int (IFn [Number -> Integer]
+                          ;[Character -> Integer]
+                          )
     clojure.core/booleans [Any -> (Array boolean)]
     clojure.core/ints [Any -> (Array int)]
     clojure.core/mod (IFn [AnyInteger AnyInteger -> AnyInteger]
@@ -273,9 +275,9 @@
     clojure.core/subs (IFn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
     clojure.core/hash-combine [AnyInteger Any -> AnyInteger]
-    ;;clojure.core/rseq
+    ;clojure.core/rseq
     #_(All [x]
-           [(Reversible x) -> (Option (NonEmptyASeq x))])
+         [(Reversible x) -> (Option (NonEmptyASeq x))])
     clojure.core/reverse (All [x]
                               [(Option (Seqable x)) -> (ASeq x)])
     clojure.core/list (All [x] [x * -> (PersistentList x)])
@@ -650,7 +652,6 @@
                                          [Number Number (Coll a) -> (ASeq (ASeq a))]
                                          [Number Number Number (Coll a) -> (ASeq (ASeq a))]))
     clojure.core/name [(U Keyword String Symbol) -> String]
-    clojure.core/rseq (All [a] [(Seqable a) -> (ASeq a)])
     ;todo clojure.core/replace
     clojure.core/fnext (All [a] [(Seqable a) -> a])
     clojure.core/rem [Number Number -> Number]

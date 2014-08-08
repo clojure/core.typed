@@ -6,7 +6,7 @@
 (def -base-aliases
   '#{AnyInteger Integer Seqable NonEmptySeq Number String Boolean Seq
      EmptySeqable NonEmptySeqable Option Coll NonEmptyColl NonEmptyASeq NonEmptyAVec
-     EmptyCount NonEmptyCount Vec Nilable AVec NilableNonEmptyASeq PersistentList Collection Set Stack
+     EmptyCount NonEmptyCount Vec Nilable AVec NilableNonEmptyASeq PersistentList Collection Set Stack Reversible
      IPersistentSet IPersistentVector IPersistentMap APersistentMap Associative Map Atom1 Atom2 Sequential})
 
 (def -specials 
