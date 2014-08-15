@@ -129,6 +129,7 @@ cljs.core.typed/ann-protocol* [Any Any Any -> Any]
 cljs.core.typed/ann-datatype* [Any Any Any Any -> Any]
 cljs.core.typed/def-alias* [Any Any -> Any]
 cljs.core.typed/typed-deps* [Any -> Any]
+cljs.core.typed/ann-jsnominal* [Any Any -> Any]
 
 cljs.core/+ (IFn [int * -> int]
                  [number * -> number])

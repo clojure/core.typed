@@ -146,7 +146,7 @@
                                         ;(t/check-ns* 'cljs.core.typed.async)
 
 
-(comment deftest core-fns-test
+(deftest core-fns-test
   (t/check-ns* 'cljs.core.typed.test.ympbyc.test-base-env))
 
 (declare cljs-core-vars)

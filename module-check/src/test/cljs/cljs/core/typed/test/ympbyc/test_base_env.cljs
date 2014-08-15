@@ -1,5 +1,5 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
-  (:require-macros [cljs.core.typed :refer [ann] :as ct])
+  (:require-macros [cljs.core.typed :refer [ann ann-jsnominal] :as ct])
   (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable Vec HSequential NonEmptyASeq NonEmptySeqable Atom1 Set Coll Map] :as t]
             [cljs.core :refer [IVector ISeq ASeq List]]))
 
@@ -207,3 +207,36 @@
 (ann disj-1 (Set number))
 (def disj-1 (disj #{1 2 3 4} 3 4))
 
+
+;;jsnominals
+(ann-jsnominal js/Object
+    [[]
+     :fields {}
+     :methods {keys (Array string)
+               toString [-> string]}])
+
+(ann-jsnominal js/Document
+    [[]
+     :fields {}
+     :methods
+     {getElementById [string -> (cljs.core.typed/Option js/HTMLElement)]
+      querySelector [string -> (cljs.core.typed/Option js/HTMLElement)]}
+     :ancestors #{js/Object}])
+
+;(ann js/document js/Document)
+
+(ann  get-el [string -> (Option js/HTMLElement)])
+(defn get-el [sel] (.querySelector js/document sel))
+
+(ann  inner-html [js/HTMLElement -> string])
+(defn inner-html [el] (.-innerHTML el))
+
+(ann inner-html-result string)
+(def inner-html-result
+  (let [el (get-el "body")]
+    (if el (inner-html el) "")))
+
+;;inheritance
+
+(ann document-is-object string)
+(def document-is-object (.toString js/document))

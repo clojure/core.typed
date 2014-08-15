@@ -91,47 +91,51 @@
                    [n# (c/Protocol* names# vs# frees# the-var#
                                     on-class# methods# bnds#)])))))))
 
+(defn jsnominal-entry [[n [binder & {:as opts}]]]
+  (let [names (when (seq binder)
+                    (map first binder))
+        {vs :variances
+         names :names
+         bnds :bnds} 
+        (when (seq binder)
+          ; don't bound frees because mutually dependent bounds are problematic
+          ; FIXME ... Or is this just laziness? 
+          (let [b (free-ops/with-free-symbols names
+                     (mapv prs/parse-tfn-binder binder))]
+            {:variances (map :variance b)
+             :names (map :nme b)
+             :bnds (map :bound b)}))
+        frees (map r/make-F names)
+        methods (free-ops/with-bounded-frees (zipmap frees bnds)
+                   (into {}
+                         (for [[mname mtype] (:methods opts)]
+                           [mname (c/abstract-many names (prs/parse-type mtype))])))
+        fields (free-ops/with-bounded-frees (zipmap frees bnds)
+                  (into {}
+                        (for [[mname mtype] (:fields opts)]
+                          [mname (c/abstract-many names (prs/parse-type mtype))])))
+        ctor (when-let [ctor (:ctor opts)]
+                (free-ops/with-bounded-frees (zipmap frees bnds)
+                  (c/abstract-many names (prs/parse-type ctor))))
+        ancestors (free-ops/with-bounded-frees (zipmap frees bnds)
+                     (into #{}
+                           (for [mtype (:ancestors opts)]
+                             (c/abstract-many names (prs/parse-type mtype)))))]
+    (decl-env/remove-declared-kind n)
+    [n {:jsnominal (c/JSNominal* names vs frees n bnds)
+         :fields fields
+         :methods methods
+         :ctor ctor
+         :ancestors ancestors}]))
+
+
 (defmacro jsnominal-mappings [& args]
   `(impl/with-cljs-impl
      (let [ts# (partition 2 '~args)]
        (into {}
              (doall
-               (for [[n# [binder# & {:as opts#}]] ts#]
-                 (let [names# (when (seq binder#)
-                                (map first binder#))
-                       {vs# :variances
-                        names# :names
-                        bnds# :bnds} 
-                       (when (seq binder#)
-                         ; don't bound frees because mutually dependent bounds are problematic
-                         ; FIXME ... Or is this just laziness? 
-                         (let [b# (free-ops/with-free-symbols names#
-                                    (mapv prs/parse-tfn-binder binder#))]
-                           {:variances (map :variance b#)
-                            :names (map :nme b#)
-                            :bnds (map :bound b#)}))
-                       frees# (map r/make-F names#)
-                       methods# (free-ops/with-bounded-frees (zipmap frees# bnds#)
-                                  (into {}
-                                        (for [[mname# mtype#] (:methods opts#)]
-                                          [mname# (c/abstract-many names# (prs/parse-type mtype#))])))
-                       fields# (free-ops/with-bounded-frees (zipmap frees# bnds#)
-                                 (into {}
-                                       (for [[mname# mtype#] (:fields opts#)]
-                                         [mname# (c/abstract-many names# (prs/parse-type mtype#))])))
-                       ctor# (when-let [ctor# (:ctor opts#)]
-                               (free-ops/with-bounded-frees (zipmap frees# bnds#)
-                                 (c/abstract-many names# (prs/parse-type ctor#))))
-                       ancestors# (free-ops/with-bounded-frees (zipmap frees# bnds#)
-                                    (into #{}
-                                          (for [mtype# (:ancestors opts#)]
-                                            (c/abstract-many names# (prs/parse-type mtype#)))))]
-                   (decl-env/remove-declared-kind n#)
-                   [n# {:jsnominal (c/JSNominal* names# vs# frees# n# bnds#)
-                        :fields fields#
-                        :methods methods#
-                        :ctor ctor#
-                        :ancestors ancestors#}])))))))
+                (for [t# ts#]
+                 (jsnominal-entry t#)))))))
 
 (defmacro datatype-mappings [& args]
   `(impl/with-cljs-impl
