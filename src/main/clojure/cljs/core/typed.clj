@@ -75,6 +75,14 @@
                     (next args))]
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
+(defmacro ann-jsnominal
+  "Equivalent of TypeScript interface"
+  [varsym jsnom]
+  (let [qualsym (if (namespace varsym)
+                    varsym
+                    (symbol (str (ns-name *ns*)) (name varsym)))]
+   `(ann-jsnominal* '~qualsym '~jsnom)))
+
 (defmacro
   ^{:forms '[(ann-datatype dname [field :- type*] opts*)
              (ann-datatype binder dname [field :- type*] opts*)]}
