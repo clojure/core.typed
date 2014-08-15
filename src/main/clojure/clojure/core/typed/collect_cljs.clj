@@ -23,6 +23,7 @@
             [clojure.core.typed.collect-phase :as coll-clj]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.datatype-env :as dt-env]
+            [clojure.core.typed.base-env-helper-cljs :as beh-cljs]
             [clojure.repl :as repl]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -169,6 +170,15 @@
   (assert (= (count args) 4) "Wrong arguments to ann-datatype")
   (let [[binder dname fields opt] (map :form args)]
     (gen-datatype* env (chk/expr-ns expr) dname fields binder opt false)))
+
+(defn p [x] (println x) x)
+
+(defmethod invoke-special-collect 'cljs.core.typed/ann-jsnominal*
+  [{:keys [args env] :as expr}]
+  (let [[sym jsnom] (map :form args)]
+    (swap! impl/jsnominal-env
+      assoc sym
+      (second (beh-cljs/jsnominal-entry [sym jsnom])))))
 
 (defmethod invoke-special-collect 'cljs.core.typed/ann-protocol*
   [{[{vbnd :form} {varsym :form} {mth :form} :as args] :args :keys [env] :as expr}]
