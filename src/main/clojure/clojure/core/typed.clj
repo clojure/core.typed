@@ -2065,7 +2065,24 @@ for checking namespaces, cf for checking individual forms."}
   nil)
 
 (defmacro override-method 
-  "Override type for qualified method methodsym."
+  "Override type for qualified method methodsym.
+
+  methodsym identifies the method to override and should be a
+  namespace-qualified symbol in the form <class>/<method-name>.
+  The class name needs to be fully qualified.
+
+  typesyn uses the same annotation syntax as functions.
+
+  Use non-nil-return instead of override-method if you want to
+  declare that a method can never return nil.
+
+  Example:
+
+    (override-method java.util.Properties/stringPropertyNames
+                     [-> (java.util.Set String)])
+
+  This overrides the return type of method stringPropertyNames
+  of class java.util.Properties to be (java.util.Set String)."
   [methodsym typesyn]
   `(override-method* '~methodsym '~typesyn))
 
