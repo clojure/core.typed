@@ -220,7 +220,7 @@
      :fields {}
      :methods
      {getElementById [string -> (cljs.core.typed/Option js/HTMLElement)]
-      querySelector [string -> (cljs.core.typed/Option js/HTMLElement)]}
+      querySelector  [string -> (cljs.core.typed/Option js/HTMLElement)]}
      :ancestors #{js/Object}])
 
 ;(ann js/document js/Document)
