@@ -83,7 +83,7 @@
 ;  [csym field-sym type]
 ;  (swap! JSNOMINAL-ENV update-in [csym :fields field-sym] (constantly type)))
 
-(declare get-method get-inherited-method)
+(declare get-method get-field get-inherited-property)
 
 (t/ann ^:no-check get-method [t/Sym (t/U nil (t/Seqable r/Type)) t/Sym -> (t/U nil r/Type)])
 (defn get-method 
@@ -96,15 +96,18 @@
   (println (str "Searching " csym "#" method-sym))
   (if-let [tscope (get-in @impl/jsnominal-env [csym :methods method-sym])]
     (c/inst-and-subst tscope args)
-    (get-inherited-method csym args method-sym)))
+    (get-inherited-property get-method csym args method-sym)))
 
-(t/ann ^:no-check get-inherited-method [t/Sym (t/Option (t/Seqable r/Type)) t/Sym -> (t/Option r/Type)])
-(defn get-inherited-method
-  "search for the method in the interfaces ancestors"
-  [csym args method-sym]
+(t/ann ^:no-check get-inherited-property [[t/Sym (t/Option (t/Seqable r/Type)) t/Sym -> (t/Option r/Type)] 
+                                          t/Sym (t/Option (t/Seqable r/Type)) t/Sym -> (t/Option r/Type)])
+(defn get-inherited-property
+  "search for the property in the interfaces ancestors
+   method: (get-inherited-property get-method csym args method-sym)
+   field:  (get-inherited-property get-field csym args field-sym)"
+  [f csym args method-sym]
   ;(println (->> (get-in @impl/jsnominal-env [csym :ancestors]) (map :id)))
   (->> (get-in @impl/jsnominal-env [csym :ancestors])
-       (map #(get-method (:id %) args method-sym))
+       (map #(f (:id %) args method-sym))
        (filter identity)
        first))
 
@@ -116,8 +119,9 @@
          (every? r/Type? args)
          (symbol? field-sym)]
    :post [((some-fn nil? r/Type?) %)]}
-  (when-let [tscope (get-in @impl/jsnominal-env [csym :fields field-sym])]
-    (c/inst-and-subst tscope args)))
+  (if-let [tscope (get-in @impl/jsnominal-env [csym :fields field-sym])]
+    (c/inst-and-subst tscope args)
+    (get-inherited-property get-method csym args field-sym)))
 
 (t/ann ^:no-check get-ctor [t/Sym (t/U nil (t/Seqable r/Type)) -> (t/U nil r/Type)])
 (defn get-ctor

@@ -171,8 +171,6 @@
   (let [[binder dname fields opt] (map :form args)]
     (gen-datatype* env (chk/expr-ns expr) dname fields binder opt false)))
 
-(defn p [x] (println x) x)
-
 (defmethod invoke-special-collect 'cljs.core.typed/ann-jsnominal*
   [{:keys [args env] :as expr}]
   (let [[sym jsnom] (map :form args)]
