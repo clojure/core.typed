@@ -1,6 +1,8 @@
 (ns clojure.core.typed.base-env-common
   "Utilities for all implementations of the type checker"
-  (:require [clojure.core.typed.parse-unparse :as prs]))
+  (:require [clojure.core.typed.parse-unparse :as prs]
+            [clojure.tools.reader :as rdr]
+            [clojure.tools.reader.reader-types :as rdrs]))
 
 (defmacro delay-and-cache-env [sym & body]
   (let [generator-sym (symbol (str "generator-" sym))
@@ -45,9 +47,10 @@
 
 ;;these annotations can be parsed in either {cljs,clojure}.core.typed
 ;;and have the same meaning.
-(def common-var-annotations
   ;;ordered the same as in cljs.core
-  '{clojure.core/*1 Any
+(def common-ann*
+  "
+    clojure.core/*1 Any
     clojure.core/*2 Any
     clojure.core/*3 Any
     clojure.core/identical? [Any Any -> Boolean]
@@ -654,5 +657,15 @@
     clojure.core/name [(U Keyword String Symbol) -> String]
     ;todo clojure.core/replace
     clojure.core/fnext (All [a] [(Seqable a) -> a])
-    clojure.core/rem [Number Number -> Number]
-    })
+    clojure.core/rem [Number Number -> Number]")
+
+(def common-var-annotations
+  (let [r (rdrs/string-push-back-reader common-ann*)
+        eof (Object.)
+        os (loop [os []]
+             (let [a (rdr/read r false eof)]
+               (if (identical? eof a)
+                 os
+                 (recur (conj os a)))))
+        _ (assert (even? (count os)))]
+    (apply hash-map os)))
