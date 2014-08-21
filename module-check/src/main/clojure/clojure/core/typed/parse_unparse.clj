@@ -215,9 +215,13 @@
 (defn predicate-for [on-type]
   (let [RClass-of @(RClass-of-var)]
     (r/make-FnIntersection
-      (r/make-Function [r/-any] (RClass-of Boolean) nil nil
-                       :filter (fl/-FS (fl/-filter on-type 0)
-                                       (fl/-not-filter on-type 0))))))
+      (r/make-Function [r/-any] 
+        (impl/impl-case
+          :clojure (RClass-of Boolean)
+          :cljs    (r/BooleanCLJS-maker))
+        nil nil
+        :filter (fl/-FS (fl/-filter on-type 0)
+                        (fl/-not-filter on-type 0))))))
 
 (defn parse-Pred [[_ & [t-syn :as args]]]
   (when-not (== 1 (count args))
@@ -383,7 +387,7 @@
 
 (defn parse-Array 
   [[_ syn & none]]
-  (when-not (empty? none) 
+  (when-not (empty? none)
     (err/int-error "Expected 1 argument to Array"))
   (let [t (parse-type syn)]
     (impl/impl-case
@@ -558,6 +562,7 @@
   (err/deprecated-plain-op 'HVec)
   (parse-HVec t))
 (defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
+(defmethod parse-type-list 'cljs.core.typed/HVec [t] (parse-HVec t))
 
 (defn parse-types-with-rest-drest [err-msg]
   (fn [syns]
@@ -612,6 +617,7 @@
   (err/deprecated-plain-op 'HSequential)
   (parse-HSequential t))
 (defmethod parse-type-list 'clojure.core.typed/HSequential [t] (parse-HSequential t))
+(defmethod parse-type-list 'cljs.core.typed/HSequential [t] (parse-HSequential t))
 
 (def parse-hseq-type (parse-types-with-rest-drest
                       "Invalid heterogeneous seq syntax:"))
@@ -1153,7 +1159,7 @@
   [k]
   (err/int-error (str "Bad type syntax: " (pr-str k)
                       (when ((some-fn symbol? keyword?) k)
-                        (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor."  
+                        (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor." 
                              " eg. '" (pr-str k) " or (Value " (pr-str k)")")))))
 
 (indu/add-indirection ind/parse-type parse-type)
