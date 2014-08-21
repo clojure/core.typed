@@ -576,10 +576,10 @@
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
    (#{0 1} (count (filter identity [rest drest repeat])))
-   (if repeat (not-empty types) true)
+   (or (not repeat) (not-empty types))
    ((some-fn nil? Type?) rest)
    ((some-fn nil? DottedPretype?) drest)
-   ((some-fn true? false?) repeat)]
+   (con/boolean? repeat)]
   :methods
   [p/TCType])
 
