@@ -8,6 +8,7 @@
 (defonce protocol-env (atom {}))
 (defonce rclass-env (atom {}))
 (defonce datatype-env (atom {}))
+(defonce jsnominal-env (atom {}))
 
 (defn v [vsym]
   {:pre [(symbol? vsym)
@@ -95,7 +96,9 @@
    (the-var 'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
    (v 'clojure.core.typed.declared-kind-env/CLJS-DECLARED-KIND-ENV) 
    (the-var 'clojure.core.typed.datatype-env/*current-datatype-env*)
-   (v 'clojure.core.typed.datatype-env/CLJS-DATATYPE-ENV)})
+   (v 'clojure.core.typed.datatype-env/CLJS-DATATYPE-ENV)
+   (the-var 'clojure.core.typed.jsnominal-env/*current-jsnominal-env*)
+   (v 'clojure.core.typed.jsnominal-env/JSNOMINAL-ENV)})
 
 (defmacro with-cljs-impl [& body]
   `(with-impl clojurescript

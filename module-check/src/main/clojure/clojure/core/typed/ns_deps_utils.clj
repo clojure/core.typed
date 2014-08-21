@@ -20,15 +20,14 @@
 
 (defn ns-form-for-ns
   "Returns the namespace declaration for the namespace, or
-  nil if not found. Throws an int-error if file cannot be
-  found for namespace."
+  nil if not found."
   [nsym]
   {:pre [(symbol? nsym)]}
   (let [f (-> nsym coerce/ns->file)
-        res (io/resource f)
-        _ (when-not res
-            (err/int-error (str "File for " nsym " not found on classpath: " f)))]
-    (ns-form-for-file res)))
+        res (io/resource f)]
+    (if res
+      (ns-form-for-file res)
+      (err/warn (str "File for " nsym " not found on classpath: " f)))))
 
 (defn ns-form-deps
   "Given a ns-form, returns a set of dependencies"
@@ -54,10 +53,11 @@
   [ns-form]
   {:pre [ns-form]
    :post [(con/boolean? %)]}
-  (let [deps (ns-parse/deps-from-ns-decl ns-form)]
+  (if-let [deps (ns-parse/deps-from-ns-decl ns-form)]
     (contains? deps (impl/impl-case
                       :clojure 'clojure.core.typed
-                      :cljs 'cljs.core.typed))))
+                      :cljs 'cljs.core.typed))
+    false))
 
 (defn ns-form-name
   "Returns the symbol naming this namespace, with any
@@ -86,7 +86,8 @@
   {:pre [(symbol? nsym)]
    :post [(con/boolean? %)]}
   (p/p :ns-deps-utils/should-check-ns?
-    (let [ns-form (ns-form-for-ns nsym)]
-      (and ns-form
-           (requires-tc? ns-form)
-           (not (collect-only-ns? ns-form))))))
+       (if-let [ns-form (ns-form-for-ns nsym)]
+         (and ns-form
+              (requires-tc? ns-form)
+              (not (collect-only-ns? ns-form)))
+         false)))

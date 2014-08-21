@@ -731,7 +731,9 @@
           (subtype (c/In (impl/impl-case
                            :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
                                           (c/RClass-of clojure.lang.Sequential))
-                           :cljs (throw (Exception. "TODO cljs HSequential")))
+                           :cljs (c/In (c/Protocol-of 'cljs.core/ICollection [ss])
+                                       (c/Protocol-of 'cljs.core/ISequential))
+                           #_(throw (Exception. "TODO cljs HSequential")))
                          ((if (or (:rest s)
                                   (:drest s))
                             r/make-CountRange
@@ -741,22 +743,7 @@
 
         ; TODO add repeat support
         (r/HeterogeneousVector? s)
-        (let [ss (apply c/Un
-                        (concat
-                          (:types s)
-                          (when-let [rest (:rest s)]
-                            [rest])
-                          (when (:drest s)
-                            [r/-any])))]
-          (subtype (c/In (impl/impl-case
-                           :clojure (c/RClass-of APersistentVector [ss])
-                           :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
-                         ((if (or (:rest s)
-                                  (:drest s))
-                            r/make-CountRange
-                            r/make-ExactCountRange)
-                          (count (:types s))))
-                   t))
+        (subtype (c/upcast-hvec s) t)
 
         (r/HeterogeneousList? s)
         (let [ss (apply c/Un
@@ -866,6 +853,7 @@
             :cljs (cond
                     (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
                     (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
+                    (string? (.val s)) (subtype (r/StringCLJS-maker) t)
                     (con/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
                     (symbol? (.val s)) (subtype (c/DataType-of 'cljs.core/Symbol) t)
                     (keyword? (.val s)) (subtype (c/DataType-of 'cljs.core/Keyword) t)

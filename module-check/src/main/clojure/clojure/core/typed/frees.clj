@@ -434,6 +434,14 @@
             (err/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
+;;js types
+(add-frees-method [::any-var clojure.core.typed.type_rep.BooleanCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.ObjectCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.StringCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.NumberCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.IntegerCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.ArrayCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.FunctionCLJS] [t] {})
 
 (comment
 (u/profile :info :foo (t/check-ns))

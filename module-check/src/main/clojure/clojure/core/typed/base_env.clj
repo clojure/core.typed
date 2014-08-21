@@ -8,7 +8,8 @@
            (java.util Comparator Collection))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-clj-rclass :as base-rclass]
-            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
+            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
+             :as common]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pe]
@@ -114,7 +115,8 @@ clojure.java.io/IOFactory
 (delay-and-cache-env ^:private init-var-env
   (reset-alias-env!)
   (merge
-    (h/var-mappings
+   (common/parse-clj-ann-map common/common-var-annotations)
+   (h/var-mappings
 
 clojure.core.typed/check-ns (IFn [Symbol -> Any]
                                 [-> Any])

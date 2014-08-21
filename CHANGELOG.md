@@ -1,4 +1,19 @@
-# 0.2.65 - SNAPSHOT
+# 0.2.67 - 21st August 2014
+
+Thanks to Minori Yamashita (ympbyc) for his GSoC work this summer!
+This release merges his progress.
+
+## ClojureScript 
+
+Lots of cljs.core annotations.
+
+## Dependency Changes
+
+- `[org.clojure/clojure "1.6.0"]` (minimum)
+- `[org.clojure/clojurescript "0.0-2268"]`
+- JDK 1.7 minimum
+
+# 0.2.{65,66} - 6th August 2014
 
 (0.2.64 is a dud)
 
@@ -7,6 +22,16 @@
 Thanks to Aravind K N for this patch.
 
 - annotations for clojure.string/{blank?,capitalize,lower-case,replace{,-first},reverse,trim{,rl}}
+
+## Namespace dependencies missing Source-code
+
+Thanks to Allen Rohner for this patch.
+
+- [http://dev.clojure.org/jira/browse/CTYP-166](CTYP-166) - more forgiving on ns dependencies without source files
+
+## Dependency changes
+
+- core.cache 0.6.4
 
 # 0.2.63 - 24st July 2014
 

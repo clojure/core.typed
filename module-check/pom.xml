@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.2.66-SNAPSHOT</version>
+    <version>0.2.68-SNAPSHOT</version>
   </parent>
 
   <build>
@@ -99,7 +99,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.rt</artifactId>
-      <version>0.2.66-SNAPSHOT</version>
+      <version>0.2.68-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -125,18 +125,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.cache</artifactId>
-      <version>0.6.3</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>data.priority-map</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>data.priority-map</artifactId>
-      <version>0.0.4</version>
+      <version>0.6.4</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
