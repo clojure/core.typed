@@ -7,6 +7,7 @@
             [clojure.core.typed.path-rep]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed :as t]
+            [clojure.core.typed.hset-utils :as hset]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
@@ -15,7 +16,7 @@
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq TCError Extends JSNominal
                                         StringCLJS BooleanCLJS NumberCLJS IntegerCLJS ObjectCLJS
-                                        ArrayCLJS FunctionCLJS KwArgsSeq HSequential)
+                                        ArrayCLJS FunctionCLJS KwArgsSeq HSequential HSet)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -294,6 +295,29 @@
                :drest (when-let [drest (:drest T)]
                         (update-in drest [:pre-type] dmt))))))
 
+(defmethod promote HSet
+  [T V]
+  (let [fixed (mapv promote (:fixed T) (repeat V))
+        h (r/-hset fixed (:complete? T))]
+    (if (every? (fn [a] 
+                  (and (r/Value? a)
+                       (hset/valid-fixed? (:val a))))
+                fixed)
+      h
+      (c/upcast-hset h))))
+
+(defmethod demote HSet
+  [T V]
+  (let [fixed (mapv demote (:fixed T) (repeat V))
+        h (r/-hset fixed (:complete? T))]
+    (if (every? (fn [a] 
+                  (and (r/Value? a)
+                       (hset/valid-fixed? (:val a))))
+                fixed)
+      h
+      (c/upcast-hset h))))
+
+
 (defmethod promote HeterogeneousList
   [T V]
   (-> T
@@ -303,6 +327,8 @@
   [T V]
   (-> T
     (update-in [:types] #(apply list (mapv demote % (repeat V))))))
+
+
 
 (defmethod promote Value [T V] T)
 (defmethod demote Value [T V] T)
