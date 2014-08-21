@@ -448,8 +448,8 @@ clojure.core/assoc
      (All [m k v c ...]
           (IFn [m k v (t/HSeq [c c] :repeat true) <... c
                 -> (Assoc m k v c ... c)]
-               [m k v (t/HSeq [k v] :repeat true) <*
-                -> (Assoc m k v)]
+;               [m k v (t/HSeq [k v] :repeat true) <*
+;                -> (Assoc m k v)]
                [nil k v (t/HSeq [c c] :repeat true) <... c
                 -> (Assoc nil k v c ... c)]
                [nil k v (t/HSeq [k v] :repeat true) <*
