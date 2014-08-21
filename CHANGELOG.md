@@ -1,3 +1,17 @@
+# 0.2.67 - 21st August 2014
+
+Thanks to Minori Yamashita (ympbyc) for his GSoC work this summer!
+This release merges his progress.
+
+## ClojureScript 
+
+Lots of cljs.core annotations.
+
+## Dependency Changes
+
+- `[org.clojure/clojure "1.6.0"]` (minimum)
+- `[org.clojure/clojurescript "0.0-2268"]`
+
 # 0.2.{65,66} - 6th August 2014
 
 (0.2.64 is a dud)
