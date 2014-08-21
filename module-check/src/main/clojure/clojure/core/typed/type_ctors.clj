@@ -1814,7 +1814,7 @@
                  AssocType
                  (fn [{:keys [target entries dentries]} {{:keys [name count outer sb]} :locals}]
                    (r/AssocType-maker (sb target)
-                                      (map (fn [[k v]] [(sb k) (sb v)]) entries)
+                                      (mapv (fn [[k v]] [(sb k) (sb v)]) entries)
                                       (when dentries
                                         (-> dentries
                                           (update-in [:pre-type] sb)
