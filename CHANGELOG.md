@@ -11,6 +11,7 @@ Lots of cljs.core annotations.
 
 - `[org.clojure/clojure "1.6.0"]` (minimum)
 - `[org.clojure/clojurescript "0.0-2268"]`
+- JDK 1.7 minimum
 
 # 0.2.{65,66} - 6th August 2014
 
