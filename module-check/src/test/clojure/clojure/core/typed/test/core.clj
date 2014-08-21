@@ -3280,17 +3280,16 @@
   (is-tc-e (apply (inst hash-map Number String) 1 "a" [2 "b" 3 "c" 4 "c"]) :expected (Map Number String))
   (is-tc-e (apply (inst hash-map Number String) 1 "a" []) :expected (Map Number String))
   (is-tc-e (apply (inst hash-map Number String) 1 "a" nil) :expected (Map Number String))
-  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]):expected (Map Number String))
-  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 "b" 3 \c]):expected (Map Number String))
-  (is-tc-err (apply (inst hash-map Number String) 1 \a [2 "c"]):expected (Map Number String))
-  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]):expected (Map Number String))
-  (is-tc-err (apply (inst hash-map Number String) 1 \a [2 \c]):expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 "b" 3 \c]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 \a [2 "c"]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 \a [2 \c]) :expected (Map Number String))
   )
 
 (deftest nil-empty-with-repeat
   (let [t (impl/with-clojure-impl
             (parse-type '(HSequential [Number String] :repeat true)))
-        nil-t (impl/with-clojure-impl (parse-type nil))
         tt (impl/with-clojure-impl
              (parse-type '(All [k v] (HSequential [k v] :repeat true))))
         cg #(cs-gen #{} ;V
@@ -3301,13 +3300,13 @@
     (is-clj (subtype? (parse-type '(HSequential [])) t))
     (is-clj (subtype? (parse-type '(HVec [])) t))
     (is-clj (subtype? (parse-type '(HSeq [])) t))
-    (is-clj (subtype? nil-t t))
-    (is-clj (subtype? nil-t (parse-type '(HVec [Number String] :repeat true))))
-    (is-clj (subtype? nil-t (parse-type '(HSeq [Number String] :repeat true))))
+    (is-clj (subtype? -nil t))
+    (is-clj (subtype? -nil (parse-type '(HVec [Number String] :repeat true))))
+    (is-clj (subtype? -nil (parse-type '(HSeq [Number String] :repeat true))))
     (is-clj (do (cg (parse-type '(HSequential []))) true))
     (is-clj (do (cg (parse-type '(HVec []))) true))
     (is-clj (do (cg (parse-type '(HSeq []))) true))
-    (is-clj (do (cg nil-t) true))
+    (is-clj (do (cg -nil) true))
   ))
 
 ;(clojure.core.typed/All [b ...] [b ... b -> (HVec [b ... b])]) <: [java.lang.Number * -> (HVec [java.lang.Number])]
