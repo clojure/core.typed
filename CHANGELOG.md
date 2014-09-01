@@ -1,3 +1,9 @@
+# 0.2.68 - SNAPSHOT
+
+- Fix major memory leak 
+  - removed interning, replaced with normal cached hashes
+  - Fixes CTYP-83
+
 # 0.2.67 - 21st August 2014
 
 Thanks to Minori Yamashita (ympbyc) for his GSoC work this summer!
