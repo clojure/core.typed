@@ -1260,7 +1260,9 @@
 
 (defmethod unparse-type* DottedPretype
   [{:keys [pre-type name]}]
-  (list 'DottedPretype (unparse-type pre-type) (-> name r/make-F r/F-original-name)))
+  (list 'DottedPretype (unparse-type pre-type) (if (symbol? name)
+                                                 (-> name r/make-F r/F-original-name)
+                                                 name)))
 
 (defmethod unparse-type* CountRange [{:keys [lower upper]}]
   (cond
