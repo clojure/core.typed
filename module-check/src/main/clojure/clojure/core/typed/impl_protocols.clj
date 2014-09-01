@@ -65,11 +65,3 @@
 (t/ann ^:no-check IRObject? (t/Pred IRObject))
 (defn IRObject? [a]
   (instance? clojure.core.typed.impl_protocols.IRObject a))
-
-
-; consider making this a definterface
-(t/ann-protocol TypeId
-                type-id [TypeId -> Long])
-
-(u/defprotocol TypeId
-  (type-id [_]))

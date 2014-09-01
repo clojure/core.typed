@@ -84,13 +84,13 @@
                (boolean
                  (handle-failure
                    (subtype s t)))))]
-    (if-let [[_ res] (u/p :subtype-cache-lookup (find @subtype-cache [(hash s) (hash t)]))]
+    (if-let [[_ res] (u/p :subtype-cache-lookup (find @subtype-cache [s t]))]
       (u/p :subtype-cache-hit 
        res)
       (let [_ (u/p :subtype-cache-miss)
             res (do-subtype)]
         (when-not (currently-subtyping?)
-          (swap! subtype-cache assoc [(hash s) (hash t)] res))
+          (swap! subtype-cache assoc [s t] res))
         res))))
 
 (declare subtypeA*)
