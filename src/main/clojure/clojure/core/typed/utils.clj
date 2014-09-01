@@ -132,16 +132,33 @@
         _ (inc-sequence-number)]
     id)))
 
-(defn ^:private inner-deftype [fields intern-id meta-field that name-sym type-hash gs
+(def default-xor 1)
+
+(defn ^:private inner-deftype [fields hash-field meta-field that name-sym type-hash gs
                                maker methods*]
-  `(deftype ~name-sym [~@fields ~intern-id ~meta-field]
+  `(deftype ~name-sym [~@fields ~(with-meta hash-field {:unsynchronized-mutable true}) ~meta-field]
      clojure.lang.IHashEq
      (equals [_# ~that]
-       (if (instance? ~name-sym ~that)
-         (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym})))
-         false))
-     (hasheq [this#] (bit-xor ~type-hash ~intern-id))
-     (hashCode [this#] (bit-xor ~type-hash ~intern-id))
+       (and (instance? ~name-sym ~that)
+            ; do not shadow fields here!
+            ~@(for [f fields]
+                `(= (~(keyword f) ~that) ~f))))
+     ; don't shadow fields here!
+     (hasheq [this#] (if-let [h# ~hash-field]
+                       h#
+                       (let [h# ~(if-let [ts (seq (map (fn [f] `(hash ~f)) fields))]
+                                   `(bit-xor ~type-hash ~@ts)
+                                   `(bit-xor ~type-hash ~default-xor))]
+                         (set! ~hash-field h#)
+                         h#)))
+     ; don't shadow fields here!
+     (hashCode [this#] (if-let [h# ~hash-field]
+                         h#
+                         (let [h# ~(if-let [ts (seq (map (fn [f] `(hash ~f)) fields))]
+                                     `(bit-xor ~type-hash ~@ts)
+                                     `(bit-xor ~type-hash ~default-xor))]
+                           (set! ~hash-field h#)
+                           h#)))
 
      clojure.lang.IObj
      (meta [this#] ~meta-field)
@@ -186,33 +203,45 @@
      (empty [this#] (throw (UnsupportedOperationException. (str "Can't create empty: " ~(str name-sym)))))
      (cons [this# e#] (throw (UnsupportedOperationException. (str "cons on " '~name-sym))))
      (equiv [_# ~that]
-       (if (instance? ~name-sym ~that)
-         (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym})))
-         false))
+       (and (instance? ~name-sym ~that)
+            ; do not shadow fields here!
+            ~@(for [f fields]
+                `(= (~(keyword f) ~that) ~f))))
      (containsKey [this# k#] (throw (UnsupportedOperationException. (str "containsKey on " '~name-sym))))
-     (seq [this#] (seq [~@(map #(list `new `clojure.lang.MapEntry (keyword %) %) (concat fields [#_intern-id #_meta-field]))]))
+     (seq [this#] (seq [~@(map #(list `new `clojure.lang.MapEntry (keyword %) %) (concat fields [#_meta-field]))]))
 
      (iterator [this#] (throw (UnsupportedOperationException. (str "iterator on " '~name-sym))))
      (without [this# k#] (throw (UnsupportedOperationException. (str "without on " '~name-sym))))
 
-     ps/TypeId
-     (ps/type-id [_#] ~intern-id)
+     Comparable
+     ~(let [this (gensym 'this)]
+        `(compareTo [~this ~that]
+                    ;returns 1 if we have 2 instances of name-sym with
+                    ; identical hashs, but are not =
+                    (cond (= ~this ~that) 0
+                          (instance? ~name-sym ~that)
+                          (if (< (hash ~this)
+                                 (hash ~that))
+                            -1
+                            1)
+                          :else (if (< (hash ~name-sym) (hash (class ~that)))
+                                  -1
+                                  1))))
 
      ~@methods*))
 
-(defn emit-deftype [name-sym intern-var fields invariants methods* intern*]
+(defn emit-deftype [name-sym fields invariants methods*]
   (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name-sym)) (meta name-sym))
         ->ctor (symbol (str "->" name-sym))
         maker (symbol (str name-sym "-maker"))
         that (gensym)
-        intern-id 'intern-id
-        interns intern-var
         gs (gensym)
         type-hash (hash classname)
-        meta-field '_meta]
+        meta-field '_meta
+        hash-field '_hash]
     `(do
        (declare ~maker)
-       ~(inner-deftype fields intern-id meta-field that name-sym type-hash gs
+       ~(inner-deftype fields hash-field meta-field that name-sym type-hash gs
                        maker methods*)
 
        (alter-meta! (var ~->ctor) assoc :private true)
@@ -224,60 +253,39 @@
        (defn ~maker [~@fields & {meta# :meta :as opt#}]
          {:pre ~invariants}
          (profiling/p ~(keyword "maker" (str name-sym))
-         (profiling/p ~(keyword "maker" (str name-sym "-meta-check"))
-         (let [extra# (set/difference (set (keys opt#)) #{:meta})]
-           (assert (empty? extra#) (str "Extra arguments:" extra#))))
-         (let [; the intern-fn uses ~@fields that are in scope above
-               intern-fn# ~(when intern*
-                             `(fn [] ~intern*))
-               interns# (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-total"))
-                          (or (when intern-fn#
-                                (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-custom"))
-                                  (vec (concat [~type-hash] (intern-fn#)))))
-                              (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-default"))
-                                [~type-hash ~@fields])))
-               id# (or (profiling/p :utils/intern-lookup 
-                         (profiling/p ~(keyword "maker" (str name-sym "-intern-lookup"))
-                            ((deref ~interns) interns#)))
-                       (let [nxt# (get-and-inc-id)]
-                         (profiling/p :utils/intern-miss)
-                         (swap! ~interns assoc interns# nxt#)
-                         nxt#))]
-           (~->ctor ~@fields id# meta#)))))))
+          (profiling/p ~(keyword "maker" (str name-sym "-meta-check"))
+           (let [extra# (set/difference (set (keys opt#)) #{:meta})]
+             (assert (empty? extra#) (str "Extra arguments:" extra#))))
+          ; ~@fields are in scope above
+          (~->ctor ~@fields nil meta#))))))
 
-(defmacro mk [name-sym intern-var fields invariants & {:keys [methods intern]}]
+(defmacro mk [name-sym fields invariants & {:keys [methods]}]
   (when-not (resolve name-sym)
     `(t/tc-ignore
-       ~(emit-deftype name-sym intern-var fields invariants methods intern))))
+       ~(emit-deftype name-sym fields invariants methods))))
 
 (defmacro defspecial [name]
-  (let [interns (symbol (str name "-interns"))]
-    `(do (defonce ~interns (atom {}))
-         ;FIXME preconditions
-         (defn ~(symbol (str name "="))
-           [t1# t2#]
-           (== (ps/type-id t1#)
-               (ps/type-id t2#)))
-         (defn ~(symbol (str name "<"))
-           [t1# t2#]
-           (< (ps/type-id t1#)
-              (ps/type-id t2#)))
-         (defn ~(symbol (str name "-comparator"))
-           [t1# t2#]
-           (compare (ps/type-id t1#)
-                    (ps/type-id t2#)))
-         (defmacro ~(symbol (str "def-" name))
-           [name# fields# doc# invariants# & opts#]
-           `(mk ~name# 
-                ~'~(symbol (-> *ns* ns-name str) (str interns)) 
-                ~fields# 
-                ~invariants# 
-                ~@opts#)))))
+  `(do (defn ~(symbol (str name "="))
+         [t1# t2#]
+         (= t1# t2#))
+       (defn ~(symbol (str name "<"))
+         [t1# t2#]
+         (neg? (compare t1# t2#)))
+       (defn ~(symbol (str name "-comparator"))
+         [t1# t2#]
+         (compare t1# t2#))
+       (defmacro ~(symbol (str "def-" name))
+         [name# fields# doc# invariants# & opts#]
+         `(mk ~name# 
+              ~fields# 
+              ~invariants# 
+              ~@opts#))))
 
 (defspecial type)
 (defspecial filter)
 (defspecial object)
 (defspecial path)
+
 )
 
 (defmacro add-defmethod-generator 

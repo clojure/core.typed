@@ -325,7 +325,7 @@
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
   ;(prn "Un" (map ind/unparse-type types))
-  (if-let [hit (p :Union-cache-lookup (get @Un-cache (p :Union-calc-hash (set (map p/type-id types)))))]
+  (if-let [hit (p :Union-cache-lookup (get @Un-cache (p :Union-calc-hash (set types))))]
     (do (p :Un-cache-hit)
         hit)
   (p :type-ctors/Un-ctor
@@ -365,7 +365,7 @@
                                  #{}
                                  (p :Un-flatten-unions 
                                     (set (flatten-unions types))))))))))]
-    (swap! Un-cache assoc (set (map p/type-id types)) res)
+    (swap! Un-cache assoc (set types) res)
     res))))
 
 ;; Intersections
@@ -431,7 +431,7 @@
    :post [(r/Type? %)]}
   (let [subtype? @(subtype?-var)]
     ;(prn "intersect" (map ind/unparse-type [t1 t2]))
-    (if-let [hit (@intersect-cache (set [(p/type-id t1) (p/type-id t2)]))]
+    (if-let [hit (@intersect-cache (set [t1 t2]))]
       (do
         ;(prn "intersect hit" (ind/unparse-type hit))
         (p :intersect-cache-hit)
@@ -463,7 +463,7 @@
                 :else (do
                         #_(prn "failed to eliminate intersection" (make-Intersection [t1 t2]))
                         (make-Intersection [t1 t2])))]
-        (swap! intersect-cache assoc (set [(p/type-id t1) (p/type-id t2)]) t)
+        (swap! intersect-cache assoc (set [t1 t2]) t)
         ;(prn "intersect miss" (ind/unparse-type t))
         t))))
 
@@ -772,7 +772,7 @@
    (let [sym (if (class? sym-or-cls)
                (coerce/Class->symbol sym-or-cls)
                sym-or-cls)
-         cache-key-hash [(keyword sym) (mapv p/type-id args)]
+         cache-key-hash [(keyword sym) args]
          cache-hit (@RClass-of-cache cache-key-hash)]
      (if cache-hit
        (u/p :ctors/RClass-of-cache-hit
@@ -955,7 +955,7 @@
 
 (t/ann supers-cache (t/Atom1 (t/Map Number (t/SortedSet r/Type))))
 (defonce ^:private supers-cache (atom {}
-                                      :validator (con/hash-c? integer?
+                                      :validator (con/hash-c? r/RClass?
                                                               (con/sorted-set-c? r/Type?))))
 
 (t/ann reset-supers-cache! [-> nil])
@@ -972,7 +972,7 @@
    :post [((con/sorted-set-c? r/Type?) %)]}
   (u/p :ctors/RClass-supers*
   ;(prn "RClass-supers*" the-class (ind/unparse-type rcls))
-  (let [cache-key (p/type-id rcls)
+  (let [cache-key rcls
         cache-hit (@supers-cache cache-key)]
     (if cache-hit
       (u/p :ctors/RClass-supers-cache-hit

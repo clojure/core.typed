@@ -3203,6 +3203,16 @@
   (is-tc-e @(ref 1) Any)
   (is-tc-e @(ref :- Number 1) Number))
 
+(deftest performance-CTYP83
+  (is (check-ns 'clojure.core.typed.test.CTYP-83-performance)))
+
+#_(deftest reduce-test
+  (is-tc-err (reduce (fn ([] :- nil) ([x :- Num y :- Num] :- nil)) [1]))
+  (is-tc-e (reduce (fn ([] :- Num 1) ([x :- Num y :- Num] :- Num 1)) [1]))
+  (is-tc-err (reduce (fn ([x :- Num y :- Num] :- Num 1)) [1]))
+  (is-tc-err (reduce (fn ([x :- Num y :- Num] :- Num 1)) [1]))
+  (is-tc-e (reduce (fn ([x :- Num, y :- Num] 1) ([] 1)) [1])))
+
 ;(deftest dotted-apply-test
 ;  (is-tc-e
 ;    (do (ann foo (All [x y ...] [[y ... y -> x] -> [y ... y -> x]]))
