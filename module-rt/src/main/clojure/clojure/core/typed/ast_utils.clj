@@ -154,21 +154,36 @@
 (defn new-op-class [expr]
   {:pre [(#{:new} (:op expr))]
    :post [(class? %)]}
-  (or ; tools.analyzer 0.3.x
-      (let [cls (:class expr)]
-        (when (class? cls)
-          cls))
-      ; future tools.analyzer
-      (let [{:keys [val]} (:class expr)]
-        val)))
+  (let [{:keys [val]} (:class expr)]
+    val))
 
 (defn catch-op-class [expr]
   {:pre [(#{:catch} (:op expr))]
    :post [(class? %)]}
-  (or ; tools.analyzer 0.3.x
-      (let [cls (:class expr)]
-        (when (class? cls)
-          cls))
-      ; future tools.analyzer
-      (let [{:keys [val]} (:class expr)]
-        val)))
+  (let [{:keys [val]} (:class expr)]
+    val))
+
+(defn protocol-invoke->invoke [{:keys [protocol-fn target args] :as expr}]
+  {:pre [(every? map? [protocol-fn target])
+         (vector? args)]}
+  (assoc expr
+         :op :invoke
+         :fn protocol-fn
+         :args (vec (cons target args))))
+
+(defn invoke->protocol-invoke [{:keys [fn args] :as expr}]
+  {:pre [(map? fn)
+         (vector? args)]
+   :post [(map? (:target %))
+          (map? (:protocol-fn %))]}
+  (assoc expr 
+         :op :protocol-invoke
+         :protocol-fn fn
+         :target (first args)
+         :args (vec (rest args))))
+
+(defn prim-invoke->invoke [expr]
+  (assoc expr :op :invoke))
+
+(defn invoke->prim-invoke [expr]
+  (assoc expr :op :prim-invoke))

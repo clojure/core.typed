@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.utils
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
@@ -299,11 +300,12 @@
       ;(prn "MethodExpr->Method" c ms (map :tag args))
       (first ms))))
 
-(defn NewExpr->Ctor [{c :class :keys [op args] :as expr}]
+(defn NewExpr->Ctor [{:keys [op args] :as expr}]
   {:pre [(#{:new} op)]
    :post [(or (instance? clojure.reflect.Constructor %)
               (nil? %))]}
-  (let [cs (->> (reflect-u/reflect c)
+  (let [c (ast-u/new-op-class expr)
+        cs (->> (reflect-u/reflect c)
                 :members
                 (filter #(instance? clojure.reflect.Constructor %))
                 (filter #(#{(map (comp reflect-u/reflect-friendly-sym :tag) args)} (:parameter-types %))))]

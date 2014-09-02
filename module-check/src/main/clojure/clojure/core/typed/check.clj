@@ -500,32 +500,43 @@
                  u/expr-type (r/ret res)))))))
 
 (add-check-method :keyword-invoke
-  [{kw :fn :keys [args] :as expr} & [expected]]
+  [{kw :keyword :keys [args target] :as expr} & [expected]]
   {:pre [(and (#{:const} (:op kw))
               (keyword? (:val kw)))
-         (#{1 2} (count args))]
+         (#{0 1} (count args))
+         (map? kw)
+         (map? target)]
    :post [(r/TCResult? (u/expr-type %))
+          (map? (:keyword %))
+          (map? (:target %))
           (vector? (:args %))]}
   (let [ckw (check kw)
+        ctarget (check target)
         cargs (mapv check args)]
+    (assert (#{2} (count (:form expr))) "tools.analyzer.jvm bug loses default argument")
     (assoc expr
-           :fn ckw
+           :keyword ckw
            :args cargs
            u/expr-type (invoke-kw/invoke-keyword 
-                       (u/expr-type ckw)
-                       (u/expr-type (first cargs))
-                       (when (#{2} (count cargs))
-                         (u/expr-type (second cargs)))
-                       expected))))
+                         (u/expr-type ckw)
+                         (u/expr-type ctarget)
+                         (some-> (first cargs) u/expr-type)
+                         expected))))
 
 ; Will this play nicely with file mapping?
 (add-check-method :prim-invoke ; protocol methods
   [expr & [expected]]
-  (check (assoc expr :op :invoke)))
+  (-> expr
+      ast-u/prim-invoke->invoke
+      (check expected)
+      ast-u/invoke->prim-invoke))
 
 (add-check-method :protocol-invoke ; protocol methods
   [expr & [expected]]
-  (check (assoc expr :op :invoke)))
+  (-> expr
+      ast-u/protocol-invoke->invoke
+      (check expected)
+      ast-u/invoke->protocol-invoke))
 
 ;binding
 ;FIXME use `check-normal-def`
@@ -1452,7 +1463,7 @@
                                   (fo/-not-filter-at inst-of (r/ret-o expr-tr)))
                           obj/-empty))))
 
-(defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (coerce/ctor-Class->symbol class)))
+(defmulti new-special (fn [expr & [expected]] (coerce/ctor-Class->symbol (ast-u/new-op-class expr))))
 
 
 (defmethod new-special 'clojure.lang.MultiFn
@@ -1487,7 +1498,7 @@
 (defmethod new-special :default [expr & [expected]] cu/not-special)
 
 (add-check-method :new
-  [{cls :class :keys [args env] :as expr} & [expected]]
+  [{:keys [args env] :as expr} & [expected]]
   {:post [(vector? (:args %))
           (-> % u/expr-type r/TCResult?)]}
   (binding [vs/*current-expr* expr
