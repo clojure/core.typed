@@ -9,7 +9,7 @@
             [cljs.env :as env]
             [clojure.set :as set]))
 
-(env/ensure
+(ucljs/with-cljs-typed-env
 (ucljs/with-core-cljs-typed
 (binding [ana/*cljs-ns* 'cljs.core.typed]
 (delay-and-cache-env ^:private init-protocol-env 
@@ -492,7 +492,7 @@ cljs.core/Reduced [[[x :variance :covariant]]]
 )
 
 (defn reset-cljs-envs! []
-  (env/ensure
+  (ucljs/with-cljs-typed-env
     (impl/with-cljs-impl
       (reset-alias-env!)
       ((impl/v 'clojure.core.typed.var-env/reset-var-type-env!)
