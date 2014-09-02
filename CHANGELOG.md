@@ -2,7 +2,7 @@
 
 - Fix major memory leak 
   - removed interning, replaced with normal cached hashes
-  - Fixes CTYP-83
+  - Fixes [http://dev.clojure.org/jira/browse/CTYP-83](CTYP-83)
 
 # 0.2.67 - 21st August 2014
 
