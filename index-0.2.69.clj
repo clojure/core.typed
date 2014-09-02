@@ -18,7 +18,7 @@
    :name "clojure.core.typed.base-env-common",
    :doc "Utilities for all implementations of the type checker"}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/check_form_cljs.clj",
+   "https://github.com/clojure/core.typed/blob/0811ef9321f62be1ebab83c04b0f99620fd8e81e/module-check/src/main/clojure/clojure/core/typed/check_form_cljs.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check-form-cljs-api.html",
    :name "clojure.core.typed.check-form-cljs",
@@ -1946,9 +1946,9 @@
    :name "check-form-cljs",
    :namespace "clojure.core.typed.check-form-cljs",
    :source-url
-   "https://github.com/clojure/core.typed/blob/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/check_form_cljs.clj#L23",
+   "https://github.com/clojure/core.typed/blob/0811ef9321f62be1ebab83c04b0f99620fd8e81e/module-check/src/main/clojure/clojure/core/typed/check_form_cljs.clj#L23",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/check_form_cljs.clj",
+   "https://github.com/clojure/core.typed/raw/0811ef9321f62be1ebab83c04b0f99620fd8e81e/module-check/src/main/clojure/clojure/core/typed/check_form_cljs.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check-form-cljs/check-form-cljs",
    :doc
