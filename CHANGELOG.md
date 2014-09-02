@@ -1,4 +1,4 @@
-# 0.2.68 - SNAPSHOT
+# 0.2.68 - 1st September 2014
 
 - Fix major memory leak 
   - removed interning, replaced with normal cached hashes
