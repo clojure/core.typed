@@ -1,3 +1,7 @@
+# 0.2.69 - SNAPSHOT
+
+- Only load cljs.core once
+
 # 0.2.68 - 1st September 2014
 
 - Fix major memory leak 
