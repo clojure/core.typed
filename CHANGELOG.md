@@ -2,7 +2,7 @@
 
 - Fix major memory leak 
   - removed interning, replaced with normal cached hashes
-  - Fixes [http://dev.clojure.org/jira/browse/CTYP-83](CTYP-83)
+  - Fixes [CTYP-83](http://dev.clojure.org/jira/browse/CTYP-83)
 
 # 0.2.67 - 21st August 2014
 
@@ -33,7 +33,7 @@ Thanks to Aravind K N for this patch.
 
 Thanks to Allen Rohner for this patch.
 
-- [http://dev.clojure.org/jira/browse/CTYP-166](CTYP-166) - more forgiving on ns dependencies without source files
+- [CTYP-166](http://dev.clojure.org/jira/browse/CTYP-166) - more forgiving on ns dependencies without source files
 
 ## Dependency changes
 
