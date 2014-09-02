@@ -7,6 +7,12 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
+(def default-env (env/default-compiler-env))
+
+(defmacro with-cljs-typed-env [& body]
+  `(env/with-compiler-env (or env/*compiler* default-env)
+     ~@body))
+
 (defn var-exists? [env prefix suffix]
   (let [compiler env/*compiler*
         _ (assert compiler)]
@@ -16,7 +22,7 @@
 (defn resolve-var [nsym sym]
   {:post [((some-fn symbol? nil?) %)]}
   (let [unresolved? (atom false)
-        r (env/ensure
+        r (with-cljs-typed-env
             (binding [ana/*cljs-ns* nsym]
               (comp/with-core-cljs
                 (ana/resolve-var (ana/empty-env) sym
@@ -42,4 +48,3 @@
      (do (when-not (get-in @env/*compiler* [::ana/namespaces 'cljs.core.typed :defs])
            (ana/analyze-file "cljs/core/typed.cljs"))
          ~@body)))
-
