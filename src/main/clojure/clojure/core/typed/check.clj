@@ -942,8 +942,10 @@
 ;apply hash-map
 (add-invoke-apply-method 'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
+  {:post [(or 
+            (and (-> % u/expr-type r/TCResult?)
+                 (vector? (:args %)))
+            (= % cu/not-special))]}
   (let [cargs (mapv check args)]
     ;(prn "apply special (hash-map): ")
     (cond
