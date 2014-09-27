@@ -32,13 +32,15 @@
   :methods
   [p/IRObject])
 
-(t/ann -empty EmptyObject)
+(t/ann ^:no-check -empty EmptyObject)
 (def -empty (EmptyObject-maker))
 
 (defn -empty-fn []
   -empty)
 
+(t/tc-ignore
 (ind-u/add-indirection ind/-empty-fn -empty-fn)
+)
 
 (t/ann-record Path [path :- (Seqable p/IRObject)
                     id :- fr/NameRef])
@@ -53,7 +55,11 @@
   :methods
   [p/IRObject])
 
+(t/ann ^:no-check -path [(Seqable p/IRObject) fr/NameRef -> Path])
 (defn -path [path id]
+  {:pre [(every? pr/PathElem? path)
+         (fr/name-ref? id)]
+   :post [(Path? %)]}
   (Path-maker path id))
 
 (t/ann-record NoObject [])
