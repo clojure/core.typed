@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.collatz
-  (:require [clojure.core.typed :refer [check-ns ann]]))
+  (:require [clojure.core.typed :refer [ann] :as t]))
 
 (ann collatz [Number -> Number])
 (defn collatz [n]
