@@ -2,6 +2,7 @@
     (:require [cljs.core.typed :as t]
               [cljs.core :as core]
               [clojure.core.typed.test.cljs-utils :refer [is-tc-e tc-e]]
+              [clojure.core.typed.profiling :as profile]
               [clojure.test :refer :all]))
 
 ;;; defining tests this way should help estimate the coverage

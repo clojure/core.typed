@@ -25,7 +25,7 @@
   Intended to be called from Clojure. For evaluation at the Clojurescript
   REPL see cf."
   [form expected expected-provided?]
-  (env/ensure
+  (ucljs/with-cljs-typed-env
     (comp/with-core-cljs
       (chk-form/check-form* (config-map)
          form expected expected-provided?))))
