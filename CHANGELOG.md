@@ -1,6 +1,8 @@
 # 0.2.69 - SNAPSHOT
 
 - Only load cljs.core once
+- Give a better line number for variance errors
+- Type check more interals
 
 # 0.2.68 - 1st September 2014
 
