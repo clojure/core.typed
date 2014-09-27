@@ -19,15 +19,12 @@
          '[clojure.core.typed.util-cljs :as ucljs]
          '[clojure.core.typed.coerce-utils :as coerce]
          '[clojure.core.typed.test.common-utils :as common-test]
+         '[clojure.core.typed.check-form-cljs :as chk-frm-cljs]
          '[cljs.env :as env])
-
-(def cljs-env (env/default-compiler-env))
 
 (defmacro cljs [& body]
   `(impl/with-cljs-impl
-     (env/with-compiler-env (or (when-let [e# env/*compiler*]
-                                  @e#)
-                                @cljs-env)
+     (ucljs/with-cljs-typed-env
        ~@body)))
 
 (defmacro is-cljs [& body]
@@ -44,10 +41,7 @@
   (let [nsym (gensym 'clojure.core.typed.test.temp)]
     (check-opt opt)
     `(binding [ana/*cljs-ns* ana/*cljs-ns*]
-       (env/with-compiler-env
-         (or (when-let [e# env/*compiler*]
-               @e#)
-             @cljs-env)
+       (ucljs/with-cljs-typed-env
          (let [expected-ret# ~expected-ret
                ; first element of this list must be the symbol ns
                ns-form# '(~'ns ~nsym
