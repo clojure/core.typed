@@ -1435,6 +1435,10 @@ clojure.core/rand-nth (All [x] [(U (Indexed x) (SequentialSeqable x)) -> x])
 clojure.set/union (All [x] [(Set x) * -> (Set x)])
 clojure.set/intersection (All [x] [(Set x) (Set x) * -> (Set x)])
 clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
+
+clojure.repl/pst (IFn [-> nil]
+                      [(U Int Throwable) -> nil]
+                      [Throwable Int -> nil])
   )
     {'clojure.core/count (count-type)
      'clojure.core/aset-boolean (aset-*-type 'boolean)
