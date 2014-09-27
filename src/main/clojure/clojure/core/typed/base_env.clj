@@ -1260,7 +1260,7 @@ clojure.core/take-last
 
 clojure.core/drop-last
      (All [x]
-       [AnyInteger (Seqable x) -> (NilableNonEmptyASeq x)])
+       [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
 
 clojure.core/hash [Any -> AnyInteger]
 clojure.core/hash-combine [AnyInteger Any -> AnyInteger]
