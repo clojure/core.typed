@@ -523,7 +523,8 @@
         ;                          "when declared " (name variance))))))
         ]
     (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
-               (map :bound free-maps) bodyt)))
+               (map :bound free-maps) bodyt
+               {:meta {:env vs/*current-env*}})))
 
 (defmethod parse-type-list 'TFn [syn] 
   (err/deprecated-plain-op 'TFn)
@@ -1177,6 +1178,9 @@
 (defn alias-in-ns
   "Returns an alias for namespace sym in ns, or nil if none."
   [nsym ns]
+  {:pre [(string? nsym)
+         (con/namespace? ns)]
+   :post [((some-fn nil? symbol?) %)]}
   (impl/assert-clojure)
   (some (fn [[alias ans]]
           (when (= (str nsym) (str (ns-name ans)))
@@ -1184,11 +1188,14 @@
         (ns-aliases ns)))
 
 (defn core-lang-Class-sym [clsym]
+  {:pre [(symbol? clsym)]
+   :post [((some-fn nil? symbol?) %)]}
   (when (.startsWith (str clsym) "clojure.lang.")
     (symbol (.getSimpleName (Class/forName (str clsym))))))
 
 (defn Class-symbol-intern [clsym ns]
-  {:pre [(con/namespace? ns)]}
+  {:pre [(con/namespace? ns)]
+   :post [((some-fn nil? symbol?) %)]}
   (some (fn [[isym cls]]
           (when (= (str clsym) (str (coerce/Class->symbol cls)))
             isym))
@@ -1212,6 +1219,8 @@
                (ns-refers ns))))
 
 (defn unparse-Class-symbol-in-ns [sym]
+  {:pre [(symbol? sym)]
+   :post [(symbol? %)]}
   (if-let [ns (and (not vs/*verbose-types*)
                    (when-let [nsym *unparse-type-in-ns*]
                      (find-ns *unparse-type-in-ns*)))]
@@ -1224,7 +1233,8 @@
     sym))
 
 (defn unparse-var-symbol-in-ns [sym]
-  {:pre [(namespace sym)]}
+  {:pre [(namespace sym)]
+   :post [(symbol? %)]}
   (if-let [ns (and (not vs/*verbose-types*)
                    (when-let [nsym *unparse-type-in-ns*]
                      (find-ns nsym)))]

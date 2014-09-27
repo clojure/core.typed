@@ -11,9 +11,6 @@
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]))
 
-#_(t/typed-deps clojure.core.typed.coerce-utils
-              clojure.core.typed.contract-utils)
-
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )
@@ -38,6 +35,7 @@
 
 ; not a real symmetric predicate, but we always extend Type with the
 ; interface for speed, so it's sufficient.
+; Should just make this an interface to start with.
 (t/ann ^:no-check Type? (t/Pred Type))
 (defn Type? [a]
   (instance? clojure.core.typed.impl_protocols.TCType a))
@@ -72,6 +70,7 @@
   :methods
   [p/TCType])
 
+(t/ann ^:no-check sorted-type-set [(t/U nil (t/Seqable Type)) -> (t/SortedSet Type)])
 (defn sorted-type-set [ts]
   (apply sorted-set-by u/type-comparator ts))
 
@@ -132,15 +131,6 @@
 (u/ann-record Bounds [upper-bound :- MaybeScopedType
                       lower-bound :- MaybeScopedType
                       higher-kind :- nil])
-
-;;;; FIXME playing around with order shouldn't be needed anymore
-; This annotation needs to go before the first reference to TypeFn,
-; otherwise it will resolve to an RClass, instead of a DataType.
-; DataType should be combined with RClass in the future.
-(u/ann-record TypeFn [nbound :- Number,
-                      variances :- (t/U nil (t/Seqable Variance))
-                      bbnds :- (t/U nil (t/Seqable Bounds)),
-                      scope :- p/IScope])
 (u/def-type Bounds [upper-bound lower-bound higher-kind]
   "A type bound or higher-kind bound on a variable"
   [(every? (some-fn Type? Scope?) [upper-bound lower-bound])
@@ -313,6 +303,10 @@
   :methods
   [p/TCType])
 
+(u/ann-record TypeFn [nbound :- Number,
+                      variances :- (t/U nil (t/Seqable Variance))
+                      bbnds :- (t/U nil (t/Seqable Bounds)),
+                      scope :- p/IScope])
 (u/def-type TypeFn [nbound variances bbnds scope]
   "A type function containing n bound variables with variances.
   It is of a higher kind"

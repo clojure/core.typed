@@ -40,7 +40,7 @@
 
 (t/ann ^:no-check with-original-names [r/Type (t/U t/Sym (t/Seqable t/Sym)) -> r/Type])
 (defn- with-original-names [t names]
-  (with-meta t {::names names}))
+  (vary-meta t assoc ::names names))
 
 (t/ann ^:no-check get-original-names [r/Type -> (t/U nil t/Sym (t/Seqable t/Sym))])
 (defn get-original-names [t]
@@ -1027,13 +1027,20 @@
 ;; TypeFn
 
 ;smart constructor
-(t/ann ^:no-check TypeFn* [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable Bounds) r/Type -> r/Type])
-(defn TypeFn* [names variances bbnds body]
+(t/ann ^:no-check TypeFn* 
+       (t/IFn [(t/U nil (t/Seqable t/Sym)) (t/U nil (t/Seqable r/Variance)) (t/U nil (t/Seqable Bounds)) r/Type -> r/Type]
+              [(t/U nil (t/Seqable t/Sym)) (t/U nil (t/Seqable r/Variance)) (t/U nil (t/Seqable Bounds)) r/Type 
+               (t/HMap :optional {:meta (t/U nil (t/Map t/Any t/Any))}) -> r/Type]))
+(defn TypeFn* 
+  ([names variances bbnds body] (TypeFn* names variances bbnds body {}))
+  ([names variances bbnds body {:keys [meta] :as opt}]
   {:pre [(every? symbol names)
          (every? r/variance? variances)
          (every? r/Bounds? bbnds)
          (apply = (map count [names variances bbnds]))
-         ((some-fn r/TypeFn? r/Type?) body)]
+         ((some-fn r/TypeFn? r/Type?) body)
+         (map? opt)
+         ((some-fn nil? map?) meta)]
    :post [(r/Type? %)]}
   (let [original-names (map (comp r/F-original-name r/make-F) names)]
     (if (empty? names)
@@ -1043,12 +1050,16 @@
                               (vec
                                 (for [bnd bbnds]
                                   (r/visit-bounds bnd #(abstract-many names %))))
-                              (abstract-many names body))]
-        (with-original-names t original-names)))))
+                              (abstract-many names body)
+                              :meta meta)]
+        (with-original-names t original-names))))))
 
 ;only set to true if throwing an error and need to print a TypeFn
 (t/ann *TypeFn-variance-check* Boolean)
 (def ^:dynamic *TypeFn-variance-check* true)
+
+(t/ann ^:no-check fv-variances [r/Type -> t/Any])
+(def fv-variances (impl/v 'clojure.core.typed.frees/fv-variances))
 
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(t/Seqable t/Sym) TypeFn -> r/Type])
@@ -1064,7 +1075,6 @@
         ; We don't check variances are consistent at parse-time. Instead
         ; we check at instantiation time. This avoids some implementation headaches,
         ; like dealing with partially defined types.
-        fv-variances (impl/v 'clojure.core.typed.frees/fv-variances)
         vs (free-ops/with-bounded-frees 
              (zipmap (map r/make-F names) bbnds)
              (fv-variances body))
@@ -1072,11 +1082,13 @@
             (doseq [[nme variance] (map vector names (:variances typefn))]
               (when-let [actual-v (vs nme)]
                 (when-not (= (vs nme) variance)
-                  (err/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
-                                    " appears in " (name actual-v) " position "
-                                    "when declared " (name variance)
-                                    ", in " (binding [*TypeFn-variance-check* false]
-                                              (ind/unparse-type typefn))))))))]
+                  (binding [vs/*current-env* (or (some-> typefn meta :env)
+                                                 vs/*current-env*)]
+                    (err/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
+                                        " appears in " (name actual-v) " position "
+                                        "when declared " (name variance)
+                                        ", in " (binding [*TypeFn-variance-check* false]
+                                                  (ind/unparse-type typefn)))))))))]
     body)))
 
 (t/ann ^:no-check TypeFn-bbnds* [(t/Seqable t/Sym) TypeFn -> (t/Seqable Bounds)])
