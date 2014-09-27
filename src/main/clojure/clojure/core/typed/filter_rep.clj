@@ -55,7 +55,9 @@
 (defn -top-fn []
   -top)
 
+(t/tc-ignore
 (ind-u/add-indirection ind/-top-fn -top-fn)
+)
 
 (u/ann-record NoFilter [])
 (u/def-filter NoFilter []
@@ -97,9 +99,10 @@
   :methods
   [p/IFilter])
 
+(t/ann ^:no-check make-AndFilter [Filter * -> AndFilter])
 (defn make-AndFilter [& fs]
   {:pre [(every? Filter? fs)]
-   :post [(Filter? %)]}
+   :post [(AndFilter? %)]}
   (AndFilter-maker (set fs)))
 
 (u/ann-record OrFilter [fs :- (IPersistentSet Filter)])
@@ -111,6 +114,7 @@
   :methods
   [p/IFilter])
 
+(t/ann make-OrFilter [Filter * -> OrFilter])
 (defn make-OrFilter [& fs]
   {:pre [(every? Filter? fs)
          (seq fs)]
