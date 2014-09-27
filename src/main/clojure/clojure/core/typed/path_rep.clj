@@ -48,7 +48,7 @@
   "A key in a hash-map"
   [(keyword? val)])
 
-(t/ann -kpe [Keyword -> KeyPE])
+(t/ann ^:no-check -kpe [Keyword -> KeyPE])
 (def -kpe KeyPE-maker)
 
 (t/ann-record KeysPE [])
