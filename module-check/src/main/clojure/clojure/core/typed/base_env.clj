@@ -1256,7 +1256,7 @@ clojure.core/drop
 
 clojure.core/take-last
      (All [x]
-       [AnyInteger (Seqable x) -> (NilableNonEmptyASeq x)])
+       [AnyInteger (U nil (Seqable x)) -> (NilableNonEmptyASeq x)])
 
 clojure.core/drop-last
      (All [x]
