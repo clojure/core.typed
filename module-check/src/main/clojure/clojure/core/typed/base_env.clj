@@ -1716,11 +1716,11 @@ clojure.lang.Numbers/unchecked_int_multiply [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_divide [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_remainder [Number Number -> AnyInteger]
 clojure.lang.Numbers/multiply (IFn [Long Long -> Long]
-                                   [(U Double Long) (U Double Long) -> Long]
+                                   [(U Double Long) (U Double Long) -> Double]
                                    [AnyInteger AnyInteger -> AnyInteger]
                                    [Number Number -> Number])
 clojure.lang.Numbers/divide (IFn [Long Long -> Long]
-                                   [(U Double Long) (U Double Long) -> Long]
+                                   [(U Double Long) (U Double Long) -> Double]
                                    [AnyInteger AnyInteger -> AnyInteger]
                                    [Number Number -> Number])
       ;bit-not
