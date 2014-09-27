@@ -1086,15 +1086,15 @@ clojure.core/ns-resolve (IFn [(U Symbol Namespace) Symbol -> (U (Var2 Nothing An
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 
 clojure.core/+ (IFn [Long * -> Long]
-                    [Double * -> Double]
+                    [(U Long Double) * -> Double]
                     [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
 clojure.core/- (IFn [Long Long * -> Long]
-                    [Double Double * -> Double]
+                    [(U Long Double) (U Long Double) * -> Double]
                     [AnyInteger AnyInteger * -> AnyInteger]
                     [Number Number * -> Number])
 clojure.core/* (IFn [Long * -> Long]
-                    [Double * -> Double]
+                    [(U Long Double) * -> Double]
                     [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
 clojure.core// (IFn [Double Double * -> Double]
