@@ -1248,11 +1248,11 @@ clojure.core/shutdown-agents [-> Any]
 
 clojure.core/take
      (All [x]
-       [AnyInteger (Seqable x) -> (ASeq x)])
+       [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
 
 clojure.core/drop
      (All [x]
-       [AnyInteger (Seqable x) -> (ASeq x)])
+       [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
 
 clojure.core/take-last
      (All [x]
