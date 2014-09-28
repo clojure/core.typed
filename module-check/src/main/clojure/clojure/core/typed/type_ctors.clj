@@ -1058,9 +1058,6 @@
 (t/ann *TypeFn-variance-check* Boolean)
 (def ^:dynamic *TypeFn-variance-check* true)
 
-(t/ann ^:no-check fv-variances [r/Type -> t/Any])
-(def fv-variances (impl/v 'clojure.core.typed.frees/fv-variances))
-
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(t/Seqable t/Sym) TypeFn -> r/Type])
 (defn TypeFn-body* [names typefn]
@@ -1075,6 +1072,7 @@
         ; We don't check variances are consistent at parse-time. Instead
         ; we check at instantiation time. This avoids some implementation headaches,
         ; like dealing with partially defined types.
+        fv-variances (impl/v 'clojure.core.typed.frees/fv-variances)
         vs (free-ops/with-bounded-frees 
              (zipmap (map r/make-F names) bbnds)
              (fv-variances body))
