@@ -1,4 +1,5 @@
 (ns clojure.core.typed.test.test-utils
+  {:core.typed {:collect-only true}}
   (:require [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.test :as test :refer [is]]
