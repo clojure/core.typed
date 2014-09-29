@@ -6,8 +6,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.type-ctors :as c]
-            )
-  )
+            [clojure.string :as str]))
 
 
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
@@ -27,9 +26,13 @@
                                  ;remove arities that have a differing
                                  ; number of fixed parameters than what we
                                  ; require
-                                 (and (not rest) (not drest) (not kws)
-                                      (not= (count dom)
-                                            (count arg-ret-types))))
+                                 (or
+                                   (and (not rest) (not drest) (not kws)
+                                        (not= (count dom)
+                                              (count arg-ret-types)))
+                                   ; remove if we don't have even the fixed args
+                                   (< (count arg-ret-types)
+                                      (count dom))))
                                (:types fin)))
                      ;if we remove all the arities, default to all of them
                      (:types fin)))
@@ -70,7 +73,7 @@
                   dotted (when (r/PolyDots? poly?)
                            (last names))]
               (str "Polymorphic Variables:\n\t"
-                   (clojure.string/join "\n\t" 
+                   (str/join "\n\t" 
                                         (map (partial apply pr-str)
                                              (map (fn [{:keys [lower-bound upper-bound] :as bnd} nme]
                                                     {:pre [(r/Bounds? bnd)
@@ -84,7 +87,7 @@
                                                                       [:< (prs/unparse-type upper-bound)]))))
                                                   bnds (map (comp r/F-original-name r/make-F) names)))))))
           "\n\nDomains:\n\t" 
-          (clojure.string/join "\n\t" 
+          (str/join "\n\t" 
                                (map (partial apply pr-str) 
                                     (map (fn [{:keys [dom rest drest kws]}]
                                            (concat (map prs/unparse-type dom)
@@ -109,7 +112,7 @@
           "Arguments:\n\t" (apply prn-str (map (comp prs/unparse-type r/ret-t) arg-ret-types))
           "\n"
           "Ranges:\n\t"
-          (clojure.string/join "\n\t" 
+          (str/join "\n\t" 
                                (map (partial apply pr-str) (map (comp prs/unparse-result :rng) (:types fin))))
           "\n\n"
           (when expected (str "with expected type:\n\t" (pr-str (prs/unparse-type (r/ret-t expected))) "\n\n"))
