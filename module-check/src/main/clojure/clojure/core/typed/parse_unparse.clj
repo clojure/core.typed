@@ -20,7 +20,8 @@
             [clojure.core.typed.hset-utils :as hset]
             [clojure.core.typed :as t]
             [clojure.set :as set]
-            [clojure.math.combinatorics :as comb])
+            [clojure.math.combinatorics :as comb]
+            #_[clojure.core.typed.debug :refer [dbg]])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -1222,8 +1223,7 @@
   {:pre [(symbol? sym)]
    :post [(symbol? %)]}
   (if-let [ns (and (not vs/*verbose-types*)
-                   (when-let [nsym *unparse-type-in-ns*]
-                     (find-ns *unparse-type-in-ns*)))]
+                   (some-> *unparse-type-in-ns* find-ns))]
         ; use an import name
     (or (Class-symbol-intern sym ns)
         ; core.lang classes are special
@@ -1236,8 +1236,7 @@
   {:pre [(namespace sym)]
    :post [(symbol? %)]}
   (if-let [ns (and (not vs/*verbose-types*)
-                   (when-let [nsym *unparse-type-in-ns*]
-                     (find-ns nsym)))]
+                   (some-> *unparse-type-in-ns* find-ns))]
         ; use unqualified name if interned
     (or (var-symbol-intern sym ns)
         ; use aliased ns if not interned, but ns is aliased
@@ -1333,8 +1332,15 @@
 
 (defmethod unparse-type* FnIntersection
   [{types :types}]
-  (list* (unparse-var-symbol-in-ns `t/IFn)
-         (doall (map unparse-type types))))
+  (cond
+    ; use vector sugar where appropriate
+    (and (not vs/*verbose-types*)
+         (== 1 (count types)))
+    (unparse-type (first types))
+
+    :else
+    (list* (unparse-var-symbol-in-ns `t/IFn)
+           (doall (map unparse-type types)))))
 
 (defmethod unparse-type* Intersection
   [{types :types}]
@@ -1508,7 +1514,7 @@
   [v]
   (if ((some-fn r/Nil? r/True? r/False?) v)
     (:val v)
-    (list (unparse-var-symbol-in-ns `t/Value) (:val v))))
+    (list (unparse-var-symbol-in-ns `t/Val) (:val v))))
 
 (defn- unparse-map-of-types [m]
   (into {} (map (fn [[k v]]
@@ -1587,11 +1593,12 @@
              (map unparse-type (:types v))
              (when rest [(unparse-type rest) '*])
              (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))])))
-         (concat
-           (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
-             [:filter-sets (mapv unparse-filter-set fs)])
-           (when-not (every? #{orep/-empty} objects)
-             [:objects (mapv unparse-object objects)]))))
+         (when vs/*verbose-types*
+           (concat
+             (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
+               [:filter-sets (mapv unparse-filter-set fs)])
+             (when-not (every? #{orep/-empty} objects)
+               [:objects (mapv unparse-object objects)])))))
 
 (defmethod unparse-type* HeterogeneousList
   [v]
