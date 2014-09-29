@@ -724,10 +724,14 @@
         (err/tc-delayed-error (str "Cannot instantiate non-polymorphic type: " (prs/unparse-type ptype))
                             :return (assoc expr
                                            u/expr-type (cu/error-ret expected))))
-      (let [targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
+      (let [targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)
+                            vs/*current-expr* expr]
                     (doall (map prs/parse-type (ast-u/quote-expr-val targs-exprs))))]
         (assoc expr
-               u/expr-type (r/ret (inst/manual-inst ptype targs)))))))
+               u/expr-type (r/ret 
+                             (binding [prs/*unparse-type-in-ns* (cu/expr-ns expr)
+                                       vs/*current-expr* expr]
+                               (inst/manual-inst ptype targs))))))))
 
 (defonce ^:dynamic *inst-ctor-types* nil)
 (set-validator! #'*inst-ctor-types* (some-fn nil? (con/every-c? r/Type?)))

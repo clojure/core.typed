@@ -50,7 +50,7 @@
               (err/int-error
                 (str "Wrong number of arguments to instantiate polymorphic type (expected " (:nbound ptype)
                      ", actual " (count argtys)
-                     "\n\nTarget:\n" (with-out-str (pprint/pprint (prs/unparse-type ptype)))
+                     "\n\nTarget:\n" (prs/unparse-type ptype)
                      "\n\nActual arguments:\n" (string/join " " (map prs/unparse-type argtys)))))
           names (c/Poly-fresh-symbols* ptype)
           body (c/Poly-body* names ptype)
