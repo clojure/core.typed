@@ -215,8 +215,23 @@
       (and (fl/TypeFilter? lo)
            (pe/CountPE? (first (:path lo))))
       (let [u (:type lo)]
-        (if-let [cnt (when (and (r/Value? u) (integer? (:val u)))
-                       (r/make-ExactCountRange (:val u)))]
+        (if-let [cnt (cond 
+                       ; for (= 1 (count v))
+                       (and (r/Value? u) (integer? (:val u)))
+                       (r/make-ExactCountRange (:val u))
+
+                       ; for (#{1 2 3} (count v))
+                       (and (r/Union? u) 
+                            (every? (every-pred r/Value?
+                                                (comp integer? :val))
+                                    (:types u)))
+                       (let [ns (->> (map :val (:types u))
+                                     (remove neg?)
+                                     sort
+                                     vec)]
+                         (when (seq ns)
+                           (r/make-CountRange (first ns)
+                                              (last ns)))))]
           (c/restrict t cnt)
           (do (u/tc-warning "Cannot infer Count from type " (prs/unparse-type u))
               t)))
