@@ -4,6 +4,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
+            clojure.core.typed.coerce-ann
             [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.type-rep :as r :refer [ret-t]]
             [clojure.core.typed.filter-rep :as fr]
@@ -19,6 +20,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.core.typed.indirect-ops :as ind]
+            clojure.core.typed.indirect-ann
             [clojure.core.typed :as t]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
@@ -816,7 +818,7 @@
 (declare TypeFn-bbnds* TypeFn-fresh-symbols*)
 
 ;FIXME rename to RClass-with-unknown-params
-(t/ann ^:no-check RClass-of-with-unknown-params [(t/U t/Sym Class) -> r/Type])
+(t/ann ^:no-check RClass-of-with-unknown-params [(t/U t/Sym Class) & :optional {:warn-msg (t/U nil t/Str)} -> r/Type])
 (defn RClass-of-with-unknown-params
   ([sym-or-cls & {:keys [warn-msg]}]
    {:pre [((some-fn class? symbol?) sym-or-cls)]
@@ -953,7 +955,7 @@
   ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-ancestors)
    rcls))
 
-(t/ann supers-cache (t/Atom1 (t/Map Number (t/SortedSet r/Type))))
+(t/ann ^:no-check supers-cache (t/Atom1 (t/Map Number (t/SortedSet r/Type))))
 (defonce ^:private supers-cache (atom {}
                                       :validator (con/hash-c? r/RClass?
                                                               (con/sorted-set-c? r/Type?))))
@@ -994,13 +996,16 @@
                   (err/int-error (str "Bad RClass replacements for " the-class ": " bad-replacements)))
               res (r/sorted-type-set
                     (set/union (binding [*current-RClass-super* the-class]
-                                 (let [rs (for [csym not-replaced]
+                                 (let [rs (t/for [csym :- t/Sym, not-replaced] :- r/Type
                                             (RClass-of-with-unknown-params
                                               csym
                                               :warn-msg (when (.contains (str the-class) "clojure.lang")
                                                           (str "RClass ancestor for " the-class " defaulting "
                                                                "to most general parameters"))))]
-                                   (apply set/union (set rs) (map RClass-supers* rs))))
+                                   (apply set/union (set rs) (map (t/fn [r :- r/Type]
+                                                                    {:pre [(r/RClass? r)]}
+                                                                    (RClass-supers* r))
+                                                                  rs))))
                                (set (vals replacements))
                                #{(RClass-of Object)}
                                unchecked-ancestors))]
@@ -1010,12 +1015,14 @@
             (err/int-error 
               (str "Found more than one function supertype for RClass " (ind/unparse-type rcls) ": \n"
                    (mapv ind/unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
-                   "\nReplacements:" (into {} (map (fn [[k v]] [k (ind/unparse-type v)]) replacements))
+                   "\nReplacements:" (into {} (map (t/fn [[k v] :- '[t/Any r/Type]] [k (ind/unparse-type v)])
+                                                   replacements))
                    "\nNot replaced:" not-replaced
                    (try (throw (Exception. ""))
                         (catch Exception e
                           (with-out-str (clojure.repl/pst e 40)))))))
-          (swap! supers-cache assoc cache-key res)
+          (t/tc-ignore
+            (swap! supers-cache assoc cache-key res))
           res))))))
 
 (t/ann ^:no-check DataType-fields* [DataType -> (t/Map t/Sym r/Type)])
