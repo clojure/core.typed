@@ -14,14 +14,17 @@
 
 ;[MethodExpr Type Any -> Expr]
 (defn check-invoke-method [check-fn {c :class method-name :method :keys [args env] :as expr} expected inst?
-                           & {:keys [ctarget cargs]}]
-  {:pre [((some-fn nil? r/TCResult?) expected)]
+                           & {:keys [ctarget cargs method-override]}]
+  {:pre [((some-fn nil? r/TCResult?) expected)
+         ((some-fn nil? r/Type?) method-override)
+         (or (not ctarget) inst?)]
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (:args %))]}
   (binding [vs/*current-env* env]
     (let [method (cu/MethodExpr->Method expr)
           msym (cu/MethodExpr->qualsym expr)
-          rfin-type (or (when msym
+          rfin-type (or method-override
+                        (when msym
                           (@mth-override/METHOD-OVERRIDE-ENV msym))
                         (when method
                           (cu/Method->Type method)))

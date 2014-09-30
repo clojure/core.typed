@@ -10,6 +10,9 @@
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.check.method :as method]
+            [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.check.utils :as cu])
   (:import (clojure.lang ISeq Seqable)))
 
@@ -99,8 +102,30 @@
       (update-in target-o [:path] concat [(pe/NthPE-maker idx)])
       target-o)))
 
+(def nat-value? (every-pred r/Value? (comp con/nat? :val)))
+
+(defn nth-type [n]
+  {:pre [(con/nat? n)]
+   :post [(r/Type? %)]}
+  (let [; gensyms are too ugly to read in errors
+        x 'x
+        y 'y]
+    (impl/with-clojure-impl
+      (prs/parse-type
+        `(t/All [~x ~y]
+          (t/IFn 
+            [(t/U (clojure.lang.Indexed ~x) (t/SequentialSeqable ~x)) t/Int :-> ~x]
+            [(t/I (t/U (clojure.lang.Indexed ~x) (t/SequentialSeqable ~x))
+                  (t/CountRange ~(inc n)))
+             (t/Val ~n) t/Any :-> ~x]
+            [(t/U (clojure.lang.Indexed ~x) (t/SequentialSeqable ~x) nil) t/Int ~y :-> (t/U ~x ~y)]
+            [(t/U (clojure.lang.Indexed ~x) (t/SequentialSeqable ~x) nil) t/Int :-> (t/U ~x nil)]))))))
+
 (defn invoke-nth [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
-  {:pre [((some-fn nil? vector?) cargs)]}
+  {:pre [((some-fn nil? vector?) cargs)
+         (#{:static-call} (:op expr))]
+   :post [(or (#{cu/not-special} %)
+              (-> % u/expr-type r/TCResult?))]}
   (let [_ (assert (#{2 3} (count args)) (str "nth takes 2 or 3 arguments, actual " (count args)))
         [te ne de :as cargs] (or cargs (mapv check-fn args))
         types (let [ts (c/fully-resolve-type (expr->type te))]
@@ -110,8 +135,7 @@
         num-t (expr->type ne)
         default-t (expr->type de)]
     (cond
-      (and (r/Value? num-t)
-           (con/nat? (:val num-t))
+      (and (nat-value? num-t)
            (every? (some-fn r/Nil?
                             r/HeterogeneousVector?
                             r/HeterogeneousList?
@@ -123,4 +147,11 @@
           u/expr-type (r/ret (nth-type types idx default-t)
                              (nth-filter te de idx default-t)
                              (nth-object te idx))))
+
+      ; rewrite nth type to be more useful when we have an exact (and interesting) index.
+      (nat-value? num-t)
+      (method/check-invoke-method
+        check-fn expr expected false
+        :method-override (nth-type (-> num-t :val))
+        :cargs cargs)
       :else cu/not-special)))

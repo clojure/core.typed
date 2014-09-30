@@ -3206,6 +3206,33 @@
 (deftest performance-CTYP83
   (is (check-ns 'clojure.core.typed.test.CTYP-83-performance)))
 
+(deftest count-set-test
+  (is-tc-e (let [v :- (Vec Int) [1 2 3]
+                 _ (assert (#{1 2 3} (count v)))]
+             (first v))
+           Int)
+  (is-tc-err (let [v :- (Vec Int) [1 2 3]
+                   _ (assert (#{0 1 2 3} (count v)))]
+               (first v))
+             Int)
+  (is-tc-e (let [v :- (Vec Int) [1 2 3]
+                 _ (assert (#{1 2 3} (count v)))]
+             (nth v 0 nil))
+           Int)
+  (is-tc-err (let [v :- (Vec Int) [1 2 3]
+                   _ (assert (#{0 1 2 3} (count v)))]
+               (nth v 0 nil))
+             Int)
+  (is-tc-e (let [v :- (Vec Int) [1 2 3]
+                 _ (assert (#{1 2 3} (count v)))]
+             (nth v 0))
+           Int)
+  ; we let nth fail at runtime here
+  (is-tc-e (let [v :- (Vec Int) [1 2 3]
+                 _ (assert (#{0 1 2 3} (count v)))]
+             (nth v 0))
+           Int))
+
 #_(deftest reduce-test
   (is-tc-err (reduce (fn ([] :- nil) ([x :- Num y :- Num] :- nil)) [1]))
   (is-tc-e (reduce (fn ([] :- Num 1) ([x :- Num y :- Num] :- Num 1)) [1]))
@@ -3221,7 +3248,6 @@
 ;          (let [mem (memoize (fn [& args] #(apply f args)))]
 ;            (fn [& args]
 ;              ((apply mem args))))))))
-
 
 (ann-form vector [Number * -> '[Number]])
 #_(cf (inst vector Number Number))

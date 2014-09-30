@@ -3,6 +3,8 @@
 - Only load cljs.core once
 - Give a better line number for variance errors
 - Type check more interals
+- Improve destructuring support for homogenous types
+  - see `count-set-test`
 
 # 0.2.68 - 1st September 2014
 
