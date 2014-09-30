@@ -104,7 +104,7 @@
 
 (def nat-value? (every-pred r/Value? (comp con/nat? :val)))
 
-(defn nth-type [n]
+(defn nth-function-type [n]
   {:pre [(con/nat? n)]
    :post [(r/Type? %)]}
   (let [; gensyms are too ugly to read in errors
@@ -152,6 +152,6 @@
       (nat-value? num-t)
       (method/check-invoke-method
         check-fn expr expected false
-        :method-override (nth-type (-> num-t :val))
+        :method-override (nth-function-type (-> num-t :val))
         :cargs cargs)
       :else cu/not-special)))
