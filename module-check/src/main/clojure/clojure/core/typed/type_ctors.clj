@@ -34,8 +34,6 @@
                                         HeterogeneousList HeterogeneousSeq HSet)
            (clojure.lang IPersistentMap IPersistentVector Var)))
 
-(t/typed-deps clojure.core.typed.name-env)
-
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )
@@ -1363,9 +1361,10 @@
            (not (r/F? (fully-resolve-type (:target ty)))))
       (r/Mu? ty))))
 
-(t/ann resolve-Name [Name -> r/Type])
+(t/ann ^:no-check resolve-Name [Name -> r/Type])
 (defn resolve-Name [nme]
-  {:pre [(r/Name? nme)]}
+  {:pre [(r/Name? nme)]
+   :post [(r/Type? %)]}
   (let [resolve-name* (t/var> clojure.core.typed.name-env/resolve-name*)]
     (resolve-name* (:id nme))))
 
