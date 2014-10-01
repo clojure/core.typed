@@ -5,6 +5,9 @@
 - Type check more interals
 - Improve destructuring support for homogenous types
   - see `count-set-test`
+- Remove redundant type errors
+- Better line numbers for type errors
+  - in theory, only bare non-IMeta literals lack line numbers like `(cf :a Int)`
 
 # 0.2.68 - 1st September 2014
 
