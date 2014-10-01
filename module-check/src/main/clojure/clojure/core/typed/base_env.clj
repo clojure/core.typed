@@ -1179,7 +1179,7 @@ clojure.core/bound-fn*
          [[b ... b -> r] -> [b ... b -> r]])
 
 clojure.core/find-var
-    [Symbol -> (Var2 Nothing Any)]
+    [Symbol -> (U nil (Var2 Nothing Any))]
 
 clojure.core/agent
     (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta Any

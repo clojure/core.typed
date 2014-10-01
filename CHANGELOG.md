@@ -1,4 +1,8 @@
-# 0.2.69 - SNAPSHOT
+# 0.2.70 - SNAPSHOT
+
+- fix `find-var` annotation
+
+# 0.2.69 - 1st October 2014
 
 - Only load cljs.core once
 - Give a better line number for variance errors
