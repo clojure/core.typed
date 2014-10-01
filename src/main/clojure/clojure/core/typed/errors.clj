@@ -155,7 +155,7 @@
   side returns true, then the right hand side is called passing (ex-info e) and e."
   [handlers & body]
   `(try
-     ~@body
+     (do ~@body)
      (catch clojure.lang.ExceptionInfo e#
        (let [found?# (atom false)
              result# (reduce (fn [_# [h?# hfn#]]
