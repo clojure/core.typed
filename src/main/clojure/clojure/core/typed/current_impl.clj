@@ -150,8 +150,7 @@
 
 (defn var->symbol [^clojure.lang.Var var]
   {:pre [(var? var)]
-   :post [(symbol? %)
-          (namespace %)]}
+   :post [((every-pred symbol? namespace) %)]}
   (symbol (str (ns-name (.ns var)))
           (str (.sym var))))
 
