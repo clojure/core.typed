@@ -1,5 +1,6 @@
 (ns clojure.core.typed.check.invoke-kw
   (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.path-rep :as pe]
@@ -11,12 +12,13 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.errors :as err]))
 
-;[TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
-(defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
+;[(U nil Expr) TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
+(defn invoke-keyword [expr kw-ret target-ret default-ret expected-ret]
   {:pre [(r/TCResult? kw-ret)
          (r/TCResult? target-ret)
          ((some-fn nil? r/TCResult?) default-ret)
-         ((some-fn nil? r/TCResult?) expected-ret)]
+         ((some-fn nil? r/TCResult?) expected-ret)
+         ((some-fn nil? map?) expr)]
    :post [(r/TCResult? %)]}
   (u/p :check/invoke-keyword
   (let [targett (c/-resolve (r/ret-t target-ret))
@@ -34,7 +36,8 @@
             val-type (c/find-val-type targett kwt defaultt)]
         (when expected-ret
           (when-not (sub/subtype? val-type (r/ret-t expected-ret))
-            (cu/expected-error val-type (r/ret-t expected-ret))))
+            (binding [vs/*current-expr* (or expr vs/*current-expr*)]
+              (cu/expected-error val-type (r/ret-t expected-ret)))))
         (if (not= (c/Un) val-type)
           (r/ret val-type
                (fo/-FS (if (obj/Path? o)

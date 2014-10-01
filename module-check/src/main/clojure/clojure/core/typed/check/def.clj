@@ -8,6 +8,7 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.type-ctors :as c])
   (:import (clojure.lang Var)))
 
@@ -25,10 +26,10 @@
       ; check against an expected type
       (and check? t)
       (let [cinit (when init-provided
-                    (check-fn init (r/ret t)))
+                    (binding [vs/*current-env* (:env init)
+                              vs/*current-expr* init]
+                      (check-fn init (r/ret t))))
             _ (when cinit
-                (when-not (sub/subtype? (r/ret-t (u/expr-type cinit)) t)
-                  (cu/expected-error (r/ret-t (u/expr-type cinit)) t))
                 ; now consider this var as checked
                 (var-env/add-checked-var-def vsym))]
         (assoc expr

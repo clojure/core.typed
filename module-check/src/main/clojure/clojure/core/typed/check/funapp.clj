@@ -85,7 +85,7 @@
       (c/keyword-value? fexpr-type)
       (let [[target-ret default-ret & more-args] arg-ret-types]
         (assert (empty? more-args))
-        (invoke-kw/invoke-keyword fexpr-ret-type target-ret default-ret expected))
+        (invoke-kw/invoke-keyword nil fexpr-ret-type target-ret default-ret expected))
 
       ;set function
       ;FIXME yuck. Also this is wrong, should be APersistentSet or something that *actually* extends IFn

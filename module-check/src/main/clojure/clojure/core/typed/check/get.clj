@@ -21,11 +21,12 @@
       (assoc expr
              :args cargs
              u/expr-type (invoke-kw/invoke-keyword 
-                         kwr
-                         (u/expr-type ctarget)
-                         (when cdefault
-                           (u/expr-type cdefault))
-                         expected))
+                           expr
+                           kwr
+                           (u/expr-type ctarget)
+                           (when cdefault
+                             (u/expr-type cdefault))
+                           expected))
 
 ;      ((every-pred r/Value? (comp integer? :val)) (ret-t kwr))
 ;      (err/nyi-error (str "get lookup of vector (like nth) NYI"))
