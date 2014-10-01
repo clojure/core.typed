@@ -20,9 +20,7 @@
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.check.utils :as cu]
-  )
-  )
+            [clojure.core.typed.check.utils :as cu]))
 
 ;check method is under a particular Function, and return inferred Function
 ;
@@ -201,12 +199,6 @@
                (update-in crng-nopass [u/expr-type :fl :then] 
                           (fn [f]
                             (apply fo/-and f new-then-props))))
-        _ (binding [vs/*current-expr* body
-                    ; don't override the env because :do node don't have line numbers
-                    ; The :fn that contains this arity rebinds current-env.
-                    #_vs/*current-env* #_(:env body)]
-            (when (not (sub/subtype? (-> crng u/expr-type r/ret-t) (r/ret-t expected-rng)))
-              (cu/expected-error (-> crng u/expr-type r/ret-t) (r/ret-t expected-rng))))
         rest-param-name (when rest-param
                           (:name rest-param))
         

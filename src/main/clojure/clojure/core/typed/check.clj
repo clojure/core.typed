@@ -142,13 +142,7 @@
     (println "Checking line:" (-> expr :env :line))
     (flush))
   (u/p :check/check-expr
-  (let [expr (check expr expected)]
-    (when expected
-      (when-not (sub/subtype? (-> expr u/expr-type r/ret-t)
-                              (-> expected r/ret-t))
-        (cu/expected-error (-> expr u/expr-type r/ret-t)
-                        (-> expected r/ret-t))))
-    expr)))
+    (check expr expected)))
 
 (add-check-method :const [expr & [expected]] 
   (value/check-value expr expected))
@@ -512,11 +506,12 @@
            :fn ckw
            :args cargs
            u/expr-type (invoke-kw/invoke-keyword 
-                       (u/expr-type ckw)
-                       (u/expr-type (first cargs))
-                       (when (#{2} (count cargs))
-                         (u/expr-type (second cargs)))
-                       expected))))
+                         expr
+                         (u/expr-type ckw)
+                         (u/expr-type (first cargs))
+                         (when (#{2} (count cargs))
+                           (u/expr-type (second cargs)))
+                         expected))))
 
 ; Will this play nicely with file mapping?
 (add-check-method :prim-invoke ; protocol methods
@@ -1241,6 +1236,7 @@
                      :fn cfexpr
                      :args cargs
                      u/expr-type (invoke-kw/invoke-keyword 
+                                   expr
                                    (u/expr-type cfexpr)
                                    (u/expr-type ctarget)
                                    (when cdefault
@@ -1282,7 +1278,7 @@
                                              (r/make-Function [] r/-any r/-any)))]
                     (cond (and expected (not= r/-any (r/ret-t expected))) expected
                           :else default-ret)))
-          _ (when expected
+          #_#__ (when expected
               (let [actual (r/ret-t (u/expr-type cexpr))]
                 (when-not (sub/subtype? actual (r/ret-t expected))
                   (cu/expected-error actual (r/ret-t expected)))))]
