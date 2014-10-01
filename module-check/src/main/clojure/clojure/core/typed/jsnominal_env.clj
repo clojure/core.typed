@@ -48,11 +48,12 @@
    :ctors nil
    :ancestors #{}})
 
-(t/ann get-jsnominal [t/Any -> (t/Nilable r/Type)])
+(t/ann ^:no-check get-jsnominal [t/Any -> (t/Nilable r/Type)])
 (defn get-jsnominal
   "Returns the nomainal JS type with class symbol csym.
   Returns nil if not found."
   [csym]
+  {:post [((some-fn nil? r/Type?) %)]}
   (-> (@impl/jsnominal-env csym) :jsnominal))
 
 (t/ann contains-jsnominal? [t/Any -> boolean])
@@ -133,7 +134,7 @@
   (when-let [tscope (get-in impl/jsnominal-env [csym :ctor])]
     (c/inst-and-subst tscope args)))
 
-(t/ann reset-jsnominal! [JSNominalEnv -> nil])
+(t/ann ^:no-check reset-jsnominal! [JSNominalEnv -> nil])
 (defn reset-jsnominal! [m]
   (reset! impl/jsnominal-env m)
   nil)
