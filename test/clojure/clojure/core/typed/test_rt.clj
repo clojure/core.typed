@@ -43,8 +43,13 @@
   `(try (do ~@body
             nil)
         (catch RuntimeException e#
-          (err/tc-error-thrown?
-            (throw (.getCause e#))))))
+          (if (instance? clojure.lang.ExceptionInfo e#)
+            ; before clojure 1.7.0-alpha2
+            (err/tc-error-thrown?
+              (throw e#))
+            ; clojure 1.7.0-alpha2
+            (err/tc-error-thrown?
+              (throw (.getCause e#)))))))
 
 (deftest checking-cljs-ops
   (is (err/tc-error-thrown?
