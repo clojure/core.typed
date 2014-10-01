@@ -3,6 +3,7 @@
             [clojure.core.typed.collect.typed-deps :as typed-deps]
             [clojure.core.typed.collect.gen-datatype :as gen-datatype]
             [clojure.core.typed.collect.gen-protocol :as gen-protocol]
+            [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
@@ -92,8 +93,9 @@
 
 (defmethod internal-collect-expr ::core/ns
   [{[_ _ {{ns-form :form} :val :as third-arg} :as statements] :statements fexpr :ret :as expr}]
-  {:pre [ns-form
-         ('#{clojure.core/ns ns} (first ns-form))]}
+  {:pre []}
+  (assert ns-form (str "No ns form found for " (cu/expr-ns expr)))
+  (assert ('#{clojure.core/ns ns} (first ns-form)))
   (let [prs-ns (dep-u/ns-form-name ns-form)
         deps   (dep-u/ns-form-deps ns-form)
         tdeps (set (filter dep-u/should-check-ns? deps))]
