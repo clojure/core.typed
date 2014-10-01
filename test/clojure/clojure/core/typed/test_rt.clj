@@ -38,6 +38,14 @@
   (is (err/tc-error-thrown?
         (t/var-coverage))))
 
+(defmacro catch-compiler-exception
+  [& body]
+  `(try (do ~@body
+            nil)
+        (catch RuntimeException e#
+          (err/tc-error-thrown?
+            (throw (.getCause e#))))))
+
 (deftest checking-cljs-ops
   (is (err/tc-error-thrown?
         (tcljs/load-if-needed)))
@@ -52,7 +60,7 @@
   (is (err/tc-error-thrown?
         (tcljs/check-ns* 'foo)))
   ; these throw at macroexpansion time
-  (is (err/tc-error-thrown?
+  (is (catch-compiler-exception
         (eval '(cljs.core.typed/check-ns))))
-  (is (err/tc-error-thrown?
+  (is (catch-compiler-exception
         (eval '(cljs.core.typed/check-ns foo)))))
