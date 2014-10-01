@@ -3,6 +3,7 @@
    :core.typed {:collect-only true}}
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.array-ops :as arr-ops]
@@ -122,11 +123,12 @@
   ([nsym]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
+   (p/p :check-clj/check-ns-and-deps
    (cu/check-ns-and-deps*
      nsym
      {:ast-for-ns ana-clj/ast-for-ns
       :check-asts check-asts
-      :check-ns check-ns-and-deps})))
+      :check-ns check-ns-and-deps}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
