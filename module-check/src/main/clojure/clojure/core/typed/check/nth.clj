@@ -28,7 +28,7 @@
 
 (defn ^:private nth-type [types idx default-t]
   {:pre [(every? r/Type? types)
-         (con/nat? idx)
+         (con/znat? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(r/Type? %)]}
   (apply c/Un
@@ -54,7 +54,7 @@
 (defn ^:private nth-positive-filter-default-falsy [target-o default-o idx]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)
-         (con/nat? idx)]
+         (con/znat? idx)]
    :post [(fl/Filter? %)]}
   (fo/-and (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
                                 (r/make-CountRange (inc idx)))
@@ -65,14 +65,14 @@
 (defn ^:private nth-positive-filter-default [target-o default-o idx]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)
-         (con/nat? idx)]
+         (con/znat? idx)]
    :post [(fl/Filter? %)]}
   (fo/-or (nth-positive-filter-default-truthy target-o default-o)
           (nth-positive-filter-default-falsy target-o default-o idx)))
 
 (defn ^:private nth-positive-filter-no-default [target-o idx]
   {:pre [(obj/RObject? target-o)
-         (con/nat? idx)]
+         (con/znat? idx)]
    :post [(fl/Filter? %)]}
   (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
                        (r/make-CountRange (inc idx)))
@@ -81,7 +81,7 @@
 (defn ^:private nth-filter [target-expr default-expr idx default-t]
   {:pre [(expression? target-expr)
          ((some-fn nil? expression?) default-expr)
-         (con/nat? idx)
+         (con/znat? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(fl/Filter? %)]}
   (let [target-o (expr->object target-expr)
@@ -96,17 +96,17 @@
 
 (defn ^:private nth-object [target-expr idx]
   {:pre [(expression? target-expr)
-         (con/nat? idx)]
+         (con/znat? idx)]
    :post [(obj/RObject? %)]}
   (let [target-o (expr->object target-expr)]
     (if (obj/Path? target-o)
       (update-in target-o [:path] concat [(pe/NthPE-maker idx)])
       target-o)))
 
-(def nat-value? (every-pred r/Value? (comp con/nat? :val)))
+(def nat-value? (every-pred r/Value? (comp con/znat? :val)))
 
 (defn nth-function-type [n]
-  {:pre [(con/nat? n)]
+  {:pre [(con/znat? n)]
    :post [(r/Type? %)]}
   (let [; gensyms are too ugly to read in errors
         x 'x

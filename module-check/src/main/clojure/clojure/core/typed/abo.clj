@@ -44,7 +44,7 @@
             ;      [Any -> Any :filters {:then (! (U nil false) 0), :else (is (U nil false) 0)} :object {:id 0}]
             ;    by the time we call abstract-result.
           (lookup [y]
-            {:pre [((some-fn symbol? con/nat?) y)]
+            {:pre [((some-fn symbol? con/znat?) y)]
              :post [((some-fn nil? integer?) %)]}
             (some (fn [[x i]] (and (= x y) i))
                   (map vector ids keys)))]
@@ -104,7 +104,7 @@
             ;    In this type the (fn [b] b) is already abstracted as 
             ;      [Any -> Any :filters {:then (! (U nil false) 0), :else (is (U nil false) 0)} :object {:id 0}]
             ;    by the time we call abstract-result.
-            {:pre [((some-fn symbol? con/nat?) y)]
+            {:pre [((some-fn symbol? con/znat?) y)]
              :post [((some-fn nil? integer?) %)]}
             (some (fn [[x i]] (and (= x y) i))
                   (map vector xs idxs)))

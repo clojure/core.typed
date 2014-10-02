@@ -1373,7 +1373,7 @@
             [:object (unparse-object o)])))
 
 (defn unparse-bound [name]
-  {:pre [((some-fn symbol? con/nat?) name)]}
+  {:pre [((some-fn symbol? con/znat?) name)]}
   (if (symbol? name)
     (-> name r/make-F r/F-original-name)
     `(~'B ~name)))
