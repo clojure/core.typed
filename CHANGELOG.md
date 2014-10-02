@@ -6,7 +6,7 @@
 
 - Only load cljs.core once
 - Give a better line number for variance errors
-- Type check more interals
+- Type check more internals
 - Improve destructuring support for homogenous types
   - see `count-set-test`
 - Remove redundant type errors
