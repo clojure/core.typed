@@ -1727,7 +1727,7 @@
 (defn add-scopes 
   "Wrap type in n Scopes"
   [n t]
-  {:pre [(con/nat? n)
+  {:pre [(con/znat? n)
          (r/Type? t)]
    :post [((some-fn r/Scope? r/Type?) %)]}
   (last 
@@ -1737,7 +1737,7 @@
 (defn remove-scopes 
   "Unwrap n Scopes"
   [n sc]
-  {:pre [(con/nat? n)
+  {:pre [(con/znat? n)
          (or (zero? n)
              (r/Scope? sc))]
    :post [(or (r/Scope? %) (r/Type? %))]}

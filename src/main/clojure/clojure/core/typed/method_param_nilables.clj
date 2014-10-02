@@ -8,8 +8,8 @@
 (defonce METHOD-PARAM-NILABLE-ENV 
   (atom {}
         :validator (con/hash-c? (every-pred namespace symbol?)
-                                (con/hash-c? (some-fn #{:all} con/nat?)
-                                             (some-fn #{:all} (con/set-c? con/nat?))))))
+                                (con/hash-c? (some-fn #{:all} con/znat?)
+                                             (some-fn #{:all} (con/set-c? con/znat?))))))
 
 (defn reset-method-nilable-param-env! [m]
   (reset! METHOD-PARAM-NILABLE-ENV m)

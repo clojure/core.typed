@@ -64,7 +64,7 @@
               ;              (prn "r" r)
               r))
           [t fs old-obj flow]
-          ; this is just a sequence of pairs of [nat? RObject] and Type?
+          ; this is just a sequence of pairs of [not-neg? RObject] and Type?
           ; Represents the object and type of each argument, and its position
           (map vector 
                (map-indexed #(vector %2 %1) ;racket's is opposite..

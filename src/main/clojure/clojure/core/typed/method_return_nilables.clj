@@ -9,7 +9,7 @@
   (atom {}
         :validator (con/hash-c? (every-pred namespace symbol?)
                                 (some-fn #(= :all %)
-                                         (con/set-c? con/nat?)))))
+                                         (con/set-c? con/znat?)))))
 
 (defn add-nonnilable-method-return [sym m]
   (swap! METHOD-RETURN-NONNILABLE-ENV assoc sym m)

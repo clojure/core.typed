@@ -141,7 +141,7 @@
 (u/def-type B [idx]
   "de Bruijn indexes - should never appear outside of this file.
   Bound type variables"
-  [(con/nat? idx)]
+  [(con/znat? idx)]
   :methods
   [p/TCType])
 
@@ -202,7 +202,7 @@
   "True if scope is has depth number of scopes nested"
   [scope depth]
   {:pre [(Scope? scope)
-         (con/nat? depth)]}
+         (con/znat? depth)]}
   (Type? (last (take (inc depth) (iterate #(and (Scope? %)
                                                 (:body %))
                                           scope)))))
@@ -310,7 +310,7 @@
 (u/def-type TypeFn [nbound variances bbnds scope]
   "A type function containing n bound variables with variances.
   It is of a higher kind"
-  [(con/nat? nbound)
+  [(con/znat? nbound)
    (every? variance? variances)
    (every? Bounds? bbnds)
    (apply = nbound (map count [variances bbnds]))
@@ -324,7 +324,7 @@
                     scope :- p/IScope,])
 (u/def-type Poly [nbound bbnds scope]
   "A polymorphic type containing n bound variables"
-  [(con/nat? nbound)
+  [(con/znat? nbound)
    (every? Bounds? bbnds)
    (apply = nbound (map count [bbnds]))
    (scope-depth? scope nbound)
@@ -337,7 +337,7 @@
                         scope :- p/IScope])
 (u/def-type PolyDots [nbound bbnds scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
-  [(con/nat? nbound)
+  [(con/znat? nbound)
    (every? Bounds? bbnds)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
@@ -443,8 +443,8 @@
 (u/def-type DottedPretype [pre-type name partition-count]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn symbol? con/nat?) name)
-   (con/nat? partition-count)]
+   ((some-fn symbol? con/znat?) name)
+   (con/znat? partition-count)]
   :methods
   [p/TCAnyType])
 
@@ -762,9 +762,9 @@
 (u/def-type CountRange [lower upper]
   "A sequence of count between lower (inclusive) and upper (inclusive).
   If upper is nil, between lower and infinity."
-  [(con/nat? lower)
+  [(con/znat? lower)
    (or (nil? upper)
-       (and (con/nat? upper)
+       (and (con/znat? upper)
             (<= lower upper)))]
   :methods
   [p/TCType])
@@ -791,7 +791,7 @@
 
 (t/ann make-ExactCountRange (t/IFn [Number -> CountRange]))
 (defn make-ExactCountRange [c]
-  {:pre [(con/nat? c)]}
+  {:pre [(con/znat? c)]}
   (make-CountRange c c))
 
 (declare Result-maker)
