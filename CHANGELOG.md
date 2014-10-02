@@ -1,4 +1,4 @@
-# 0.2.70 - SNAPSHOT
+# 0.2.70 - 2nd October 2014
 
 - fix `find-var` annotation
 
