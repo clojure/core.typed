@@ -1,3 +1,9 @@
+# 0.2.71 - 3rd October 2014
+
+- Fix CTYP-175
+  - type checker does not load without cljs dependency
+  - affects 0.2.{69,70}
+
 # 0.2.70 - 2nd October 2014
 
 - fix `find-var` annotation
