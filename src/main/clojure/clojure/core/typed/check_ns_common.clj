@@ -3,10 +3,8 @@
             [clojure.core.typed.reset-env :as reset-env]
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.typed.collect-phase :as collect-clj]
-            [clojure.core.typed.collect-cljs :as collect-cljs]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.check :as chk-clj]
-            [clojure.core.typed.check-cljs :as chk-cljs]
             [clojure.core.typed.file-mapping :as file-map]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.util-vars :as vs]
@@ -62,7 +60,7 @@
                   ;-------------------------
                   (let [collect-ns (impl/impl-case
                                      :clojure collect-clj/collect-ns
-                                     :cljs    collect-cljs/collect-ns)]
+                                     :cljs    (impl/v 'clojure.core.typed.collect-cljs/collect-ns))]
                     (doseq [nsym nsym-coll]
                       (collect-ns nsym)))
                   (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
@@ -78,7 +76,7 @@
                   (when-not collect-only
                     (let [check-ns (impl/impl-case
                                      :clojure chk-clj/check-ns-and-deps
-                                     :cljs    chk-cljs/check-ns)]
+                                     :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
                       (doseq [nsym nsym-coll]
                         (check-ns nsym)))
                     (let [vs (var-env/vars-with-unchecked-defs)]
