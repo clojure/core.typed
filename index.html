@@ -2333,8 +2333,9 @@ eg. (defn&gt; fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
 </pre>
     <pre id="var-docstr">Like defprotocol, but with optional type annotations.
 
-Omitted annotations default to Any. The first argument
-of a protocol cannot be annotated.
+Omitted annotations default to Any, except for the first
+parameter of a method which defaults to the current protocol
+being annotated (instantiated with any variables it has).
 
 Add a binder before the protocol name to define a polymorphic
 protocol. A binder before the method name defines a polymorphic
@@ -3179,7 +3180,7 @@ Throws an exception when evaluted.</pre>
     <pre id="var-docstr">Annotate a form with an expected type.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L123" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L123" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3195,7 +3196,7 @@ eg. (atom 1) : (Atom1 (Value 1))
     (atom :- Num, 1) : (Atom1 Num)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L198" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L199" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3224,7 +3225,7 @@ eg. ;same as clojure.core/def
       1)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L22" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L22" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3247,7 +3248,7 @@ eg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)
   ([a :- String, b :- Number] :- Long ...))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L228" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L229" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3257,8 +3258,9 @@ eg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)
 </pre>
     <pre id="var-docstr">Like defprotocol, but with optional type annotations.
 
-Omitted annotations default to Any. The first argument
-of a protocol cannot be annotated.
+Omitted annotations default to Any, except for the first
+parameter of a method which defaults to the current protocol
+being annotated (instantiated with any variables it has).
 
 Add a binder before the protocol name to define a polymorphic
 protocol. A binder before the method name defines a polymorphic
@@ -3296,7 +3298,7 @@ eg. ;annotate single method
 </pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L133" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L133" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3331,7 +3333,7 @@ eg. ;these forms are equivalent
       ([a :- String, b :- Number] :- String ...))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L56" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L56" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3346,7 +3348,7 @@ eg. (let [a :- Type, b
       body)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L111" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L111" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3362,7 +3364,7 @@ eg. (loop [a :- Number 1
       ...)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L93" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L93" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3373,7 +3375,7 @@ eg. (loop [a :- Number 1
     <pre id="var-docstr">Returns a vector of [provided? t args]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L14" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L14" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3389,7 +3391,7 @@ eg. (ref 1) : (Ref1 (Value 1))
     (ref :- Num, 1) : (Ref1 Num)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L213" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L214" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3400,7 +3402,7 @@ eg. (ref 1) : (Ref1 (Value 1))
     <pre id="var-docstr">Ignore forms in body during type checking</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L179" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L180" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3411,7 +3413,7 @@ eg. (ref 1) : (Ref1 (Value 1))
     <pre id="var-docstr">Like when-let, but fails if the binding yields a false value.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L191" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L192" id="var-source">Source</a>
   </div>
 </div>
 <br />

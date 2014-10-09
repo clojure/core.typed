@@ -1186,7 +1186,7 @@
    :doc
    "Like atom, but with optional type annotations.\n\nSame as (atom (ann-form init t) args*)\n\neg. (atom 1) : (Atom1 (Value 1))\n    (atom :- Num, 1) : (Atom1 Num)",
    :var-type "macro",
-   :line 198,
+   :line 199,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([t init & args]),
    :name "atom>",
@@ -1393,7 +1393,7 @@
    :doc
    "Like defn, but with optional annotations. All annotations default to Any,\nlike the typed fn macro. Rest parameters default to starred.\n\neg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)\n\n;annotate return\n(defn fname [a :- String] :- String ...)\n\n;multi-arity\n(defn fname \n  ([a :- String] :- String ...)\n  ([a :- String, b :- Number] :- Long ...))",
    :var-type "macro",
-   :line 228,
+   :line 229,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([name & fdecl]),
    :forms
@@ -1421,7 +1421,7 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/defprotocol",
    :doc
-   "Like defprotocol, but with optional type annotations.\n\nOmitted annotations default to Any. The first argument\nof a protocol cannot be annotated.\n\nAdd a binder before the protocol name to define a polymorphic\nprotocol. A binder before the method name defines a polymorphic\nmethod, however a method binder must not shadow type variables\nintroduced by a protocol binder.\n\nReturn types for each method arity can be annotated.\n\nUnlike clojure.core/defprotocol, successive methods can\nhave the same arity. Semantically, providing multiple successive\nmethods of the same arity is the same as just providing the left-most\nmethod. However the types for these methods will be accumulated into\na Fn type.\n\neg. ;annotate single method\n(defprotocol MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;polymorphic protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;multiple types for the same method\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Integer\n     [this a :- Long] :- Long\n     [this a :- Number] :- Number))\n\n;polymorphic method+protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  ([y] a [this a :- x, b :- y] :- y))\n",
+   "Like defprotocol, but with optional type annotations.\n\nOmitted annotations default to Any, except for the first\nparameter of a method which defaults to the current protocol\nbeing annotated (instantiated with any variables it has).\n\nAdd a binder before the protocol name to define a polymorphic\nprotocol. A binder before the method name defines a polymorphic\nmethod, however a method binder must not shadow type variables\nintroduced by a protocol binder.\n\nReturn types for each method arity can be annotated.\n\nUnlike clojure.core/defprotocol, successive methods can\nhave the same arity. Semantically, providing multiple successive\nmethods of the same arity is the same as just providing the left-most\nmethod. However the types for these methods will be accumulated into\na Fn type.\n\neg. ;annotate single method\n(defprotocol MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;polymorphic protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;multiple types for the same method\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Integer\n     [this a :- Long] :- Long\n     [this a :- Number] :- Number))\n\n;polymorphic method+protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  ([y] a [this a :- x, b :- y] :- y))\n",
    :var-type "macro",
    :line 133,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
@@ -1822,7 +1822,7 @@
    :doc
    "Like ref, but with optional type annotations.\n\nSame as (ref (ann-form init t) args*)\n\neg. (ref 1) : (Ref1 (Value 1))\n    (ref :- Num, 1) : (Ref1 Num)",
    :var-type "macro",
-   :line 213,
+   :line 214,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([t init & args]),
    :name "ref>",
@@ -1873,7 +1873,7 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/tc-ignore",
    :doc "Ignore forms in body during type checking",
    :var-type "macro",
-   :line 179,
+   :line 180,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& args]),
    :name "typed-deps",
@@ -1940,7 +1940,7 @@
    :doc
    "Like when-let, but fails if the binding yields a false value.",
    :var-type "macro",
-   :line 191,
+   :line 192,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([form expected expected-provided?]),
    :name "check-form-cljs",
@@ -2041,9 +2041,9 @@
    :name "ann-form",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L123",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L123",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/ann-form",
    :doc "Annotate a form with an expected type.",
@@ -2054,24 +2054,24 @@
    :name "atom",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L198",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L199",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/atom",
    :doc
    "Like atom, but with optional type annotations.\n\nSame as (atom (ann-form init t) args*)\n\neg. (atom 1) : (Atom1 (Value 1))\n    (atom :- Num, 1) : (Atom1 Num)",
    :var-type "macro",
-   :line 198,
+   :line 199,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([name & fdecl]),
    :forms [(def name docstring? :- type? expr)],
    :name "def",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L22",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L22",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/def",
    :doc
@@ -2086,27 +2086,27 @@
    :name "defn",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L228",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L229",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/defn",
    :doc
    "Like defn, but with optional annotations. All annotations default to Any,\nlike the typed fn macro. Rest parameters default to starred.\n\neg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)\n\n;annotate return\n(defn fname [a :- String] :- String ...)\n\n;multi-arity\n(defn fname \n  ([a :- String] :- String ...)\n  ([a :- String, b :- Number] :- Long ...))",
    :var-type "macro",
-   :line 228,
+   :line 229,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& body]),
    :name "defprotocol",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L133",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L133",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/defprotocol",
    :doc
-   "Like defprotocol, but with optional type annotations.\n\nOmitted annotations default to Any. The first argument\nof a protocol cannot be annotated.\n\nAdd a binder before the protocol name to define a polymorphic\nprotocol. A binder before the method name defines a polymorphic\nmethod, however a method binder must not shadow type variables\nintroduced by a protocol binder.\n\nReturn types for each method arity can be annotated.\n\nUnlike clojure.core/defprotocol, successive methods can\nhave the same arity. Semantically, providing multiple successive\nmethods of the same arity is the same as just providing the left-most\nmethod. However the types for these methods will be accumulated into\na Fn type.\n\neg. ;annotate single method\n(defprotocol MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;polymorphic protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;multiple types for the same method\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Integer\n     [this a :- Long] :- Long\n     [this a :- Number] :- Number))\n\n;polymorphic method+protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  ([y] a [this a :- x, b :- y] :- y))\n",
+   "Like defprotocol, but with optional type annotations.\n\nOmitted annotations default to Any, except for the first\nparameter of a method which defaults to the current protocol\nbeing annotated (instantiated with any variables it has).\n\nAdd a binder before the protocol name to define a polymorphic\nprotocol. A binder before the method name defines a polymorphic\nmethod, however a method binder must not shadow type variables\nintroduced by a protocol binder.\n\nReturn types for each method arity can be annotated.\n\nUnlike clojure.core/defprotocol, successive methods can\nhave the same arity. Semantically, providing multiple successive\nmethods of the same arity is the same as just providing the left-most\nmethod. However the types for these methods will be accumulated into\na Fn type.\n\neg. ;annotate single method\n(defprotocol MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;polymorphic protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;multiple types for the same method\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Integer\n     [this a :- Long] :- Long\n     [this a :- Number] :- Number))\n\n;polymorphic method+protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  ([y] a [this a :- x, b :- y] :- y))\n",
    :var-type "macro",
    :line 133,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
@@ -2120,9 +2120,9 @@
    :name "fn",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L56",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L56",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/fn",
    :doc
@@ -2135,9 +2135,9 @@
    :name "let",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L111",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L111",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/let",
    :doc
@@ -2150,9 +2150,9 @@
    :name "loop",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L93",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L93",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/loop",
    :doc
@@ -2164,9 +2164,9 @@
    :name "parse-colon",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L14",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L14",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/parse-colon",
    :doc "Returns a vector of [provided? t args]",
@@ -2177,42 +2177,42 @@
    :name "ref",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L213",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L214",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/ref",
    :doc
    "Like ref, but with optional type annotations.\n\nSame as (ref (ann-form init t) args*)\n\neg. (ref 1) : (Ref1 (Value 1))\n    (ref :- Num, 1) : (Ref1 Num)",
    :var-type "macro",
-   :line 213,
+   :line 214,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& body]),
    :name "tc-ignore",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L179",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L180",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/tc-ignore",
    :doc "Ignore forms in body during type checking",
    :var-type "macro",
-   :line 179,
+   :line 180,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([b & body]),
    :name "when-let-fail",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L191",
+   "https://github.com/clojure/core.typed/blob/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L192",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/6a0c8061c61ff4a85348201af4dce950ce459cbd/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/1f68cc837a20c1c049f7f1d98f79f9e99a1abb09/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/when-let-fail",
    :doc
    "Like when-let, but fails if the binding yields a false value.",
    :var-type "macro",
-   :line 191,
+   :line 192,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([nsyms]),
    :name "statistics",
