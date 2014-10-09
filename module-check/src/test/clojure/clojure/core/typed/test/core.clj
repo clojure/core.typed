@@ -3244,19 +3244,17 @@
   `(with-bounded-frees {(make-F '~'m) (-bounds (top-tfn1) (bot-tfn1))}
      ~@body))
 
-(clj (with-hk-m (parse-clj 'm)))
-
 (deftest subtype-hk-app
   (is-clj (with-hk-m
-            (sub? (m Int) (m Int))))
+            (sub?-q `(~'m Int) `(~'m Int))))
   (is-clj (with-hk-m
-            (sub? (m Int) (m Num))))
+            (sub?-q `(~'m Int) `(~'m Num))))
   (is-clj (with-hk-m
-            (sub? (m Int) (U (m Int) (clojure.lang.Reduced Int)))))
+            (sub?-q `(~'m Int) `(U (~'m Int) (clojure.lang.Reduced Int)))))
   (is-clj (with-hk-m
-            (sub? (m Int) (U (m Int) (clojure.lang.Reduced Int)))))
+            (sub?-q `(~'m Int) `(U (~'m Int) (clojure.lang.Reduced Int)))))
   (is-clj (with-hk-m
-            (sub? (m Int) (U (m Num) (clojure.lang.Reduced Int)))))
+            (sub?-q `(~'m Int) `(U (~'m Num) (clojure.lang.Reduced Int)))))
   )
 
 #_(deftest reduce-test
