@@ -3233,6 +3233,32 @@
              (nth v 0))
            Int))
 
+
+(defn top-tfn1 []
+  (parse-type `(TFn [[~'x :variance :covariant]] Any)))
+
+(defn bot-tfn1 []
+  (parse-type `(TFn [[~'x :variance :covariant]] Nothing)))
+
+(defmacro with-hk-m [& body]
+  `(with-bounded-frees {(make-F '~'m) (-bounds (top-tfn1) (bot-tfn1))}
+     ~@body))
+
+(clj (with-hk-m (parse-clj 'm)))
+
+(deftest subtype-hk-app
+  (is-clj (with-hk-m
+            (sub? (m Int) (m Int))))
+  (is-clj (with-hk-m
+            (sub? (m Int) (m Num))))
+  (is-clj (with-hk-m
+            (sub? (m Int) (U (m Int) (clojure.lang.Reduced Int)))))
+  (is-clj (with-hk-m
+            (sub? (m Int) (U (m Int) (clojure.lang.Reduced Int)))))
+  (is-clj (with-hk-m
+            (sub? (m Int) (U (m Num) (clojure.lang.Reduced Int)))))
+  )
+
 #_(deftest reduce-test
   (is-tc-err (reduce (fn ([] :- nil) ([x :- Num y :- Num] :- nil)) [1]))
   (is-tc-e (reduce (fn ([] :- Num 1) ([x :- Num y :- Num] :- Num 1)) [1]))

@@ -1292,9 +1292,10 @@
 (declare resolve-tapp* resolve-app*)
 
 (t/ann ^:no-check resolve-TApp [TApp -> r/Type])
-(defn resolve-TApp [^TApp app]
-  {:pre [(r/TApp? app)]}
-  (resolve-tapp* (.rator app) (.rands app) :tapp app))
+(defn resolve-TApp [app]
+  {:pre [(r/TApp? app)]
+   :post [(r/Type? %)]}
+  (resolve-tapp* (:rator app) (:rands app) :tapp app))
 
 (t/ann ^:no-check resolve-tapp* [r/Type (t/Seqable r/Type) -> r/Type])
 (defn resolve-tapp* [rator rands & {:keys [tapp]}]
