@@ -247,6 +247,39 @@
         (r/Bottom? t)
         (fail! s t)
 
+        (and (r/TApp? s)
+             (r/TypeFn? (c/fully-resolve-type (:rator s))))
+        (let [{:keys [rands]} s
+              rator (c/fully-resolve-type (:rator s))]
+          (cond
+            (r/F? rator) (fail! s t)
+
+            (r/TypeFn? rator)
+            (let [names (c/TypeFn-fresh-symbols* rator)
+                  bbnds (c/TypeFn-bbnds* names rator)
+                  res (c/instantiate-typefn rator rands :names names)]
+              (if (subtypeA*? (conj *sub-current-seen* [s t]) res t)
+                *sub-current-seen*
+                (fail! s t)))
+
+            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
+
+        (and (r/TApp? t)
+             (r/TypeFn? (c/fully-resolve-type (:rator t))))
+        (let [{:keys [rands]} t
+              rator (c/fully-resolve-type (:rator t))]
+          (cond
+            (r/F? rator) (fail! s t)
+
+            (r/TypeFn? rator)
+            (let [names (c/TypeFn-fresh-symbols* rator)
+                  res (c/instantiate-typefn rator rands :names names)]
+              (if (subtypeA*? (conj *sub-current-seen* [s t]) s res)
+                *sub-current-seen*
+                (fail! s t)))
+
+            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
+
         (r/Union? s)
         ;use subtypeA*, throws error
         (u/p :subtype-union-l
@@ -337,39 +370,6 @@
                              (subtype-TypeFn-rands? upper-bound (:rands s) (:rands t)))
                       *sub-current-seen*
                       (fail! s t)))))
-
-        (and (r/TApp? s)
-             (r/TypeFn? (c/fully-resolve-type (:rator s))))
-        (let [{:keys [rands]} s
-              rator (c/fully-resolve-type (:rator s))]
-          (cond
-            (r/F? rator) (fail! s t)
-
-            (r/TypeFn? rator)
-            (let [names (c/TypeFn-fresh-symbols* rator)
-                  bbnds (c/TypeFn-bbnds* names rator)
-                  res (c/instantiate-typefn rator rands :names names)]
-              (if (subtypeA*? (conj *sub-current-seen* [s t]) res t)
-                *sub-current-seen*
-                (fail! s t)))
-
-            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
-
-        (and (r/TApp? t)
-             (r/TypeFn? (c/fully-resolve-type (:rator t))))
-        (let [{:keys [rands]} t
-              rator (c/fully-resolve-type (:rator t))]
-          (cond
-            (r/F? rator) (fail! s t)
-
-            (r/TypeFn? rator)
-            (let [names (c/TypeFn-fresh-symbols* rator)
-                  res (c/instantiate-typefn rator rands :names names)]
-              (if (subtypeA*? (conj *sub-current-seen* [s t]) s res)
-                *sub-current-seen*
-                (fail! s t)))
-
-            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
