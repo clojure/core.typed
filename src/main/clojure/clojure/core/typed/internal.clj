@@ -214,27 +214,28 @@
        binder))
 
 (defn gen-ann-protocol [{:keys [name methods binder] :as dp-ann}]
-  (let [tvars (set (binder-names binder))
-        this-type (if binder
-                    `(~name ~@(binder-names binder))
-                    name)]
-  `(clojure.core.typed/ann-protocol 
-     ~@(when binder
-         [binder])
-     ~name
-     ~@(mapcat (fn [{:keys [name arities poly]}]
-                 (let [localtvars (set (binder-names poly))
-                       _ (assert (empty? (set/intersection localtvars
-                                                           tvars))
-                                 "Shadowing a protocol type variable in a method is disallowed")
-                       fn-type `(clojure.core.typed/IFn
-                                  ~@(map (fn [{:keys [ptypes ret]}]
-                                           `[~@(concat [this-type] (map :type (rest ptypes))) ~'-> ~(:type ret)])
-                                         arities))]
-                   [name (if poly
-                           `(clojure.core.typed/All ~poly ~fn-type)
-                           fn-type)]))
-               methods))))
+  (let [tvars (set (binder-names binder))]
+    `(clojure.core.typed/ann-protocol
+       ~@(when binder
+           [binder])
+       ~name
+       ~@(mapcat (fn [{:keys [name arities poly]}]
+                   (let [localtvars (set (binder-names poly))
+                         _ (assert (empty? (set/intersection localtvars
+                                                             tvars))
+                                   "Shadowing a protocol type variable in a method binder is disallowed")
+                         fn-type `(clojure.core.typed/IFn
+                                    ~@(map (fn [{:keys [ptypes ret]}]
+                                             (let [this-type (or (-> ptypes first :type)
+                                                                 (if binder
+                                                                   `(~name ~@(binder-names binder))
+                                                                   name))]
+                                               `[~@(concat [this-type] (map :type (rest ptypes))) ~'-> ~(:type ret)]))
+                                           arities))]
+                     [name (if poly
+                             `(clojure.core.typed/All ~poly ~fn-type)
+                             fn-type)]))
+                 methods))))
 
 
 (defn parse-defprotocol*
@@ -247,8 +248,6 @@
                       :post [((hmap-c? :actual vector?
                                        :ptypes vector?)
                               %)]}
-                     (assert (not (#{:-} (second pvec)))
-                             "Annotating the first argument of a method is disallowed")
                      (loop [pvec pvec
                             actual (empty pvec) ; empty vector with same metadata as pvec
                             ptypes []]
