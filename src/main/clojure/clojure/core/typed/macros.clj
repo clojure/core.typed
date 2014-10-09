@@ -133,9 +133,8 @@
 (defmacro defprotocol
   "Like defprotocol, but with optional type annotations.
 
-  Omitted annotations default to Any, except for the first
-  parameter of a method which defaults to the current protocol
-  being annotated (instantiated with any variables it has).
+  Omitted annotations default to Any. The first argument
+  of a protocol cannot be annotated.
 
   Add a binder before the protocol name to define a polymorphic
   protocol. A binder before the method name defines a polymorphic
