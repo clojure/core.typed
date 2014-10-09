@@ -159,7 +159,7 @@
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
                (if-not bnd 
-                 (do (err/int-error (str "No bounds for " (:name s)))
+                 (do #_(err/int-error (str "No bounds for " (:name s)))
                      nil)
                  (and (subtype? upper-bound t)
                       (subtype? lower-bound t)))))
@@ -168,7 +168,7 @@
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
                (if-not bnd 
-                 (do (err/int-error (str "No bounds for " (:name t)))
+                 (do #_(err/int-error (str "No bounds for " (:name t)))
                      nil)
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
