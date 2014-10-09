@@ -377,11 +377,11 @@
         (r/Mu? T) (cs-gen V X Y S (c/unfold T))
 
         (and (r/TApp? S)
-             (not (r/F? (.rator ^TApp S))))
+             (not (r/F? (:rator S))))
         (cs-gen V X Y (c/resolve-TApp S) T)
 
         (and (r/TApp? T)
-             (not (r/F? (.rator ^TApp T))))
+             (not (r/F? (:rator T))))
         (cs-gen V X Y S (c/resolve-TApp T))
 
         ;constrain *each* element of S to be below T, and then combine the constraints
@@ -914,16 +914,16 @@
 
 ;FIXME handle variance
 (defn cs-gen-TApp
-  [V X Y ^TApp S ^TApp T]
+  [V X Y S T]
   {:pre [(r/TApp? S)
          (r/TApp? T)]}
-  (when-not (= (.rator S) (.rator T)) 
+  (when-not (= (:rator S) (:rator T)) 
     (fail! S T))
   (cset-meet*
     (mapv (t/fn [s1 :- r/Type 
-                t1 :- r/Type]
-            (cs-gen V X Y s1 t1)) 
-          (.rands S) (.rands T))))
+                 t1 :- r/Type]
+            (cs-gen V X Y s1 t1))
+          (:rands S) (:rands T))))
 
 (defn cs-gen-FnIntersection
   [V X Y ^FnIntersection S ^FnIntersection T] 

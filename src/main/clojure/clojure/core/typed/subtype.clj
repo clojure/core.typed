@@ -110,7 +110,7 @@
      (u/handle-cs-gen-failure
        (ind/infer X Y S T R)))))
 
-(declare subtype-TApp? protocol-extenders
+(declare protocol-extenders subtype-TypeFn-rands?
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
          subtype-CountRange subtype-TypeFn subtype-RClass
          subtype-datatype-and-protocol subtype-rclass-protocol
@@ -155,10 +155,11 @@
         (assert nil "Cannot give TCResult to subtype")
 
         ; use bounds to determine subtyping between frees and types
+        ; 2 frees of the same name are handled in the (= s t) case.
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
                (if-not bnd 
-                 (do #_(err/int-error (str "No bounds for " (:name s)))
+                 (do (err/int-error (str "No bounds for " (:name s)))
                      nil)
                  (and (subtype? upper-bound t)
                       (subtype? lower-bound t)))))
@@ -167,7 +168,7 @@
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
                (if-not bnd 
-                 (do #_(err/int-error (str "No bounds for " (:name t)))
+                 (do (err/int-error (str "No bounds for " (:name t)))
                      nil)
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
@@ -225,12 +226,6 @@
             *sub-current-seen*
             (fail! s t)))
 
-;        (and (r/TApp? s)
-;             (r/TApp? t))
-;        (if (subtypeA*? (fully-resolve-type s) (fully-resolve-type t))
-;          *sub-current-seen*
-;          (fail! s t))
-
         (r/Name? s)
         (subtypeA* *sub-current-seen* (c/resolve-Name s) t)
 
@@ -242,37 +237,6 @@
 
         (r/Mu? t)
         (subtype s (c/unfold t))
-
-        (r/TApp? s)
-        (let [{:keys [rands]} s
-              rator (c/fully-resolve-type (:rator s))]
-          (cond
-            (r/F? rator) (fail! s t)
-
-            (r/TypeFn? rator)
-            (let [names (c/TypeFn-fresh-symbols* rator)
-                  bbnds (c/TypeFn-bbnds* names rator)
-                  res (c/instantiate-typefn rator rands :names names)]
-              (if (subtypeA*? (conj *sub-current-seen* [s t]) res t)
-                *sub-current-seen*
-                (fail! s t)))
-
-            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
-
-        (r/TApp? t)
-        (let [{:keys [rands]} t
-              rator (c/fully-resolve-type (:rator t))]
-          (cond
-            (r/F? rator) (fail! s t)
-
-            (r/TypeFn? rator)
-            (let [names (c/TypeFn-fresh-symbols* rator)
-                  res (c/instantiate-typefn rator rands :names names)]
-              (if (subtypeA*? (conj *sub-current-seen* [s t]) s res)
-                *sub-current-seen*
-                (fail! s t)))
-
-            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (r/App? s)
         (subtypeA* *sub-current-seen* (c/resolve-App s) t)
@@ -359,6 +323,53 @@
                    (not-any? #(subtype? s %) (.without t)))
             *sub-current-seen*
             (fail! s t)))
+
+        (and (r/TApp? s)
+             (r/TApp? t)
+             (r/F? (:rator s))
+             (r/F? (:rator t))
+             (= (:rator s) (:rator t)))
+        (let [{:keys [upper-bound] :as bnd} (free-ops/free-with-name-bnds (-> s :rator :name))]
+          (cond 
+            (not bnd) (err/int-error (str "No bounds for " (:name s)))
+            :else (let [upper-bound (c/fully-resolve-type upper-bound)]
+                    (if (and (r/TypeFn? upper-bound)
+                             (subtype-TypeFn-rands? upper-bound (:rands s) (:rands t)))
+                      *sub-current-seen*
+                      (fail! s t)))))
+
+        (and (r/TApp? s)
+             (r/TypeFn? (c/fully-resolve-type (:rator s))))
+        (let [{:keys [rands]} s
+              rator (c/fully-resolve-type (:rator s))]
+          (cond
+            (r/F? rator) (fail! s t)
+
+            (r/TypeFn? rator)
+            (let [names (c/TypeFn-fresh-symbols* rator)
+                  bbnds (c/TypeFn-bbnds* names rator)
+                  res (c/instantiate-typefn rator rands :names names)]
+              (if (subtypeA*? (conj *sub-current-seen* [s t]) res t)
+                *sub-current-seen*
+                (fail! s t)))
+
+            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
+
+        (and (r/TApp? t)
+             (r/TypeFn? (c/fully-resolve-type (:rator t))))
+        (let [{:keys [rands]} t
+              rator (c/fully-resolve-type (:rator t))]
+          (cond
+            (r/F? rator) (fail! s t)
+
+            (r/TypeFn? rator)
+            (let [names (c/TypeFn-fresh-symbols* rator)
+                  res (c/instantiate-typefn rator rands :names names)]
+              (if (subtypeA*? (conj *sub-current-seen* [s t]) s res)
+                *sub-current-seen*
+                (fail! s t)))
+
+            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
@@ -1144,87 +1155,39 @@
 
     :else (fail! t1 t2)))
 
-(defn subtype-TypeFn-app?
-  [^TypeFn tfn ^TApp ltapp ^TApp rtapp]
+(defn subtype-TypeFn-rands?
+  [tfn rands1 rands2]
   {:pre [(r/TypeFn? tfn)
-         (r/TApp? ltapp)
-         (r/TApp? rtapp)]}
-  ;(prn "subtype-TApp")
-  (every? (fn [[v l r]]
-            (case v
-              :covariant (subtypeA*? *sub-current-seen* l r)
-              :contravariant (subtypeA*? *sub-current-seen* r l)
-              :invariant (and (subtypeA*? *sub-current-seen* l r)
-                              (subtypeA*? *sub-current-seen* r l))))
-          (map vector (.variances tfn) (.rands ltapp) (.rands rtapp))))
-
-(defmulti subtype-TApp? (fn [^TApp S ^TApp T]
-                          {:pre [(r/TApp? S)
-                                 (r/TApp? T)]}
-                          [(class (.rator S)) (class (.rator T))
-                           (= (.rator S) (.rator T))]))
-
-(defmethod subtype-TApp? [TypeFn TypeFn false]
-  [S T]
-  (subtypeA*? (conj *sub-current-seen* [S T]) (c/resolve-TApp S) (c/resolve-TApp T)))
-
-(defmethod subtype-TApp? [TypeFn TypeFn true]
-  [^TApp S T]
-  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
-    (subtype-TypeFn-app? (.rator S) S T)))
-
-(defmethod subtype-TApp? [tp/TCAnyType Name false]
-  [S T]
-  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
-    (subtype-TApp? S (update-in T [:rator] c/resolve-Name))))
-
-(defmethod subtype-TApp? [Name tp/TCAnyType false]
-  [S T]
-  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
-    (subtype-TApp? (update-in S [:rator] c/resolve-Name) T)))
-
-(defmethod subtype-TApp? [Name Name false]
-  [S T]
-  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
-    (subtype-TApp? (update-in S [:rator] c/resolve-Name) 
-                   (update-in T [:rator] c/resolve-Name))))
-
-; for [Name Name false]
-(prefer-method subtype-TApp? 
-               [Name tp/TCAnyType false]
-               [tp/TCAnyType Name false])
-
-;same operator
-(defmethod subtype-TApp? [Name Name true]
-  [^TApp S T]
-  (let [r (c/resolve-Name (.rator S))]
-    (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
-      (subtype-TApp? (assoc-in S [:rator] r)
-                     (assoc-in T [:rator] r)))))
-
-; only subtypes if applied to the same F
-(defmethod subtype-TApp? [F F false] [S T] false)
-;(defmethod subtype-TApp? [F F true]
-;  [^TApp S T]
-;  (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [^Bounds bnds]}]] 
-;                    (when (= name (.name ^F (.rator S)))
-;                      (.higher-kind bnds)))
-;                  free-ops/*free-scope*)]
-;    (when tfn
-;      (subtype-TypeFn-app? tfn S T))))
-
-(defmethod subtype-TApp? :default [S T] false)
+         (every? r/Type? rands1)
+         (every? r/Type? rands2)]
+   :post [(con/boolean? %)]}
+  (and (== (count rands1)
+           (count rands2)
+           (count (:variances tfn)))
+       (every? (fn [[v l r]]
+                 {:pre [(r/variance? v)
+                        (r/Type? l)
+                        (r/Type? r)]}
+                 (case v
+                   (:covariant) (subtypeA*? *sub-current-seen* l r)
+                   (:contravariant) (subtypeA*? *sub-current-seen* r l)
+                   (:invariant) (and (subtypeA*? *sub-current-seen* l r)
+                                     (subtypeA*? *sub-current-seen* r l))
+                   (err/int-error (str "Unknown variance: " v))))
+               (map vector (:variances tfn) rands1 rands2))))
 
 (defn subtype-TypeFn
-  [^TypeFn S ^TypeFn T]
+  [S T]
+  {:pre [(r/TypeFn? S)
+         (r/TypeFn? T)]}
   (let [;instantiate both type functions with the same names
-        names (repeatedly (.nbound S) gensym)
+        names (repeatedly (:nbound S) gensym)
         sbnds (c/TypeFn-bbnds* names S)
         tbnds (c/TypeFn-bbnds* names T)
         sbody (c/TypeFn-body* names S)
         tbody (c/TypeFn-body* names T)]
-    (if (and (= (.nbound S) (.nbound T))
-             (= (.variances S) (.variances T))
+    (if (and (= (:nbound S) (:nbound T))
+             (= (:variances S) (:variances T))
              (every? identity
                      (map (fn [lbnd rbnd]
                             (and (subtype? (:upper-bound lbnd) (:upper-bound rbnd))
