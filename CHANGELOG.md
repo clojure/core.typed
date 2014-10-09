@@ -1,3 +1,20 @@
+# 0.2.72 - 9rd October 2014
+
+- Fix subtyping for higher-kinded type variables
+  - identical applications are trivially subtypes
+    - (m a) <: (m a)
+  - when operands vary, subtyping checks m's upper bound and does
+    subtyping check in the direction indicated by variance
+    - (m a) <: (m b), where a <: b and upper bound of m is (TFn [[x :variance :covariant]] Any)
+    - (m b) <: (m a), where b <: a and upper bound of m is (TFn [[x :variance :contravariant]] Any)
+  - Unions are checked properly
+    - (m a) <: (U (Reduced Int) (m a)
+  - restrictions:
+    - operators must be the same variable
+      - this can probably be improved slightly by doing a subtype
+        check between operators in the TApp-TApp subtyping case 
+        instead of an = check
+
 # 0.2.71 - 3rd October 2014
 
 - Fix CTYP-175
