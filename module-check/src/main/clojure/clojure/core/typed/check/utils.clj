@@ -20,8 +20,7 @@
             [clojure.core.typed.method-param-nilables :as mtd-param-nil]
             [clojure.core.typed.method-return-nilables :as mtd-ret-nil]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.ast-utils :as ast-u])
+            [clojure.core.typed.subtype :as sub])
   (:import (clojure.lang MultiFn)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -300,11 +299,11 @@
       ;(prn "MethodExpr->Method" c ms (map :tag args))
       (first ms))))
 
-(defn NewExpr->Ctor [{:keys [op args] :as expr}]
+(defn NewExpr->Ctor [{c :class :keys [op args] :as expr}]
   {:pre [(#{:new} op)]
    :post [(or (instance? clojure.reflect.Constructor %)
               (nil? %))]}
-  (let [cs (->> (reflect-u/reflect (ast-u/new-op-class expr))
+  (let [cs (->> (reflect-u/reflect c)
                 :members
                 (filter #(instance? clojure.reflect.Constructor %))
                 (filter #(#{(map (comp reflect-u/reflect-friendly-sym :tag) args)} (:parameter-types %))))]
@@ -478,6 +477,3 @@
                    _ (flush)
                    ]
          nil)))))))))
-
-(defonce ^:dynamic *inst-ctor-types* nil)
-(set-validator! #'*inst-ctor-types* (some-fn nil? (con/every-c? r/Type?)))

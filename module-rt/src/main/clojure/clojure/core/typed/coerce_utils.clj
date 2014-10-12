@@ -43,11 +43,7 @@
 (defn ctor-Class->symbol 
   "Returns a symbol representing this constructor's Class, removing any compiler stubs."
   [cls]
-  {:pre [((some-fn symbol? class?) cls)]
-   :post [(symbol? %)]}
-  (cond
-    (symbol? cls) cls
-    :else (Class->symbol cls)))
+  (Class->symbol cls))
 
 (defn ns->file [nsym]
   {:pre [(symbol? nsym)]
