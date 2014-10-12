@@ -17,7 +17,6 @@
             [clojure.core.typed.check.do :as do]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.get :as get]
-            [clojure.core.typed.check.new :as new]
             [clojure.core.typed.check.nth :as nth]
             [clojure.core.typed.check.nthnext :as nthnext]
             [clojure.core.typed.check.fn :as fn]
@@ -731,13 +730,16 @@
                                        vs/*current-expr* expr]
                                (inst/manual-inst ptype targs))))))))
 
+(defonce ^:dynamic *inst-ctor-types* nil)
+(set-validator! #'*inst-ctor-types* (some-fn nil? (con/every-c? r/Type?)))
+
 ;TODO this should be a special :do op
 ;manual instantiation for calls to polymorphic constructors
 (add-invoke-special-method 'clojure.core.typed/inst-poly-ctor
   [{[ctor-expr targs-exprs] :args :as expr} & [expected]]
   (let [targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                 (mapv prs/parse-type (ast-u/quote-expr-val targs-exprs)))
-        cexpr (binding [cu/*inst-ctor-types* targs]
+        cexpr (binding [*inst-ctor-types* targs]
                 (check ctor-expr))]
     (assoc expr
            u/expr-type (u/expr-type cexpr))))
@@ -1454,11 +1456,84 @@
                                   (fo/-not-filter-at inst-of (r/ret-o expr-tr)))
                           obj/-empty))))
 
+(defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (coerce/ctor-Class->symbol class)))
+
+
+(defmethod new-special 'clojure.lang.MultiFn
+  [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
+  (when-not expected
+    (err/int-error "clojure.lang.MultiFn constructor requires an expected type"))
+  (when-not (== 4 (count args))
+    (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
+  (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
+    (err/int-error "Multimethod hierarchy cannot be customised"))
+  (when-not (= (:val default-expr) :default)
+    (err/int-error "Non :default default dispatch value NYI"))
+  (let [mm-name (:val nme-expr)
+        _ (when-not (string? mm-name)
+            (err/int-error "MultiFn name must be a literal string"))
+        mm-qual (symbol (str (cu/expr-ns expr)) mm-name)
+        ;_ (prn "mm-qual" mm-qual)
+        ;_ (prn "expected r/ret-t" (prs/unparse-type (r/ret-t expected)))
+        ;_ (prn "expected r/ret-t class" (class (r/ret-t expected)))
+        expected-mm-disp (multi/expected-dispatch-type (r/ret-t expected))
+        cdisp (check dispatch-expr (r/ret expected-mm-disp))
+        cargs [(check nme-expr)
+               cdisp
+               (check default-expr)
+               (check hierarchy-expr)]
+        _ (assert (== (count cargs) (count args)))
+        _ (mm/add-multimethod-dispatch-type mm-qual (r/ret-t (u/expr-type cdisp)))]
+    (assoc expr
+           :args cargs
+           u/expr-type (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected))))))
+
+(defmethod new-special :default [expr & [expected]] cu/not-special)
+
 (add-check-method :new
-  [expr & [expected]]
+  [{cls :class :keys [args env] :as expr} & [expected]]
   {:post [(vector? (:args %))
           (-> % u/expr-type r/TCResult?)]}
-  (new/check-new check expr expected))
+  (binding [vs/*current-expr* expr
+            vs/*current-env* env]
+    (let [ctor (cu/NewExpr->Ctor expr)
+          spec (new-special expr expected)]
+      (cond
+        (not= cu/not-special spec) spec
+        :else
+        (let [inst-types *inst-ctor-types*
+              cls (ast-u/new-op-class expr)
+              clssym (coerce/ctor-Class->symbol cls)
+              cargs (mapv check args)
+              ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
+                          (and (dt-env/get-datatype clssym)
+                               (cu/DataType-ctor-type clssym))
+                          (when ctor
+                            (cu/Constructor->Function ctor)))]
+          (if-not ctor-fn
+            (err/tc-delayed-error (str "Unresolved constructor invocation " 
+                                     (type-hints/suggest-type-hints 
+                                       nil 
+                                       nil 
+                                       (map (comp r/ret-t u/expr-type) cargs)
+                                       :constructor-call clssym)
+                                     ".\n\nHint: add type hints"
+                                     "\n\nin: " (ast-u/emit-form-fn expr))
+                                :form (ast-u/emit-form-fn expr)
+                                :return (assoc expr
+                                               :args cargs
+                                               u/expr-type (cu/error-ret expected)))
+            (let [ctor-fn (if inst-types
+                            (inst/manual-inst ctor-fn inst-types)
+                            ctor-fn)
+                  ifn (r/ret ctor-fn)
+                  ;_ (prn "Expected constructor" (prs/unparse-type (r/ret-t ifn)))
+                  res-type (funapp/check-funapp expr args ifn (map u/expr-type cargs) nil)
+                  _ (when (and expected (not (sub/subtype? (r/ret-t res-type) (r/ret-t expected))))
+                      (cu/expected-error (r/ret-t res-type) (r/ret-t expected)))]
+              (assoc expr
+                     :args cargs
+                     u/expr-type res-type))))))))
 
 (add-check-method :throw
   [{:keys [exception] :as expr} & [expected]]
