@@ -172,3 +172,42 @@
       ; future tools.analyzer
       (let [{:keys [val]} (:class expr)]
         val)))
+
+(defn protocol-invoke->invoke [expr]
+  {:pre [(map? expr)
+         (#{:protocol-invoke} (:op expr))]
+   :post [(#{:invoke} (:op expr))]}
+  (-> expr
+      (dissoc :protocol-fn :target)
+      (assoc 
+        :op :invoke
+        :children [:fn :args]
+        :fn (:protocol-fn expr)
+        :args (vec (concat (:target expr)
+                           (:args expr))))))
+
+(defn invoke->protocol-invoke [expr]
+  {:pre [(map? expr)
+         (#{:invoke} (:op expr))]
+   :post [(#{:protocol-invoke} (:op expr))]}
+  (-> expr
+      (dissoc :meta :fn)
+      (assoc :op :protocol-invoke
+             :children [:protocol-fn :target :args]
+             :protocol-fn (:fn expr)
+             :target (first (:args expr))
+             :args (vec (rest (:args expr))))))
+
+(defn primitive-invoke->invoke [expr]
+  {:pre [(map? expr)
+         (#{:primitive-invoke} (:op expr))]
+   :post [(#{:invoke} (:op expr))]}
+  (-> expr
+      (assoc :op :invoke)))
+
+(defn invoke->primitive-invoke [expr]
+  {:pre [(map? expr)
+         (#{:invoke} (:op expr))]
+   :post [(#{:primitive-invoke} (:op expr))]}
+  (-> expr
+      (assoc :op :primitive-invoke)))
