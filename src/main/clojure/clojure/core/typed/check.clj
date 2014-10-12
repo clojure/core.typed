@@ -516,19 +516,14 @@
                            (u/expr-type (second cargs)))
                          expected))))
 
-(add-check-method :primitive-invoke
+; Will this play nicely with file mapping?
+(add-check-method :prim-invoke ; protocol methods
   [expr & [expected]]
-  (-> expr
-      ast-u/primitive-invoke->invoke
-      (check expected)
-      ast-u/invoke->protocol-invoke))
+  (check (assoc expr :op :invoke)))
 
-(add-check-method :protocol-invoke
+(add-check-method :protocol-invoke ; protocol methods
   [expr & [expected]]
-  (-> expr
-      ast-u/protocol-invoke->invoke
-      (check expected)
-      ast-u/invoke->protocol-invoke))
+  (check (assoc expr :op :invoke)))
 
 ;binding
 ;FIXME use `check-normal-def`
