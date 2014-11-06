@@ -230,7 +230,8 @@
 
      ~@methods*))
 
-(defn emit-deftype [name-sym fields invariants methods*]
+(defn emit-deftype [original-ns def-kind name-sym fields invariants methods*]
+  (assert (symbol? name-sym))
   (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name-sym)) (meta name-sym))
         ->ctor (symbol (str "->" name-sym))
         maker (symbol (str name-sym "-maker"))
@@ -243,6 +244,8 @@
        (declare ~maker)
        ~(inner-deftype fields hash-field meta-field that name-sym type-hash gs
                        maker methods*)
+
+       (swap! ~(symbol (str original-ns) (str "all-" def-kind "s")) conj '~classname)
 
        (alter-meta! (var ~->ctor) assoc :private true)
 
@@ -259,27 +262,31 @@
           ; ~@fields are in scope above
           (~->ctor ~@fields nil meta#))))))
 
-(defmacro mk [name-sym fields invariants & {:keys [methods]}]
+(defmacro mk [original-ns def-kind name-sym fields invariants & {:keys [methods]}]
   (when-not (resolve name-sym)
     `(t/tc-ignore
-       ~(emit-deftype name-sym fields invariants methods))))
+       ~(emit-deftype original-ns def-kind name-sym fields invariants methods))))
 
 (defmacro defspecial [name]
-  `(do (defn ~(symbol (str name "="))
-         [t1# t2#]
-         (= t1# t2#))
-       (defn ~(symbol (str name "<"))
-         [t1# t2#]
-         (neg? (compare t1# t2#)))
-       (defn ~(symbol (str name "-comparator"))
-         [t1# t2#]
-         (compare t1# t2#))
-       (defmacro ~(symbol (str "def-" name))
-         [name# fields# doc# invariants# & opts#]
-         `(mk ~name# 
-              ~fields# 
-              ~invariants# 
-              ~@opts#))))
+  (let [all-entries (symbol (str "all-" name "s"))]
+    `(do (defn ~(symbol (str name "="))
+           [t1# t2#]
+           (= t1# t2#))
+         (defn ~(symbol (str name "<"))
+           [t1# t2#]
+           (neg? (compare t1# t2#)))
+         (defn ~(symbol (str name "-comparator"))
+           [t1# t2#]
+           (compare t1# t2#))
+         (def ~all-entries (atom #{}))
+         (defmacro ~(symbol (str "def-" name))
+           [name# fields# doc# invariants# & opts#]
+           `(mk ~'~(ns-name *ns*)
+                ~'~name
+                ~name# 
+                ~fields# 
+                ~invariants# 
+                ~@opts#)))))
 
 (defspecial type)
 (defspecial filter)

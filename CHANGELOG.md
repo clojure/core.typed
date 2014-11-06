@@ -1,6 +1,11 @@
-# 0.2.73 - 5th November 2014
+# 0.2.73 - SNAPSHOT
 
 - Fix `get` operations with keyword key and default value
+
+## Internal
+
+- add GetType fold case
+- add various promote/demote cases
 
 # 0.2.72 - 9rd October 2014
 
