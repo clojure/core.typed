@@ -1,3 +1,7 @@
+# 0.2.73 - 5th November 2014
+
+- Fix `get` operations with keyword key and default value
+
 # 0.2.72 - 9rd October 2014
 
 - Fix subtyping for higher-kinded type variables
