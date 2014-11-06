@@ -495,6 +495,7 @@
                  :args cargs
                  u/expr-type (r/ret res)))))))
 
+;; FIXME when updating tools.analyzer past 0.5.0, update :keyword-invoke fields
 (add-check-method :keyword-invoke
   [{kw :fn :keys [args] :as expr} & [expected]]
   {:pre [(and (#{:const} (:op kw))
@@ -507,7 +508,7 @@
     (assoc expr
            :fn ckw
            :args cargs
-           u/expr-type (invoke-kw/invoke-keyword 
+           u/expr-type (invoke-kw/invoke-keyword
                          expr
                          (u/expr-type ckw)
                          (u/expr-type (first cargs))
