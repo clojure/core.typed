@@ -20,7 +20,7 @@
     (binding [vs/*verbose-types* true]
       (into {}
             (for [[k v] var-env]
-              [k (prs/unparse-type v)])))))
+              [k (prs/unparse-type (force v))])))))
 
 (defn all-envs-clj []
   (impl/with-clojure-impl

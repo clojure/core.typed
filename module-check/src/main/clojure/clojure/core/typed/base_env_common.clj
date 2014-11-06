@@ -39,10 +39,11 @@
 
 (defn parse-clj-ann-map
   [ann-map]
-  (into {}
-        (map (fn [[sym ann]]
-               [sym (prs/parse-type ann)])
-             ann-map)))
+  (let [conveyed-parse (bound-fn* prs/parse-type)]
+    (into {}
+          (map (fn [[sym ann]]
+                 [sym (delay (conveyed-parse ann))])
+               ann-map))))
 
 
 ;;these annotations can be parsed in either {cljs,clojure}.core.typed

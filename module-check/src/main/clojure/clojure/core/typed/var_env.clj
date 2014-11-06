@@ -13,7 +13,7 @@
 (defonce ^:dynamic *current-used-vars* nil)
 (defonce ^:dynamic *current-checked-var-defs* nil)
 
-(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) r/Type?)))
+(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) (some-fn delay? r/Type?))))
 (defonce CLJ-NOCHECK-VAR? (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 (defonce CLJ-USED-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 (defonce CLJ-CHECKED-VAR-DEFS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
@@ -107,13 +107,14 @@
   nil)
 
 (defn lookup-Var-nofail [nsym]
+  {:post [((some-fn nil? r/Type?) %)]}
   (or (let [e (current-var-annotations)]
-        (@e nsym))
+        (force (@e nsym)))
       (when (impl/checking-clojurescript?)
         (@CLJS-JSVAR-ANNOTATIONS nsym))))
 
 (defn lookup-Var [nsym]
-  {:post [%]}
+  {:post [((some-fn nil? r/Type?) %)]}
   (if-let [t (lookup-Var-nofail nsym)]
     t
     (err/int-error

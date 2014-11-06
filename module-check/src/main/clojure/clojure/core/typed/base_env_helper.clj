@@ -37,7 +37,8 @@
 
 (defmacro var-mappings [& args]
   `(impl/with-clojure-impl
-     (let [ts# (partition 2 '~args)]
+     (let [ts# (partition 2 '~args)
+           conveyed-parse# (bound-fn* prs/parse-type)]
        (into {}
              (doall
                (for [[s# t#] ts#]
@@ -45,7 +46,7 @@
                    (assert (and (symbol? s#)
                                 (namespace s#))
                            "Need fully qualified symbol")
-                   [s# (prs/parse-type t#)])))))))
+                   [s# (delay (conveyed-parse# t#))])))))))
 
 (defmacro method-nonnilable-return-mappings [& args]
   `(impl/with-clojure-impl
