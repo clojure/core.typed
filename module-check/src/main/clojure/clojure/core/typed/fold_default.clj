@@ -14,7 +14,7 @@
                                         CountRange Name Value Top TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
                                         NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
-                                        BooleanCLJS AssocType KwArgsSeq HSequential HSet)
+                                        BooleanCLJS AssocType GetType KwArgsSeq HSequential HSet)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -223,6 +223,15 @@
                          (c/-extends
                            (doall (map type-rec extends))
                            :without (doall (mapv type-rec without)))))
+
+(add-default-fold-case GetType
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:target] type-rec)
+                           (update-in [:key] type-rec)
+                           (update-in [:not-found] type-rec)
+                           (update-in [:target-fs] filter-rec)
+                           (update-in [:target-object] object-rec))))
 
 (add-default-fold-case AssocType
                        (fn [{:keys [target entries dentries] :as ty} _]
