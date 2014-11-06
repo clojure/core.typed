@@ -3233,6 +3233,16 @@
              (nth v 0))
            Int))
 
+(deftest keyword-default-arg-test
+  (is-tc-e (:a {} 0) Int)
+  (is-tc-e (:a {} 0) Int)
+  (is-tc-err (:a {}) Int)
+  (is-tc-e
+    (fn [m :- (Map Keyword Long)] :- Long
+      (:a m 0)))
+  (is-tc-e
+    (fn [m :- (Map Keyword Long)] :- Long
+      (get m :a 0))))
 
 (defn top-tfn1 []
   (parse-type `(TFn [[~'x :variance :covariant]] Any)))

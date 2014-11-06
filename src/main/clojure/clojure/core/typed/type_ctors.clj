@@ -2303,20 +2303,13 @@
                                      ;same as clojure.core/get
                                      `(t/All [x# y#]
                                            (t/IFn 
-                                             ;no default
-                                             [(t/Set x#) t/Any ~'-> (t/Option x#)]
-                                             [nil t/Any ~'-> nil]
-                                             [(t/U nil (clojure.lang.ILookup t/Any x#)) t/Any ~'-> (t/U nil x#)]
-                                             [java.util.Map t/Any ~'-> (t/U nil t/Any)]
-                                             [String t/Any ~'-> (t/U nil Character)]
-                                             ;default
-                                             [(t/Set x#) t/Any y# ~'-> (t/U y# x#)]
-                                             [nil t/Any y# ~'-> y#]
-                                             [(t/U nil (clojure.lang.ILookup t/Any x#)) t/Any y# ~'-> (t/U y# x#)]
-                                             [java.util.Map t/Any y# ~'-> (t/U y# t/Any)]
-                                             [String t/Any y# ~'-> (t/U y# Character)]
+                                             [(t/Set x#) t/Any y# :-> (t/U y# x#)]
+                                             [nil t/Any y# :-> y#]
+                                             [(t/U nil (clojure.lang.ILookup t/Any x#)) t/Any y# :-> (t/U y# x#)]
+                                             [java.util.Map t/Any y# :-> (t/U y# t/Any)]
+                                             [String t/Any y# :-> (t/U y# Character)]
                                              ))))
-                      [(r/ret t) (r/ret (or default r/-nil))] nil)
+                      [(r/ret t) (r/ret k) (r/ret (or default r/-nil))] nil)
         r/ret-t)
       :else r/-any)))
 
