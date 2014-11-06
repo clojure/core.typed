@@ -8,7 +8,8 @@
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed :as t]
             [clojure.core.typed.hset-utils :as hset]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.core.typed.impl-protocols :as p])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -16,12 +17,15 @@
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq TCError Extends JSNominal
                                         StringCLJS BooleanCLJS NumberCLJS IntegerCLJS ObjectCLJS
-                                        ArrayCLJS FunctionCLJS KwArgsSeq HSequential HSet)
+                                        ArrayCLJS FunctionCLJS KwArgsSeq HSequential HSet LTRange
+                                        AnyValue TopFunction Scope DissocType AssocType
+                                        GetType GTRange)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE NthPE)
-           (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
+           (clojure.lang Cons IPersistentList Symbol IPersistentVector)
+           (clojure.core.typed.impl_protocols TCType)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -73,6 +77,14 @@
            (set? V)
            (every? symbol? V)]}
     (class T)))
+
+(defn completeness-check []
+  (let [vs (set (keys (methods promote)))
+        expecteds (set (map resolve @u/all-types))
+        missing (set/difference expecteds vs)]
+    (when (seq missing)
+      {:missing missing
+       :mm 'promote})))
 
 (defmethod promote ArrayCLJS
   [T V]
@@ -392,6 +404,81 @@
 
 (defmethod promote FunctionCLJS [T V] T)
 (defmethod demote FunctionCLJS [T V] T)
+
+(defmethod promote LTRange [T V] T)
+(defmethod demote LTRange [T V] T)
+
+(defmethod promote GTRange [T V] T)
+(defmethod demote GTRange [T V] T)
+
+(defmethod promote AnyValue [T V] T)
+(defmethod demote AnyValue [T V] T)
+
+(defmethod promote TopFunction [T V] T)
+(defmethod demote  TopFunction [T V] T)
+
+(defmethod promote GetType
+  [T V]
+  (let [pmt #(promote % V)]
+    (-> T
+        (update-in [:target] pmt)
+        (update-in [:key] pmt)
+        (update-in [:not-found] pmt)
+        (update-in [:target-fs] pmt)
+        (update-in [:target-object] pmt))))
+
+(defmethod demote GetType
+  [T V]
+  (let [dmt #(demote % V)]
+    (-> T
+        (update-in [:target] dmt)
+        (update-in [:key] dmt)
+        (update-in [:not-found] dmt)
+        (update-in [:target-fs] dmt)
+        (update-in [:target-object] dmt))))
+
+(defmethod promote AssocType
+  [T V]
+  (let [pmt #(promote % V)]
+    (-> T
+        (update-in [:target] pmt)
+        (update-in [:entries] (fn [entries] (mapv #(mapv pmt %) entries)))
+        (update-in [:dentries] #(some-> % (update-in [:pre-type] pmt))))))
+
+(defmethod demote AssocType
+  [T V]
+  (let [dmt #(demote % V)]
+    (-> T
+        (update-in [:target] dmt)
+        (update-in [:entries] (fn [entries] (mapv #(mapv dmt %) entries)))
+        (update-in [:dentries] #(some-> % (update-in [:pre-type] dmt))))))
+
+
+(defmethod promote DissocType
+  [T V]
+  (let [pmt #(promote % V)]
+    (-> T
+        (update-in [:target] pmt)
+        (update-in [:keys] (fn [keys] (mapv pmt keys)))
+        (update-in [:dkeys] #(some-> % (update-in [:pre-type] pmt))))))
+
+(defmethod demote DissocType
+  [T V]
+  (let [dmt #(demote % V)]
+    (-> T
+        (update-in [:target] dmt)
+        (update-in [:keys] (fn [keys] (mapv dmt keys)))
+        (update-in [:dkeys] #(some-> % (update-in [:pre-type] dmt))))))
+
+(defmethod promote Scope
+  [T V]
+  (-> T
+    (update-in [:body] #(promote % V))))
+
+(defmethod demote Scope
+  [T V]
+  (-> T
+    (update-in [:body] #(demote % V))))
 
 (defmethod promote TApp
   [T V]
