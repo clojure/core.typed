@@ -1,21 +1,38 @@
 (ns ^:skip-wiki clojure.core.typed.parse-ast
-  (:require [clojure.core.typed.current-impl :as impl]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.set :as set]))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+)
 
+(t/ann *parse-type-in-ns* (t/U nil t/Sym))
 (defonce ^:dynamic *parse-type-in-ns* nil)
 
+(t/ann ^:no-check clojure.core.typed.current-impl/*current-impl* (t/U nil t/Kw))
+(t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> t/Kw])
+
+(t/ann parse-in-ns [-> t/Sym])
 (defn- parse-in-ns []
   {:post [(symbol? %)]}
   (or *parse-type-in-ns* 
       (impl/impl-case
         :clojure (ns-name *ns*)
-        :cljs (impl/v 'cljs.analyzer/*cljs-ns*))))
+        :cljs (t/tc-ignore (impl/v 'cljs.analyzer/*cljs-ns*)))))
 
+(t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure
+       (t/IFn [-> nil]
+              [(t/U nil (t/Seqable t/Any)) -> nil]))
+
+(t/ann ^:no-check clojure.core.typed.errors/int-error 
+       (t/IFn [t/Any -> t/Nothing]
+              [t/Nothing (t/HMap :optional {:use-current-env t/Any}) -> t/Nothing]))
+
+(t/ann resolve-type-clj [t/Sym -> (t/U (t/Var2 t/Nothing t/Any) Class nil)])
 (defn- resolve-type-clj 
   "Returns a var, class or nil"
   [sym]
@@ -29,8 +46,25 @@
 
 (declare parse parse-path-elem)
 
+(t/ann ^:no-check parse [t/Any -> Type])
+
+(t/defalias Type
+  (t/Rec [Type]
+    (t/U '{:op ':singleton
+           :val t/Any
+           :form t/Any}
+         '{:op ':Fn
+           :arities (t/Vec Function)
+           :form t/Any
+           :children (t/Vec t/Kw)})))
+
+(t/ann parse [t/Any -> Type])
+
 ;Map from scoped vars to unique names
+(t/ann *tvar-scope* (t/Map t/Sym Type))
 (def ^:dynamic *tvar-scope* {})
+
+(t/ann *dotted-scope* (t/Map t/Sym t/Sym))
 (def ^:dynamic *dotted-scope* {})
 
 (defmacro with-frees [fs & args]
@@ -41,16 +75,41 @@
   `(binding [*dotted-scope* (merge *dotted-scope* ~fs)]
      ~@args))
 
+(t/defalias Filter
+  (t/Rec [Filter]
+  (t/U '{:op ':top-filter}
+       '{:op ':bot-filter}
+       '{:op ':or-filter
+         :fs (t/Vec Filter)}
+       '{:op ':and-filter
+         :fs (t/Vec Filter)}
+       '{:op ':impl-filter
+         :a Filter
+         :c Filter}
+       (HMap :mandatory {:op ':type-filter
+                         :type Type
+                         :id NameRef}
+             :optional {:path (t/Vec PathElem)})
+       (HMap :mandatory {:op ':not-type-filter
+                         :type Type
+                         :id NameRef}
+             :optional {:path (t/Vec PathElem)}))))
+
+(t/ann parse-filter [t/Any -> Filter])
 (defn parse-filter [syn]
   (cond
     ('#{tt} syn) {:op :top-filter}
     ('#{ff} syn) {:op :bot-filter}
     :else
-      (let [m (when (seq? syn)
+      (let [m (when ((every-pred seq? sequential?) syn)
                 (let [[f & args] syn]
                   (cond
                     ('#{is} f)
                       (let [[tsyn nme psyns] args
+                            _ (when (and (#{3} (count args))
+                                         (not (vector? psyns)))
+                                (err/int-error
+                                  (str "3rd argument to 'is' must be a vector")))
                             _ (when-not (#{2 3} (count args))
                                 (throw (ex-info "Bad arguments to 'is'"
                                                 {:form syn})))
@@ -65,6 +124,10 @@
                             {:path p})))
                     ('#{!} f)
                       (let [[tsyn nme psyns] args
+                            _ (when (and (#{3} (count args))
+                                         (not (vector? psyns)))
+                                (err/int-error
+                                  (str "3rd argument to '!' must be a vector")))
                             _ (when-not (#{2 3} (count args))
                                 (throw (ex-info "Bad arguments to '!'"
                                                 {:form syn})))
@@ -95,55 +158,93 @@
           m
           (err/int-error (str "Bad filter syntax: " syn))))))
 
-(defn parse-filter-set [{:keys [then else] :as fsyn}]
-  {:op :filter-set
-   :then (if then
-           (parse-filter then)
-           {:op :top-filter})
-   :else (if else
-           (parse-filter else)
-           {:op :top-filter})})
+(t/defalias FilterSet
+  '{:op ':filter-set
+    :then Filter
+    :else Filter})
 
+(t/ann parse-filter-set [t/Any -> FilterSet])
+(defn parse-filter-set [syn]
+  (when-not (map? syn)
+    (err/int-error "Filter set must be a map"))
+  (let [then (:then syn)
+        else (:else syn)]
+    {:op :filter-set
+     :then (if then
+             (parse-filter then)
+             {:op :top-filter})
+     :else (if else
+             (parse-filter else)
+             {:op :top-filter})}))
+
+(t/defalias NameRef (t/U t/Sym t/Int))
+
+(t/ann ^:no-check name-ref? (t/Pred NameRef))
 (def name-ref? (some-fn symbol? (every-pred integer? (complement neg?))))
 
+(t/defalias PathElem
+  (t/U '{:op ':ClassPE}
+       '{:op ':CountPE}
+       '{:op ':KeysPE}
+       '{:op ':ValsPE}
+       '{:op ':NthPE
+         :idx t/Int}
+       '{:op ':KeysPE
+         :key t/Any}
+       '{:op ':ValsPE
+         :key t/Any}))
+
+; no-check for perf issues
+(t/ann ^:no-check parse-path-elem [t/Any -> PathElem])
 (defn parse-path-elem [syn]
-  (cond
-    ('#{Class} syn) {:op :ClassPE}
-    ('#{Count} syn) {:op :CountPE}
-    ('#{Keys} syn) {:op :KeysPE}
-    ('#{Vals} syn) {:op :ValsPE}
-    :else
-      (let [m (when (seq? syn)
-                (let [[f & args] syn]
-                  (cond
-                    ('#{Nth} f) (do
-                                  (when-not (#{1} (count args))
-                                    (err/int-error (str "Wrong arguments to Nth: " syn)))
-                                  {:op :NthPE
-                                   :idx (first args)})
-                    ('#{Key} f) (do
-                                  (when-not (#{1} (count args))
-                                    (err/int-error (str "Wrong arguments to Key: " syn)))
-                                  {:op :KeyPE
-                                   :key (first args)})
-                    ('#{Val} f) (do
-                                  (when-not (#{1} (count args))
-                                    (err/int-error (str "Wrong arguments to Val" syn)))
-                                  {:op :ValPE
-                                   :val (first args)}))))]
-        (if m
-          m
-          (err/int-error (str "Bad path element syntax: " syn))))))
+  (case syn
+    Class {:op :ClassPE}
+    Count {:op :CountPE}
+    Keys {:op :KeysPE}
+    Vals {:op :ValsPE}
+    (let [m (when (seq? syn)
+              (let [[f & args] syn]
+                (case f
+                  Nth (do
+                        (when-not (#{1} (count args))
+                          (err/int-error (str "Wrong arguments to Nth: " syn)))
+                        {:op :NthPE
+                         :idx (first args)})
+                  Key (do
+                        (when-not (#{1} (count args))
+                          (err/int-error (str "Wrong arguments to Key: " syn)))
+                        {:op :KeyPE
+                         :key (first args)})
+                  Val (do
+                        (when-not (#{1} (count args))
+                          (err/int-error (str "Wrong arguments to Val" syn)))
+                        {:op :ValPE
+                         :val (first args)})
+                  nil)))]
+      (if m
+        m
+        (err/int-error (str "Bad path element syntax: " syn))))))
 
-(defn parse-object [{:keys [id path]}]
-  (when-not (name-ref? id)
-    (err/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
-  (merge
-    {:op :object
-     :id id}
-    (when path
-      {:path-elems (mapv parse-path-elem path)})))
+(t/ann parse-object [t/Any -> FObject])
+(defn parse-object [syn]
+  (when-not (map? syn)
+    (err/int-error (str "Object must be a map")))
+  (let [id (:id syn)
+        path (:path syn)]
+    (when-not (name-ref? id)
+      (err/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
+    (when-not ((some-fn nil? vector?) path)
+      (err/int-error "Path must be a vector"))
+    (when (contains? syn :path)
+      (when-not (vector? path)
+        (err/int-error "Path must be a vector")))
+    (merge
+      {:op :object
+       :id id}
+      (when path
+        {:path-elems (mapv parse-path-elem path)}))))
 
+(t/ann parse-HVec [(t/Seq t/Any) -> Type])
 (defn parse-HVec [[_ fixed & opts :as syn]]
   (let [_ (when-not (vector? fixed)
             (err/int-error "First argument to HVec must be a vector"))
@@ -163,6 +264,9 @@
         {:filter-sets (mapv parse-filter-set filter-sets)})
       (when objects
         {:objects (mapv parse-object filter-sets)}))))
+
+(t/tc-ignore
+
 
 (defn parse-with-rest-drest [msg syns]
   (let [rest? (#{'*} (last syns))
@@ -464,6 +568,7 @@
    :types (mapv parse args)
    :children [:types]})
 
+(t/ann parse-seq* [(t/Seq t/Any) -> Type])
 (defmulti parse-seq*
   (fn [[n]]
     {:post [((some-fn nil? symbol?) %)]}
@@ -680,7 +785,35 @@
 (defmethod parse-seq* 'clojure.core.typed/TFn [syn] (parse-TFn syn))
 (defmethod parse-seq* 'cljs.core.typed/TFn [syn] (parse-TFn syn))
 
+(t/defalias F
+  '{:op ':F
+    :name t/Sym})
+
+(t/defalias DottedPretype
+  '{:op ':dotted-pretype
+    :f F
+    :drest Type
+    :name t/Sym})
+
+(t/defalias FObject t/Any)
+
+(t/defalias Function
+  (t/HMap :mandatory
+          {:op ':Fn-method
+           :dom (t/Vec Type)
+           :rng Type
+           :filter FilterSet
+           :object FObject
+           :flow Filter
+           :children (t/Vec t/Kw)}
+          :optional
+          {:rest Type
+           :drest DottedPretype}))
+
+(t/ann parse-function [t/Any -> Function])
 (defn parse-function [f]
+  (when-not (vector? f) 
+    (err/int-error "Function arity must be a vector"))
   (let [is-arrow '#{-> :->}
         all-dom (take-while (complement is-arrow) f)
         [the-arrow rng & opts-flat :as chk] (drop-while (complement is-arrow) f) ;opts aren't used yet
@@ -960,3 +1093,4 @@
   (impl/with-impl impl/clojure
     (parse 'a))
   )
+)
