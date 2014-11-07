@@ -80,6 +80,13 @@
   (let [nsym (ns-form-name ns-form)]
     (boolean (-> (meta nsym) :core.typed :collect-only))))
 
+(defn should-check-ns-form?
+  [ns-form]
+  {:post [(con/boolean? %)]}
+  (and ns-form
+       (requires-tc? ns-form)
+       (not (collect-only-ns? ns-form))))
+
 (defn should-check-ns? 
   "Returns true if the given namespace should be type checked"
   [nsym]
