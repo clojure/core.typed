@@ -14,13 +14,14 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.load-if-needed :as load]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.profiling :as p]
-            [clojure.core.typed.parse-ast :as ast]
+            ;[clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.import-macros :as import-m]
             [clojure.core.typed.macros :as macros]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import (clojure.lang Compiler)))
 
 (import-m/import-macros clojure.core.typed.macros
   [def fn loop let ann-form tc-ignore defprotocol
@@ -1184,16 +1185,34 @@ for checking namespaces, cf for checking individual forms."}
   [sym type]
   nil)
 
+(defmacro ^:private with-current-location
+  [form & body]
+  `(let [form# ~form]
+     (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
+                                 :file *file*
+                                 :line (or (-> form# meta :line)
+                                           @Compiler/LINE)
+                                 :column (or (-> form# meta :column)
+                                             @Compiler/COLUMN)}]
+       ~@body)))
+
+(defmacro ^:private delay-parse 
+  "We can type check c.c.t/parse-ast if we replace all instances
+  of parse-ast in clojure.core.typed with delay-parse. Otherwise
+  there is a circular dependency."
+  [t]
+  `(let [t# ~t
+         app-outer-context# (bound-fn* (fn [f# t#] (f# t#)))]
+     (delay
+       (require '~'clojure.core.typed.parse-ast)
+       (let [parse-clj# (impl/v '~'clojure.core.typed.parse-ast/parse-clj)]
+         (app-outer-context# parse-clj# t#)))))
+
 (defn ^:skip-wiki add-to-alias-env [form qsym t]
   (swap! impl/alias-env assoc qsym 
          (impl/with-impl impl/clojure
-           (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
-                                          :file *file*
-                                          :line (or (-> form meta :line)
-                                                    @clojure.lang.Compiler/LINE)
-                                          :column (or (-> form meta :column)
-                                                      @clojure.lang.Compiler/COLUMN)}]
-             (ast/parse-clj t))))
+           (with-current-location form
+             (delay-parse t))))
   nil)
 
 (defmacro
@@ -1707,13 +1726,8 @@ for checking namespaces, cf for checking individual forms."}
                   "Cannot provide both :nocheck and :no-check metadata to ann")
         check? (not (or (:no-check opts)
                         (:nocheck opts)))
-        ast (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
-                                        :file *file*
-                                        :line (or (-> &form meta :line)
-                                                  @clojure.lang.Compiler/LINE)
-                                        :column (or (-> &form meta :column)
-                                                    @clojure.lang.Compiler/COLUMN)}]
-              (ast/parse-clj typesyn))]
+        ast (with-current-location &form
+              (delay-parse typesyn))]
     (swap! impl/var-env assoc qsym ast)
     `(ann* '~qsym '~typesyn '~check?)))
 
@@ -2274,12 +2288,7 @@ for checking namespaces, cf for checking individual forms."}
       ;=> true"
   [t]
   (require '[clojure.core.typed.type-contract])
-  (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
-                              :file *file*
-                              :line (or (-> &form meta :line)
-                                        @clojure.lang.Compiler/LINE)
-                              :column (or (-> &form meta :column)
-                                          @clojure.lang.Compiler/COLUMN)}]
+  (with-current-location &form
     `(pred* '~t
             '~(ns-name *ns*)
             ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t))))
