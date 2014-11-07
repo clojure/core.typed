@@ -1,6 +1,8 @@
 # 0.2.73 - SNAPSHOT
 
 - Fix `get` operations with keyword key and default value
+- parse annotations in base-env as needed
+- improved log message that explains why a namespace was skipped
 
 ## Internal
 
