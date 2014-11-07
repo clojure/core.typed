@@ -23,9 +23,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE NthPE)
-           (clojure.lang Cons IPersistentList Symbol IPersistentVector)
-           (clojure.core.typed.impl_protocols TCType)))
+           (clojure.core.typed.path_rep KeyPE CountPE ClassPE NthPE)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -86,29 +84,29 @@
       {:missing missing
        :mm 'promote})))
 
-(defmethod promote ArrayCLJS
+(defmacro promote-demote [cls & fbody]
+  `(do (defmethod promote ~cls [T# V#] 
+         (let [~'promote promote
+               ~'demote demote
+               f# (fn ~@fbody)]
+           (f# T# V#)))
+       (defmethod demote ~cls [T# V#] 
+         (let [~'promote demote
+               ~'demote promote
+               f# (fn ~@fbody)]
+           (f# T# V#)))))
+
+(promote-demote ArrayCLJS 
   [T V]
   (-> T
     (update-in [:input-type] #(demote % V))
     (update-in [:output-type] #(promote % V))))
 
-(defmethod demote ArrayCLJS
-  [T V]
-  (-> T
-    (update-in [:input-type] #(promote % V))
-    (update-in [:output-type] #(demote % V))))
-
-(defmethod promote PrimitiveArray
+(promote-demote PrimitiveArray
   [T V]
   (-> T
     (update-in [:input-type] #(demote % V))
     (update-in [:output-type] #(promote % V))))
-
-(defmethod demote PrimitiveArray
-  [T V]
-  (-> T
-    (update-in [:input-type] #(promote % V))
-    (update-in [:output-type] #(demote % V))))
 
 (defmethod promote F
   [{:keys [name] :as T} V]
@@ -127,29 +125,18 @@
         (for [[k v] m]
           [k (p-or-d-fn v V)])))
 
-(defmethod promote KwArgsSeq
+(promote-demote KwArgsSeq
   [T V]
   (-> T
     (update-in [:mandatory] handle-kw-map promote V)
     (update-in [:optional] handle-kw-map promote V)))
 
-(defmethod demote KwArgsSeq
-  [T V]
-  (-> T
-    (update-in [:mandatory] handle-kw-map demote V)
-    (update-in [:optional] handle-kw-map demote V)))
-
-(defmethod promote HeterogeneousMap
+(promote-demote HeterogeneousMap
   [T V]
   (-> T
     (update-in [:types] handle-kw-map promote V)))
 
-(defmethod demote HeterogeneousMap
-  [T V]
-  (-> T
-    (update-in [:types] handle-kw-map demote V)))
-
-(defmethod promote HSequential
+(promote-demote HSequential
   [T V]
   (let [pmt #(promote % V)
         latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
@@ -176,34 +163,7 @@
                :drest (when-let [drest (:drest T)]
                         (update-in drest [:pre-type] pmt))))))
 
-(defmethod demote HSequential
-  [T V]
-  (let [dmt #(demote % V)
-        latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
-                                           (set (mapcat frees/fi (:fs T))))]
-    (cond
-      ;if filter contains V, give up
-      (seq (set/intersection V latent-filter-vs)) (c/In (c/RClass-of clojure.lang.Sequential)
-                                                        (c/RClass-of clojure.lang.IPersistentCollection [r/-any]))
-
-      ;if dotted bound is in V, transfer to rest args
-      (and (:drest T) (V (-> T :drest :name)))
-      (r/-hsequential (mapv dmt (:types T))
-               :filters (:fs T)
-               :objects (:objects T)
-               :rest (dmt (-> T :drest :pre-type)))
-
-      :else
-      (r/-hsequential (mapv dmt (:types T))
-               ; we know no filters contain V
-               :filters (:fs T)
-               :objects (:objects T)
-               :rest (when-let [rest (:rest T)]
-                       (dmt rest))
-               :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] dmt))))))
-
-(defmethod promote HeterogeneousSeq
+(promote-demote HeterogeneousSeq
   [T V]
   (let [pmt #(promote % V)
         latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
@@ -229,33 +189,7 @@
                :drest (when-let [drest (:drest T)]
                         (update-in drest [:pre-type] pmt))))))
 
-(defmethod demote HeterogeneousSeq
-  [T V]
-  (let [dmt #(demote % V)
-        latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
-                                           (set (mapcat frees/fi (:fs T))))]
-    (cond
-      ;if filter contains V, give up
-      (seq (set/intersection V latent-filter-vs)) (c/RClass-of clojure.lang.ISeq [r/-any])
-
-      ;if dotted bound is in V, transfer to rest args
-      (and (:drest T) (V (-> T :drest :name)))
-      (r/-hseq (mapv dmt (:types T))
-               :filters (:fs T)
-               :objects (:objects T)
-               :rest (dmt (-> T :drest :pre-type)))
-
-      :else
-      (r/-hseq (mapv dmt (:types T))
-               ; we know no filters contain V
-               :filters (:fs T)
-               :objects (:objects T)
-               :rest (when-let [rest (:rest T)]
-                       (dmt rest))
-               :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] dmt))))))
-
-(defmethod promote HeterogeneousVector
+(promote-demote HeterogeneousVector
   [T V]
   (let [pmt #(promote % V)
         latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
@@ -281,33 +215,7 @@
                :drest (when-let [drest (:drest T)]
                         (update-in drest [:pre-type] pmt))))))
 
-(defmethod demote HeterogeneousVector
-  [T V]
-  (let [dmt #(demote % V)
-        latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
-                                           (set (mapcat frees/fi (:fs T))))]
-    (cond
-      ;if filter contains V, give up
-      (seq (set/intersection V latent-filter-vs)) (c/RClass-of clojure.lang.IPersistentVector [r/-any])
-
-      ;if dotted bound is in V, transfer to rest args
-      (and (:drest T) (V (-> T :drest :name)))
-      (r/-hvec (mapv dmt (:types T))
-               :filters (:fs T)
-               :objects (:objects T)
-               :rest (dmt (-> T :drest :pre-type)))
-
-      :else
-      (r/-hvec (mapv dmt (:types T))
-               ; we know no filters contain V
-               :filters (:fs T)
-               :objects (:objects T)
-               :rest (when-let [rest (:rest T)]
-                       (dmt rest))
-               :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] dmt))))))
-
-(defmethod promote HSet
+(promote-demote HSet
   [T V]
   (let [fixed (mapv promote (:fixed T) (repeat V))
         h (r/-hset fixed (:complete? T))]
@@ -318,44 +226,20 @@
       h
       (c/upcast-hset h))))
 
-(defmethod demote HSet
-  [T V]
-  (let [fixed (mapv demote (:fixed T) (repeat V))
-        h (r/-hset fixed (:complete? T))]
-    (if (every? (fn [a] 
-                  (and (r/Value? a)
-                       (hset/valid-fixed? (:val a))))
-                fixed)
-      h
-      (c/upcast-hset h))))
-
-
-(defmethod promote HeterogeneousList
+(promote-demote HeterogeneousList
   [T V]
   (-> T
     (update-in [:types] #(apply list (mapv promote % (repeat V))))))
 
-(defmethod demote HeterogeneousList
-  [T V]
-  (-> T
-    (update-in [:types] #(apply list (mapv demote % (repeat V))))))
 
+(promote-demote Value [T V] T)
 
-
-(defmethod promote Value [T V] T)
-(defmethod demote Value [T V] T)
-
-(defmethod promote JSNominal [T V]
+(promote-demote JSNominal [T V]
   (-> T
     (update-in [:poly?] #(when %
                            (mapv promote % (repeat V))))))
 
-(defmethod demote JSNominal [T V]
-  (-> T
-    (update-in [:poly?] #(when %
-                           (mapv demote % (repeat V))))))
-
-(defmethod promote DataType [T V]
+(promote-demote DataType [T V]
   (-> T
     (update-in [:poly?] #(when %
                            (mapv promote % (repeat V))))
@@ -363,61 +247,17 @@
                                  (apply concat
                                         (for [[k v] %]
                                           [k (promote v V)]))))))
-(defmethod demote DataType [T V]
-  (-> T
-    (update-in [:poly?] #(when %
-                           (mapv demote % (repeat V))))
-    #_(update-in [:fields] #(apply array-map
-                                 (apply concat
-                                        (for [[k v] %]
-                                          [k (demote v V)]))))))
 
-(defmethod promote B [T V] T)
-(defmethod demote B [T V] T)
+(defmacro promote-demote-id [& cs]
+  `(do ~@(map (fn [c]
+                `(promote-demote ~c [T# V#] T#))
+              cs)))
 
-(defmethod promote Name [T V] T)
-(defmethod demote Name [T V] T)
+(promote-demote-id B Name Top TCError CountRange StringCLJS
+                   BooleanCLJS NumberCLJS ObjectCLJS IntegerCLJS
+                   FunctionCLJS LTRange GTRange AnyValue TopFunction)
 
-(defmethod promote Top [T V] T)
-(defmethod demote Top [T V] T)
-
-(defmethod promote TCError [T V] T)
-(defmethod demote TCError [T V] T)
-
-(defmethod promote CountRange [T V] T)
-(defmethod demote CountRange [T V] T)
-
-(defmethod promote StringCLJS [T V] T)
-(defmethod demote StringCLJS [T V] T)
-
-(defmethod promote BooleanCLJS [T V] T)
-(defmethod demote BooleanCLJS [T V] T)
-
-(defmethod promote NumberCLJS [T V] T)
-(defmethod demote NumberCLJS [T V] T)
-
-(defmethod promote ObjectCLJS [T V] T)
-(defmethod demote ObjectCLJS [T V] T)
-
-(defmethod promote IntegerCLJS [T V] T)
-(defmethod demote IntegerCLJS [T V] T)
-
-(defmethod promote FunctionCLJS [T V] T)
-(defmethod demote FunctionCLJS [T V] T)
-
-(defmethod promote LTRange [T V] T)
-(defmethod demote LTRange [T V] T)
-
-(defmethod promote GTRange [T V] T)
-(defmethod demote GTRange [T V] T)
-
-(defmethod promote AnyValue [T V] T)
-(defmethod demote AnyValue [T V] T)
-
-(defmethod promote TopFunction [T V] T)
-(defmethod demote  TopFunction [T V] T)
-
-(defmethod promote GetType
+(promote-demote GetType
   [T V]
   (let [pmt #(promote % V)]
     (-> T
@@ -427,17 +267,7 @@
         (update-in [:target-fs] pmt)
         (update-in [:target-object] pmt))))
 
-(defmethod demote GetType
-  [T V]
-  (let [dmt #(demote % V)]
-    (-> T
-        (update-in [:target] dmt)
-        (update-in [:key] dmt)
-        (update-in [:not-found] dmt)
-        (update-in [:target-fs] dmt)
-        (update-in [:target-object] dmt))))
-
-(defmethod promote AssocType
+(promote-demote AssocType
   [T V]
   (let [pmt #(promote % V)]
     (-> T
@@ -445,16 +275,7 @@
         (update-in [:entries] (fn [entries] (mapv #(mapv pmt %) entries)))
         (update-in [:dentries] #(some-> % (update-in [:pre-type] pmt))))))
 
-(defmethod demote AssocType
-  [T V]
-  (let [dmt #(demote % V)]
-    (-> T
-        (update-in [:target] dmt)
-        (update-in [:entries] (fn [entries] (mapv #(mapv dmt %) entries)))
-        (update-in [:dentries] #(some-> % (update-in [:pre-type] dmt))))))
-
-
-(defmethod promote DissocType
+(promote-demote DissocType
   [T V]
   (let [pmt #(promote % V)]
     (-> T
@@ -462,55 +283,26 @@
         (update-in [:keys] (fn [keys] (mapv pmt keys)))
         (update-in [:dkeys] #(some-> % (update-in [:pre-type] pmt))))))
 
-(defmethod demote DissocType
-  [T V]
-  (let [dmt #(demote % V)]
-    (-> T
-        (update-in [:target] dmt)
-        (update-in [:keys] (fn [keys] (mapv dmt keys)))
-        (update-in [:dkeys] #(some-> % (update-in [:pre-type] dmt))))))
-
-(defmethod promote Scope
+(promote-demote Scope
   [T V]
   (-> T
     (update-in [:body] #(promote % V))))
 
-(defmethod demote Scope
-  [T V]
-  (-> T
-    (update-in [:body] #(demote % V))))
-
-(defmethod promote TApp
+(promote-demote TApp
   [T V]
   (-> T
     (update-in [:rator] #(promote % V))
     (update-in [:rands] (fn [rands] (mapv #(promote % V) rands)))))
 
-(defmethod demote TApp
-  [T V]
-  (-> T
-    (update-in [:rator] #(demote % V))
-    (update-in [:rands] (fn [rands] (mapv #(demote % V) rands)))))
-
-(defmethod promote App
+(promote-demote App
   [T V]
   (-> T
     (update-in [:rator] #(promote % V))
     (update-in [:rands] (fn [rands] (mapv #(promote % V) rands)))))
 
-(defmethod demote App
-  [T V]
-  (-> T
-    (update-in [:rator] #(demote % V))
-    (update-in [:rands] (fn [rands] (mapv #(demote % V) rands)))))
-
-(defmethod promote Union 
+(promote-demote Union 
   [T V]
   (apply c/Un (map promote (:types T) (repeat V))))
-
-(defmethod demote Union 
-  [T V] 
-  (apply c/Un (map demote (:types T) (repeat V))))
 
 ; FIXME is this correct? Promoting NotType should make the inner type smaller,
 ; and demoting should make inner type bigger?
@@ -524,37 +316,22 @@
   (-> T
     (update-in [:type] #(promote % V))))
 
-(defmethod promote Extends
+(promote-demote Extends
   [T V] 
   (c/-extends
     (map promote (:extends T) (repeat V))
     :without (map demote (:without T) (repeat V))))
 
-(defmethod demote Extends
-  [T V] 
-  (c/-extends
-    (map demote (:extends T) (repeat V))
-    :without (map promote (:without T) (repeat V))))
-
-(defmethod promote Intersection
+(promote-demote Intersection
   [T V] 
   (apply c/In (map promote (:types T) (repeat V))))
 
-(defmethod demote Intersection
-  [T V] 
-  (apply c/In (map demote (:types T) (repeat V))))
-
-(defmethod promote FnIntersection
+(promote-demote FnIntersection
   [T V] 
   (-> T
     (update-in [:types] #(mapv promote % (repeat V)))))
 
-(defmethod demote FnIntersection
-  [T V] 
-  (-> T
-    (update-in [:types] #(mapv demote % (repeat V)))))
-
-(defmethod promote Protocol
+(promote-demote Protocol
   [T V]
   (let [pmt #(promote % V)]
     (-> T
@@ -565,18 +342,7 @@
                                       (for [[k v] ms]
                                         [k (pmt v)])))))))
 
-(defmethod demote Protocol
-  [T V]
-  (let [dmt #(demote % V)]
-    (-> T
-        (update-in [:poly?] #(when %
-                               (mapv dmt %)))
-        (update-in [:methods] (fn [ms]
-                                (into {}
-                                      (for [[k v] ms]
-                                        [k (dmt v)])))))))
-
-(defmethod promote RClass
+(promote-demote RClass
   [T V]
   (let [pmt #(promote % V)]
     (-> T
@@ -585,16 +351,7 @@
       #_(update-in [:replacements] #(into {} (for [[k v] %]
                                              [k (pmt v)]))))))
 
-(defmethod demote RClass
-  [T V]
-  (let [dmt #(demote % V)]
-    (-> T
-      (update-in [:poly?] #(when %
-                             (mapv dmt %)))
-      #_(update-in [:replacements] #(into {} (for [[k v] %]
-                                             [k (dmt v)]))))))
-
-(defmethod promote TypeFn
+(promote-demote TypeFn
   [{:keys [variances] :as T} V]
   (let [names (c/TypeFn-fresh-symbols* T)
         pmt-body (promote (c/TypeFn-body* names T) V)]
@@ -603,17 +360,7 @@
                (c/TypeFn-bbnds* names T)
                pmt-body)))
 
-(defmethod demote TypeFn
-  [{:keys [variances] :as T} V]
-  (let [names (c/TypeFn-fresh-symbols* T)
-        dem-body (demote (c/TypeFn-body* names T) V)]
-    (c/TypeFn* names 
-               variances
-               (c/TypeFn-bbnds* names T)
-               dem-body)))
-
-(defmethod promote Poly
-  [{:keys [] :as T} V]
+(promote-demote Poly [T V]
   (let [names (c/Poly-fresh-symbols* T)
         bbnds (c/Poly-bbnds* names T)
         pmt-body (promote (c/Poly-body* names T) V)]
@@ -621,26 +368,11 @@
              bbnds
              pmt-body)))
 
-(defmethod demote Poly
-  [{:keys [nbound] :as T} V]
-  (let [names (c/Poly-fresh-symbols* T)
-        bbnds (c/Poly-bbnds* names T)
-        dem-body (demote (c/Poly-body* names T) V)]
-    (c/Poly* names 
-             bbnds
-             dem-body)))
-
-(defmethod promote Mu
+(promote-demote Mu 
   [T V]
   (let [name (c/Mu-fresh-symbol* T)
         body (c/Mu-body* name T)]
     (c/Mu* name (promote body V))))
-
-(defmethod demote Mu
-  [T V]
-  (let [name (c/Mu-fresh-symbol* T)
-        body (c/Mu-body* name T)]
-    (c/Mu* name (demote body V))))
 
 (defmethod promote Function
   [{:keys [dom rng rest drest kws] :as T} V]
