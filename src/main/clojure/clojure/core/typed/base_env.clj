@@ -91,7 +91,7 @@ clojure.java.io/IOFactory
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
                 Symbol Namespace Atom2 Ref1 Ref2 Delay Proxy List Stack ExInfo
                 Multi Deref BlockingDeref SequentialSeqable ASeq NonEmptyASeq
-                AVec NonEmptyAVec]]
+                AVec NonEmptyAVec Sequential]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -674,7 +674,7 @@ clojure.core/cast (All [x] [Class x -> x])
 clojure.core/associative? (Pred (clojure.lang.Associative Any Any))
 clojure.core/coll? (Pred (Coll Any))
       ;TODO should these be parameterised?
-;clojure.core/sequential? (Pred Sequential)
+clojure.core/sequential? (Pred Sequential)
 ;clojure.core/sorted? (Pred Sorted)
 clojure.core/meta [Any -> (U nil (Map Any Any))]
 clojure.core/with-meta (All [[x :< clojure.lang.IObj]]
