@@ -61,7 +61,7 @@
 (t/ann parse [t/Any -> Type])
 
 ;Map from scoped vars to unique names
-(t/ann *tvar-scope* (t/Map t/Sym Type))
+(t/ann *tvar-scope* (t/Map t/Sym t/Sym))
 (def ^:dynamic *tvar-scope* {})
 
 (t/ann *dotted-scope* (t/Map t/Sym t/Sym))
@@ -97,66 +97,66 @@
 
 (t/ann parse-filter [t/Any -> Filter])
 (defn parse-filter [syn]
-  (cond
-    ('#{tt} syn) {:op :top-filter}
-    ('#{ff} syn) {:op :bot-filter}
-    :else
-      (let [m (when ((every-pred seq? sequential?) syn)
-                (let [[f & args] syn]
-                  (cond
-                    ('#{is} f)
-                      (let [[tsyn nme psyns] args
-                            _ (when (and (#{3} (count args))
-                                         (not (vector? psyns)))
-                                (err/int-error
-                                  (str "3rd argument to 'is' must be a vector")))
-                            _ (when-not (#{2 3} (count args))
-                                (throw (ex-info "Bad arguments to 'is'"
-                                                {:form syn})))
-                            t (parse tsyn)
-                            p (when (#{3} (count args))
-                                (mapv parse-path-elem psyns))]
-                        (merge 
-                          {:op :type-filter
-                           :type t
-                           :id nme}
-                          (when p
-                            {:path p})))
-                    ('#{!} f)
-                      (let [[tsyn nme psyns] args
-                            _ (when (and (#{3} (count args))
-                                         (not (vector? psyns)))
-                                (err/int-error
-                                  (str "3rd argument to '!' must be a vector")))
-                            _ (when-not (#{2 3} (count args))
-                                (throw (ex-info "Bad arguments to '!'"
-                                                {:form syn})))
-                            t (parse tsyn)
-                            p (when (#{3} (count args))
-                                (mapv parse-path-elem psyns))]
-                        (merge 
-                          {:op :not-type-filter
-                           :type t
-                           :id nme}
-                          (when p
-                            {:path p})))
-                    ('#{|} f)
-                      {:op :or-filter
-                       :fs (mapv parse-filter args)}
-                    ('#{&} f)
-                      {:op :and-filter
-                       :fs (mapv parse-filter args)}
-                    ('#{when} f)
-                      (let [[a c] args]
-                        (when-not (#{2} (count args))
-                          (throw (ex-info "Bad arguments to 'when'"
-                                          {:form syn})))
-                        {:op :impl-filter
-                         :a (parse-filter a)
-                         :c (parse-filter c)}))))]
-        (if m
-          m
-          (err/int-error (str "Bad filter syntax: " syn))))))
+  (case syn
+    tt {:op :top-filter}
+    ff {:op :bot-filter}
+    (let [m (when ((every-pred seq? sequential?) syn)
+              (let [[f & args] syn]
+                (case f
+                  is
+                  (let [[tsyn nme psyns] args
+                        _ (when (and (#{3} (count args))
+                                     (not (vector? psyns)))
+                            (err/int-error
+                              (str "3rd argument to 'is' must be a vector")))
+                        _ (when-not (#{2 3} (count args))
+                            (throw (ex-info "Bad arguments to 'is'"
+                                            {:form syn})))
+                        t (parse tsyn)
+                        p (when (#{3} (count args))
+                            (mapv parse-path-elem psyns))]
+                    (merge 
+                      {:op :type-filter
+                       :type t
+                       :id nme}
+                      (when p
+                        {:path p})))
+                  !
+                  (let [[tsyn nme psyns] args
+                        _ (when (and (#{3} (count args))
+                                     (not (vector? psyns)))
+                            (err/int-error
+                              (str "3rd argument to '!' must be a vector")))
+                        _ (when-not (#{2 3} (count args))
+                            (throw (ex-info "Bad arguments to '!'"
+                                            {:form syn})))
+                        t (parse tsyn)
+                        p (when (#{3} (count args))
+                            (mapv parse-path-elem psyns))]
+                    (merge 
+                      {:op :not-type-filter
+                       :type t
+                       :id nme}
+                      (when p
+                        {:path p})))
+                  |
+                  {:op :or-filter
+                   :fs (mapv parse-filter args)}
+                  &
+                  {:op :and-filter
+                   :fs (mapv parse-filter args)}
+                  when
+                  (let [[a c] args]
+                    (when-not (#{2} (count args))
+                      (throw (ex-info "Bad arguments to 'when'"
+                                      {:form syn})))
+                    {:op :impl-filter
+                     :a (parse-filter a)
+                     :c (parse-filter c)})
+                  nil)))]
+      (if m
+        m
+        (err/int-error (str "Bad filter syntax: " syn))))))
 
 (t/defalias FilterSet
   '{:op ':filter-set
@@ -244,13 +244,19 @@
       (when path
         {:path-elems (mapv parse-path-elem path)}))))
 
-(t/ann parse-HVec [(t/Seq t/Any) -> Type])
+(t/ann parse-HVec [(t/I (t/Seq t/Any) t/Sequential) -> Type])
 (defn parse-HVec [[_ fixed & opts :as syn]]
   (let [_ (when-not (vector? fixed)
             (err/int-error "First argument to HVec must be a vector"))
         _ (when-not (even? (count opts))
             (err/int-error "Uneven keyword arguments to HVec"))
         {:keys [filter-sets objects]} opts]
+    (when (contains? opts :filter-sets)
+      (when-not (vector? filter-sets)
+        (err/int-error ":filter-sets must be a vector")))
+    (when (contains? opts :objects)
+      (when-not (vector? objects)
+        (err/int-error ":objects must be a vector")))
     (merge
       {:op :HVec
        :types (mapv parse fixed)
@@ -261,13 +267,18 @@
                         (when objects
                           [:objects])))}
       (when filter-sets
+        (assert (vector? filter-sets))
         {:filter-sets (mapv parse-filter-set filter-sets)})
       (when objects
-        {:objects (mapv parse-object filter-sets)}))))
+        (assert (vector? objects))
+        {:objects (mapv parse-object objects)}))))
 
-(t/tc-ignore
+(t/defalias RestDrest
+  (HMap :mandatory {:types (t/U nil (t/Coll Type))}
+        :optional {:rest (t/U nil Type)
+                   :drest (t/U nil DottedPretype)}))
 
-
+(t/ann parse-with-rest-drest [t/Str (t/Seq t/Any) -> RestDrest])
 (defn parse-with-rest-drest [msg syns]
   (let [rest? (#{'*} (last syns))
         dotted? (#{'...} (-> syns butlast last))
@@ -285,6 +296,8 @@
                 [drest-type _dots_ drest-bnd :as dot-syntax] (take-last 3 syns)
                 ; should never fail, if the logic changes above it's probably
                 ; useful to keep around.
+                _ (when-not (symbol? drest-bnd)
+                    (err/int-error "Dotted rest bound after ... must be a symbol"))
                 _ (when-not (#{3} (count dot-syntax))
                     (err/int-error (str "Bad vector syntax: " dot-syntax)))
                 bnd (*dotted-scope* drest-bnd)
@@ -292,15 +305,19 @@
                     (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))
                 gdrest-bnd (gensym drest-bnd)]
             {:types fixed
-             :drest {:op :dotted-pretype
-                     :f {:op :F :name gdrest-bnd}
-                     :drest (with-frees {drest-bnd gdrest-bnd} ;with dotted bound in scope as free
-                              (parse drest-type))
-                     :name bnd}})
+             :drest (t/ann-form
+                      {:op :dotted-pretype
+                       :f {:op :F :name gdrest-bnd}
+                       :drest (with-frees {drest-bnd gdrest-bnd} ;with dotted bound in scope as free
+                                (parse drest-type))
+                       :name bnd}
+                      DottedPretype)})
           :else {:types (mapv parse syns)})]
     {:types types
      :rest rest
      :drest drest}))
+
+(t/tc-ignore
 
 (defn parse-h* [op msg]
   (fn [[_ syn]]
