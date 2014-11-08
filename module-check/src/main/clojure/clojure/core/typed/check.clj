@@ -482,7 +482,7 @@
                             :return (assoc expr
                                            :args cargs
                                            u/expr-type (cu/error-ret expected)))
-        :else
+        (r/HeterogeneousMap? targett)
         (let [res (reduce (fn [t [kt vt]]
                             {:pre [(r/Type? t)]}
                             ;preserve bottom
@@ -493,7 +493,11 @@
                           (c/-complete-hmap {}) (:types targett))]
           (assoc expr
                  :args cargs
-                 u/expr-type (r/ret res)))))))
+                 u/expr-type (r/ret res)))
+        :else (err/tc-delayed-error (str "Bad argument to clojure.lang.PersistentHashMap/create: \n\n\t" targett)
+                                    :return (assoc expr
+                                                   :args cargs
+                                                   u/expr-type (cu/error-ret expected)))))))
 
 ;; FIXME when updating tools.analyzer past 0.5.0, update :keyword-invoke fields
 (add-check-method :keyword-invoke
