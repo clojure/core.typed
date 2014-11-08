@@ -5,6 +5,8 @@
 - improved log message that explains why a namespace was skipped during type checking
 - annotate `clojure.core/sequential?`
 - better line number when checking map literal entries
+- allow non-heterogeneous types in map destructuring
+  - made PersistentHashMap/create more flexible, which is used in map destructuring
 
 ## Internal
 
