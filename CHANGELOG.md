@@ -4,6 +4,7 @@
 - parse annotations in base-env as needed
 - improved log message that explains why a namespace was skipped during type checking
 - annotate `clojure.core/sequential?`
+- better line number when checking map literal entries
 
 ## Internal
 
