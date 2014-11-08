@@ -1753,6 +1753,9 @@ clojure.lang.Numbers/gte [Number Number -> Boolean]
 clojure.lang.Numbers/isZero (Pred (Value 0))
 
 clojure.lang.Util/compare [Any Any -> Number]
+
+; this is overloaded in interesting ways, but this is good enough for destructuring purposes
+clojure.lang.PersistentHashMap/create [(U nil (ISeq Any) java.util.Map (ReadOnlyArray Object)) -> (Map Any Any)]
     )
     {'clojure.lang.RT/count (count-type)}))
 

@@ -461,8 +461,9 @@
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
 (defmethod static-method-special 'clojure.lang.PersistentHashMap/create
   [{:keys [args] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
+  {:post [(or (#{:default} %)
+              (and (-> % u/expr-type r/TCResult?)
+                   (vector? (:args %))))]}
   (binding [vs/*current-expr* expr]
     (let [_ (when-not (#{1} (count args)) 
               (err/int-error "Incorrect number of arguments to clojure.lang.PersistentHashMap/create"))
@@ -473,16 +474,7 @@
         (assoc expr
                :args cargs
                u/expr-type (r/ret (c/KwArgsSeq->HMap targett)))
-        (not (r/HeterogeneousSeq? targett))
-        (err/tc-delayed-error (str "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
-                                 (prs/unparse-type targett)
-                                 "\n\nHint: Check the expected type of the function and the actual argument list for any differences. eg. extra undeclared arguments"
-                                 "\n\nForm:\n\t"
-                                 (ast-u/emit-form-fn expr))
-                            :return (assoc expr
-                                           :args cargs
-                                           u/expr-type (cu/error-ret expected)))
-        (r/HeterogeneousMap? targett)
+        (r/HeterogeneousSeq? targett)
         (let [res (reduce (fn [t [kt vt]]
                             {:pre [(r/Type? t)]}
                             ;preserve bottom
@@ -494,10 +486,7 @@
           (assoc expr
                  :args cargs
                  u/expr-type (r/ret res)))
-        :else (err/tc-delayed-error (str "Bad argument to clojure.lang.PersistentHashMap/create: \n\n\t" targett)
-                                    :return (assoc expr
-                                                   :args cargs
-                                                   u/expr-type (cu/error-ret expected)))))))
+        :else :default))))
 
 ;; FIXME when updating tools.analyzer past 0.5.0, update :keyword-invoke fields
 (add-check-method :keyword-invoke
