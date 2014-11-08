@@ -1335,7 +1335,8 @@
 
 (add-check-method :local
   [{sym :name :as expr} & [expected]]
-  (binding [vs/*current-env* (:env expr)]
+  (binding [vs/*current-expr* expr
+            vs/*current-env* (:env expr)]
     (let [t (var-env/type-of sym)
           _ (when (and expected
                        (not (sub/subtype? t (r/ret-t expected))))
