@@ -38,6 +38,17 @@
 ;  IFoo
 ;  (bar [this] 1))
 
+; annotate first position in methods
+(t/defalias FunctorLB
+  (t/TFn [[x :variance :covariant]]
+         t/Nothing))
+
+(t/defprotocol [[F :variance :covariant, 
+               :> FunctorLB
+               :< Functor]]
+  Functor
+  ([a b c ...] fmap [fv :- (F a), g :- [a :-> b]] :- (F b)))
+
 (comment
  (check-ns 'clojure.core.typed.test.protocol)
   )
