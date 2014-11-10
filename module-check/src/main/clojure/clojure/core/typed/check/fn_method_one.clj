@@ -72,12 +72,15 @@
         ;
         ;       (HVec [(U nil Class) (U nil Class)]
         ;              :objects [{:path [Class], :id a} {:path [Class], :id b}])
-        expected-rng (apply r/ret
-                            (open-result/open-Result 
-                              (:rng expected)
-                              (map param-obj
-                                   (concat required-params 
-                                           (when rest-param [rest-param])))))
+        expected-rng (let [maybe-inferred (:rng expected)
+                           inferred? (-> maybe-inferred meta :inferred)]
+                       (when inferred?
+                         (apply r/ret
+                                (open-result/open-Result 
+                                  maybe-inferred
+                                  (map param-obj
+                                       (concat required-params 
+                                               (when rest-param [rest-param])))))))
         ;ensure Function fits method
         _ (when-not ((if (or rest drest kws) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"

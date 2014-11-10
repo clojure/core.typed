@@ -1268,13 +1268,8 @@
                               (r/make-CountRange 1)))
 
                   :else (c/KwArgs->Type kws)))]
-    (let [cexpr (fn/check-fn 
-                  expr 
-                  (let [default-ret (r/ret (r/make-FnIntersection
-                                             (r/make-Function [] r/-any r/-any)))]
-                    (cond (and expected (not= r/-any (r/ret-t expected))) expected
-                          :else default-ret)))
-          #_#__ (when expected
+    (let [cexpr (fn/check-fn expr expected)
+          _ (when expected
               (let [actual (r/ret-t (u/expr-type cexpr))]
                 (when-not (sub/subtype? actual (r/ret-t expected))
                   (cu/expected-error actual (r/ret-t expected)))))]

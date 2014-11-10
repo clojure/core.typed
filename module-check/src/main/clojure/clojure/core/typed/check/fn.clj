@@ -16,12 +16,12 @@
 (defn check-fn 
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods] :as fexpr} expected]
-  {:pre [(r/TCResult? expected)]
+  {:pre [((some-fn nil? r/TCResult?) expected)]
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (::t/cmethods %))]}
   (let [{:keys [cmethods fni]} (fn-methods/check-fn-methods 
                                  methods 
-                                 (r/ret-t expected)
+                                 (some-> expected r/ret-t)
                                  :self-name (cu/fn-self-name fexpr))]
     (assoc fexpr
            ::t/cmethods cmethods

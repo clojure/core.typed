@@ -1,4 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.ast-ops
+  "AST operations for Typed Clojure's runtime type parsing.
+  Part of clojure.core.typed.rt"
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]))
 

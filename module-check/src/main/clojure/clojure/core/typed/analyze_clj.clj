@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer :as ta]
+            [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.env :as ta-env]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.utils :as taj-utils]
@@ -15,6 +16,8 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as T]
             [clojure.core.cache :as cache]
+            [clojure.core.typed.profiling :as p]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core :as core]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -173,3 +176,22 @@
          (when cache
            (cache/miss cache nsym asts))
          asts)))))
+
+(defn local-occurrences [ast]
+  {:pre [(map? ast)]
+   :post [((con/set-c? symbol?) %)]}
+  (p/p :ast-ops/local-occurrences
+  (let [locals (atom #{})]
+    (ast/prewalk ast
+                 (fn [node]
+                   (when (#{:local} (:op node))
+                     (swap! locals conj (:name node)))
+                   nil))
+    @locals)))
+
+(defn local-occurs? [ast sym]
+  {:pre [(map? ast)
+         (symbol? sym)]
+   :post [(con/boolean? %)]}
+  (p/p :ast-ops/local-occurs?
+  (contains? (local-occurrences ast) sym)))
