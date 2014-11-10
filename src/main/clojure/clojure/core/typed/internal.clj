@@ -229,7 +229,13 @@
                                  "Shadowing a protocol type variable in a method is disallowed")
                        fn-type `(clojure.core.typed/IFn
                                   ~@(map (fn [{:keys [ptypes ret]}]
-                                           `[~@(concat [this-type] (map :type (rest ptypes))) ~'-> ~(:type ret)])
+                                           (let [[provided-this & argts] ptypes
+                                                 ; if programmer provides the default 'this' type, use that,
+                                                 ; otherwise use the current protocol.
+                                                 actual-this (if (:default provided-this)
+                                                               this-type
+                                                               (:type provided-this))]
+                                             `[~@(concat [actual-this] (map :type argts)) ~'-> ~(:type ret)]))
                                          arities))]
                    [name (if poly
                            `(clojure.core.typed/All ~poly ~fn-type)
@@ -247,8 +253,6 @@
                       :post [((hmap-c? :actual vector?
                                        :ptypes vector?)
                               %)]}
-                     (assert (not (#{:-} (second pvec)))
-                             "Annotating the first argument of a method is disallowed")
                      (loop [pvec pvec
                             actual (empty pvec) ; empty vector with same metadata as pvec
                             ptypes []]
