@@ -362,6 +362,8 @@
                       (let [protocol (do (when-not (= :var (:op prcl-expr))
                                            (err/int-error  "Must reference protocol directly with var in extend"))
                                          (ptl-env/resolve-protocol (coerce/var->symbol (:var prcl-expr))))
+                            _ (when-not (r/Protocol? protocol)
+                                (err/int-error (str "Expecting Protocol type, found " protocol)))
                             expected-mmap (c/make-HMap ;get all combinations
                                                        :optional
                                                        (into {}
