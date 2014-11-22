@@ -33,7 +33,9 @@
                ; interesting case with (isa? [...] [...])
                ; use each pairing between child and parent
                (and (r/HeterogeneousVector? child-t)
-                    (r/HeterogeneousVector? parent-t))
+                    (r/HeterogeneousVector? parent-t)
+                    (== (count (:types child-t))
+                        (count (:types parent-t))))
                (let [individual-fs (map fs (cu/hvec->rets child-t) (cu/hvec->rets parent-t))]
                  (fo/-FS (apply fo/-and (map :then individual-fs))
                          (apply fo/-or (map :else individual-fs))))
