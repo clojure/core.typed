@@ -485,7 +485,7 @@
     (when-not (symbol? nme)
       (err/int-error "Must provide a name symbol to TFn"))
     (when (contains? opts :kind)
-      (err/deprecated-warn "kind annotation for TFn parameters"))
+      (err/deprecated-warn "Kind annotation for TFn parameters"))
     (when-not (r/variance? variance)
       (err/int-error (str "Invalid variance: " (pr-str variance))))
     {:nme nme :variance variance
