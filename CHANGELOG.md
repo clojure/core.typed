@@ -1,5 +1,7 @@
 # 0.2.73 - SNAPSHOT
 
+- Major bug: propagate expected types to `if` expressions correctly
+
 - Fix `get` operations with keyword key and default value
 - parse annotations in base-env as needed
 - improved log message that explains why a namespace was skipped during type checking
