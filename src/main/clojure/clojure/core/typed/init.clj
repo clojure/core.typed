@@ -75,6 +75,7 @@
                  ; used by check-ns-info
                  '[clojure.jvm.tools.analyzer]
 
+                 '[clojure.core.typed.parse-ast]
                  '[clojure.core.typed.file-mapping]
                  '[clojure.core.typed.collect-phase]
                  '[clojure.core.typed.base-env]
