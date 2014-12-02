@@ -53,6 +53,16 @@
           `(ann-form ~body ~t)
           body))))
 
+(core/defn expand-typed-fn [is-poly forms]
+  (core/let [{:keys [poly fn ann]} (internal/parse-fn* is-poly forms)]
+    (if vs/*checking*
+      `(do ~spec/special-form
+           ~(core-kw :fn)
+           {:ann '~ann
+            :poly '~poly}
+           ~fn)
+      fn)))
+
 (defmacro 
   ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
              (fn name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
@@ -82,13 +92,22 @@
         ([a :- String] :- String ...)
         ([a :- String, b :- Number] :- String ...))"
   [& forms]
-  (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
-    (if vs/*checking*
-      `(do ~spec/special-form
-           ~(core-kw :fn)
-           {:ann '~ann}
-           ~fn)
-      fn)))
+  (expand-typed-fn false forms))
+
+(defmacro 
+  ^{:forms '[(pfn tvar-binder name? [param :- type* & param :- type * ?] :- type? exprs*)
+             (pfn tvar-binder name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
+  pfn
+  "Like clojure.core.typed/fn, but with a type variable binder with syntax
+  like clojure.core.typed/All.
+
+  eg. ;multi-arity
+      (pfn [x y z]
+        fname 
+        ([a :- String] :- String ...)
+        ([a :- String, b :- Number] :- String ...))"
+  [& forms]
+  (expand-typed-fn true forms))
 
 (defmacro 
   ^{:forms '[(loop [binding :- type?, init*] exprs*)]}

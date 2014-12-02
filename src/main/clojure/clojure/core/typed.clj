@@ -25,7 +25,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (import-m/import-macros clojure.core.typed.macros
   [def fn loop let ann-form tc-ignore defprotocol
-   when-let-fail defn atom ref])
+   when-let-fail defn atom ref pfn])
 
 ;=============================================================
 ; # core.typed

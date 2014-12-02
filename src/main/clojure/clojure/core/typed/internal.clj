@@ -1,18 +1,27 @@
 (ns ^:skip-wiki clojure.core.typed.internal
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [clojure.core.typed.contract-utils :as con]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
+
+(defn take-when
+  "When pred is true of the head of seq, return [head tail]. Otherwise
+  [nil seq]. Used as a helper for parsing optinal typed elements out
+  of sequences. Say docstrings out of argument seqs."
+  [pred seq]
+  (if (pred (first seq))
+    ((juxt first rest) seq)
+    [nil seq]))
+
 
 (defn parse-fn*
   "(fn name? [[param :- type]* & [param :- type *]?] :- type? exprs*)
   (fn name? ([[param :- type]* & [param :- type *]?] :- type? exprs*)+)"
   [is-poly forms]
-  (let [name (when (symbol? (first forms))
-               (first forms))
-        forms (if name (rest forms) forms)
-        poly (when is-poly
-               (first forms))
-        forms (if poly (rest forms) forms)
+  (let [[poly forms] (take-when (constantly is-poly) forms)
+        _ (when is-poly
+            (assert poly "pfn must have binder as first argument"))
+        [name forms] (take-when symbol? forms)
         methods (if ((some-fn vector? keyword?) (first forms))
                   (list forms)
                   forms)
@@ -75,17 +84,27 @@
                              (if (#{:-} (second method))
                                (let [[param colon t & body] method]
                                  {:body body
-                                  :ann {:ret-type {:type t}}})
+                                  :ann {:rng {:type t}}})
                                (let [[param & body] method]
                                  {:body body
-                                  :ann {:ret-type {:type 'clojure.core.typed/Any
-                                                   :default true}}})))))]
+                                  :ann {:rng {:type 'clojure.core.typed/Any
+                                              :default true}}})))))
+        final-ann (mapv :ann parsed-methods)]
+    #_(assert ((con/vec-c?
+               (con/hmap-c?
+                 :dom (con/every-c? (con/hmap-c? :type (constantly true)))
+                 (con/optional :rest) (con/hmap-c? :type (constantly true))
+                 :rng (some-fn (con/hmap-c? :default #{true})
+                               (con/hmap-c? :type (constantly true)))))
+             final-ann)
+            final-ann)
     {:fn `(fn ~@(concat
                   (when name
                     [name])
                   (for [{:keys [body pvec]} parsed-methods]
                     (apply list pvec body))))
-     :ann (map :ann parsed-methods)}))
+     :ann final-ann
+     :poly poly}))
 
 ;(ann parse-fn> [Any (Seqable Any) ->
 ;                '{:poly Any
@@ -189,22 +208,6 @@
     {:loop `(clojure.core/loop ~(:pvec parsed-loop) ~@(:body parsed-loop))
      :ann (:ann parsed-loop)}))
 
-(defn take-when
-  "When pred is true of the head of seq, return [head tail]. Otherwise
-  [nil seq]. Used as a helper for parsing optinal typed elements out
-  of sequences. Say docstrings out of argument seqs."
-  [pred seq]
-  (if (pred (first seq))
-    ((juxt first rest) seq)
-    [nil seq]))
-
-(defn hmap-c? [& key-vals]
-  (every-pred map?
-              #(every? identity 
-                       (for [[k vc] (partition 2 key-vals)]
-                         (and (contains? % k)
-                              (vc (get % k)))))))
-
 (defn binder-names [binder]
   {:post [(every? symbol? %)]}
   (map (fn [v]
@@ -250,8 +253,8 @@
         [pdoc typed-decl-methods] (take-when string? typed-decl-methods)
         parse-pvec (fn [pvec] ; parse parameter vectors
                      {:pre [(vector? pvec)]
-                      :post [((hmap-c? :actual vector?
-                                       :ptypes vector?)
+                      :post [((con/hmap-c? :actual vector?
+                                           :ptypes vector?)
                               %)]}
                      (loop [pvec pvec
                             actual (empty pvec) ; empty vector with same metadata as pvec
