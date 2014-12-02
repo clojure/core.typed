@@ -1,44 +1,151 @@
 (ns clojure.core.typed.check.special.fn
   (:require [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.check.fn :as fn]
+            [clojure.core.typed.dvar-env :as dvar]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed :as t]
+            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
+            [clojure.core.typed.check.fn-method-one :as fn-method-one]
             [clojure.core.typed.subtype :as sub]))
+
+(defn check-anon [{:keys [methods] :as expr} {:keys [doms rngs rests drests rngs]}]
+  {:pre [(#{:fn} (:op expr))]}
+  (assert (apply = (map count [doms rngs rests drests rngs methods]))
+          (mapv count [doms rngs rests drests rngs methods]))
+  (let [cmethod-specs
+        (mapv
+          (fn [method dom rng rest drest ret]
+            (fn-method-one/check-fn-method1 
+              method 
+              (r/make-Function dom (or rng r/-any) rest drest)
+              :infer-rng (boolean rng)))
+          methods doms rngs rests drests rngs)
+
+        [fs cmethods] ((juxt #(map :ftype %)
+                             #(map :cmethod %))
+                       cmethod-specs)
+        _ (assert (seq fs) fs)
+        _ (assert (every? r/Function? fs) fs)
+        ret-type (r/ret (apply r/make-FnIntersection fs)
+                        (fo/-FS fl/-top fl/-bot))]
+    (assoc expr
+           ::t/cmethods cmethods
+           u/expr-type ret-type)))
+
+(defn all-defaults? [fn-anns poly]
+  (let [defaults (concat
+                   (map (fn [{:keys [dom]}]
+                          (map :default dom))
+                        fn-anns)
+                   (map (comp :default :rng) fn-anns)
+                   (map (fn [{:keys [rest]}]
+                          (or (:default rest)
+                              (nil? rest)))
+                        fn-anns)
+                   (map (comp not :drest) fn-anns))]
+    (and (not poly)
+         (every? identity defaults))))
+
+(defn prepare-expecteds [expr fn-anns]
+  (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
+    {:doms
+     (->> fn-anns
+          (map :dom)
+          (mapv (fn [dom]
+                  (map (fn [{:keys [type default]}]
+                         (prs/parse-type type))
+                       dom))))
+     :rngs (->> fn-anns
+                (map :rng)
+                (mapv (fn [{:keys [type default]}]
+                        (when-not default
+                          (prs/parse-type type)))))
+     :rests (->> fn-anns
+                 (map :rest)
+                 (mapv (fn [{:keys [type default] :as has-rest}]
+                         (when has-rest
+                           (prs/parse-type type)))))
+     :drests (->> fn-anns
+                  (map :drest)
+                  (mapv (fn [{:keys [pretype bound] :as has-drest}]
+                          (when has-drest
+                            (r/DottedPretype1-maker
+                              (prs/parse-type pretype)
+                              bound)))))}))
+
+(defn self-type [{:keys [doms rngs rests drests] :as expecteds}]
+  (apply r/make-FnIntersection
+         (map (fn [dom rng rest drest]
+                {:pre [((some-fn nil? r/Type?) rng rest)
+                       ((some-fn nil? r/DottedPretype?) drest)
+                       (every? r/Type? dom)]
+                 :post [(r/Function? %)]}
+                (r/make-Function dom (or rng r/-any) rest drest))
+              doms rngs rests drests)))
+
+(defn parse-poly [bnds]
+  {:pre [((some-fn nil? vector?) bnds)]}
+  (prs/parse-unknown-binder bnds))
+
+(defn wrap-poly [ifn frees-with-bnds dvar]
+  (if (and (empty? frees-with-bnds)
+           (not dvar))
+    ifn
+    (if dvar
+      (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
+                   (map second (concat frees-with-bnds [dvar]))
+                   ifn)
+      (c/Poly* (map first frees-with-bnds)
+               (map second frees-with-bnds)
+               ifn))))
 
 (defn check-special-fn 
   [check {[_ _ fn-ann-expr :as statements] :statements fexpr :ret :as expr} expected]
-  {:pre [(#{3} (count statements))]}
+  {:pre [(#{3} (count statements))
+         (#{:fn} (:op fexpr))]}
+  ;(prn "check-special-fn")
   (let [fn-anns (ast-u/map-expr-at fn-ann-expr :ann)
-        ann-expected
-        (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-          (apply
-            r/make-FnIntersection
-            (doall
-              (for [{:keys [dom rest drest ret-type]} fn-anns]
-                (r/make-Function (mapv (comp prs/parse-type :type) dom)
-                                 (prs/parse-type (:type ret-type))
-                                 (when rest
-                                   (prs/parse-type (:type rest)))
-                                 (when drest
-                                   (r/DottedPretype1-maker
-                                     (prs/parse-type (:pretype drest))
-                                     (:bound drest))))))))
-
-        ; if the t/fn statement looks unannotated, use the expected type if possible
-        use-expected (if (every? (fn [{:keys [dom rest drest rng] :as f}]
-                                   {:pre [(r/Function? f)]}
-                                   (and (every? #{r/-any} dom)
-                                        ((some-fn nil? #{r/-any}) rest)
-                                        (#{r/-any} (:t rng))))
-                                 (:types ann-expected))
-                       (or (when expected (r/ret-t expected)) ann-expected)
-                       ann-expected)
-        cfexpr (check fexpr (r/ret use-expected))
+        poly    (ast-u/map-expr-at fn-ann-expr :poly)
+        _ (assert (vector? fn-anns))
+        self-name (cu/fn-self-name fexpr)
+        _ (assert ((some-fn nil? symbol?) self-name))
+        ;_ (prn "self-name" self-name)
+        flat-expecteds (prepare-expecteds expr fn-anns)
+        ;_ (prn "flat-expecteds" flat-expecteds)
+        _ (assert ((some-fn nil? vector?) poly))
+        [frees-with-bnds dvar] (parse-poly poly)
+        use-expected? (boolean
+                        (when (all-defaults? fn-anns poly)
+                          (when expected
+                            ((some-fn r/FnIntersection? r/Poly? r/PolyDots?)
+                             (r/ret-t expected)))))
+        cfexpr 
+        (if use-expected?
+          (fn/check-fn fexpr expected)
+          (lex/with-locals (when self-name
+                             (let [this-type (self-type flat-expecteds)
+                                   ;_ (prn "this-type" this-type)
+                                   ]
+                               {self-name this-type}))
+            (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
+              (dvar/with-dotted (when dvar
+                                  [(r/make-F (first dvar))])
+                (check-anon
+                  fexpr
+                  flat-expecteds)))))
+        actual-ret (let [r (-> cfexpr u/expr-type)]
+                     (update-in r [:t] wrap-poly frees-with-bnds dvar))
         _ (when expected
-            (let [actual (-> cfexpr u/expr-type r/ret-t)]
-              (when-not (sub/subtype? actual (r/ret-t expected))
-                (cu/expected-error actual (r/ret-t expected)))))]
+            (when-not (sub/subtype? (r/ret-t actual-ret) (r/ret-t expected))
+              (cu/expected-error (r/ret-t actual-ret) (r/ret-t expected))))]
     (assoc expr
            :ret cfexpr
-           u/expr-type (u/expr-type cfexpr))))
+           u/expr-type actual-ret)))

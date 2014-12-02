@@ -233,9 +233,32 @@
   [expr expected]
   (tc-ignore/check-tc-ignore check expr expected))
 
+(defn check-fn-rest [rest drest kws]
+  {:pre [(or (r/Type? rest)
+             (r/DottedPretype? drest)
+             (r/KwArgs? kws))
+         (#{1} (count (filter identity [rest drest kws])))]
+   :post [(r/Type? %)]}
+  ;(prn "rest" rest)
+  ;(prn "drest" drest)
+  ;(prn "kws" kws)
+  (cond
+    (or rest drest)
+    (c/Un r/-nil 
+          ; only difference to Clojure impl
+          (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
+                        [(or rest (:pre-type drest))]))
+    :else (c/KwArgs->Type kws)))
+
+(defmacro prepare-check-fn [& body]
+  `(binding [fn-method-u/*check-fn-method1-checkfn* check
+             fn-method-u/*check-fn-method1-rest-type* check-fn-rest]
+     ~@body))
+
 (defmethod internal-special-form ::t/fn
   [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
-  (special-fn/check-special-fn check expr expected))
+  (prepare-check-fn
+    (special-fn/check-special-fn check expr expected)))
 
 (defmethod internal-special-form ::t/ann-form
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
@@ -278,31 +301,14 @@
                                             (when variadic
                                               (parse-meta rest))))))]
 
-  (binding [fn-method-u/*check-fn-method1-checkfn* check
-            ;this is identical to the Clojure implementation
-            fn-method-u/*check-fn-method1-rest-type* 
-            (fn [rest drest kws]
-              {:pre [(or (r/Type? rest)
-                         (r/DottedPretype? drest)
-                         (r/KwArgs? kws))
-                     (#{1} (count (filter identity [rest drest kws])))]
-               :post [(r/Type? %)]}
-              ;(prn "rest" rest)
-              ;(prn "drest" drest)
-              ;(prn "kws" kws)
-              (cond
-                (or rest drest)
-                (c/Un r/-nil 
-                      (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
-                                    [(or rest (.pre-type ^DottedPretype drest))]))
-                :else (c/KwArgs->Type kws)))]
-    (fn/check-fn 
-      expr
-      (or (when @found-meta?
-            manual-annot)
-          expected
-          (ret (r/make-FnIntersection
-                 (r/make-Function [] r/-any r/-any))))))))
+    (prepare-check-fn
+      (fn/check-fn 
+        expr
+        (or (when @found-meta?
+              manual-annot)
+            expected
+            (ret (r/make-FnIntersection
+                   (r/make-Function [] r/-any r/-any))))))))
 
 (add-check-method :deftype*
   [expr & [expected]]

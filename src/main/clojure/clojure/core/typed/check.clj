@@ -1243,45 +1243,43 @@
 
             :else (invoke/normal-invoke check expr fexpr args expected :cfexpr cfexpr)))))))
 
+(defn check-rest-fn [remain-dom rest drest kws]
+  {:pre [(or (r/Type? rest)
+             (r/DottedPretype? drest)
+             (r/KwArgs? kws))
+         (#{1} (count (filter identity [rest drest kws])))
+         (every? r/Type? remain-dom)]
+   :post [(r/Type? %)]}
+  (cond
+    (or rest drest)
+    ; rest argument is always a nilable non-empty seq. Could
+    ; be slightly more clever here if we have a `rest`, but what about
+    ; `drest`?
+    (c/Un r/-nil 
+          (c/In (r/-hseq remain-dom
+                         :rest rest
+                         :drest drest)
+                (r/make-CountRange 1)))
+
+    :else (c/KwArgs->Type kws)))
+
+(defmacro prepare-check-fn [env expr & body]
+  `(let [env# ~env
+         expr# ~expr]
+     (binding [vs/*current-env* (if (:line env#) env# vs/*current-env*)
+               vs/*current-expr* expr#
+               fn-method-u/*check-fn-method1-checkfn* check
+               fn-method-u/*check-fn-method1-rest-type* check-rest-fn]
+       ~@body)))
+
 (add-check-method :fn
   [{:keys [env] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:methods %))]}
-  (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
-            vs/*current-expr* expr
-            fn-method-u/*check-fn-method1-checkfn* check
-            fn-method-u/*check-fn-method1-rest-type*
-              (fn [remain-dom rest drest kws]
-                {:pre [(or (r/Type? rest)
-                           (r/DottedPretype? drest)
-                           (r/KwArgs? kws))
-                       (#{1} (count (filter identity [rest drest kws])))
-                       (every? r/Type? remain-dom)]
-                 :post [(r/Type? %)]}
-                (cond
-                  (or rest drest)
-                  ; rest argument is always a nilable non-empty seq. Could
-                  ; be slightly more clever here if we have a `rest`, but what about
-                  ; `drest`?
-                  (c/Un r/-nil 
-                        (c/In (r/-hseq remain-dom
-                                       :rest rest
-                                       :drest drest)
-                              (r/make-CountRange 1)))
-
-                  :else (c/KwArgs->Type kws)))]
-    (let [cexpr (fn/check-fn 
-                  expr 
-                  (let [default-ret (r/ret (r/make-FnIntersection
-                                             (r/make-Function [] r/-any r/-any)))]
-                    (cond (and expected (not= r/-any (r/ret-t expected))) expected
-                          :else default-ret)))
-          #_#__ (when expected
-              (let [actual (r/ret-t (u/expr-type cexpr))]
-                (when-not (sub/subtype? actual (r/ret-t expected))
-                  (cu/expected-error actual (r/ret-t expected)))))]
-      cexpr)))
-
+  (prepare-check-fn env expr
+    (fn/check-fn 
+      expr
+      expected)))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
 (u/special-do-op spec/special-form internal-special-form)
@@ -1303,8 +1301,9 @@
            u/expr-type (u/expr-type cret))))
 
 (defmethod internal-special-form ::t/fn
-  [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
-  (special-fn/check-special-fn check expr expected))
+  [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :keys [env] :as expr} expected]
+  (prepare-check-fn env expr
+    (special-fn/check-special-fn check expr expected)))
 
 (defmethod internal-special-form ::t/ann-form
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
