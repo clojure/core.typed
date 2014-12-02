@@ -20,18 +20,21 @@
   (is (= (internal/parse-fn* false '(name [a] :- clojure.core.typed/Any a))
          {:fn '(clojure.core/fn name ([a] a))
           :ann [{:dom [{:default true :type 'clojure.core.typed/Any}]
-                 :ret-type {:type 'clojure.core.typed/Any}}]}))
+                 :rng {:type 'clojure.core.typed/Any}}]
+          :poly nil}))
   (is (= (:fn (internal/parse-fn* false '([a :- Number] a)))
          (:fn (internal/parse-fn* false '([a :- Number] :- clojure.core.typed/Any a)))
          '(clojure.core/fn ([a] a))))
   (is (= (internal/parse-fn* false '(name [a :- Number] :- clojure.core.typed/Any a))
          {:fn '(clojure.core/fn name ([a] a))
           :ann [{:dom [{:type 'Number}]
-                 :ret-type {:type 'clojure.core.typed/Any}}]}))
+                 :rng {:type 'clojure.core.typed/Any}}]
+          :poly nil}))
   (is (= (internal/parse-fn* false '([a :- Number] :- Number a))
          {:fn '(clojure.core/fn ([a] a))
           :ann [{:dom [{:type 'Number}]
-                 :ret-type {:type 'Number}}]}))
+                 :rng {:type 'Number}}]
+          :poly nil}))
   (is (= (:fn (internal/parse-fn* false '([a & b] a)))
          (:fn (internal/parse-fn* false '([a :- clojure.core.typed/Any & b] a)))
          (:fn (internal/parse-fn* false '([a :- clojure.core.typed/Any & b :- clojure.core.typed/Any *] :- clojure.core.typed/Any a)))
@@ -43,26 +46,30 @@
          {:fn '(clojure.core/fn ([a & b] b))
           :ann [{:dom [{:type 'Number}]
                  :rest {:type 'Number}
-                 :ret-type {:type 'Number}}]}))
+                 :rng {:type 'Number}}]
+          :poly nil}))
   (is (= (internal/parse-fn* false '([a & b :- Number ... x] a))
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:default true :type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
-                 :ret-type {:default true :type 'clojure.core.typed/Any}}]}))
+                 :rng {:default true :type 'clojure.core.typed/Any}}]
+          :poly nil}))
 
   (is (= (internal/parse-fn* false '([a :- clojure.core.typed/Any & b :- Number ... x] a))
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
-                 :ret-type {:default true :type 'clojure.core.typed/Any}}]}))
+                 :rng {:default true :type 'clojure.core.typed/Any}}]
+          :poly nil}))
   (is (= (internal/parse-fn* false '([a :- clojure.core.typed/Any & b :- Number ... x] :- clojure.core.typed/Any a))
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
-                 :ret-type {:type 'clojure.core.typed/Any}}]}))
+                 :rng {:type 'clojure.core.typed/Any}}]
+          :poly nil}))
   (is (= (-> (internal/parse-fn* false '(^long [b]))
              :fn second first meta)
          '{:tag long})))

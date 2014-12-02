@@ -64,7 +64,11 @@
 
 (defn set-c? [c?]
   (every-pred set?
-              #(every? c? %)))
+              (every-c? c?)))
+
+(defn vec-c? [c?]
+  (every-pred vector?
+              (every-c? c?)))
 
 (defn sorted-set-c? [c?]
   (every-pred sorted?

@@ -309,12 +309,7 @@
         (recur rst
                (conj out group))))))
 
-;dispatch on last element of syntax in binder
-(defmulti parse-all-type (fn [bnds type] (last bnds)))
-
-;(All [a b ...] type)
-(defmethod parse-all-type '...
-  [bnds type]
+(defn parse-dotted-binder [bnds]
   (let [frees-with-bnds (reduce (fn [fs fsyn]
                                   {:pre [(vector? fs)]
                                    :post [(every? (con/hvector-c? symbol? r/Bounds?) %)]}
@@ -323,15 +318,9 @@
                                           (parse-free fsyn))))
                                 [] (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
-    (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
-      (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
-                   (map second (concat frees-with-bnds [dvar]))
-                     (dvar/with-dotted [(r/make-F (first dvar))]
-                       (parse-type type))))))
+    [frees-with-bnds dvar]))
 
-;(All [a b] type)
-(defmethod parse-all-type :default
-  [bnds type]
+(defn parse-normal-binder [bnds]
   (let [frees-with-bnds
         (reduce (fn [fs fsyn]
                   {:pre [(vector? fs)]
@@ -340,10 +329,31 @@
                         (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) fs))
                           (parse-free fsyn))))
                 [] bnds)]
-    (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
-      (c/Poly* (map first frees-with-bnds)
-               (map second frees-with-bnds)
-               (parse-type type)))))
+    [frees-with-bnds nil]))
+
+(defn parse-unknown-binder [bnds]
+  {:pre [((some-fn nil? vector?) bnds)]}
+  (when bnds
+    ((if (#{'...} (last bnds))
+       parse-dotted-binder
+       parse-normal-binder)
+     bnds)))
+
+;dispatch on last element of syntax in binder
+(defn parse-all-type [bnds type]
+  (let [_ (assert (vector? bnds))
+        [frees-with-bnds dvar] (parse-unknown-binder bnds)
+        bfs (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))]
+    (if dvar
+      (free-ops/with-bounded-frees bfs
+        (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
+                     (map second (concat frees-with-bnds [dvar]))
+                     (dvar/with-dotted [(r/make-F (first dvar))]
+                       (parse-type type))))
+      (free-ops/with-bounded-frees bfs
+        (c/Poly* (map first frees-with-bnds)
+                 (map second frees-with-bnds)
+                 (parse-type type))))))
 
 (defmethod parse-type-list 'Extends
   [[_ extends & {:keys [without] :as opts} :as syn]]
