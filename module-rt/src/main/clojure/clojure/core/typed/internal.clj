@@ -160,6 +160,7 @@
                                                   (assert (= :- (first method))
                                                           "Return type for fn> must be prefixed by :-")
                                                   [(second method) true])
+                                 _ (prn "fn> expansion" ret has-ret?)
                                  method (if ret 
                                           (nnext method)
                                           method)
@@ -172,7 +173,7 @@
                              {:dom-syntax (doall (map (comp second next) required-params))
                               :dom-lhs (doall (map first required-params))
                               :rng-syntax ret
-                              :has-rng? has-ret?
+                              :has-rng? (boolean has-ret?)
                               :body body})))]
     {:poly poly
      :fn `(fn ~@(concat

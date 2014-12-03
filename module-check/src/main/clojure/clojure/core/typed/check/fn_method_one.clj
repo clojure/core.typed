@@ -38,7 +38,7 @@
 ;
 ;[MethodExpr Function -> {:ftype Function :cmethod Expr}]
 (defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}
-                        & {:keys [recur-target-fn infer-rng]}]
+                        & {:keys [recur-target-fn ignore-rng]}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? (:ftype %))
           (-> % :cmethod ::t/ftype r/Function?)
@@ -49,6 +49,7 @@
     ; is there a better :op check here?
     :cljs (assert method))
   #_(prn "checking syntax:" (ast-u/emit-form-fn method))
+  ;(prn "check-fn-method1" "ignore-rng" ignore-rng)
   (u/p :check/check-fn-method1
   (let [body ((ast-u/method-body-kw) method)
         required-params (ast-u/method-required-params method)
@@ -72,13 +73,14 @@
         ;
         ;       (HVec [(U nil Class) (U nil Class)]
         ;              :objects [{:path [Class], :id a} {:path [Class], :id b}])
-        expected-rng (when-not infer-rng
+        expected-rng (when-not ignore-rng
                        (apply r/ret
                               (open-result/open-Result 
                                 (:rng expected)
                                 (map param-obj
                                      (concat required-params 
                                              (when rest-param [rest-param]))))))
+        ;_ (prn "expected-rng" expected-rng)
         ;ensure Function fits method
         _ (when-not ((if (or rest drest kws) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"

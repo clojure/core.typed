@@ -10,6 +10,8 @@
 - allow non-heterogeneous types in map destructuring
   - made PersistentHashMap/create more flexible, which is used in map destructuring
 
+- fn> without expected return type now always returns Any
+
 ## Internal
 
 - add GetType fold case

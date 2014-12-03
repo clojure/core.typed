@@ -3,6 +3,7 @@
    :core.typed {:collect-only true}}
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
+            [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
@@ -814,17 +815,22 @@
   [{:keys [args] :as expr} & [expected]]
   (let [[fexpr quote-expr] args
         type-syns (ast-u/quote-expr-val quote-expr)
-        expected
+        ifn
         (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
           (apply
             r/make-FnIntersection
             (doall
               (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
                 (r/make-Function (mapv prs/parse-type dom-syntax)
-                                 (if has-rng?
+                                 (if (dbg has-rng?)
                                    (prs/parse-type rng-syntax)
-                                   r/-any))))))
-        cfexpr (check fexpr (r/ret expected))
+                                   ; in fn-method-one, this triggers the body to be inferred
+                                   (do (err/deprecated-warn "fn> without expected return type always infers Any, use c.c.t/fn")
+                                       r/-any)))))))
+        cfexpr (check fexpr (r/ret ifn))
+        _ (when expected
+            (when-not (sub/subtype? ifn (r/ret-t expected))
+              (cu/expected-error ifn (r/ret-t expected))))
         cargs [cfexpr quote-expr]]
     (assoc expr
            :args cargs
@@ -1274,12 +1280,14 @@
 
 (add-check-method :fn
   [{:keys [env] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
+  {:pre [((some-fn nil? r/TCResult?) expected)]
+   :post [(-> % u/expr-type r/TCResult?)
           (vector? (:methods %))]}
+  ;(prn "check :fn" expected)
   (prepare-check-fn env expr
-    (fn/check-fn 
-      expr
-      expected)))
+    (if expected
+      (fn/check-fn expr expected)
+      (special-fn/check-core-fn-no-expected check expr))))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
 (u/special-do-op spec/special-form internal-special-form)

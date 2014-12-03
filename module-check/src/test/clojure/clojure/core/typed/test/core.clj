@@ -291,7 +291,7 @@
   ;a => 0
   (is-clj 
     (= (tc-t 
-         (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
+         (clojure.core.typed/fn [a :- (U (HMap :mandatory {:op (Value :if)})
                                           (HMap :mandatory {:op (Value :var)}))] 
                                  (:op a)))
        (clj
@@ -307,7 +307,7 @@
 
 (deftest refine-test
   (is-clj (= (tc-t 
-           (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
+           (clojure.core.typed/fn [a :- (U (HMap :mandatory {:op (Value :if)})
                                             (HMap :mandatory {:op (Value :var)}))]
                            (when (= (:op a) :if) 
                              a)))
@@ -2818,8 +2818,8 @@
   (is-clj (both-subtype? (parse-clj `Number)
                          (parse-clj `(Get '{:a Number} ':a))))
   (is-tc-e 1 (Get '{:a Number} ':a))
-  (is-tc-e (fn [a] (inc a)) 
-           (Get '{:a [Number -> Number]} ':a))
+;  (is-tc-e (fn [a] (inc a)) 
+;           [(Get '{:a [Number -> Number]} ':a) -> Number])
   (is-tc-e (fn [a] (deref a))
            [(Get '{:a (clojure.core.typed/Atom1 Number)} ':a)
             -> Number])
@@ -3178,11 +3178,26 @@
   (is-tc-e (for [a :- Num [1 2 3]]
              (inc a))
            (Seq Any))
+  (is-tc-err (lazy-seq 1))
+  (is-tc-e (lazy-seq nil))
+  (is-tc-e (fn a [] :- (Seq Any) (lazy-seq (a))))
+  (is-tc-e (fn a [] :- (Seq Any) (lazy-seq (a))))
+  (is-tc-e (t/let [] 1))
+  (is-tc-e
+    (inc ((fn []
+            (if 1 2 3)))))
+  (is-tc-e
+    (inc ((core/fn []
+            (if 1 2 3)))))
+  (is-tc-e
+    (inc ((fn [] :- Num
+            (if 1 2 3)))))
   (is-tc-e (for [a :- Num [1 2 3]] :- Num
              (inc a))
            (Seq Num))
   (is-tc-err (for [a [1 2 3]]
                (inc a))))
+
 
 (deftest file-not-found-error-test
   (is (err/top-level-error-thrown?
@@ -3280,7 +3295,8 @@
   (is-tc-err (inc ((fn foo 
                      ([a :- Num] (foo 1 a))
                      ([a :- Num b :- Num] b))
-                   1))))
+                   1)))
+  (is-tc-e (clojure.core/fn foo [a] (foo a))))
 
 #_(deftest reduce-test
   (is-tc-err (reduce (fn ([] :- nil) ([x :- Num y :- Num] :- nil)) [1]))
