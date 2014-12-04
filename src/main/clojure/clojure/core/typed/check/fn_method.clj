@@ -16,7 +16,6 @@
   (let [required-params (ast-u/method-required-params method)
         rest-param (ast-u/method-rest-param method)
         mfns (cu/relevant-Fns required-params rest-param fin)]
-    #_(prn "relevant-Fns" (map prs/unparse-type mfns))
     (cond
       ;If no matching cases, assign parameters to Any
       (empty? mfns) [(fn-method1/check-fn-method1 

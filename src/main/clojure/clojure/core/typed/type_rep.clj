@@ -345,6 +345,22 @@
   :methods
   [p/TCType])
 
+(defn ^:private unsafe-body [pred p]
+  {:pre [(pred p)]
+   :post [((every-pred Type? (complement Scope?)) %)]}
+  (let [sc (atom (:scope p))]
+    (dotimes [n (:nbound p)]
+      (let [s @sc
+            _ (assert (Scope? s))]
+        (reset! sc (:body s))))
+    @sc))
+
+(defn Poly-body-unsafe* [p]
+  (unsafe-body Poly? p))
+
+(defn PolyDots-body-unsafe* [p]
+  (unsafe-body PolyDots? p))
+
 (u/ann-record Name [id :- t/Sym])
 (u/def-type Name [id]
   "A late bound name"

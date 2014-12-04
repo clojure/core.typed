@@ -2435,6 +2435,20 @@
         [x :- a
          y :- (Seqable b)]))
     (All [a b] [Any Any -> Any]))
+  (is-tc-err
+    (pfn [x y]
+      [f coll]
+      (fn
+        [x :- a
+         y :- (Seqable b)]))
+    (All [a b] [Any Any -> Any]))
+  (is-tc-e
+    (pfn [x y]
+      [f coll]
+      (fn
+        [x :- x
+         y :- (Seqable y)]))
+    (All [a b] [Any Any -> Any]))
   ;zero args is fine for dotted vars
   (is-tc-e (fn [a] (inst a))
            [(All [b ...] [b ... b -> Any]) -> Any]))
@@ -3296,7 +3310,37 @@
                      ([a :- Num] (foo 1 a))
                      ([a :- Num b :- Num] b))
                    1)))
-  (is-tc-e (clojure.core/fn foo [a] (foo a))))
+  (is-tc-e (clojure.core/fn foo [a] (foo a)))
+  (is-tc-e (fn [b] (inc b))
+           (Rec [b]
+             (U Num [Num -> Num])))
+  (is-tc-e (core/fn 
+             ([b] b)
+             ([b c] [b c]))
+           [Any -> Any])
+  (is-tc-e (core/fn [b] (inc b))
+           (U Num [Num -> Num]))
+  (is-tc-e (core/fn [b] (inc b))
+           (Rec [b]
+             (U Num [Num -> Num])))
+  (is-tc-e (fn [b] (inc b))
+           [Num -> Num])
+  (is-tc-err (fn 
+               ([b] (inc b)))
+             (IFn [Num -> Num]
+                  [Num Num -> Num]))
+  (is-tc-err (fn 
+               ([b] (inc b)))
+             Num)
+  )
+
+(deftest unsafe-body-test
+  (is
+    (FnIntersection? (Poly-body-unsafe* (parse-clj '(All [a b c d x] [x -> nil])))))
+  (is
+    (FnIntersection? (PolyDots-body-unsafe* (parse-clj '(All [x ...] [nil ... x -> nil])))))
+  (is
+    (FnIntersection? (PolyDots-body-unsafe* (parse-clj '(All [a b c d x ...] [nil ... x -> nil]))))))
 
 #_(deftest reduce-test
   (is-tc-err (reduce (fn ([] :- nil) ([x :- Num y :- Num] :- nil)) [1]))

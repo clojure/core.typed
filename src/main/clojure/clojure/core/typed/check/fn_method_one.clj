@@ -23,6 +23,7 @@
             [clojure.core.typed.check.utils :as cu]))
 
 ;check method is under a particular Function, and return inferred Function
+; if ignore-rng is true, otherwise return expression with original expected type.
 ;
 ; check-fn-method1 exposes enough wiring to support the differences in deftype
 ; methods and normal methods via `fn`.
