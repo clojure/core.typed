@@ -168,20 +168,20 @@
 
 (deftest tc-invoke-fn-test
   (is-clj (subtype? (ety
-                      ((clojure.core.typed/fn> [a :- Number, b :- Number] b)
+                      ((fn [a :- Number, b :- Number] b)
                        1 2))
                     (parse-type `Number)))
   ; manual instantiation "seq"
   ;FIXME randomly fails. Try again when I/U are sorted sets.
   (is-clj (subtype? (ety
-                      ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
-                                               ((clojure.core.typed/inst seq Number) a))
+                      ((fn [a :- (clojure.lang.Seqable Number), b :- Number] 
+                         ((clojure.core.typed/inst seq Number) a))
                        [1 2 1.2] 1))
                     (parse-type `(Option (I (clojure.lang.ISeq java.lang.Number) (CountRange 1))))))
   ; inferred "seq"
   (is-clj (subtype? (ety
-                      (clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
-                                              1))
+                      (fn [a :- (clojure.lang.Seqable Number), b :- Number] 
+                        1))
                     (make-FnIntersection
                       (make-Function
                         [(RClass-of Seqable [(RClass-of Number nil)]) (RClass-of Number nil)] 
@@ -191,30 +191,32 @@
                         :object -empty))))
   ; poly inferred "seq"
   ; FIXME pfn> NYI
-  #_(is-clj (= (ety
-           (clojure.core.typed/pfn> [c] 
-                            [[a :- (clojure.lang.Seqable c)] 
-                             [b :- Number]] 
-                            1))
-         (let [x (make-F 'x)]
-           (Poly* [(:name x)]
-                  [no-bounds]
-                  (make-FnIntersection
-                    (make-Function
-                      [(RClass-of Seqable [x]) (RClass-of Number)] 
-                      (-val 1)
-                      nil nil
-                      :filter (-FS -top -bot)
-                      :object -empty))))))
+  #_(is-clj (both-subtype?
+            (ety
+              (pfn [c] 
+                 [a :- (Seqable c)
+                  b :- Num]
+                 1))
+            (clj 
+              (let [x (make-F 'x)]
+                (Poly* [(:name x)]
+                       [no-bounds]
+                       (make-FnIntersection
+                         (make-Function
+                           [(RClass-of Seqable [x]) (RClass-of Number)] 
+                           (-val 1)
+                           nil nil
+                           :filter (-FS -top -bot)
+                           :object -empty)))))))
   ;test invoke fn
   (is-clj (subtype? (ety
-                      ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
-                                               (seq a))
+                      ((fn [a :- (Seqable Num), b :- Num] 
+                         (seq a))
                        [1 2 1.2] 1))
                     (parse-type `(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
   (is-clj (subtype? (ety
-                      ((clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap clojure.core.typed/Any Number), b :- Number] 
-                                               ((clojure.core.typed/inst get Number clojure.core.typed/Nothing) a b))
+                      ((fn [a :- (Map Any Num), b :- Num] 
+                         ((inst get Num Nothing) a b))
                        (zipmap [1] [2]) 1))
                     (parse-type `(U nil Number)))))
 
@@ -460,17 +462,17 @@
                      a)))
            ret-t)
          (-complete-hmap {(-val :a) (-val 1)})))
-  (is-clj (= (tc-t (clojure.core.typed/fn> [{a :a} :- (HMap :mandatory {:a (Value 1)})]
-                               a))
-         (ret (make-FnIntersection 
-                (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
-                              (make-Result (-val 1) 
-                                           (-FS -top -top)  ; have to throw out filters whos id's go out of scope
-                                           ;(-path [(-kpe :a)] 0) ; requires 'equivalence' filters
-                                           -empty)
-                              nil nil nil))
-              (-FS -top -bot)
-              -empty)))
+  (is-clj (= (tc-t (fn [{a :a} :- (HMap :mandatory {:a (Value 1)})]
+                     a))
+             (ret (make-FnIntersection 
+                    (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
+                                    (make-Result (-val 1) 
+                                                 (-FS -top -top)  ; have to throw out filters whos id's go out of scope
+                                                 ;(-path [(-kpe :a)] 0) ; requires 'equivalence' filters
+                                                 -empty)
+                                    nil nil nil))
+                  (-FS -top -bot)
+                  -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
   #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [a :- clojure.core.typed.test.util-aliases/UnionName]
                                    (seq? a)))
@@ -524,26 +526,26 @@
                      maprl))))))
   ;destructuring a variable of union type
   (is-clj (= (->
-           (tc-t (clojure.core.typed/fn> [{a :a} :- (U (HMap :mandatory {:a (Value 1)})
-                                                       (HMap :mandatory {:b (Value 2)}))]
-                                         a))
-           ret-t)
-         (make-FnIntersection 
-           (make-Function [(Un (make-HMap :mandatory {(-val :a) (-val 1)})
-                               (make-HMap :mandatory {(-val :b) (-val 2)}))]
-                          (Un (-val 1) -any))))))
+               (tc-t (fn [{a :a} :- (U (HMap :mandatory {:a (Value 1)})
+                                       (HMap :mandatory {:b (Value 2)}))]
+                       a))
+               ret-t)
+             (make-FnIntersection 
+               (make-Function [(Un (make-HMap :mandatory {(-val :a) (-val 1)})
+                                   (make-HMap :mandatory {(-val :b) (-val 2)}))]
+                              (Un (-val 1) -any))))))
 
 (deftest Name-resolve-test
-  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/MyName]
-                                                    ;call to (apply hash-map tmap) should be eliminated
-                                                    (let [{e :a} tmap]
-                                                      e)))
+  (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MyName]
+                              ;call to (apply hash-map tmap) should be eliminated
+                              (let [{e :a} tmap]
+                                e)))
                       (ret (make-FnIntersection 
                              (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MyName)]
                                          (make-Result (-val 1) (-FS -top -top) -empty)
                                          nil nil nil))
                            (-FS -top -bot) -empty)))
-  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/MapName]
+  (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MapName]
                                                     (let [{e :a} tmap]
                                                       (assoc e :c :b))))
                       (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MapName)]
@@ -554,16 +556,16 @@
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
   (is-with-aliases (subtype? 
-                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
-                                                       (:type tmap)))
+                     (-> (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/UnionName]
+                                 (:type tmap)))
                          ret-t)
                      (parse-type 
                        `[clojure.core.typed.test.util-aliases/UnionName :-> (U (Value :MapStruct2)
                                                                                (Value :MapStruct1))])))
   ; using = to derive paths
   (is-with-aliases (subtype? 
-                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
-                                                       (= :MapStruct1 (:type tmap))))
+                     (-> (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/UnionName]
+                                 (= :MapStruct1 (:type tmap))))
                          ret-t)
                      (make-FnIntersection 
                        (make-Function 
@@ -580,34 +582,33 @@
                                           (-filter t 0 path))
                                         (-not-filter t 0 path)))))))
   ; using filters derived by =
-  (is-with-aliases (subtype? (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
-                                                               (if (= :MapStruct1 (:type tmap))
-                                                                 (:a tmap)
-                                                                 (:b tmap))))
+  (is-with-aliases (subtype? (-> (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/UnionName]
+                                         (if (= :MapStruct1 (:type tmap))
+                                           (:a tmap)
+                                           (:b tmap))))
                                  ret-t)
                              (parse-type 
                                `[clojure.core.typed.test.util-aliases/UnionName :-> clojure.core.typed.test.util-aliases/MyName])))
   ; following paths with test of conjuncts
-  ;FIXME
-  #_(is-clj (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
-                                         ; (and (= :MapStruct1 (-> tmap :type))
-                               ;      (= 1 1))
-                               (if (clojure.core.typed/print-filterset "final filters"
-                                    (let [and1 (clojure.core.typed/print-filterset "first and1"
-                                                 (= :MapStruct1 (-> tmap :type)))]
-                                      (clojure.core.typed/print-env "first conjunct")
-                                      (clojure.core.typed/print-filterset "second and1"
-                                        (if (clojure.core.typed/print-filterset "second test"
-                                              and1)
-                                          (do (clojure.core.typed/print-env "second conjunct")
-                                            (clojure.core.typed/print-filterset "third and1"
-                                              (= 1 1)))
-                                          (do (clojure.core.typed/print-env "fail conjunct")
-                                            (clojure.core.typed/print-filterset "fail and1"
-                                              and1))))))
-                                 (do (clojure.core.typed/print-env "follow then")
-                                   (assoc tmap :c :d))
-                                 1)))
+  #_(is-clj (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/UnionName]
+                       ; (and (= :MapStruct1 (-> tmap :type))
+                       ;      (= 1 1))
+                       (if (print-filterset "final filters"
+                                            (let [and1 (print-filterset "first and1"
+                                                                        (= :MapStruct1 (-> tmap :type)))]
+                                              (print-env "first conjunct")
+                                              (print-filterset "second and1"
+                                                               (if (print-filterset "second test"
+                                                                                    and1)
+                                                                 (do (print-env "second conjunct")
+                                                                     (print-filterset "third and1"
+                                                                                      (= 1 1)))
+                                                                 (do (print-env "fail conjunct")
+                                                                     (print-filterset "fail and1"
+                                                                                      and1))))))
+                         (do (print-env "follow then")
+                             (assoc tmap :c :d))
+                         1)))
          (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/UnionName)]
                               (let [t (Un (-val 1)
                                           (make-HMap :mandatory {(-val :type) (-val :MapStruct1)
@@ -891,53 +892,49 @@
                     -any)))))
 
 (deftest ccfind-test
-  (is-clj (clj
-        (subtype? (-> (tc-t (clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Long String)]
-                                                    (find a 1)))
-                      :t :types first :rng :t)
-                  (Un (-hvec [(RClass-of Long) (RClass-of String)])
-                      -nil)))))
+  (is-clj
+    (subtype? (-> (tc-t (fn [a :- (Map Long String)]
+                          (find a 1)))
+                  :t :types first :rng :t)
+              (Un (-hvec [(RClass-of Long) (RClass-of String)])
+                  -nil))))
 
 (deftest map-infer-test
-  (is-clj (subtype? (ret-t (tc-t (map + [1 2])))
-                (RClass-of Seqable [(RClass-of Number)])))
-  (is-clj (subtype? (ret-t (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] [3 4])))
-                (RClass-of Seqable [(RClass-of Number)])))
-  (is (err/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))))
-  (is (err/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
+  (is-clj (subtype? (ety (map + [1 2]))
+                    (RClass-of Seqable [(RClass-of Number)])))
+  (is-clj (subtype? (ety (map + [1 2] [1 2] [4 5] [6 7] [4 4] [3 4]))
+                    (RClass-of Seqable [(RClass-of Number)])))
+  (is-tc-err (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))
+  (is-tc-err (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))
 
 (deftest ann-form-test
-  (is-clj (= (ret-t (tc-t 
-                      (clojure.core.typed/ann-form (atom 1)
-                                                   (clojure.lang.Atom Number Number))))
-             (parse-type '(clojure.lang.Atom Number Number)))))
+  (is-clj (= (ety (ann-form (atom 1) (Atom1 Num)))
+             (parse-type `(Atom1 Num)))))
 
 (deftest atom-ops-test
-  (is-clj (subtype? (ret-t (tc-t
-                         (reset!
-                           (clojure.core.typed/ann-form (atom 1) 
-                                                (clojure.lang.Atom Number Number))
-                           10.1)))
-                (RClass-of Number))))
+  (is-clj (subtype? (ety
+                      (reset!
+                        (ann-form (atom 1) (Atom1 Num))
+                        10.1))
+                    (RClass-of Number))))
 
 (deftest apply-test
   ;conservative while not tracking keys "not" in a hmap
-  (is-clj (clj
-        (subtype? (ret-t (tc-t (apply merge [{:a 1}])))
-                  (Un -nil (RClass-of IPersistentMap [-any -any]))))))
+  (is-clj (subtype? (ety (apply merge [{:a 1}]))
+                    (Un -nil (RClass-of IPersistentMap [-any -any])))))
 
 (deftest destructuring-test
   ;Vector destructuring with :as
-  (is-clj (subtype? (ret-t (tc-t (let [[a b :as c] (clojure.core.typed/ann-form [1 2] (clojure.core.typed/Vec Number))] 
-                                   [a b c])))
+  (is-clj (subtype? (ety (let [[a b :as c] :- (Vec Num), [1 2]]
+                           [a b c]))
                     (-hvec [(Un -nil (RClass-of Number))
                             (Un -nil (RClass-of Number))
                             (RClass-of Seqable [(RClass-of Number)])])))
-  (is-clj (= (ret-t (tc-t (let [[a b :as c] [1 2]] 
-                        [a b c])))
-         (-hvec [(-val 1)
-                 (-val 2)
-                 (-hvec [(-val 1) (-val 2)])])))
+  (is-clj (= (ety (let [[a b :as c] [1 2]] 
+                    [a b c]))
+             (-hvec [(-val 1)
+                     (-val 2)
+                     (-hvec [(-val 1) (-val 2)])])))
   ;Map destructuring of vector
   ;FIXME needs implementing, but gives a decent error msg
   #_(is-clj (= (ret-t (tc-t (let [{a 0 b 1 :as c} [1 2]] 
@@ -948,15 +945,15 @@
 
 (deftest vararg-subtyping-test
   (is-clj (subtype? (parse-type '[nil * -> nil])
-                (parse-type '[nil -> nil])))
+                    (parse-type '[nil -> nil])))
   (is-cf (clojure.core.typed/ann-form (clojure.core.typed/inst merge clojure.core.typed/Any clojure.core.typed/Any) [nil -> nil])))
 
 (deftest poly-filter-test
   (is-clj (both-subtype? 
-            (ret-t (tc-t (let [a (clojure.core.typed/ann-form [1] (clojure.core.typed/Coll clojure.core.typed/AnyInteger))]
-                           (if (seq a)
-                             (first a)
-                             'a))))
+            (ety (let [a :- (Coll Int), [1]]
+                   (if (seq a)
+                     (first a)
+                     'a)))
             (parse-type `(U AnyInteger (Value ~'a))))))
 
 (deftest type-fn-test 
@@ -980,7 +977,7 @@
          (parse-type 'double))))
 
 (deftest hmap-subtype
-  (is-cf {} (clojure.lang.APersistentMap clojure.core.typed/Any clojure.core.typed/Any)))
+  (is-tc-e {} (clojure.lang.APersistentMap Any Any)))
 
 ;; `do` is special at the top level, tc-ignore should expand out to `do`
 (tc-ignore
@@ -989,33 +986,33 @@
 
 (deftest array-test
   (is-clj (= (Class/forName "[I") 
-         (class (into-array> int [1]))))
+             (class (into-array> int [1]))))
   (is-clj (clj (= (Class/forName "[Ljava.lang.Object;") 
-              (class (into-array> (clojure.core.typed/U nil int) [1])))))
+                  (class (into-array> (clojure.core.typed/U nil int) [1])))))
   (is-clj (clj (= (Class/forName "[Ljava.lang.Number;") 
-              (class (into-array> (clojure.core.typed/U nil Number) [1])))))
+                  (class (into-array> (clojure.core.typed/U nil Number) [1])))))
   (is-clj (clj (= (Class/forName "[Ljava.lang.Object;") 
-              (class (into-array> (clojure.core.typed/U clojure.lang.Symbol Number) [1])))))
+                  (class (into-array> (clojure.core.typed/U clojure.lang.Symbol Number) [1])))))
   (is-clj (= (Class/forName "[Ljava.lang.Object;") 
-         (class (into-array> Object (clojure.core.typed/U clojure.lang.Symbol Number) [1]))))
+             (class (into-array> Object (clojure.core.typed/U clojure.lang.Symbol Number) [1]))))
   )
 
 (deftest class-pathelem-test
-  (is-clj (= (-> (tc-t #(class %))
-           ret-t :types first :rng Result-object*)
-         (-path [(ClassPE-maker)] 0)))
-  (is-clj (subtype? (-> (tc-t 
-                      #(= Number (class %)))
-                  ret-t)
-                (FnIntersection-maker
-                  [(make-Function
-                     [-any]
-                     (RClass-of 'boolean)
-                     nil nil
-                     :filter (-FS (-and (-filter (-val Number) 0 [(ClassPE-maker)])
-                                        ;the important filter, updates first argument to be Number if predicate is true
-                                        (-filter (RClass-of Number) 0))
-                                  (-not-filter (-val Number) 0 [(ClassPE-maker)])))]))))
+  (is-clj (= (-> (ety #(class %))
+                 :types first :rng Result-object*)
+             (-path [(ClassPE-maker)] 0)))
+  (is-clj (subtype? 
+            (ety 
+              #(= Number (class %)))
+            (FnIntersection-maker
+              [(make-Function
+                 [-any]
+                 (RClass-of 'boolean)
+                 nil nil
+                 :filter (-FS (-and (-filter (-val Number) 0 [(ClassPE-maker)])
+                                    ;the important filter, updates first argument to be Number if predicate is true
+                                    (-filter (RClass-of Number) 0))
+                              (-not-filter (-val Number) 0 [(ClassPE-maker)])))]))))
 
 ;TODO ^--
 ;(-> (tc-t #(let [a (class %)]
@@ -1025,41 +1022,38 @@
 ;  ret-t unparse-type)
 
 (deftest map-literal-test
-  (is-cf {:bar :b}
-         '{:bar ':b})
+  (is-tc-e {:bar :b}
+           '{:bar ':b})
   ;correctly generalise
-  (is-cf {(clojure.core.typed/ann-form :bar clojure.lang.Keyword) :b}
-         (clojure.lang.IPersistentMap clojure.lang.Keyword ':b)))
+  (is-tc-e {(ann-form :bar Kw) :b}
+           (Map Kw ':b)))
 
 (deftest isa-test
-  (is-cf (isa? 1 1))
-  (is-cf (isa? {:parents {} :ancestors {} :descendants {}} 1 1))
-  (is-cf #(isa? (class %) Number)))
+  (is-tc-e (isa? 1 1))
+  (is-tc-e (isa? {:parents {} :ancestors {} :descendants {}} 1 1))
+  (is-tc-e #(isa? (class %) Number)))
 
 (deftest array-primitive-hint-test
-  (is-cf (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
-           (alength a))))
+  (is-tc-e (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
+             (alength a))))
 
 
 (deftest flow-assert-test
   (is-clj (subtype?
-            (-> (tc-t (fn [a]
-                        {:pre [(integer? a)]}
-                        a))
-                ret-t)
+            (ety (fn [a]
+                   {:pre [(integer? a)]}
+                   a))
             (parse-type `[Any :-> AnyInteger])))
   (is-clj (subtype? 
-            (-> (tc-t (let [a (read-string "1")
-                            _ (assert (integer? a))]
-                        (+ 10 a)))
-                ret-t)
+            (ety (let [a (read-string "1")
+                       _ (assert (integer? a))]
+                   (+ 10 a)))
             (parse-type `AnyInteger)))
   ;postconditions
   (is-clj (subtype?
-            (-> (tc-t (fn [a]
-                        {:post [(vector? %)]}
-                        a))
-                ret-t)
+            (ety (fn [a]
+                   {:post [(vector? %)]}
+                   a))
             (parse-type `[Any :-> (Vec Any)]))))
 
 (deftest complete-hmap-test
@@ -1090,8 +1084,7 @@
 
 (deftest recursive-cf-test
   (is (thrown? Exception
-               (cf (clojure.core.typed/cf 1 Number)
-                   clojure.core.typed/Any))))
+               (tc-e (cf 1 Number)))))
 
 (deftest intersection-simplify-test
   (is-tc-e (let [a (ann-form [] (U (Extends [Number] :without [(clojure.lang.IPersistentVector Number)])
@@ -1108,8 +1101,8 @@
            (U nil Num)))
 
 (deftest enum-field-non-nilable-test
-  (is-cf (java.util.concurrent.TimeUnit/NANOSECONDS)
-         java.util.concurrent.TimeUnit))
+  (is-tc-e (java.util.concurrent.TimeUnit/NANOSECONDS)
+           java.util.concurrent.TimeUnit))
 
 ;;;; Checking deftype implementation of protocol methods
 
@@ -1128,32 +1121,35 @@
 (deftest map-literal-containing-funapp-test
   (is-tc-e {:bar (identity 1)}))
 
-(deftest doseq>-test
-  (is-tc-e (doseq> [a :- (U AnyInteger nil), [1 nil 2 3]
-                    :when a]
+(deftest doseq-test
+  (is-tc-e (doseq [a :- (U AnyInteger nil), [1 nil 2 3]
+                   :when a]
              (inc a)))
   ;wrap in thunk to prevent evaluation
   (is-tc-err
     (fn []
-      (doseq> [a :- (U AnyInteger nil), [1 nil 2 3]]
+      (doseq [a :- (U AnyInteger nil), [1 nil 2 3]]
         (inc a)))))
 
-(deftest for>-test
+(deftest for-test
   (is-tc-e
-    (for> :- Number
-          [a :- (U nil Number), [1 nil 2 3]
-           b :- Number, [1 2 3]
-           :when a]
-          (+ a b))
+    (for
+      [a :- (U nil Number), [1 nil 2 3]
+       b :- Number, [1 2 3]
+       :when a]
+      :- Number
+      (+ a b))
     (Seq Number))
   (is-tc-err
-    (for> :- Number
-          [a :- (U Symbol nil Number), [1 nil 2 3]
-           b :- Number, [1 2 3]]
-          (+ a b))))
+    (for
+      [a :- (U Symbol nil Number), [1 nil 2 3]
+       b :- Number, [1 2 3]]
+      :- Number
+      (+ a b))))
 
-(deftest dotimes>-test
-  (is-tc-e (dotimes> [i 100] (inc i)) nil))
+(deftest dotimes-test
+  (is-tc-e (dotimes [i 100] (inc i)) nil)
+  (is-tc-e (dotimes [i :- Num 100] (inc i)) nil))
 
 (deftest records-test
   (is (check-ns 'clojure.core.typed.test.records))

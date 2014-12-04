@@ -45,11 +45,13 @@
 (defn gen-defaults [{:keys [methods] :as expr}]
   (apply merge-with (comp vec concat)
               (for [{:keys [fixed-arity variadic?] :as method} methods]
-                {:doms [(repeat fixed-arity r/-any)]
-                 :rngs [nil]
-                 :rests [(when variadic?
-                           r/-any)]
-                 :drests [nil]})))
+                (let [fixed-arity (ast-u/fixed-arity method)
+                      variadic? (ast-u/variadic-method? method)]
+                  {:doms [(vec (repeat fixed-arity r/-any))]
+                   :rngs [nil]
+                   :rests [(when variadic?
+                             r/-any)]
+                   :drests [nil]}))))
 
 (defn all-defaults? [fn-anns poly]
   (let [defaults (concat
@@ -71,9 +73,9 @@
      (->> fn-anns
           (map :dom)
           (mapv (fn [dom]
-                  (map (fn [{:keys [type default]}]
-                         (prs/parse-type type))
-                       dom))))
+                  (mapv (fn [{:keys [type default]}]
+                          (prs/parse-type type))
+                        dom))))
      :rngs (->> fn-anns
                 (map :rng)
                 (mapv (fn [{:keys [type default]}]

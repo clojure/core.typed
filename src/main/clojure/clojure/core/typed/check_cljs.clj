@@ -280,35 +280,31 @@
 
 (add-check-method :fn
   [{:keys [methods] :as expr} & [expected]]
-  (let [found-meta? (atom nil)
-        parse-meta (fn [{:keys [ann] :as m}] 
-                     (or (when (contains? m :ann)
-                           (assert ((some-fn list? seq?) ann) 
-                                   (str "Annotations must be quoted: " m))
-                           (reset! found-meta? true)
-                           (prs/with-parse-ns (cu/expr-ns expr)
-                             (prs/parse-type ann)))
-                         r/-any))
-        manual-annot (doall
-                       (for [{:keys [variadic params]} methods]
-                         (let [fixed (if variadic
-                                       (butlast params)
-                                       params)
-                               rest (when variadic
-                                      (last params))]
-                           (r/make-Function (mapv parse-meta (map meta fixed))
-                                            r/-any
-                                            (when variadic
-                                              (parse-meta rest))))))]
-
+  (let [;found-meta? (atom nil)
+        ;parse-meta (fn [{:keys [ann] :as m}] 
+        ;             (or (when (contains? m :ann)
+        ;                   (assert ((some-fn list? seq?) ann) 
+        ;                           (str "Annotations must be quoted: " m))
+        ;                   (reset! found-meta? true)
+        ;                   (prs/with-parse-ns (cu/expr-ns expr)
+        ;                     (prs/parse-type ann)))
+        ;                 r/-any))
+        ;manual-annot (doall
+        ;               (for [{:keys [variadic params]} methods]
+        ;                 (let [fixed (if variadic
+        ;                               (butlast params)
+        ;                               params)
+        ;                       rest (when variadic
+        ;                              (last params))]
+        ;                   (r/make-Function (mapv parse-meta (map meta fixed))
+        ;                                    r/-any
+        ;                                    (when variadic
+        ;                                      (parse-meta rest))))))
+        ]
     (prepare-check-fn
-      (fn/check-fn 
-        expr
-        (or (when @found-meta?
-              manual-annot)
-            expected
-            (ret (r/make-FnIntersection
-                   (r/make-Function [] r/-any r/-any))))))))
+      (if expected
+        (fn/check-fn expr expected)
+        (special-fn/check-core-fn-no-expected check expr)))))
 
 (add-check-method :deftype*
   [expr & [expected]]

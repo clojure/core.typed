@@ -1011,7 +1011,7 @@ clojure.core/conj
 
 clojure.core/find
      (All [x y]
-          [(U nil (Associative x y)) Any -> (U nil (HVec [x y]))])
+          [(U nil (clojure.lang.Associative x y)) Any -> (U nil (HVec [x y]))])
 
 ; same as clojure.lang.RT/get
 clojure.core/get
