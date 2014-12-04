@@ -16,15 +16,16 @@
 (defn check-fn 
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods] :as fexpr} expected]
-  {:pre [(r/TCResult? expected)]
+  {:pre [(r/TCResult? expected)
+         (#{:fn} (:op fexpr))]
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (::t/cmethods %))]}
-  (let [{:keys [cmethods fni]} (fn-methods/check-fn-methods 
-                                 methods 
-                                 (r/ret-t expected)
-                                 :self-name (cu/fn-self-name fexpr))]
+  ;(prn "check-fn" methods)
+  (let [cmethods (fn-methods/check-fn-methods 
+                   methods
+                   (r/ret-t expected)
+                   :self-name (cu/fn-self-name fexpr))]
     (assoc fexpr
            ::t/cmethods cmethods
-           u/expr-type  (r/ret fni
-                           (fo/-FS fl/-top fl/-bot) 
-                           obj/-empty))))
+           u/expr-type  (r/ret (r/ret-t expected)
+                               (fo/-FS fl/-top fl/-bot)))))

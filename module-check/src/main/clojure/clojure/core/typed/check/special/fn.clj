@@ -1,6 +1,7 @@
 (ns clojure.core.typed.check.special.fn
   (:require [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.check.fn :as fn]
@@ -14,6 +15,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check.fn-method-one :as fn-method-one]
+            [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.subtype :as sub]))
 
 (defn check-anon [{:keys [methods] :as expr} {:keys [doms rngs rests drests]}]
@@ -136,7 +138,8 @@
 
 (defn check-special-fn 
   [check {[_ _ fn-ann-expr :as statements] :statements fexpr :ret :as expr} expected]
-  {:pre [(#{3} (count statements))
+  {:pre [((some-fn nil? r/TCResult?) expected)
+         (#{3} (count statements))
          (#{:fn} (:op fexpr))]}
   ;(prn "check-special-fn")
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
@@ -150,30 +153,39 @@
           ;_ (prn "flat-expecteds" flat-expecteds)
           _ (assert ((some-fn nil? vector?) poly))
           [frees-with-bnds dvar] (parse-poly poly)
-          use-expected? (boolean
-                          (when (all-defaults? fn-anns poly)
-                            (when expected
-                              ((some-fn r/FnIntersection? r/Poly? r/PolyDots?)
-                               (r/ret-t expected)))))
+
+          good-expected? (fn [expected]
+                           {:pre [((some-fn nil? r/TCResult?) expected)]
+                            :post [(con/boolean? %)]}
+                           (boolean
+                             (when expected
+                               (seq (fn-methods/function-types (r/ret-t expected))))))
+
+          ;; If we have an unannotated fn macro and a good expected type, use the expected
+          ;; type via check-fn, otherwise check against the expected type after a call to check-anon.
           cfexpr 
-          (if use-expected?
-            (fn/check-fn fexpr expected)
-            (lex/with-locals (when self-name
-                               (let [this-type (self-type flat-expecteds)
-                                     ;_ (prn "this-type" this-type)
-                                     ]
-                                 {self-name this-type}))
-              (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
-                (dvar/with-dotted (when dvar
-                                    [(r/make-F (first dvar))])
-                  (check-anon
-                    fexpr
-                    flat-expecteds)))))
-          actual-ret (let [r (-> cfexpr u/expr-type)]
-                       (update-in r [:t] wrap-poly frees-with-bnds dvar))
-          _ (when expected
-              (when-not (sub/subtype? (r/ret-t actual-ret) (r/ret-t expected))
-                (cu/expected-error (r/ret-t actual-ret) (r/ret-t expected))))]
+          (if (and (all-defaults? fn-anns poly) 
+                   (good-expected? expected))
+            (do ;(prn "using check-fn")
+                (fn/check-fn fexpr expected))
+            (let [;_ (prn "using anon-fn")
+                  cfexpr (lex/with-locals (when self-name
+                                            (let [this-type (self-type flat-expecteds)
+                                                  ;_ (prn "this-type" this-type)
+                                                  ]
+                                              {self-name this-type}))
+                           (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
+                             (dvar/with-dotted (when dvar
+                                                 [(r/make-F (first dvar))])
+                               (check-anon
+                                 fexpr
+                                 flat-expecteds))))
+                  actual-ret (let [r (-> cfexpr u/expr-type)]
+                               (update-in r [:t] wrap-poly frees-with-bnds dvar))
+                  _ (when expected
+                      (when-not (sub/subtype? (r/ret-t actual-ret) (r/ret-t expected))
+                        (cu/expected-error (r/ret-t actual-ret) (r/ret-t expected))))]
+              cfexpr))]
       (assoc expr
              :ret cfexpr
-             u/expr-type actual-ret))))
+             u/expr-type (u/expr-type cfexpr)))))

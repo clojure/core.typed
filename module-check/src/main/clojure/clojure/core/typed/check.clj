@@ -1310,6 +1310,7 @@
 
 (defmethod internal-special-form ::t/fn
   [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :keys [env] :as expr} expected]
+  ;(prn "check special :fn" expected)
   (prepare-check-fn env expr
     (special-fn/check-special-fn check expr expected)))
 

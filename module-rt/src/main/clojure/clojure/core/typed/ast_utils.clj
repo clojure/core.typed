@@ -1,5 +1,6 @@
 (ns clojure.core.typed.ast-utils
   (:require [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -172,3 +173,48 @@
       ; future tools.analyzer
       (let [{:keys [val]} (:class expr)]
         val)))
+
+(def deftype-method? (fn [m]
+                       (impl/impl-case
+                         :clojure ((every-pred map? (comp #{:method} :op))
+                                   m)
+                         ; FIXME should be nyi-error but c.c.t.errors depends on this namespace
+                         :cljs (assert nil "Method for CLJS"))))
+
+(def fn-method? (fn [m]
+                  (impl/impl-case
+                    :clojure ((every-pred map? (comp #{:fn-method} :op))
+                              m)
+                    :cljs (map? m))))
+(def fn-methods? (fn [ms]
+                   (impl/impl-case
+                     :clojure ((con/vec-c? fn-method?) ms)
+                     :cljs ((every-pred (con/every-c? fn-method?)
+                                        seq?)
+                            ms))))
+
+(defn variadic-method? [m]
+  {:pre [((some-fn fn-method? deftype-method?) m)]
+   :post [(con/boolean? %)]}
+  (cond
+    (fn-method? m)
+    (impl/impl-case
+      :clojure (do (contains? m :variadic?)
+                   (:variadic? m))
+      :cljs (do (assert (contains? m :variadic))
+                (boolean (:variadic m))))
+    ; :method does not have :variadic? field
+    :else false))
+
+(defn fixed-arity 
+  "Returns the number of parameters for a :fn-method or :method.
+  Note :method AST nodes include the 'this' parameter."
+  [m]
+  {:pre [((some-fn fn-method? deftype-method?) m)]
+   :post [(integer? %)]}
+  (impl/impl-case
+    :clojure ((if (fn-method? m) identity inc) (:fixed-arity m))
+    :cljs (do (assert (fn-method? m))
+              (assert (contains? m :params))
+              (count (:params m)))))
+
