@@ -1030,6 +1030,14 @@
 
 (deftest isa-test
   (is-tc-e (isa? 1 1))
+  (is-tc-e (let [a :- Any 1
+                 b :- Any 2]
+             (assert (isa? [(class a) (class b)] [Number Number]))
+             (+ a b)))
+  (is-tc-err #(let [a :- Any 1
+                    b :- Any 2]
+                (assert (isa? [(class a) (class b) 1] [Number Number]))
+                (+ a b)))
   (is-tc-e (isa? {:parents {} :ancestors {} :descendants {}} 1 1))
   (is-tc-e #(isa? (class %) Number)))
 
@@ -1262,12 +1270,18 @@
                          (make-HMap :optional {(-val :foo) -nil}))))
 
 (deftest multimethod-test
-  (is (check-ns 'clojure.core.typed.test.mm)))
+  (is (check-ns 'clojure.core.typed.test.mm))
+  (is-tc-e (do (ann f [Any -> Any])
+               (defmulti f class)
+               (defmethod f Number [n] (inc n))))
+  (is-tc-e (do (ann f [Any Any -> Any])
+               (defmulti f (fn [a b]
+                             [(class a) (class b)]))
+               (defmethod f [Number Number] [n1 n2] (+ n1 n2)))))
 
 (deftest instance-field-test
-  (is-cf (.ns ^clojure.lang.Var #'clojure.core/map))
-  (is (err/top-level-error-thrown?
-        (cf (fn [] (.ns ^clojure.lang.Var 'a))))))
+  (is-tc-e (.ns ^clojure.lang.Var #'clojure.core/map))
+  (is-tc-err (fn [] (.ns ^clojure.lang.Var 'a))))
 
 (deftest HMap-syntax-test
   (is-clj (= (parse-type `(HMap :absent-keys #{:op}))

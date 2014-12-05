@@ -44,7 +44,7 @@
 
 (defn gen-defaults [{:keys [methods] :as expr}]
   (apply merge-with (comp vec concat)
-              (for [{:keys [fixed-arity variadic?] :as method} methods]
+              (for [method methods]
                 (let [fixed-arity (ast-u/fixed-arity method)
                       variadic? (ast-u/variadic-method? method)]
                   {:doms [(vec (repeat fixed-arity r/-any))]
