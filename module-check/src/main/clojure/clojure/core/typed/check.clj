@@ -1482,7 +1482,11 @@
         ;_ (prn "expected r/ret-t" (prs/unparse-type (r/ret-t expected)))
         ;_ (prn "expected r/ret-t class" (class (r/ret-t expected)))
         expected-mm-disp (multi/expected-dispatch-type (r/ret-t expected))
-        cdisp (check dispatch-expr (r/ret expected-mm-disp))
+        cdisp (check dispatch-expr)
+        _ (when-not (sub/subtype? (-> cdisp u/expr-type r/ret-t) expected-mm-disp)
+            (binding [vs/*current-expr* cdisp
+                      vs/*current-env* (:env cdisp)]
+              (cu/expected-error (-> cdisp u/expr-type r/ret-t) expected-mm-disp)))
         cargs [(check nme-expr)
                cdisp
                (check default-expr)

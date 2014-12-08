@@ -11,6 +11,25 @@
   - made PersistentHashMap/create more flexible, which is used in map destructuring
 
 - fn> without expected return type now always returns Any
+  - fn> will be removed soon, use clojure.core.typed/fn
+
+- defmulti no longer propagates an expected type to dispatch function
+  - If your dispatch function relies on the input type of the multimethod,
+    it must be explicitly annotated
+```clojure
+;old behaviour
+(ann f [Num -> Num])
+(defmulti f (fn [a] (inc a)))
+
+;new behaviour
+(ann f [Num -> Num])
+(defmulti f (fn [a :- Num] (inc a)))
+```
+
+- `clojure.core.typed/pfn` is now supported
+- `clojure.core.typed/defn` supports a polymorphic binder
+- `clojure.core.typed/fn` no longer infers a better type for the body if
+  it is provided an expected type for the body
 
 ## Internal
 

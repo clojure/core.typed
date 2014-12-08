@@ -147,14 +147,20 @@
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
     (let [fn-anns (ast-u/map-expr-at fn-ann-expr :ann)
           poly    (ast-u/map-expr-at fn-ann-expr :poly)
+          ;_ (prn "poly" poly)
           _ (assert (vector? fn-anns))
           self-name (cu/fn-self-name fexpr)
           _ (assert ((some-fn nil? symbol?) self-name))
           ;_ (prn "self-name" self-name)
-          flat-expecteds (prepare-expecteds expr fn-anns)
+          [frees-with-bnds dvar] (parse-poly poly)
+          new-bnded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
+          new-dotted (when dvar [(r/make-F (first dvar))])
+          flat-expecteds 
+          (free-ops/with-bounded-frees new-bnded-frees
+            (dvar/with-dotted new-dotted
+              (prepare-expecteds expr fn-anns)))
           ;_ (prn "flat-expecteds" flat-expecteds)
           _ (assert ((some-fn nil? vector?) poly))
-          [frees-with-bnds dvar] (parse-poly poly)
 
           good-expected? (fn [expected]
                            {:pre [((some-fn nil? r/TCResult?) expected)]
@@ -176,9 +182,8 @@
                                                   ;_ (prn "this-type" this-type)
                                                   ]
                                               {self-name this-type}))
-                           (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
-                             (dvar/with-dotted (when dvar
-                                                 [(r/make-F (first dvar))])
+                           (free-ops/with-bounded-frees new-bnded-frees
+                             (dvar/with-dotted new-dotted
                                (check-anon
                                  fexpr
                                  flat-expecteds))))
