@@ -248,8 +248,8 @@
   ^{:forms '[(defn poly? name docstring? [param :- type *] :- type exprs*)
              (defn poly? name docstring? ([param :- type *] :- type exprs*)+)]}
   defn
-  "Like defn, but with optional annotations. All annotations default to Any,
-  like the typed fn macro. Rest parameters default to starred.
+  "Like defn, but expands to clojure.core.typed/fn. If a polymorphic binder is
+  supplied before the var name, expands to clojure.core.typed/pfn.
 
   eg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)
 
@@ -259,11 +259,15 @@
   ;multi-arity
   (defn fname 
     ([a :- String] :- String ...)
-    ([a :- String, b :- Number] :- Long ...))"
+    ([a :- String, b :- Number] :- Long ...))
+
+  ;polymorphic function
+  (defn [x y]
+    fname 
+    ([a :- x] :- (Coll y) ...)
+    ([a :- Str, b :- y] :- y ...))"
   [& args]
   (let [[poly args] (internal/take-when vector? args)
-        _ (when poly
-            (err/nyi-error "Poly for defn"))
         [name & args] args
         _ (assert (symbol? name) "defn name should be a symbol")
         [docstring args] (internal/take-when string? args)]
@@ -272,4 +276,6 @@
                            %
                            (when docstring
                              {:doc docstring})))
-       (fn ~@args))))
+       ~(if poly
+          `(pfn ~poly ~@args)
+          `(fn ~@args)))))
