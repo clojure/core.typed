@@ -1274,6 +1274,9 @@
   (is-tc-e (do (ann f [Any -> Any])
                (defmulti f class)
                (defmethod f Number [n] (inc n))))
+  (is-tc-e (do (ann f [Any -> Any])
+               (defmulti f (fn [a] (class a)))
+               (defmethod f Number [n] (inc n))))
   (is-tc-e (do (ann f [Any Any -> Any])
                (defmulti f (fn [a b]
                              [(class a) (class b)]))
@@ -3231,8 +3234,14 @@
   (is (check-ns 'clojure.core.typed.test.CTYP146)))
 
 (deftest defn-test
-  (is-tc-e (defn foo [a :- Number]
-             (inc a))))
+  (is-tc-e (do
+             (defn foo [a :- Number]
+               (inc a))
+             (inc (foo 1))))
+  (is-tc-e (defn [x]
+             foo 
+             ([a :- x] :- x
+              a))))
 
 (deftest atom-test
   (is-tc-e @(atom 1) Any)
@@ -3343,6 +3352,11 @@
                ([b] (inc b)))
              Num)
   )
+
+(deftest pfn-test
+  (is-tc-e (pfn [x]
+             [a :- x] :- x
+             a)))
 
 (deftest unsafe-body-test
   (is
