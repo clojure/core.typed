@@ -3274,6 +3274,11 @@
   (is-tc-err (reduce (fn ([x :- Num y :- Num] :- Num 1)) [1]))
   (is-tc-e (reduce (fn ([x :- Num, y :- Num] 1) ([] 1)) [1])))
 
+(deftest reduced?-test
+  (testing "a plain old object" (is-tc-e (reduced? :a)))
+  (testing "a nil"              (is-tc-e (reduced? nil)))
+  (testing "an Any"             (is-tc-e (fn [x :- Any] (reduced? x)))))
+
 ;(deftest dotted-apply-test
 ;  (is-tc-e
 ;    (do (ann foo (All [x y ...] [[y ... y -> x] -> [y ... y -> x]]))

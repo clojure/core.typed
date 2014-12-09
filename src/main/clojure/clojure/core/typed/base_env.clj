@@ -1590,6 +1590,8 @@ java.lang.String/toUpperCase :all
     {'clojure.lang.RT/nth (nth-type)}
     (h/method-override-mappings
 
+clojure.lang.RT/isReduced [Any -> Boolean]
+
 clojure.lang.Indexed/nth
   (All [x y]
        (IFn [(Indexed x) AnyInteger -> x]
