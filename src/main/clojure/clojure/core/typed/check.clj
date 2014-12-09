@@ -1586,7 +1586,7 @@
   {:post [(-> % u/expr-type r/TCResult?)]}
   (let [ctest (binding [vs/*current-expr* test]
                 (check test))]
-    (if/check-if check expr ctest then else expected)))
+    (if/check-if check expr ctest then else)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multimethods
