@@ -3298,4 +3298,11 @@
 ;(clojure.core.typed/All [b ...] [b ... b -> (HVec [b ... b])]) <: [java.lang.Number * -> (HVec [java.lang.Number])]
 
 (deftest locking-test
-  (is-tc-e (locking "foo" 1) Number))
+  (testing "return value is the final expr"
+    (is-tc-e (locking :a (+ 1 2)) Number))
+
+  (testing "can't lock nil"
+    (is-tc-err (locking nil (+ 1 2) Number)))
+
+  (testing "incorrect return value"
+    (is-tc-err (locking :a :b) Number)))
