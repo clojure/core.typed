@@ -3296,3 +3296,6 @@
               rest :- [(Seq Number) -> (Seq Number)]))
 
 ;(clojure.core.typed/All [b ...] [b ... b -> (HVec [b ... b])]) <: [java.lang.Number * -> (HVec [java.lang.Number])]
+
+(deftest locking-test
+  (is-tc-e (locking "foo" 1) Number))
