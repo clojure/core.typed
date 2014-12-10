@@ -3277,6 +3277,10 @@
 (deftest reduced?-test
   (testing "a plain old object" (is-tc-e (reduced? :a)))
   (testing "a nil"              (is-tc-e (reduced? nil)))
+  (testing "control flow + inlining"
+    (is-tc-e (let [r :- (U nil (clojure.lang.Reduced Any)) (reduced 1)]
+               (when (reduced? r)
+                 @r))))
   (testing "an Any"             (is-tc-e (fn [x :- Any] (reduced? x)))))
 
 ;(deftest dotted-apply-test
