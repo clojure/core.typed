@@ -10,6 +10,6 @@
 (t/ann test-target (t/All [y ...] [Number y ... y -> (t/U nil Number)]))
 (defn test-target [& y] (when-not (empty? y) (first-number y)))
 
-(t/defn [y ...] test-target2 
+#_(t/defn [y ...] test-target2 
   [& y :- y ... y] :- (t/U nil Number)
   (when-not (empty? y) (first-number y)))

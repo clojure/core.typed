@@ -39,20 +39,18 @@
         (fn [{:keys [fixed-arity] :as method}]
           {:pre [(method? method)]
            :post [((some-fn nil? r/Function?) %)]}
+          ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
+          ;; actually distribute the types amongst the fixed and rest parameters
           (let [variadic?   (ast-u/variadic-method? method)
                 fixed-arity (ast-u/fixed-arity method)]
             (cond
-              rest
+              (or rest drest)
               (cond
                 (not variadic?) nil
 
-                (== fixed-arity ndom) f
                 ; extra domains flow into the rest argument
-                (< fixed-arity ndom)
-                (let [diff (- fixed-arity ndom)]
-                  (-> f
-                      (assoc :rest (apply c/Un rest (take-last diff dom)))
-                      (assoc :dom (drop-last diff dom))))
+                (<= fixed-arity ndom) f
+
                 ;otherwise method doesn't fit
                 :else nil)
 
@@ -105,7 +103,7 @@
          (methods? mthods)
          (opt-map? opt)]
    :post [(methods? %)]}
-  ;(prn "check-fni" exp)
+  (prn "check-fni" exp)
   (let [; unwrap polymorphic expected types
         [fin inst-frees bnds poly?] (cu/unwrap-poly exp)
         ; this should never fail due to function-type? check

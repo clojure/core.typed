@@ -2583,21 +2583,23 @@
 (deftest map-predicate-test
   (is-tc-e (fn [a] (number? (:k a)))
            (Pred (HMap :mandatory {:k Number})))
+  ; integer check is not sufficient
   (is-tc-err (fn [a] (integer? (:k a)))
              (Pred (HMap :mandatory {:k Number})))
+  ; wrong key
   (is-tc-err (fn [a] (number? (:wrong-key a)))
              (Pred (HMap :mandatory {:k Number})))
   (is 
     (sub?-q
-      `(IFn [Any ~'-> Boolean 
+      `(IFn [Any :-> Boolean 
              :filters {:then (~'is Number 0 [(~'Key :k)]), 
                        :else (~'! Number 0 [(~'Key :k)])}])
       `(Pred (HMap :mandatory {:k Number}))))
 
-  (is 
+  (is
     (not
       (sub?-q
-        `(IFn [Any ~'-> Boolean 
+        `(IFn [Any :-> Boolean 
                :filters {:then (~'is Long 0 [(~'Key :k)]), 
                          :else (~'! Long 0 [(~'Key :k)])}])
         `(Pred (HMap :mandatory {:k Number})))))
