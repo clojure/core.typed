@@ -19,6 +19,7 @@
             [clojure.core.typed.protocol-env :as pcl-env]
             [clojure.core.typed.method-param-nilables :as mtd-param-nil]
             [clojure.core.typed.method-return-nilables :as mtd-ret-nil]
+            [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.subtype :as sub])
   (:import (clojure.lang MultiFn)))
@@ -66,6 +67,7 @@
     (err/tc-delayed-error (str "Type mismatch:"
                              "\n\nExpected: \t" (pr-str (prs/unparse-type expected))
                              "\n\nActual: \t" (pr-str (prs/unparse-type actual))))))
+
 
 ;(t/ann error-ret [(U nil TCResult) -> TCResult])
 (defn error-ret 

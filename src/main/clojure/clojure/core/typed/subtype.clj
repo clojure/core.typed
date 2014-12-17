@@ -1096,7 +1096,8 @@
 
 (defn subtype-filter-set? [f1 f2]
   {:pre [(fr/FilterSet? f1)
-         (fr/FilterSet? f2)]}
+         (fr/FilterSet? f2)]
+   :post [(con/boolean? %)]}
   (boolean
     (or (= f2 (fops/-FS fr/-top fr/-top))
         (letfn [(sub-helper [f1 f2 pred field sub?]
@@ -1154,6 +1155,43 @@
         (fail! t1 t2)))
 
     :else (fail! t1 t2)))
+
+(defn subtype-TCResult-ignore-type?
+  [{^FilterSet f1 :fl o1 :o flow1 :flow :as s}
+   {^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
+  {:pre [(r/TCResult? s)
+         (r/TCResult? t)]
+   :post [(con/boolean? %)]}
+  (cond
+    ;trivial case
+    (and (= o1 o2)
+         (subtype-filter-set? f1 f2)
+         (subtype-flow-set? flow1 flow2))
+    true
+
+    ;we can ignore some interesting results
+    (and (orep/EmptyObject? o2)
+         (= f2 (fops/-FS fr/-top fr/-top))
+         (= flow2 (r/-flow fr/-top)))
+    true
+
+    (and (orep/EmptyObject? o2)
+         (= f1 f2)
+         (= flow2 (r/-flow fr/-top)))
+    true
+
+    ;special case for (& (is y sym) ...) <: (is y sym)
+    (and (fr/AndFilter? (:then f1))
+         (fr/TypeFilter? (:then f2))
+         (every? fops/atomic-filter? (:fs (:then f1)))
+         (= 1 (count (filter fr/TypeFilter? (:fs (:then f1)))))
+         (= fr/-top (:else f2))
+         (= flow1 flow2 (r/-flow fr/-top))
+         (= o1 o2))
+    (let [f1-tf (first (filter fr/TypeFilter? (:fs (:then f1))))]
+      (= f1-tf (:then f2)))
+
+    :else false))
 
 (defn subtype-TypeFn-rands?
   [tfn rands1 rands2]

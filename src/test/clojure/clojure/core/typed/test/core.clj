@@ -3353,12 +3353,32 @@
   (is-tc-err (fn 
                ([b] (inc b)))
              Num)
+  (is (both-subtype?
+        (ret-t
+          (tc-t (fn
+                  [x :- Any 
+                   y :- Any])))
+        (parse-clj `[Any Any :-> nil :filters {:then ~'ff :else ~'tt}])))
   )
 
 (deftest pfn-test
   (is-tc-e (pfn [x]
              [a :- x] :- x
-             a)))
+             a))
+  (is-tc-e (pfn [x]
+             [a :- x] :- x
+             a))
+  (is-tc-err (ann-form
+               (pfn [x]
+                 [a :- x] :- x
+                 a)
+               (All [x y z] [Any Any -> Any])))
+  (is-tc-err (pfn 
+               [x]
+               [a :- x] :- x
+               a)
+             :expected
+             (All [x y z] [Any Any -> Any])))
 
 (deftest unsafe-body-test
   (is

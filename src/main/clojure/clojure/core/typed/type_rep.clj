@@ -875,7 +875,7 @@
   :methods
   [p/TCAnyType])
 
-(declare ret TCResult?)
+(declare ret TCResult? make-Result)
 
 (u/ann-record TCResult [t :- Type
                         fl :- p/IFilterSet
@@ -883,10 +883,16 @@
                         flow :- FlowSet])
 
 (t/ann Result->TCResult [Result -> TCResult])
-(defn Result->TCResult [{:keys [t fl o] :as r}]
+(defn Result->TCResult [{:keys [t fl o flow] :as r}]
   {:pre [(Result? r)]
    :post [(TCResult? %)]}
-  (ret t fl o))
+  (ret t fl o flow))
+
+(t/ann TCResult->Result [TCResult -> Result])
+(defn TCResult->Result [{:keys [t fl o flow] :as r}]
+  {:pre [(Result? r)]
+   :post [(TCResult? %)]}
+  (make-Result t fl o flow))
 
 (t/ann Result-type* [Result -> Type])
 (defn Result-type* [r]

@@ -216,6 +216,14 @@
                   (when (and drest rest-param) 
                     [rest-param-name drest])
                   (u/expr-type crng)))
+
+        ;; need to explicitly check filters and objects
+        _ (when expected-rng
+            (when-not (sub/subtype-TCResult-ignore-type? (u/expr-type crng) expected-rng)
+              (cu/expected-error 
+                ftype
+                expected)))
+                        
         cmethod (-> (assoc method
                            (ast-u/method-body-kw) crng
                            ::t/ftype ftype)

@@ -17,7 +17,8 @@
                               :filters {:then ~'tt :else ~'ff}])
              (->
                (tc-e
-                 (fn [f coll]
+                 (pfn [a b]
+                   [f coll]
                    (fn
                      [x :- a
                       y :- b]))
