@@ -59,11 +59,13 @@
    :args args})
 
 (defn dummy-fn-method-expr [body required-params rest-param env]
-  {:op :fn-method
-   :env env
-   :body body
-   :params (vec (concat required-params (when rest-param [rest-param])))
-   :variadic? (boolean rest-param)})
+  (let [params (vec (concat required-params (when rest-param [rest-param])))]
+    {:op :fn-method
+     :env env
+     :body body
+     :params params
+     :fixed-arity (count params)
+     :variadic? (boolean rest-param)}))
 
 (defn dummy-fn-expr [methods variadic-method env]
   {:op :fn
@@ -213,7 +215,9 @@
   {:pre [((some-fn fn-method? deftype-method?) m)]
    :post [(integer? %)]}
   (impl/impl-case
-    :clojure ((if (fn-method? m) identity inc) (:fixed-arity m))
+    :clojure (let [fixed (:fixed-arity m)]
+               (assert (integer? fixed))
+               ((if (fn-method? m) identity inc) fixed))
     :cljs (do (assert (fn-method? m))
               (assert (contains? m :params))
               (count (:params m)))))
