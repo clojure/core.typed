@@ -185,7 +185,6 @@
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
 
-        ;_ (prn "crng-nopass" crng-nopass)
         {:keys [then]} (-> crng-nopass u/expr-type r/ret-f)
         then-env (u/p :check/check-fn-method1-env+-rng
                    (update/env+ env [then] (atom true)))
@@ -203,6 +202,7 @@
                (update-in crng-nopass [u/expr-type :fl :then] 
                           (fn [f]
                             (apply fo/-and f new-then-props))))
+        ;_ (prn "crng" (u/expr-type crng))
         rest-param-name (when rest-param
                           (:name rest-param))
         

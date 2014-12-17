@@ -27,7 +27,15 @@
           (fn [method dom rng rest drest ret]
             (fn-method-one/check-fn-method1 
               method 
-              (r/make-Function dom (or rng r/-any) rest drest)
+              (r/make-Function dom (or (when (r/Result? rng)
+                                         (r/Result-type* rng))
+                                       r/-any) rest drest
+                               :filter (when (r/Result? rng)
+                                         (r/Result-filter* rng))
+                               :object (when (r/Result? rng)
+                                         (r/Result-object* rng))
+                               :flow (when (r/Result? rng)
+                                       (r/Result-flow* rng)))
               :ignore-rng (not rng)))
           methods doms rngs rests drests rngs)
 
@@ -80,7 +88,7 @@
                 (map :rng)
                 (mapv (fn [{:keys [type default]}]
                         (when-not default
-                          (prs/parse-type type)))))
+                          (r/make-Result (prs/parse-type type))))))
      :rests (->> fn-anns
                  (map :rest)
                  (mapv (fn [{:keys [type default] :as has-rest}]
@@ -97,11 +105,12 @@
 (defn self-type [{:keys [doms rngs rests drests] :as expecteds}]
   (apply r/make-FnIntersection
          (map (fn [dom rng rest drest]
-                {:pre [((some-fn nil? r/Type?) rng rest)
+                {:pre [((some-fn nil? r/Result?) rng)
+                       ((some-fn nil? r/Type?) rest)
                        ((some-fn nil? r/DottedPretype?) drest)
                        (every? r/Type? dom)]
                  :post [(r/Function? %)]}
-                (r/make-Function dom (or rng r/-any) rest drest))
+                (r/make-Function dom (or (when rng (r/Result-type* rng)) r/-any) rest drest))
               doms rngs rests drests)))
 
 (defn parse-poly [bnds]
@@ -159,7 +168,7 @@
           (free-ops/with-bounded-frees new-bnded-frees
             (dvar/with-dotted new-dotted
               (prepare-expecteds expr fn-anns)))
-          ;_ (prn "flat-expecteds" flat-expecteds)
+          _ (prn "flat-expecteds" flat-expecteds)
           _ (assert ((some-fn nil? vector?) poly))
 
           good-expected? (fn [expected]
@@ -174,7 +183,7 @@
           cfexpr 
           (if (and (all-defaults? fn-anns poly) 
                    (good-expected? expected))
-            (do ;(prn "using check-fn")
+            (do (prn "using check-fn")
                 (fn/check-fn fexpr expected))
             (let [;_ (prn "using anon-fn")
                   cfexpr (lex/with-locals (when self-name
