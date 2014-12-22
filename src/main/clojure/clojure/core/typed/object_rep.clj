@@ -69,3 +69,5 @@
   []
   :methods
   [p/IRObject])
+
+(def -no-object (NoObject-maker))

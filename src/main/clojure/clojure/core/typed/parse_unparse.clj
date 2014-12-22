@@ -31,7 +31,7 @@
                                         IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
                                         GetType HSequential HSet)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
-                                          ImpFilter)
+                                          ImpFilter NoFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
@@ -1684,6 +1684,7 @@
 
 (defmethod unparse-filter* TopFilter [f] 'tt)
 (defmethod unparse-filter* BotFilter [f] 'ff)
+(defmethod unparse-filter* NoFilter [f] 'no-filter)
 
 (declare unparse-type)
 
