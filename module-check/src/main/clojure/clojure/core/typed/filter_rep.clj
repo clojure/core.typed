@@ -66,6 +66,9 @@
   :methods
   [p/IFilter])
 
+(t/ann -no-filter Filter)
+(def -no-filter (NoFilter-maker))
+
 (u/ann-record TypeFilter [type :- r/Type,
                           path :- (t/U nil (Seqable IPathElem))
                           id :- NameRef])

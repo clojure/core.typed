@@ -4,6 +4,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.type-ctors :as c])
   (:import (clojure.lang APersistentMap)))
@@ -92,7 +93,7 @@
         val-types (map (comp r/ret-t u/expr-type) cvalexprs)
 
         ts (zipmap key-types val-types)
-        actual (if (every? c/keyword-value? (keys ts))
+        actual-t (if (every? c/keyword-value? (keys ts))
                  (c/-complete-hmap ts)
                  (impl/impl-case
                    :clojure (c/RClass-of APersistentMap [(apply c/Un (keys ts))
@@ -100,10 +101,8 @@
                    :cljs (c/Protocol-of 'cljs.core/IMap
                                         [(apply c/Un (keys ts))
                                          (apply c/Un (vals ts))]) ))
-        _ (when expected
-            (when-not (sub/subtype? actual (r/ret-t expected))
-              (cu/expected-error actual (r/ret-t expected))))]
+        actual-ret (r/ret actual-t (fo/-true-filter))]
     (assoc expr
            :keys ckeyexprs
            :vals cvalexprs
-           u/expr-type (r/ret actual (fo/-true-filter)))))
+           u/expr-type (below/maybe-check-below actual-ret expected))))
