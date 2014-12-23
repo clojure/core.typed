@@ -104,4 +104,6 @@
                               ta])]
                     [(map first rs) (map second rs)])
         [t-r f-r o-r flow-r] (open-result/open-Result rng o-a t-a)]
-    (r/ret t-r f-r o-r flow-r)))
+    (below/maybe-check-below
+      (r/ret t-r f-r o-r flow-r)
+      expected)))

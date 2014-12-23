@@ -20,7 +20,8 @@
          (or (not ctarget) inst?)]
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (:args %))]}
-  (binding [vs/*current-env* env]
+  (binding [vs/*current-env* env
+            vs/*current-expr* expr]
     (let [method (cu/MethodExpr->Method expr)
           msym (cu/MethodExpr->qualsym expr)
           rfin-type (or method-override

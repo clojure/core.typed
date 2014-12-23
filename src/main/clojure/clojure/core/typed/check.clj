@@ -5,6 +5,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.profiling :as p]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.array-ops :as arr-ops]
@@ -1227,7 +1228,8 @@
           (vector? (:args %))
           #_(-> % :fn u/expr-type r/TCResult?)]}
   #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
-  (binding [vs/*current-env* env]
+  (binding [vs/*current-env* env
+            vs/*current-expr* expr]
     (let [e (invoke-special expr expected)]
       (if (not= :default e) 
         e
@@ -1337,18 +1339,15 @@
   (binding [vs/*current-expr* expr
             vs/*current-env* (:env expr)]
     (let [t (var-env/type-of sym)
-          _ (when (and expected
-                       (not (sub/subtype? t (r/ret-t expected))))
-              (prs/with-unparse-ns (cu/expr-ns expr)
-                (err/tc-delayed-error 
-                  (str "Local binding " sym " expected type " (pr-str (prs/unparse-type (r/ret-t expected)))
-                       ", but actual type " (pr-str (prs/unparse-type t)))
-                  :form (ast-u/emit-form-fn expr))))]
+          final-ret (prs/with-unparse-ns (cu/expr-ns expr)
+                      (below/maybe-check-below
+                        (r/ret t 
+                               (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
+                                       (fo/-filter (c/Un r/-nil r/-false) sym))
+                               (obj/-path nil sym))
+                        expected))]
       (assoc expr
-             u/expr-type (r/ret t 
-                            (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
-                                    (fo/-filter (c/Un r/-nil r/-false) sym))
-                            (obj/-path nil sym))))))
+             u/expr-type final-ret))))
 
 (add-check-method :host-interop
   [{:keys [m-or-f target] :as expr} & [expected]]
@@ -1388,10 +1387,13 @@
 (add-check-method :static-field
   [expr & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)]}
-  (let [field (cu/FieldExpr->Field expr)]
-    (assert field)
-    (assoc expr
-           u/expr-type (r/ret (cu/Field->Type field)))))
+  (binding [vs/*current-expr* expr]
+    (let [field (cu/FieldExpr->Field expr)]
+      (assert field)
+      (assoc expr
+             u/expr-type (below/maybe-check-below
+                           (r/ret (cu/Field->Type field))
+                           expected)))))
 
 (add-check-method :instance-field
   [{target :instance target-class :class field-name :field :as expr} & [expected]]

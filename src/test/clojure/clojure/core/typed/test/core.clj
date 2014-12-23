@@ -3561,8 +3561,89 @@
              :expected-ret
              (ret (parse-clj `Num)
                   (-true-filter)
-                  -empty))
-))
+                  -empty
+                  (-flow -bot)))
+)
+  (testing "loop"
+    (is-tc-e (loop [a :- Num 1] a)
+             :expected-ret
+             (ret (parse-clj `Num)))
+    (is-tc-err (loop [a :- Num 1] a)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-true-filter)
+                  ))
+    (is-tc-err (loop [a :- Num 1] a)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-false-filter)
+                  ))
+    ;TODO better gensyms?
+    #_(is-tc-err (loop [a :- Num 1] a)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-FS -top -top)
+                  (-path nil 'a__#0)))
+    )
+  (testing "application"
+    (is-tc-e ((fn []))
+             :expected-ret
+             (ret (parse-clj 'nil)))
+    (is-tc-err ((fn []))
+             :expected-ret
+             (ret (parse-clj 'nil)
+                  (-true-filter)))
+    (is-tc-e ((fn []))
+             :expected-ret
+             (ret (parse-clj 'nil)
+                  (-false-filter)))
+    (is-tc-err ((fn []))
+             :expected-ret
+             (ret (parse-clj 'nil)
+                  (-false-filter)
+                  (-path nil 'a)))
+    )
+
+  (testing "instance method"
+    (is-tc-e (.getParent (java.io.File. "a"))
+             :expected-ret
+             (ret (parse-clj `(U nil Str))))
+    (is-tc-err (.getParent (java.io.File. "a"))
+             :expected-ret
+             (ret (parse-clj `(U nil Str))
+                  (-true-filter)))
+    (is-tc-err (.getParent (java.io.File. "a"))
+             :expected-ret
+             (ret (parse-clj `(U nil Str))
+                  (-false-filter)))
+    (is-tc-err (.getParent (java.io.File. "a"))
+             :expected-ret
+             (ret (parse-clj `(U nil Str))
+                  (-FS -top -top)
+                  (-path nil 'a)))
+    )
+  (testing "static fields"
+    (is-tc-e Long/SIZE
+             :expected-ret
+             (ret (parse-clj `Num)))
+    (is-tc-err Long/SIZE
+             :expected-ret
+             (ret (parse-clj `Sym)))
+    (is-tc-err Long/SIZE
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-false-filter)))
+    (is-tc-err Long/SIZE
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-true-filter)))
+    (is-tc-err Long/SIZE
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-FS -top -top)
+                  (-path nil 'a)))
+    )
+)
 
 ;(deftest dotted-apply-test
 ;  (is-tc-e
