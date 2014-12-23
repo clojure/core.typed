@@ -426,11 +426,18 @@
 (defn -false-filter [] (-FS fr/-bot fr/-top))
 (defn -simple-filter [] (-FS fr/-top fr/-top))
 
+;; true if f1 is implied by f2
+;; (implied-atomic? (is Number 0) (is Integer 0)) ;=> true
+;; (implied-atomic? top bot) ;=> true
 (defn implied-atomic? [f1 f2]
+  (prn "implied-atomic?" f1 f2)
   (let [subtype? @(subtype?-var)]
     (if (= f1 f2)
       true
       (cond
+        (fr/BotFilter? f2) true
+        (and (fr/TopFilter? f1)
+             ((some-fn fr/TypeFilter? fr/NotTypeFilter?) f2)) true
         (fr/OrFilter? f1) (boolean (some #(u/filter= % f2) (:fs f1)))
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))

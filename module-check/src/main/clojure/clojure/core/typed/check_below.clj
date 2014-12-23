@@ -28,8 +28,10 @@
              :post [(con/boolean? %)]}
             (cond
               (= f1 f2) true
-              (and (fo/implied-atomic? f2+ f1+)
-                   (fo/implied-atomic? f2- f1-)) true
+              (and (or (fl/NoFilter? f2+)
+                       (fo/implied-atomic? f2+ f1+))
+                   (or (fl/NoFilter? f2-)
+                       (fo/implied-atomic? f2- f1-))) true
               :else false))
           (object-better? [o1 o2]
             {:pre [(obj/RObject? o1)
@@ -45,6 +47,7 @@
              :post [(con/boolean? %)]}
             (cond
               (= flow1 flow2) true
+              (fl/NoFilter? flow2) true
               (fo/implied-atomic? flow2 flow1) true
               :else false))
           (construct-ret [tr1 expected]
@@ -84,8 +87,8 @@
                 better-obj? (object-better? o1 o2)
                 better-flow? (flow-better? flow1 flow2)]
             (cond
-              (not better-flow?) (err/tc-delayed-error (str "Expected result with flow filter " (pr-str flow1) 
-                                                            ", got flow filter "  (pr-str flow2)))
+              (not better-flow?) (err/tc-delayed-error (str "Expected result with flow filter " (pr-str flow2) 
+                                                            ", got flow filter "  (pr-str flow1)))
               (and (not better-fs?)
                    better-obj?)
               (err/tc-delayed-error (str "Expected result with filter " (pr-str f2) ", got filter "  (pr-str f1)))
