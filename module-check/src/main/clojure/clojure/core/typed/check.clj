@@ -1173,7 +1173,10 @@
         _ (assert (var? var))
         mmsym (coerce/var->symbol var)
         ret-expr (assoc expr
-                        u/expr-type (r/ret (c/RClass-of clojure.lang.MultiFn)))
+                        u/expr-type (binding [vs/*current-expr* expr]
+                                      (below/maybe-check-below
+                                        (r/ret (c/RClass-of clojure.lang.MultiFn))
+                                        expected)))
         default? (cu/default-defmethod? var (ast-u/emit-form-fn dispatch-val-expr))]
     (cond
       ;skip if warn-on-unannotated-vars is in effect
@@ -1448,7 +1451,9 @@
                                              :return (r/TCError-maker))))] 
         (assoc expr
                :instance cexpr
-               u/expr-type (r/ret result-t)))))))
+               u/expr-type (below/maybe-check-below
+                             (r/ret result-t)
+                             expected)))))))
 
 
 (add-check-method :instance?
@@ -1458,10 +1463,11 @@
         expr-tr (u/expr-type cexpr)]
     (assoc expr
            :target cexpr
-           u/expr-type (r/ret (c/Un r/-true r/-false)
-                          (fo/-FS (fo/-filter-at inst-of (r/ret-o expr-tr))
-                                  (fo/-not-filter-at inst-of (r/ret-o expr-tr)))
-                          obj/-empty))))
+           u/expr-type (below/maybe-check-below
+                         (r/ret (c/Un r/-true r/-false)
+                                (fo/-FS (fo/-filter-at inst-of (r/ret-o expr-tr))
+                                        (fo/-not-filter-at inst-of (r/ret-o expr-tr))))
+                         expected))))
 
 (defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (coerce/ctor-Class->symbol class)))
 

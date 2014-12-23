@@ -376,6 +376,21 @@
   (is-cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol)))
 
 (deftest implied-atomic?-test
+  (is-clj (implied-atomic? -top -bot))
+  (is-clj (not (implied-atomic? -bot -top)))
+  (is-clj (implied-atomic? -top
+                           (-filter (RClass-of Long) 0)))
+  (is-clj (not
+            (implied-atomic? (-filter (RClass-of Long) 0)
+                           -top)))
+  (is-clj (implied-atomic? (-filter (RClass-of Long) 0)
+                           (-filter (RClass-of Long) 0)))
+  (is-clj (implied-atomic? (-filter (RClass-of Long) 'a__#0)
+                           (-filter (RClass-of Long) 'a__#0)))
+  (is-clj (implied-atomic? (-not-filter (Name-maker `Long) 'a__#0)
+                           (-not-filter (RClass-of Long) 'a__#0)))
+  (is-clj (implied-atomic? (-not-filter (RClass-of Long) 'a__#0)
+                           (-not-filter (Name-maker `Long) 'a__#0)))
   (is-clj (implied-atomic? (-not-filter -false 'a)(-not-filter (Un -nil -false) 'a))))
 
 (deftest combine-props-test
@@ -3642,6 +3657,65 @@
              (ret (parse-clj `Num)
                   (-FS -top -top)
                   (-path nil 'a)))
+    )
+  (testing "instance fields"
+    (is-tc-e (do (ann-datatype A [a :- Num])
+                 (deftype A [a])
+                 (.a (A. 1)))
+             :expected-ret
+             (ret (parse-clj `Num)))
+    (is-tc-err (do (ann-datatype A [a :- Num])
+                 (deftype A [a])
+                 (.a (A. 1)))
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-true-filter)))
+    (is-tc-err (do (ann-datatype A [a :- Num])
+                 (deftype A [a])
+                 (.a (A. 1)))
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-false-filter)))
+    (is-tc-err (do (ann-datatype A [a :- Num])
+                 (deftype A [a])
+                 (.a (A. 1)))
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-FS -top -top)
+                  (-path nil 'a)))
+    )
+  (testing "static methods"
+    (is-tc-e (Long/valueOf 1)
+             :expected-ret
+             (ret (parse-clj `(U nil Num))))
+    (is-tc-err (Long/valueOf 1)
+             :expected-ret
+             (ret (parse-clj `(U nil Num))
+                  (-true-filter)))
+    (is-tc-err (Long/valueOf 1)
+             :expected-ret
+             (ret (parse-clj `(U nil Num))
+                  (-false-filter)))
+    (is-tc-err (Long/valueOf 1)
+             :expected-ret
+             (ret (parse-clj `(U nil Num))
+                  (-FS -top -top)
+                  (-path nil 'a)))
+    )
+  (testing "instance? call"
+    (is-tc-e (instance? Long 1)
+             Boolean)
+    ;TODO scoping
+    #_(is-tc-err (let [a 1]
+                 (instance? Long a))
+               :expected-ret
+               (ret (parse-clj `Boolean)
+                    (-FS (-filter (parse-clj `Long)
+                                  'a__#0)
+                         (-not-filter (parse-clj `Long)
+                                  'a__#0))))
+    (is-tc-e (fn [a] (instance? Long a))
+             (Pred Long))
     )
 )
 
