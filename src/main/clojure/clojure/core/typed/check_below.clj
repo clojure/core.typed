@@ -7,7 +7,8 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.errors :as err]))
+            [clojure.core.typed.errors :as err]
+            [clojure.core.typed.debug :as dbg]))
 
 ;; check-below : (/\ (Result Type -> Result)
 ;;                   (Result Result -> Result)
@@ -29,9 +30,9 @@
             (cond
               (= f1 f2) true
               (and (or (fl/NoFilter? f2+)
-                       (fo/implied-atomic? f2+ f1+))
+                       (dbg/dbg (fo/implied-atomic? f2+ f1+)))
                    (or (fl/NoFilter? f2-)
-                       (fo/implied-atomic? f2- f1-))) true
+                       (dbg/dbg (fo/implied-atomic? f2- f1-)))) true
               :else false))
           (object-better? [o1 o2]
             {:pre [(obj/RObject? o1)
@@ -84,8 +85,10 @@
 
           :else
           (let [better-fs? (filter-better? f1 f2)
+                _ (prn "better-fs?" better-fs? f1 f2)
                 better-obj? (object-better? o1 o2)
-                better-flow? (flow-better? flow1 flow2)]
+                better-flow? (flow-better? flow1 flow2)
+                _ (prn "better-flow?" better-flow? flow1 flow2)]
             (cond
               (not better-flow?) (err/tc-delayed-error (str "Expected result with flow filter " (pr-str flow2) 
                                                             ", got flow filter "  (pr-str flow1)))

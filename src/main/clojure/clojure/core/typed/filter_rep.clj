@@ -75,6 +75,7 @@
 (u/def-filter TypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is of given type"
   [(r/Type? type)
+   ((some-fn nil? seq) path)
    (every? pr/PathElem? path)
    (not (pr/PathElem? path))
    (name-ref? id)]
@@ -87,6 +88,7 @@
 (u/def-filter NotTypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is NOT of given type"
   [(r/Type? type)
+   ((some-fn nil? seq) path)
    (every? pr/PathElem? path)
    (not (pr/PathElem? path))
    (name-ref? id)]

@@ -10,6 +10,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.debug :as dbg]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set])
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
@@ -24,7 +25,7 @@
    :post [(fr/Filter? %)]}
   (if (or (= r/-any t) (and (symbol? i) (r/is-var-mutated? i)))
     fr/-top
-    (fr/TypeFilter-maker t p i)))
+    (fr/TypeFilter-maker t (seq p) i)))
 
 (defn -not-filter [t i & [p]]
   {:pre [(r/Type? t)
@@ -33,7 +34,7 @@
    :post [(fr/Filter? %)]}
   (if (or (= r/-any t) (and (symbol? i) (r/is-var-mutated? i)))
     fr/-top
-    (fr/NotTypeFilter-maker t p i)))
+    (fr/NotTypeFilter-maker t (seq p) i)))
 
 (defn -filter-at [t o]
   (if (or/Path? o)
@@ -430,6 +431,9 @@
 ;; (implied-atomic? (is Number 0) (is Integer 0)) ;=> true
 ;; (implied-atomic? top bot) ;=> true
 (defn implied-atomic? [f1 f2]
+  {:pre [(fr/Filter? f1)
+         (fr/Filter? f2)]
+   :post [(con/boolean? %)]}
   (prn "implied-atomic?" f1 f2)
   (let [subtype? @(subtype?-var)]
     (if (= f1 f2)
@@ -441,7 +445,8 @@
         (fr/OrFilter? f1) (boolean (some #(u/filter= % f2) (:fs f1)))
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))
-                                       (= (:path f1) (:path f2))
+                                       (dbg/dbg (= (dbg/dbg (:path f1))
+                                                   (dbg/dbg (:path f2))))
                                        (subtype? (:type f2) (:type f1)))
         (and (fr/NotTypeFilter? f1)
              (fr/NotTypeFilter? f2)) (and (= (:id f1) (:id f2))
