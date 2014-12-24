@@ -3797,6 +3797,83 @@
                [Throwable -> Any
                 :filters {:then ff :else ff}
                 :flow ff]))
+  (testing "try catch"
+    (is-tc-e (try (throw (Exception.))
+                  (catch Exception e))
+             nil)
+    (is-tc-err (try (throw (Exception.))
+                  (catch Exception e))
+             Num)
+    (is-tc-e (try (throw (Exception.))
+                  (catch Exception e
+                    2))
+             Num)
+    (is-tc-e (try (throw (Exception.))
+                  (catch Exception e))
+             :expected-ret
+             (ret -nil
+                  (-false-filter)))
+    (is-tc-err (try (throw (Exception.))
+                  (catch Exception e))
+             :expected-ret
+             (ret -nil
+                  (-true-filter)))
+    (is-tc-err (try (throw (Exception.))
+                  (catch Exception e))
+             :expected-ret
+             (ret -nil
+                  (-FS -top -top)
+                  -empty
+                  (-flow -bot))))
+  (testing "finally"
+    (is-tc-e (try (throw (Exception.))
+                  (catch Exception e
+                    2)
+                  (finally nil))
+             Num)
+    (is-tc-err (try (throw (Exception.))
+                  (catch Exception e
+                    2)
+                  (finally nil))
+             nil)
+    (is-tc-e (try (throw (Exception.))
+                  (catch Exception e
+                    2)
+                  (finally nil))
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-true-filter)))
+    (is-tc-err (try (throw (Exception.))
+                  (catch Exception e
+                    2)
+                  (finally nil))
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-false-filter))))
+  (testing "var"
+    (is-tc-e (do (t/def foo :- Num 1)
+                 foo))
+    (is-tc-e (do (t/def foo :- Num 1)
+                 foo)
+             Num)
+    (is-tc-err (do (t/def foo :- Num 1)
+                 foo)
+             nil))
+  (testing "set!"
+    (is-tc-e (do (t/def ^:dynamic *foo* :- Number 1)
+                 (binding [*foo* 1]
+                   (set! *foo* 2))))
+    (is-tc-err (do (t/def ^:dynamic *foo* :- Number 1)
+                   (binding [*foo* 1]
+                     (set! *foo* nil))))
+    (is-tc-e (do (t/def ^:dynamic *foo* :- Number 1)
+                   (binding [*foo* 1]
+                     (set! *foo* 2)))
+             Num)
+    (is-tc-err (do (t/def ^:dynamic *foo* :- Number 1)
+                   (binding [*foo* 1]
+                     (set! *foo* 2)))
+             nil))
 )
 
 (deftest fn-type-parse-test

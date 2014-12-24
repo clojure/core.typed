@@ -157,7 +157,7 @@
   {:pre [((some-fn nil? r/TCResult?) expected)
          (#{3} (count statements))
          (#{:fn} (:op fexpr))]}
-  (prn "check-special-fn")
+  ;(prn "check-special-fn")
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
     (let [fn-anns (ast-u/map-expr-at fn-ann-expr :ann)
           poly    (ast-u/map-expr-at fn-ann-expr :poly)
@@ -188,7 +188,7 @@
           cfexpr 
           (if (and (all-defaults? fn-anns poly) 
                    (good-expected? expected))
-            (do (prn "using check-fn")
+            (do ;(prn "using check-fn")
                 (fn/check-fn fexpr expected))
             (let [;_ (prn "using anon-fn")
                   cfexpr (lex/with-locals (when self-name
