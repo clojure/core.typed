@@ -34,6 +34,7 @@
          (r/Function? f)
          ((some-fn nil? ifn?) recur-target-fn)]
    :post [(methods? %)]}
+  (prn "check-Function" f)
   (let [ndom (count dom)
         expected-for-method 
         (fn [{:keys [fixed-arity] :as method}]
@@ -72,6 +73,7 @@
                       {:pre [(method? method)]
                        :post [((some-fn nil? method?) %)]}
                       (when-let [fe (expected-for-method method)]
+                        (prn "inner expected in check-Function" fe)
                         (let [{:keys [cmethod]} (fn-method1/check-fn-method1
                                                   method 
                                                   fe
@@ -103,7 +105,7 @@
          (methods? mthods)
          (opt-map? opt)]
    :post [(methods? %)]}
-  ;(prn "check-fni" exp)
+  (prn "check-fni" exp)
   (let [; unwrap polymorphic expected types
         [fin inst-frees bnds poly?] (cu/unwrap-poly exp)
         ; this should never fail due to function-type? check

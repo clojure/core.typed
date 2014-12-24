@@ -16,6 +16,7 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check.fn-method-one :as fn-method-one]
             [clojure.core.typed.check.fn-methods :as fn-methods]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.subtype :as sub]))
 
 (declare wrap-poly)
@@ -156,7 +157,7 @@
   {:pre [((some-fn nil? r/TCResult?) expected)
          (#{3} (count statements))
          (#{:fn} (:op fexpr))]}
-  ;(prn "check-special-fn")
+  (prn "check-special-fn")
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
     (let [fn-anns (ast-u/map-expr-at fn-ann-expr :ann)
           poly    (ast-u/map-expr-at fn-ann-expr :poly)
@@ -187,7 +188,7 @@
           cfexpr 
           (if (and (all-defaults? fn-anns poly) 
                    (good-expected? expected))
-            (do ;(prn "using check-fn")
+            (do (prn "using check-fn")
                 (fn/check-fn fexpr expected))
             (let [;_ (prn "using anon-fn")
                   cfexpr (lex/with-locals (when self-name
@@ -201,12 +202,8 @@
                                  fexpr
                                  flat-expecteds
                                  {:frees-with-bnds frees-with-bnds
-                                  :dvar dvar}))))
-                  actual-ret (-> cfexpr u/expr-type)
-                  _ (when expected
-                      (when-not (sub/subtype? (r/ret-t actual-ret) (r/ret-t expected))
-                        (cu/expected-error (r/ret-t actual-ret) (r/ret-t expected))))]
-              cfexpr))]
+                                  :dvar dvar}))))]
+              (update-in cfexpr [u/expr-type] below/maybe-check-below expected)))]
       (assoc expr
              :ret cfexpr
              u/expr-type (u/expr-type cfexpr)))))
