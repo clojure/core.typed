@@ -99,7 +99,9 @@
         (if-let [delayed-errors uvs/*delayed-errors*]
           (swap! delayed-errors conj e)
           (throw (Exception. (str "*delayed-errors* not rebound"))))
-        (or return (impl/v 'clojure.core.typed.type-rep/-nothing))))))
+        (or (when (contains? opt :return)
+              return)
+            (impl/v 'clojure.core.typed.type-rep/-nothing))))))
 
 (defn tc-error
   [estr]
