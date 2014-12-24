@@ -1,5 +1,6 @@
 (ns clojure.core.typed.check.invoke-kw
   (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-ctors :as c]
@@ -34,22 +35,21 @@
             _ (assert ((some-fn obj/Path? obj/EmptyObject?) o))
             this-pelem (pe/-kpe (:val kwt))
             val-type (c/find-val-type targett kwt defaultt)]
-        (when expected-ret
-          (when-not (sub/subtype? val-type (r/ret-t expected-ret))
-            (binding [vs/*current-expr* (or expr vs/*current-expr*)]
-              (cu/expected-error val-type (r/ret-t expected-ret)))))
         (if (not= (c/Un) val-type)
-          (r/ret val-type
-               (fo/-FS (if (obj/Path? o)
-                         (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
-                         fl/-top)
-                       (if (obj/Path? o)
-                         (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
-                                 (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
-                         fl/-top))
-               (if (obj/Path? o)
-                 (update-in o [:path] #(seq (concat % [this-pelem])))
-                 o))
+          (binding [vs/*current-expr* (or expr vs/*current-expr*)]
+            (below/maybe-check-below
+              (r/ret val-type
+                     (fo/-FS (if (obj/Path? o)
+                               (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
+                               fl/-top)
+                             (if (obj/Path? o)
+                               (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
+                                       (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
+                               fl/-top))
+                     (if (obj/Path? o)
+                       (update-in o [:path] #(seq (concat % [this-pelem])))
+                       o))
+              expected-ret))
           (do (u/tc-warning (str "Keyword lookup gave bottom type: "
                                (:val kwt) " " (prs/unparse-type targett)))
               (r/ret r/-any))))

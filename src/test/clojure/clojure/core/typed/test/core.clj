@@ -3561,6 +3561,120 @@
                   -empty
                   (-flow -bot)))
     )
+  (testing "set values"
+    (is-tc-e #{1})
+    (is-tc-e #{1} (Set Num))
+    (is-tc-err #{1} 
+               (Set Sym))
+    (is-tc-e #{1} 
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-true-filter)))
+    (is-tc-err #{1} 
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-false-filter)))
+    (is-tc-err #{1} 
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-true-filter)
+                    (-path nil 'a)))
+    (is-tc-err #{1} 
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-true-filter)
+                    -empty
+                    (-flow -bot)))
+    )
+  (testing "set expression"
+    (is-tc-e (let [a 1]
+                 #{a}))
+    (is-tc-e (let [a 1]
+                 #{a}) (Set Num))
+    (is-tc-err (let [a 1]
+                 #{a})
+               (Set Sym))
+    (is-tc-e (let [a 1]
+                 #{a})
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-true-filter)))
+    (is-tc-err (let [a 1]
+                 #{a})
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-false-filter)))
+    (is-tc-err (let [a 1]
+                 #{a})
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-true-filter)
+                    (-path nil 'a)))
+    (is-tc-err (let [a 1]
+                 #{a})
+               :expected-ret
+               (ret (parse-clj `(Set Num))
+                    (-true-filter)
+                    -empty
+                    (-flow -bot)))
+    )
+  (testing "vector values"
+    (is-tc-e [1])
+    (is-tc-e [1] (Vec Num))
+    (is-tc-err [1]
+               (Vec Sym))
+    (is-tc-e [1]
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-true-filter)))
+    (is-tc-err [1]
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-false-filter)))
+    (is-tc-err [1]
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-true-filter)
+                    (-path nil 'a)))
+    (is-tc-err [1]
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-true-filter)
+                    -empty
+                    (-flow -bot)))
+    )
+  (testing "vector expressions"
+    (is-tc-e (let [a 1]
+               [a]))
+    (is-tc-e (let [a 1]
+               [a]) (Vec Num))
+    (is-tc-err (let [a 1]
+                 [a])
+               (Vec Sym))
+    (is-tc-e (let [a 1]
+               [a])
+             :expected-ret
+             (ret (parse-clj `(Vec Num))
+                  (-true-filter)))
+    (is-tc-err (let [a 1]
+                 [a])
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-false-filter)))
+    (is-tc-err (let [a 1]
+                 [a])
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-true-filter)
+                    (-path nil 'a)))
+    (is-tc-err (let [a 1]
+                 [a])
+               :expected-ret
+               (ret (parse-clj `(Vec Num))
+                    (-true-filter)
+                    -empty
+                    (-flow -bot)))
+    )
   (testing "ann-form"
     (is-tc-e (ann-form 1 Num)
              :expected-ret
@@ -3874,6 +3988,126 @@
                    (binding [*foo* 1]
                      (set! *foo* 2)))
              nil))
+  (testing "the var"
+    (is-tc-e (do (t/def foo :- Num 1)
+                 #'foo))
+    (is-tc-e (do (t/def foo :- Num 1)
+                 #'foo)
+             :expected-ret
+             (ret (parse-clj `(Var1 Num))))
+    (is-tc-e (do (t/def foo :- Num 1)
+                 #'foo)
+             :expected-ret
+             (ret (parse-clj `(Var1 Num))
+                  (-true-filter)))
+    (is-tc-err (do (t/def foo :- Num 1)
+                 #'foo)
+             :expected-ret
+             (ret (parse-clj `(Var1 Num))
+                  (-false-filter)))
+    (is-tc-err (do (t/def foo :- Num 1)
+                 #'foo)
+             :expected-ret
+             (ret (parse-clj `(Var1 Num))
+                  (-true-filter)
+                  (-path nil 'a)))
+    (is-tc-err (do (t/def foo :- Num 1)
+                 #'foo)
+             :expected-ret
+             (ret (parse-clj `(Var1 Num))
+                  (-true-filter)
+                  -empty
+                  (-flow -bot)))
+    )
+  (testing "cast"
+    (is-tc-e (cast Number 1))
+    (is-tc-e (cast Number 1)
+             Num)
+    (is-tc-err (cast Number 1)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-true-filter)))
+    (is-tc-err (cast Number 1)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-false-filter)))
+    (is-tc-err (cast Number 1)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-FS -top -top)
+                  (-path nil 'a)))
+    (is-tc-err (cast Number 1)
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-FS -top -top)
+                  -empty
+                  (-flow -bot)))
+    (is-tc-err (do (cast Number 1))
+             :expected-ret
+             (ret (parse-clj `Num)
+                  (-FS -top -top)
+                  -empty
+                  (-flow -bot)))
+    )
+  (testing "tc-ignore"
+    (is-tc-e (tc-ignore 1)
+             Any)
+    (is-tc-err (tc-ignore 1)
+             Num)
+    (is-tc-err (tc-ignore 1)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-true-filter)))
+    (is-tc-err (tc-ignore 1)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-false-filter)))
+    (is-tc-err (tc-ignore 1)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-FS -top -top)
+                    (-path nil 'a)))
+    (is-tc-err (tc-ignore 1)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-FS -top -top)
+                    -empty
+                    (-flow -bot)))
+    )
+  (testing "local"
+    (is-tc-e (let [a 1]
+               a))
+    (is-tc-e (let [a 1]
+               a)
+             Num)
+    (is-tc-err (let [a 1]
+               a)
+             Sym)
+    (is-tc-err (let [a 1]
+                 a)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-true-filter)
+                    ))
+    (is-tc-err (let [a 1]
+                 a)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-false-filter)
+                    ))
+    (is-tc-err (let [a 1]
+                 a)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-FS -top -top)
+                    (-path nil 'a)))
+    (is-tc-err (let [a 1]
+                 a)
+               :expected-ret
+               (ret (parse-clj `Any)
+                    (-FS -top -top)
+                    -empty
+                    (-flow -bot))))
 )
 
 (deftest fn-type-parse-test
