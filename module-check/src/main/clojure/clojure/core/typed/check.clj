@@ -187,7 +187,9 @@
           t (var-env/lookup-Var-nofail (coerce/var->symbol var))]
       (if t
         (assoc expr
-               u/expr-type (r/ret t (fo/-FS fl/-top fl/-top) obj/-empty))
+               u/expr-type (below/maybe-check-below
+                             (r/ret t)
+                             expected))
         (err/tc-delayed-error
           (str "Unannotated var " id
                "\nHint: Add the annotation for " id
