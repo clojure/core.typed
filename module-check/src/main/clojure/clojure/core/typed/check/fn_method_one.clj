@@ -81,7 +81,7 @@
                                 (map param-obj
                                      (concat required-params 
                                              (when rest-param [rest-param]))))))
-        ;_ (prn "expected-rng" expected-rng)
+        _ (prn "expected-rng" expected-rng)
         ;ensure Function fits method
         _ (when-not ((if (or rest drest kws) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"
@@ -216,13 +216,6 @@
                   (when (and drest rest-param) 
                     [rest-param-name drest])
                   (u/expr-type crng)))
-
-        ;; need to explicitly check filters and objects
-        _ (when expected-rng
-            (when-not (sub/subtype-TCResult-ignore-type? (u/expr-type crng) expected-rng)
-              (cu/expected-error 
-                ftype
-                expected)))
                         
         cmethod (-> (assoc method
                            (ast-u/method-body-kw) crng

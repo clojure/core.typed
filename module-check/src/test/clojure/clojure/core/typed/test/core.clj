@@ -3751,10 +3751,52 @@
     (is-tc-e (fn [a]
                (throw a))
              [Throwable -> Nothing
+              :filters {:then ff :else ff}])
+    (is-tc-e (fn [a]
+               (throw a))
+             [Throwable -> Nothing
+              :flow ff])
+    (is-tc-e (fn [a]
+               (throw a))
+             [Throwable -> Nothing
               :filters {:then ff :else ff}
               :flow ff])
-    )
-
+    (is-tc-err (fn [a]
+                 1)
+             [Throwable -> Any
+              :flow ff])
+    (is-tc-err (fn [a]
+                 1)
+             [Throwable -> Any
+              :filters {:then ff :else ff}])
+    (is-tc-err (fn [a]
+                 1)
+               [Throwable -> Any
+                :filters {:then ff :else ff}
+                :flow ff])
+    (is-tc-e (core/fn [a]
+               (throw a))
+             [Throwable -> Nothing
+              :filters {:then ff :else ff}
+              :flow ff])
+    (is-tc-e (fn [a :- Throwable]
+               (throw a))
+             [Throwable -> Nothing
+              :filters {:then ff :else ff}
+              :flow ff])
+    (is-tc-err (core/fn [a]
+                 1)
+             [Throwable -> Any
+              :flow ff])
+    (is-tc-err (core/fn [a]
+                 1)
+             [Throwable -> Any
+              :filters {:then ff :else ff}])
+    (is-tc-err (core/fn [a]
+                 1)
+               [Throwable -> Any
+                :filters {:then ff :else ff}
+                :flow ff]))
 )
 
 (deftest fn-type-parse-test
@@ -3781,7 +3823,14 @@
   (is (-> (parse-clj '[Any -> Any
                        :filters {:then ff :else ff}
                        :flow tt])
-          :types first :rng :fl :else BotFilter?)))
+          :types first :rng :fl :else BotFilter?))
+  (is (-> (parse-clj '[Any -> Any
+                       :flow tt])
+          :types first :rng :flow :normal #{-top}))
+  (is (-> (parse-clj '[Any -> Any
+                       :flow ff])
+          :types first :rng :flow :normal #{-bot}))
+  )
 
 ;(deftest dotted-apply-test
 ;  (is-tc-e

@@ -994,6 +994,9 @@
 (defn parse-filter-set [{:keys [then else] :as fsyn}]
   (when-not (map? fsyn)
     (err/int-error "Filter set must be a map"))
+  (let [extra (set/difference (set (keys fsyn)) #{:then :else})]
+    (when-not (empty? extra)
+      (err/int-error (str "Invalid filter set option: " (first extra)))))
   (fl/-FS (if (contains? fsyn :then)
             (parse-filter then)
             f/-top)
@@ -1376,13 +1379,15 @@
   (into {} (for [[^Value k v] m] 
              [(.val k) (unparse-type v)])))
 
-(defn unparse-result [{:keys [t fl o] :as rng}]
+(defn unparse-result [{:keys [t fl o flow] :as rng}]
   {:pre [(r/Result? rng)]}
   (concat [(unparse-type t)]
-          (when-not (every? f/TopFilter? [(:then fl) (:else fl)])
+          (when-not (every? (some-fn f/TopFilter? f/NoFilter?) [(:then fl) (:else fl)])
             [:filters (unparse-filter-set fl)])
-          (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
-            [:object (unparse-object o)])))
+          (when-not ((some-fn orep/NoObject? orep/EmptyObject?) o)
+            [:object (unparse-object o)])
+          (when-not ((some-fn f/TopFilter? f/NoFilter?) (:normal flow))
+            [:flow (unparse-flow-set flow)])))
 
 (defn unparse-bound [name]
   {:pre [((some-fn symbol? con/znat?) name)]}
