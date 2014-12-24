@@ -1495,6 +1495,12 @@
             (binding [vs/*current-expr* cdisp
                       vs/*current-env* (:env cdisp)]
               (cu/expected-error (-> cdisp u/expr-type r/ret-t) expected-mm-disp)))
+        ; jamming this here to make sure filters/objects are consistent.
+        ; FIXME This entire function uses expected in strange ways, should probably rethink.
+        _ (binding [vs/*current-expr* expr]
+            (below/maybe-check-below
+              (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected)))
+              expected))
         cargs [(check nme-expr)
                cdisp
                (check default-expr)
@@ -1545,27 +1551,23 @@
                             ctor-fn)
                   ifn (r/ret ctor-fn)
                   ;_ (prn "Expected constructor" (prs/unparse-type (r/ret-t ifn)))
-                  res-type (funapp/check-funapp expr args ifn (map u/expr-type cargs) nil)
-                  _ (when (and expected (not (sub/subtype? (r/ret-t res-type) (r/ret-t expected))))
-                      (cu/expected-error (r/ret-t res-type) (r/ret-t expected)))]
+                  res-type (funapp/check-funapp expr args ifn (map u/expr-type cargs) expected)]
               (assoc expr
                      :args cargs
                      u/expr-type res-type))))))))
 
 (add-check-method :throw
   [{:keys [exception] :as expr} & [expected]]
-  (let [cexception (check exception)
-        _ (when-not (sub/subtype? (r/ret-t (u/expr-type cexception))
-                                  (c/RClass-of Throwable))
-            (err/tc-delayed-error (str "Cannot throw: "
-                                     (prs/unparse-type (r/ret-t (u/expr-type cexception))))))]
+  (let [cexception (check exception (r/ret (c/RClass-of Throwable)))]
     (assoc expr
            :exception cexception
-           u/expr-type (r/ret (c/Un)
-                          (fo/-FS fl/-top fl/-top) 
-                          obj/-empty
-                          ;never returns normally
-                          (r/-flow fl/-bot)))))
+           u/expr-type (below/maybe-check-below
+                         (r/ret (c/Un)
+                                (fo/-FS fl/-bot fl/-bot) 
+                                obj/-empty
+                                ;never returns normally
+                                (r/-flow fl/-bot))
+                         expected))))
 
 (add-check-method :recur
   [{args :exprs :keys [env] :as expr} & [expected]]

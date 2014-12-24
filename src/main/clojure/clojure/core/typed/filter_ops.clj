@@ -409,10 +409,7 @@
   {:pre [(fr/Filter? +)
          (fr/Filter? -)]
    :post [(fr/FilterSet? %)]}
-  (cond
-    (fr/BotFilter? +) (fr/FilterSet-maker fr/-bot fr/-top)
-    (fr/BotFilter? -) (fr/FilterSet-maker fr/-top fr/-bot)
-    :else (fr/FilterSet-maker + -)))
+  (fr/FilterSet-maker + -))
 
 (ind-u/add-indirection ind/-FS -FS)
 
@@ -434,7 +431,7 @@
   {:pre [(fr/Filter? f1)
          (fr/Filter? f2)]
    :post [(con/boolean? %)]}
-  (prn "implied-atomic?" f1 f2)
+  ;(prn "implied-atomic?" f1 f2)
   (let [subtype? @(subtype?-var)]
     (if (= f1 f2)
       true
@@ -445,8 +442,7 @@
         (fr/OrFilter? f1) (boolean (some #(u/filter= % f2) (:fs f1)))
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))
-                                       (dbg/dbg (= (dbg/dbg (:path f1))
-                                                   (dbg/dbg (:path f2))))
+                                       (= (:path f1) (:path f2))
                                        (subtype? (:type f2) (:type f1)))
         (and (fr/NotTypeFilter? f1)
              (fr/NotTypeFilter? f2)) (and (= (:id f1) (:id f2))

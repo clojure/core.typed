@@ -992,10 +992,12 @@
   (orep/-path (when path (mapv parse-path-elem path)) id))
 
 (defn parse-filter-set [{:keys [then else] :as fsyn}]
-  (fl/-FS (if then
+  (when-not (map? fsyn)
+    (err/int-error "Filter set must be a map"))
+  (fl/-FS (if (contains? fsyn :then)
             (parse-filter then)
             f/-top)
-          (if else
+          (if (contains? fsyn :else)
             (parse-filter else)
             f/-top)))
 

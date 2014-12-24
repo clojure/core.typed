@@ -3717,7 +3717,71 @@
     (is-tc-e (fn [a] (instance? Long a))
              (Pred Long))
     )
+  (testing "multifn"
+    ;FIXME
+    #_(is-tc-e (clojure.lang.MultiFn. 'foo
+                                    class
+                                    :default
+                                    #'clojure.core/global-hierarchy)
+             :expected-ret
+             (ret (parse-clj `[Any :-> Any]))
+             ))
+  (testing "new"
+    (is-tc-e (Boolean. true)
+             Boolean)
+    (is-tc-e (Boolean. true)
+             :expected-ret
+             (ret (parse-clj `Boolean)
+                  (-true-filter)))
+    (is-tc-err (Boolean. true)
+             :expected-ret
+             (ret (parse-clj `Boolean)
+                  (-false-filter)))
+    (is-tc-err (Boolean. true)
+             :expected-ret
+             (ret (parse-clj `Boolean)
+                  (-true-filter)
+                  (-path nil 'a)))
+    )
+  (testing "throw"
+    (is-tc-e (fn [a :- Throwable] :- Nothing
+               (throw a)))
+    (is-tc-err (fn [a :- Any]
+                 (throw a)))
+    (is-tc-e (fn [a]
+               (throw a))
+             [Throwable -> Nothing
+              :filters {:then ff :else ff}
+              :flow ff])
+    )
+
 )
+
+(deftest fn-type-parse-test
+  (is (not (= (-FS -bot -bot)
+              (-FS -top -bot))))
+  (is (not (= (-FS -bot -bot)
+              (-FS -bot -top))))
+  (is (= (:then (-FS -bot -bot))
+         -bot))
+  (is (= (:else (-FS -bot -bot))
+         -bot))
+  (is (= (parse-clj '[Any -> Any])
+         (parse-clj '[Any -> Any
+                      :filters {:then tt :else tt}
+                      :flow tt])))
+  (is (-> (parse-clj '[Any -> Any
+                       :filters {:then ff :else ff}
+                       :flow tt])
+          :types first :rng :fl #{(-FS -bot -bot)}))
+  (is (-> (parse-clj '[Any -> Any
+                       :filters {:then ff :else ff}
+                       :flow tt])
+          :types first :rng :fl :then BotFilter?))
+  (is (-> (parse-clj '[Any -> Any
+                       :filters {:then ff :else ff}
+                       :flow tt])
+          :types first :rng :fl :else BotFilter?)))
 
 ;(deftest dotted-apply-test
 ;  (is-tc-e
