@@ -195,12 +195,7 @@
                "\nHint: Add the annotation for " id
                " via check-ns or cf")
           :return (assoc expr
-                         u/expr-type 
-                         (r/ret (or (when expected
-                                    (r/ret-t expected))
-                                  (r/TCError-maker))
-                              (fo/-FS fl/-top fl/-top) 
-                              obj/-empty)))))))
+                         u/expr-type (cu/error-ret expected)))))))
 
 (add-check-method :the-var
   [{:keys [^Var var env] :as expr} & [expected]]
@@ -220,9 +215,11 @@
                                       :form (ast-u/emit-form-fn expr)
                                       :return (r/TCError-maker)))]
     (assoc expr
-           u/expr-type (r/ret (c/RClass-of Var [t t])
-                          (fo/-true-filter)
-                          obj/-empty))))
+           u/expr-type (binding [vs/*current-expr* expr]
+                         (below/maybe-check-below
+                           (r/ret (c/RClass-of Var [t t])
+                                  (fo/-true-filter))
+                           expected)))))
 
 
 (comment
@@ -272,14 +269,13 @@
         ct (-> (first cargs) u/expr-type r/ret-t c/fully-resolve-type)]
     (if (and (r/Value? ct) (class? (:val ct)))
       (let [v-t (-> (check (second args)) u/expr-type r/ret-t)
-            t (c/In v-t (c/Un r/-nil (c/RClass-of-with-unknown-params (:val ct))))
-            _ (when (and t expected)
-                (when-not (sub/subtype? t (r/ret-t expected))
-                  (cu/expected-error t (r/ret-t expected))))]
+            t (c/In v-t (c/Un r/-nil (c/RClass-of-with-unknown-params (:val ct))))]
         (-> expr
             (update-in [:fn] check)
             (assoc :args cargs
-                   u/expr-type (r/ret t))))
+                   u/expr-type (below/maybe-check-below
+                                 (r/ret t)
+                                 expected))))
       :default)))
 
 (add-invoke-special-method 'clojure.core.typed/var>*
@@ -293,14 +289,13 @@
         _ (assert (symbol? sym))
         t (var-env/lookup-Var-nofail sym)
         _ (when-not t
-            (err/tc-delayed-error (str "Unannotated var: " sym)))
-        _ (when (and t expected)
-            (when-not (sub/subtype? t (r/ret-t expected))
-              (cu/expected-error t (r/ret-t expected))))]
+            (err/tc-delayed-error (str "Unannotated var: " sym)))]
     (-> expr
         ; var>* is internal, don't check
         #_(update-in [:fn] check)
-        (assoc u/expr-type (r/ret (or t (r/TCError-maker)))))))
+        (assoc u/expr-type (below/maybe-check-below
+                             (r/ret (or t (r/TCError-maker)))
+                             expected)))))
 
 ; ignore some keyword argument related intersections
 (add-invoke-special-method 'clojure.core/seq?
@@ -318,13 +313,17 @@
       (assoc expr
              :fn cfexpr
              :args cargs
-             u/expr-type (r/ret r/-true (fo/-true-filter)))
+             u/expr-type (below/maybe-check-below
+                           (r/ret r/-true (fo/-true-filter))
+                           expected))
       ; records never extend ISeq
       (r/Record? (-> ctarget u/expr-type r/ret-t c/fully-resolve-type))
       (assoc expr
              :fn cfexpr
              :args cargs
-             u/expr-type (r/ret r/-false (fo/-false-filter)))
+             u/expr-type (below/maybe-check-below
+                           (r/ret r/-false (fo/-false-filter))
+                           expected))
       :else (invoke/normal-invoke check expr fexpr args expected
                            :cargs cargs))))
 
@@ -339,7 +338,9 @@
         ret-expr (-> expr
                      ; don't check extend
                      ;(update-in [:fn] check)
-                     (assoc u/expr-type (r/ret r/-nil)))
+                     (assoc u/expr-type (below/maybe-check-below
+                                          (r/ret r/-nil (fo/-true-filter))
+                                          expected)))
         ; this is a Value type containing a java.lang.Class instance representing
         ; the type extending the protocol, or (Value nil) if extending to nil
         target-literal-class (r/ret-t (u/expr-type catype))]
@@ -424,7 +425,9 @@
         #_(update-in [:fn] check)
         ; the coll is always last
         (assoc :args (-> args pop (conj ccoll))
-               u/expr-type (r/ret (r/PrimitiveArray-maker javat cljt cljt))))))
+               u/expr-type (below/maybe-check-below
+                             (r/ret (r/PrimitiveArray-maker javat cljt cljt))
+                             expected)))))
 
 ;not
 (add-invoke-special-method 'clojure.core/not
@@ -437,10 +440,12 @@
         {fs+ :then fs- :else} (-> ctarget u/expr-type r/ret-f)]
     (assoc expr
            :args cargs
-           u/expr-type (r/ret (prs/parse-type 'boolean) 
-                          ;flip filters
-                          (fo/-FS fs- fs+)
-                          obj/-empty))))
+           u/expr-type (below/maybe-check-below
+                         (r/ret (prs/parse-type 'boolean) 
+                                ;flip filters
+                                (fo/-FS fs- fs+)
+                                obj/-empty)
+                         expected))))
 
 ;get
 (add-invoke-special-method 'clojure.core/get
