@@ -1064,8 +1064,7 @@
          (fr/TypeFilter? t)]}
   (let [s (simplify-type-filter s)
         t (simplify-type-filter t)]
-    (and (= (:path s) (:path t))
-         (= (:id s) (:id t))
+    (and (fr/equal-paths? s t)
          (subtype? (:type s) (:type t)))))
 
 (defn simplify-not-type-filter [f]
@@ -1090,8 +1089,7 @@
          (fr/NotTypeFilter? t)]}
   (let [s (simplify-not-type-filter s)
         t (simplify-not-type-filter t)]
-    (and (= (:path s) (:path t))
-         (= (:id s) (:id t))
+    (and (fr/equal-paths? s t)
          (subtype? (:type t) (:type s)))))
 
 (defn subtype-filter-set? [f1 f2]
@@ -1112,6 +1110,43 @@
                  (sub-helper f1 f2 fr/NotTypeFilter? :else subtype-not-type-filter?))
             (and (sub-helper f1 f2 fr/NotTypeFilter? :then subtype-not-type-filter?)
                  (sub-helper f1 f2 fr/TypeFilter? :else subtype-type-filter?)))))))
+
+(defn subtype-filter? [f1 f2]
+  {:pre [(fr/Filter? f1)
+         (not (fr/NoFilter? f1))
+         (fr/Filter? f2)
+         (not (fr/NoFilter? f2))]
+   :post [(con/boolean? %)]}
+  ; assume conjunctive normal form
+  ; ie. (V (^ ...) (^ ...))
+  (cond
+    (= f1 f2) true
+    (fr/TopFilter? f2) true
+    (fr/BotFilter? f1) true
+
+    (and (fr/TypeFilter? f1)
+         (fr/TypeFilter? f2))
+    (subtype-type-filter? f1 f2)
+
+    (and (fr/NotTypeFilter? f1)
+         (fr/NotTypeFilter? f2))
+    (subtype-not-type-filter? f1 f2)
+    (fr/AndFilter? f2) (every? (fn [f2*]
+                                 (subtype-filter? f1 f2*))
+                               (:fs f2))
+    (fr/AndFilter? f1) (boolean
+                         (some (fn [f1*]
+                                 (subtype-filter? f1* f2))
+                               (:fs f1)))
+    (fr/OrFilter? f1) (every? (fn [f1*]
+                                (subtype-filter? f1* f2))
+                              (:fs f1))
+    (fr/OrFilter? f2) (boolean
+                        (some (fn [f2*]
+                                (subtype-filter? f1 f2*))
+                              (:fs f2)))
+    :else false))
+
 
 (defn subtype-flow-set? [fs1 fs2]
   {:pre [(r/FlowSet? fs1)

@@ -13,16 +13,15 @@
              '[a b]))
   (is-clj (= (unparse-type (parse-type `(t/TFn ~'[[a :variance :covariant]] ~'a)))
              '(clojure.core.typed/TFn [[a :variance :covariant]] a)))
-  (is-clj (= `(t/All ~'[a b] [t/Any t/Any ~'-> [~'a ~'b ~'-> nil :filters {:then ~'ff :else ~'tt}]
-                              :filters {:then ~'tt :else ~'ff}])
+  (is-clj (= (do
+               `(t/All ~'[a b] [t/Any t/Any ~'-> [~'a ~'b ~'-> nil :filters {:then ~'ff :else ~'tt}]
+                              :filters {:then ~'tt :else ~'ff}]))
              (->
                (tc-e
                  (pfn [a b]
                    [f coll]
                    (fn
                      [x :- a
-                      y :- b]))
-                 :expected
-                 (All [a b] [Any Any -> Any]))
+                      y :- b])))
                :t
                unparse-type))))

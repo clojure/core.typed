@@ -30,9 +30,9 @@
             (cond
               (= f1 f2) true
               (and (or (fl/NoFilter? f2+)
-                       (fo/implied-atomic? f2+ f1+))
+                       (sub/subtype-filter? f1+ f2+))
                    (or (fl/NoFilter? f2-)
-                       (fo/implied-atomic? f2- f1-))) true
+                       (sub/subtype-filter? f1- f2-))) true
               :else false))
           (object-better? [o1 o2]
             {:pre [(obj/RObject? o1)
@@ -49,7 +49,7 @@
             (cond
               (= flow1 flow2) true
               (fl/NoFilter? flow2) true
-              (fo/implied-atomic? flow2 flow1) true
+              (sub/subtype-filter? flow1 flow2) true
               :else false))
           (construct-ret [tr1 expected]
             {:pre [((every-pred r/TCResult?) tr1 expected)]
