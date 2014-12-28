@@ -26,6 +26,8 @@
 (defmulti f (fn [a :- Num] (inc a)))
 ```
 
+- fix recur arguments not being checked correctly
+
 - `clojure.core.typed/pfn` is now supported
 - `clojure.core.typed/defn` supports a polymorphic binder
 - `clojure.core.typed/fn` no longer infers a better type for the body if

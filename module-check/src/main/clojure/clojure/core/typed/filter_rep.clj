@@ -6,7 +6,8 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
-            [clojure.core.typed :as t])
+            [clojure.core.typed :as t]
+            [clojure.core.typed.contract-utils :as con])
   (:import (clojure.lang Symbol Seqable IPersistentSet)
            (clojure.core.typed.path_rep IPathElem)))
 
@@ -94,6 +95,13 @@
    (name-ref? id)]
   :methods
   [p/IFilter])
+
+; id and path should be merged
+(defn equal-paths? [f1 f2]
+  {:pre [((some-fn TypeFilter? NotTypeFilter?) f1 f2)]
+   :post [(con/boolean? %)]}
+  (and (= (:id f1) (:id f2))
+       (= (:path f1) (:path f2))))
 
 (u/ann-record AndFilter [fs :- (IPersistentSet Filter)])
 (u/def-filter AndFilter [fs]

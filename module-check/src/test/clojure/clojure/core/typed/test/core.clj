@@ -2172,7 +2172,7 @@
                               :objects [-empty -empty -empty]))
   
   (equal-types-noparse (conj [1]
-                             (clojure.core.typed/ann-form nil (U nil '2))
+                             (ann-form nil (U nil '2))
                              3)
                        (-hvec [(-val 1) (Un -nil (-val 2)) (-val 3)]
                               :filters [(-FS -top -top) ; embedded literals dont get any
@@ -2993,7 +2993,7 @@
              (ann-form args (U nil (NonEmptySeq Any))))))
 
 (deftest fail-on-reflection-test
-  (is (caught-top-level-errors #{4}
+  (is (caught-top-level-errors (constantly true)
         (check-ns 'clojure.core.typed.test.fail.reflection))))
 
 (deftest tc-ignore-test
@@ -3413,11 +3413,11 @@
 (deftest filter-expected-test
   (testing "integers are truthy"
     (is-tc-e 1
-             :expected-ret (ret (parse-clj 'Num)
+             :expected-ret (ret (parse-clj `Num)
                                 (-FS -top -bot)
                                 -empty))
     (is-tc-err 1 
-               :expected-ret (ret (parse-clj 'Num)
+               :expected-ret (ret (parse-clj `Num)
                                   (-FS -bot -top)
                                   -empty))
     (is-tc-err 1 
@@ -3471,7 +3471,7 @@
     (is-tc-e (fn [])
              :expected-ret (ret -any
                                 (-true-filter)))
-    (is-tc-e (fn [])
+    (is-tc-err (fn [])
              :expected-ret (ret -any
                                 (-false-filter)))
     ;TODO
@@ -4141,6 +4141,59 @@
   (is (-> (parse-clj '[Any -> Any
                        :flow ff])
           :types first :rng :flow :normal #{-bot}))
+  )
+
+(deftest subtype-filter-test
+  (testing "top and bot"
+    (is (sub/subtype-filter? -top -top))
+    (is (sub/subtype-filter? -bot -top))
+    (is (sub/subtype-filter? -bot -bot))
+    (is (not (sub/subtype-filter? -top -bot))))
+  (testing "this simplifies to top"
+    (is (= (-filter -any 'a) -top)))
+  (testing "this doesn't simplify to top"
+    (is (not= (-filter -true 'a) -top)))
+  (testing "combine type-filter and top/bot"
+    (is (sub/subtype-filter? (-filter -true 'a) -top))
+    (is (sub/subtype-filter? -bot (-filter -true 'a)))
+    (is (not (sub/subtype-filter? -top (-filter -true 'a))))
+    (is (not (sub/subtype-filter? (-filter -true 'a) -bot))))
+  (testing "simple type-filters"
+    (is-clj (sub/subtype-filter? (-filter -true 'a) (-filter -true 'a)))
+    (testing "different types, that are subtypes"
+      (is-clj (sub/subtype-filter? (-filter -false 'a) (-filter (parse-clj `Boolean) 'a)))
+      (is-clj (sub/subtype-filter? (-filter -false 'a [(-kpe :a)]) (-filter (parse-clj `Boolean) 'a [(-kpe :a)]))))
+    (testing "different types, not subtypes"
+      (is-clj (not (sub/subtype-filter? (-filter -false 'a) (-filter -true 'a))))
+      (is-clj (not (sub/subtype-filter? (-filter -false 'a [(-kpe :a)]) 
+                                        (-filter -true 'a [(-kpe :a)])))))
+    (testing "different paths, but types happen to be subtypes (still should fail)"
+      (is-clj (not (sub/subtype-filter? (-filter -true 'a) (-filter -true 'b))))
+      (is-clj (not (sub/subtype-filter? (-filter -false 'a) (-filter (parse-clj `Boolean) 'b))))
+      (is-clj (not (sub/subtype-filter? (-filter -false 'a) (-filter (parse-clj `Boolean) 'a [(-kpe :a)])))))
+    )
+  (testing "or filter"
+    (is-clj (sub/subtype-filter? (-filter -true 'a) (-or (-filter -true 'a) (-filter -false 'b))))
+    (is-clj (not (sub/subtype-filter? (-filter -false 'a) (-or (-filter -true 'a) (-filter -false 'b)))))
+    (is-clj (not (sub/subtype-filter? (-or (-filter -true 'a) (-filter -false 'b)) (-filter -true 'a))))
+    (is-clj (sub/subtype-filter? (-or (-filter -true 'a) (-filter -false 'b)) (-or (-filter -true 'a) (-filter -false 'b))))
+    (is-clj (sub/subtype-filter? (-or (-filter -true 'a) (-filter -false 'b)) 
+                                 (-or (-filter (parse-clj `Boolean) 'a) (-filter (parse-clj `Boolean) 'b))))
+    (is-clj (not
+              (sub/subtype-filter? (-or (-filter (parse-clj `Boolean) 'a) (-filter (parse-clj `Boolean) 'b))
+                                   (-or (-filter -true 'a) (-filter -false 'b))))))
+  (testing "and filter"
+    (is-clj (not
+              (sub/subtype-filter? (-filter -true 'a) 
+                                   (-and (-filter -true 'a) (-filter -false 'b)))))
+    (is-clj (sub/subtype-filter? (-and (-filter -true 'a) (-filter -false 'b))
+                                 (-filter -true 'a)))
+    (is-clj (not
+              (sub/subtype-filter? (-and (-filter (parse-clj `Boolean) 'a) (-filter (parse-clj `Boolean) 'b))
+                                   (-and (-filter -true 'a) (-filter -false 'b)))))
+    (is-clj (sub/subtype-filter? (-and (-filter -true 'a) (-filter -false 'b))
+                                 (-and (-filter (parse-clj `Boolean) 'a) (-filter (parse-clj `Boolean) 'b))))
+    )
   )
 
 ;(deftest dotted-apply-test

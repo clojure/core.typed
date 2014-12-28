@@ -208,7 +208,7 @@
       (and (fl/NotTypeFilter? lo)
            (pe/KeyPE? (first (:path lo)))
            (r/Nil? t))
-      (update r/-nil (update-in lo [:path] rest))
+      (update r/-nil (update-in lo [:path] next))
 
       ; update count information based on a call to `count`
       ; eg. (= 1 (count a))
