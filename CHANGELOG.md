@@ -1,3 +1,7 @@
+# 0.2.75 - SNAPSHOT
+
+- Fix [CTYP-169](http://dev.clojure.org/jira/browse/CTYP-169)
+
 # 0.2.74 - 30 December 2014
 
 - Tests for monitor-{enter,exit}
