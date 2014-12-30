@@ -34,6 +34,7 @@
             [clojure.core.typed.check.set :as set]
             [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.map :as map]
+            [clojure.core.typed.check.monitor :as monitor]
             [clojure.core.typed.check.multi :as multi]
             [clojure.core.typed.check.multi-utils :as multi-u]
             [clojure.core.typed.check.method :as method]
@@ -1344,6 +1345,15 @@
           (vector? (:statements %))]}
   (do/check-do check internal-special-form expr expected))
 
+(add-check-method :monitor-enter
+                  [expr & [expected]]
+                  (monitor/check-monitor check expr expected))
+
+(add-check-method :monitor-exit
+                  [expr & [expected]]
+                  (monitor/check-monitor check expr expected))
+
+
 (add-check-method :local
   [{sym :name :as expr} & [expected]]
   (binding [vs/*current-expr* expr
@@ -1615,7 +1625,7 @@
   {:post [(-> % u/expr-type r/TCResult?)]}
   (let [ctest (binding [vs/*current-expr* test]
                 (check test))]
-    (if/check-if check expr ctest then else expected)))
+    (if/check-if check expr ctest then else)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multimethods
