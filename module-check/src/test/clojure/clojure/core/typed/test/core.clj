@@ -2170,7 +2170,6 @@
                                         (-true-filter)
                                         (-true-filter)]
                               :objects [-empty -empty -empty]))
-  
   (equal-types-noparse (conj [1]
                              (ann-form nil (U nil '2))
                              3)
@@ -2181,10 +2180,10 @@
                                         (-true-filter)]
                               :objects [-empty -empty -empty]))
   
-  (equal-types (conj (clojure.core.typed/ann-form nil (U nil '['1]))
-                     (clojure.core.typed/ann-form nil (U nil '2)))
+  (equal-types (conj (ann-form nil (U nil '['1]))
+                     (ann-form nil (U nil '2)))
                (U '[(U nil '2)]
-                '['1 (U nil '2)]))
+                  '['1 (U nil '2)]))
   
   (equal-types (conj {:a 1} [:b 2])
                (HMap :mandatory {:a '1 :b '2} :complete? true))

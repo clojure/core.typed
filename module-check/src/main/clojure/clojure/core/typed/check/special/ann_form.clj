@@ -23,9 +23,10 @@
                     (or (when expected
                           (assoc expected :t parsed-t))
                         (r/ret parsed-t
-                               (fo/-FS fl/-no-filter fl/-no-filter)
-                               obj/-no-object
-                               (r/-flow fl/-no-filter))))]
+                               ;; TODO let users add expected filters
+                               (fo/-FS fl/-top fl/-top)
+                               obj/-empty
+                               (r/-flow fl/-top))))]
     (assoc expr
            :ret cret
            u/expr-type (binding [vs/*current-expr* expr
