@@ -56,7 +56,8 @@
 
       (fl/NotTypeFilter? f) 
       (let [{t :type p :path i :id} f]
-        (tf-matcher t p i k o polarity fo/-not-filter)))))
+        (tf-matcher t p i k o polarity fo/-not-filter))
+      (fl/NoFilter? f) f)))
 
 (defn- add-extra-filter
   "If provided a type t, then add the filter (is t k).
