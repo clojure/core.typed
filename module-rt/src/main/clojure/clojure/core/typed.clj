@@ -654,8 +654,8 @@ for checking namespaces, cf for checking individual forms."}
                        [true
                         `(loop [~seq- :- (U nil (Seq ~k-ann)) (seq ~v), 
                                 ~chunk- :- (U nil (clojure.lang.IChunk ~k-ann)) nil
-                                ~count- :- (U Integer Long) 0,
-                                ~i- :- (U Integer Long) 0]
+                                ~count- :- Int 0,
+                                ~i- :- Int 0]
                            (if (and (< ~i- ~count-)
                                     ;; FIXME review this
                                     ;; core.typed thinks chunk- could be nil here

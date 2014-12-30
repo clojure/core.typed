@@ -1188,8 +1188,8 @@
 (deftest loop-errors-test
   (is (caught-top-level-errors #{1}
         (cf (loop [a 1] a))))
-  (is (caught-top-level-errors #{2}
-        (cf (clojure.core.typed/loop> [a :- String, 1] a)))))
+  (is (caught-top-level-errors #{1}
+        (cf (loop [a :- String, 1] a)))))
 
 (deftest map-indexed-test
   (is-tc-e (map-indexed (inst vector Any AnyInteger Long) 
@@ -3373,6 +3373,13 @@
           (tc-t (fn
                   [x :- Any 
                    y :- Any])))
+        (parse-clj `[Any Any :-> nil :filters {:then ~'ff :else ~'tt}])))
+  (is (both-subtype?
+        (ret-t
+          (tc-t (fn
+                  [x :- Any 
+                   y :- Any]
+                  :- Any nil)))
         (parse-clj `[Any Any :-> nil :filters {:then ~'ff :else ~'tt}])))
   )
 
