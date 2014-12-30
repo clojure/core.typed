@@ -2,6 +2,7 @@
   (:require [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.check.fn :as fn]
@@ -92,7 +93,11 @@
                 (map :rng)
                 (mapv (fn [{:keys [type default]}]
                         (when-not default
-                          (r/make-Result (prs/parse-type type))))))
+                          (r/make-Result (prs/parse-type type)
+                                         (fo/-FS fl/-no-filter
+                                                 fl/-no-filter)
+                                         or/-no-object
+                                         (r/-flow fl/-no-filter))))))
      :rests (->> fn-anns
                  (map :rest)
                  (mapv (fn [{:keys [type default] :as has-rest}]
