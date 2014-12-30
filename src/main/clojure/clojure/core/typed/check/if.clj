@@ -14,7 +14,7 @@
             [clojure.core.typed.check-below :as below]))
 
 ;[TCResult Expr Expr (Option Type) -> TCResult]
-(defn check-if [check-fn expr ctest thn els & [expected]]
+(defn check-if [check-fn expr ctest thn els expected]
   {:pre [(-> ctest u/expr-type r/TCResult?)
          ((some-fn r/TCResult? nil?) expected)]
    :post [(-> % u/expr-type r/TCResult?)]}
