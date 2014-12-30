@@ -43,6 +43,7 @@ Thanks to Kyle Kingsbury for contributing to this release.
 ;new behaviour
 (ann f [Num -> Num])
 (defmulti f (fn [a :- Num] (inc a)))
+```
 
 - fix recur arguments not being checked correctly
 
