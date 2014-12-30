@@ -1,5 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.internal
   (:require [clojure.set :as set]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.contract-utils :as con]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -13,14 +14,27 @@
     ((juxt first rest) seq)
     [nil seq]))
 
+(defn parse-keyword-flat-map [forms]
+  (loop [opts []
+         forms forms]
+    (cond 
+      (keyword? (first forms))
+      (let [[kv forms] (split-at 2 forms)]
+        (assert (#{2} (count kv))
+                (str "Missing keyword argument to: " (pr-str (first kv))))
+        (recur (apply conj opts kv)
+               forms))
+      :else [opts forms])))
+
+(defn parse-keyword-map [forms]
+  (let [[flatopts forms] (parse-keyword-flat-map forms)]
+    [(apply hash-map flatopts) forms]))
 
 (defn parse-fn*
   "(fn name? [[param :- type]* & [param :- type *]?] :- type? exprs*)
   (fn name? ([[param :- type]* & [param :- type *]?] :- type? exprs*)+)"
-  [is-poly forms]
-  (let [[poly forms] (take-when (constantly is-poly) forms)
-        _ (when is-poly
-            (assert poly "pfn must have binder as first argument"))
+  [forms]
+  (let [[{poly :forall :as opts} forms] (parse-keyword-map forms)
         [name forms] (take-when symbol? forms)
         methods (if ((some-fn vector? keyword?) (first forms))
                   (list forms)
@@ -106,6 +120,14 @@
      :ann final-ann
      :poly poly}))
 
+(defn parse-defn* [args]
+  (let [[flatopt args] (parse-keyword-flat-map args)
+        [name & args] args
+        _ (assert (symbol? name) "defn name should be a symbol")
+        [docstring args] (take-when string? args)]
+    {:name (vary-meta name #(merge % (when docstring {:doc docstring})))
+     :args (concat flatopt args)}))
+
 ;(ann parse-fn> [Any (Seqable Any) ->
 ;                '{:poly Any
 ;                  :fn Any ;Form
@@ -160,7 +182,7 @@
                                                   (assert (= :- (first method))
                                                           "Return type for fn> must be prefixed by :-")
                                                   [(second method) true])
-                                 _ (prn "fn> expansion" ret has-ret?)
+                                 ;_ (prn "fn> expansion" ret has-ret?)
                                  method (if ret 
                                           (nnext method)
                                           method)
