@@ -193,7 +193,7 @@
   ; FIXME pfn> NYI
   #_(is-clj (both-subtype?
             (ety
-              (pfn [c] 
+              (fn :forall [c] 
                  [a :- (Seqable c)
                   b :- Num]
                  1))
@@ -2463,14 +2463,14 @@
          y :- (Seqable b)]))
     (All [a b] [Any Any -> Any]))
   (is-tc-err
-    (pfn [x y]
+    (fn :forall [x y]
       [f coll]
       (fn
         [x :- a
          y :- (Seqable b)]))
     (All [a b] [Any Any -> Any]))
   (is-tc-e
-    (pfn [x y]
+    (fn :forall [x y]
       [f coll]
       (fn
         [x :- x
@@ -3254,10 +3254,24 @@
              (defn foo [a :- Number]
                (inc a))
              (inc (foo 1))))
-  (is-tc-e (defn [x]
+  ; need :forall deprecated
+  (is (thrown? AssertionError 
+               (tc-e (defn [x]
+                       foo 
+                       ([a :- x] :- x
+                        a)))))
+  ; need :forall
+  (is (thrown? AssertionError 
+               (tc-e (defn [x]
+                       :forall [x]
+                       foo 
+                       ([a :- x] :- x
+                        a)))))
+  (is-tc-e (defn :forall [x]
              foo 
              ([a :- x] :- x
-              a))))
+              a)))
+  )
 
 (deftest atom-test
   (is-tc-e @(atom 1) Any)
@@ -3384,19 +3398,18 @@
   )
 
 (deftest pfn-test
-  (is-tc-e (pfn [x]
+  (is-tc-e (fn :forall [x]
              [a :- x] :- x
              a))
-  (is-tc-e (pfn [x]
+  (is-tc-e (fn :forall [x]
              [a :- x] :- x
              a))
   (is-tc-err (ann-form
-               (pfn [x]
+               (fn :forall [x]
                  [a :- x] :- x
                  a)
                (All [x y z] [Any Any -> Any])))
-  (is-tc-err (pfn 
-               [x]
+  (is-tc-err (fn :forall [x]
                [a :- x] :- x
                a)
              :expected

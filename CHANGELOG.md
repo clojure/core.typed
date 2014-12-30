@@ -28,10 +28,10 @@
 
 - fix recur arguments not being checked correctly
 
-- `clojure.core.typed/pfn` is now supported
-- `clojure.core.typed/defn` supports a polymorphic binder
-- `clojure.core.typed/fn` no longer infers a better type for the body if
-  it is provided an expected type for the body
+- `clojure.core.typed/{fn,defn}` supports a polymorphic binder with `:forall [x]` before all arguments
+
+- `clojure.core.typed/fn` no longer infers a better type for the body if it is provided an expected type for the body
+  - ie. (fn [a] :- Any 1) is [Any -> Any], not [Any -> Num]
 
 ## Internal
 

@@ -54,7 +54,7 @@
           body))))
 
 (core/defn expand-typed-fn [is-poly forms]
-  (core/let [{:keys [poly fn ann]} (internal/parse-fn* is-poly forms)]
+  (core/let [{:keys [poly fn ann]} (internal/parse-fn* forms)]
     (if vs/*checking*
       `(do ~spec/special-form
            ~(core-kw :fn)
@@ -90,24 +90,16 @@
       ;multi-arity
       (fn fname 
         ([a :- String] :- String ...)
-        ([a :- String, b :- Number] :- String ...))"
-  [& forms]
-  (expand-typed-fn false forms))
+        ([a :- String, b :- Number] :- String ...))
 
-(defmacro 
-  ^{:forms '[(pfn tvar-binder name? [param :- type* & param :- type * ?] :- type? exprs*)
-             (pfn tvar-binder name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
-  pfn
-  "Like clojure.core.typed/fn, but with a type variable binder with syntax
-  like clojure.core.typed/All.
-
-  eg. ;multi-arity
-      (pfn [x y z]
+      ; polymorphic binder
+      (fn :forall [x y z]
         fname 
         ([a :- String] :- String ...)
-        ([a :- String, b :- Number] :- String ...))"
+        ([a :- String, b :- Number] :- String ...))
+  "
   [& forms]
-  (expand-typed-fn true forms))
+  (expand-typed-fn false forms))
 
 (defmacro 
   ^{:forms '[(loop [binding :- type?, init*] exprs*)]}
@@ -245,8 +237,10 @@
                ~@args)))
 
 (defmacro
-  ^{:forms '[(defn poly? name docstring? [param :- type *] :- type exprs*)
-             (defn poly? name docstring? ([param :- type *] :- type exprs*)+)]}
+  ^{:forms '[(defn name docstring? [param :- type *] :- type exprs*)
+             (defn :forall poly name docstring? [param :- type *] :- type exprs*)
+             (defn poly? name docstring? ([param :- type *] :- type exprs*)+)
+             (defn :forall poly name docstring? ([param :- type *] :- type exprs*)+)]}
   defn
   "Like defn, but expands to clojure.core.typed/fn. If a polymorphic binder is
   supplied before the var name, expands to clojure.core.typed/pfn.
@@ -262,20 +256,10 @@
     ([a :- String, b :- Number] :- Long ...))
 
   ;polymorphic function
-  (defn [x y]
+  (defn :forall [x y]
     fname 
     ([a :- x] :- (Coll y) ...)
     ([a :- Str, b :- y] :- y ...))"
   [& args]
-  (let [[poly args] (internal/take-when vector? args)
-        [name & args] args
-        _ (assert (symbol? name) "defn name should be a symbol")
-        [docstring args] (internal/take-when string? args)]
-    `(def
-       ~(vary-meta name #(merge
-                           %
-                           (when docstring
-                             {:doc docstring})))
-       ~(if poly
-          `(pfn ~poly ~@args)
-          `(fn ~@args)))))
+  (let [{:keys [name args]} (internal/parse-defn* args)]
+    `(def ~name (fn ~@args))))
