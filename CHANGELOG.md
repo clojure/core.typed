@@ -17,20 +17,9 @@ Thanks to Kyle Kingsbury for contributing to this release.
 (fn :forall [x] [a :- x] a)
 ```
 
-## Notes
+## Breaking Changes
 
-- Major bug: propagate expected types to `if` expressions correctly
-
-- Fix `get` operations with keyword key and default value
-- parse annotations in base-env as needed
-- improved log message that explains why a namespace was skipped during type checking
-- annotate `clojure.core/sequential?`
-- better line number when checking map literal entries
-- allow non-heterogeneous types in map destructuring
-  - made PersistentHashMap/create more flexible, which is used in map destructuring
-
-- fn> without expected return type now always returns Any
-  - fn> will be removed soon, use clojure.core.typed/fn
+### defmulti inference
 
 - defmulti no longer propagates an expected type to dispatch function
   - If your dispatch function relies on the input type of the multimethod,
@@ -45,10 +34,29 @@ Thanks to Kyle Kingsbury for contributing to this release.
 (defmulti f (fn [a :- Num] (inc a)))
 ```
 
-- fix recur arguments not being checked correctly
+### fn range inference
 
 - `clojure.core.typed/fn` no longer infers a better type for the body if it is provided an expected type for the body
   - ie. (fn [a] :- Any 1) is [Any -> Any], not [Any -> Num]
+
+## Fixes
+
+- Major bug: propagate expected types to `if` expressions correctly
+
+- Fix `get` operations with keyword key and default value
+- parse annotations in base-env as needed
+- improved log message that explains why a namespace was skipped during type checking
+- annotate `clojure.core/sequential?`
+- better line number when checking map literal entries
+- allow non-heterogeneous types in map destructuring
+  - made PersistentHashMap/create more flexible, which is used in map destructuring
+
+- fix recur arguments not being checked correctly
+
+# Notes
+
+- fn> without expected return type now always returns Any
+  - fn> will be removed soon, use clojure.core.typed/fn
 
 - support :monitor-{enter,exit} AST nodes
   - by Kyle Kingsbury
