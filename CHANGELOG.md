@@ -37,7 +37,7 @@ Thanks to Kyle Kingsbury for contributing to this release.
 ### fn range inference
 
 - `clojure.core.typed/fn` no longer infers a better type for the body if it is provided an expected type for the body
-  - ie. (fn [a] :- Any 1) is [Any -> Any], not [Any -> Num]
+  - ie. `(fn [a] :- Any 1)` is `[Any -> Any]`, not `[Any -> Num]`
 
 ## Fixes
 
