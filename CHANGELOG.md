@@ -1,4 +1,23 @@
-# 0.2.73 - SNAPSHOT
+# 0.2.74 - SNAPSHOT
+
+- Tests for monitor-{enter,exit}
+  - Use new check-below style for checking expected type
+
+# 0.2.73 - 30 December 2014
+
+Thanks to Kyle Kingsbury for contributing to this release.
+
+## Features
+
+- `clojure.core.typed/{fn,defn}` supports a polymorphic binder with `:forall [x]` before all arguments
+```clojure
+(defn :forall [x]
+  identity [a :- x]
+
+(fn :forall [x] [a :- x] a)
+```
+
+## Notes
 
 - Major bug: propagate expected types to `if` expressions correctly
 
@@ -24,14 +43,16 @@
 ;new behaviour
 (ann f [Num -> Num])
 (defmulti f (fn [a :- Num] (inc a)))
-```
 
 - fix recur arguments not being checked correctly
 
-- `clojure.core.typed/{fn,defn}` supports a polymorphic binder with `:forall [x]` before all arguments
-
 - `clojure.core.typed/fn` no longer infers a better type for the body if it is provided an expected type for the body
   - ie. (fn [a] :- Any 1) is [Any -> Any], not [Any -> Num]
+
+- support :monitor-{enter,exit} AST nodes
+  - by Kyle Kingsbury
+- fix isReduced inlining annotation
+  - by Kyle Kingsbury
 
 ## Internal
 

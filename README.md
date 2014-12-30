@@ -113,6 +113,7 @@ Thanks to the following people for contributing to core.typed:
 * Aravind K N (arav93)
 * Allen Rohner (arohner)
 * Minori Yamashita (ympbyc)
+* Kyle Kingsbury (aphyr)
 
 ## Sponsors
 
