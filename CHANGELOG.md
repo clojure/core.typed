@@ -1,4 +1,4 @@
-# 0.2.74 - SNAPSHOT
+# 0.2.74 - 30 December 2014
 
 - Tests for monitor-{enter,exit}
   - Use new check-below style for checking expected type
