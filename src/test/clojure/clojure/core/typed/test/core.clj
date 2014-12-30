@@ -4128,6 +4128,28 @@
                     (-FS -top -top)
                     -empty
                     (-flow -bot))))
+  (testing "monitor-enter"
+    (is-tc-e #(monitor-enter 1))
+    (is-tc-err #(monitor-enter nil))
+    (is-tc-e #(monitor-enter 1)
+             [-> nil :filters {:then ff :else tt}])
+    (is-tc-err #(monitor-enter 1)
+               [-> nil :filters {:then tt :else ff}])
+    (is-tc-err #(monitor-enter 1)
+               [-> nil :filters {:then ff :else tt} :flow ff])
+    (is-tc-err (fn [a] (monitor-enter 1))
+               [Any -> nil :filters {:then ff :else tt} :object {:id 0}]))
+  (testing "monitor-exit"
+    (is-tc-e #(monitor-exit 1))
+    (is-tc-err #(monitor-exit nil))
+    (is-tc-e #(monitor-exit 1)
+             [-> nil :filters {:then ff :else tt}])
+    (is-tc-err #(monitor-exit 1)
+               [-> nil :filters {:then tt :else ff}])
+    (is-tc-err #(monitor-exit 1)
+               [-> nil :filters {:then ff :else tt} :flow ff])
+    (is-tc-err (fn [a] (monitor-exit 1))
+               [Any -> nil :filters {:then ff :else tt} :object {:id 0}]))
 )
 
 (deftest fn-type-parse-test

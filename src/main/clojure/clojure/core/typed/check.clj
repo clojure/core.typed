@@ -1346,12 +1346,12 @@
   (do/check-do check internal-special-form expr expected))
 
 (add-check-method :monitor-enter
-                  [expr & [expected]]
-                  (monitor/check-monitor check expr expected))
+  [expr & [expected]]
+  (monitor/check-monitor check expr expected))
 
 (add-check-method :monitor-exit
-                  [expr & [expected]]
-                  (monitor/check-monitor check expr expected))
+  [expr & [expected]]
+  (monitor/check-monitor check expr expected))
 
 
 (add-check-method :local
