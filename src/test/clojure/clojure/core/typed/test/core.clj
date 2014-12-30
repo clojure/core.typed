@@ -3374,13 +3374,14 @@
                   [x :- Any 
                    y :- Any])))
         (parse-clj `[Any Any :-> nil :filters {:then ~'ff :else ~'tt}])))
+  ; interesting case, perfectly valid to remember Any is falsy here
   (is (both-subtype?
         (ret-t
           (tc-t (fn
                   [x :- Any 
                    y :- Any]
                   :- Any nil)))
-        (parse-clj `[Any Any :-> nil :filters {:then ~'ff :else ~'tt}])))
+        (parse-clj `[Any Any :-> Any :filters {:then ~'ff :else ~'tt}])))
   )
 
 (deftest pfn-test
