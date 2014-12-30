@@ -4275,3 +4275,6 @@
 
   (testing "incorrect return value"
     (is-tc-err (locking :a :b) Number)))
+
+(deftest CTYP-169-count-pe-test
+  (is-tc-e (defn f [c :- clojure.lang.Counted] :- t/Int (count c))))
