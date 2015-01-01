@@ -116,10 +116,19 @@
                                 [derived-props derived-atoms])
             :else (recur (cons p derived-props) derived-atoms (next worklist))))))))
 
-; This is where filters are applied to existing types to generate more specific ones
-;[Type Filter -> Type]
-(defn update [t lo]
-  {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]
+; This is where filters are applied to existing types to generate more specific ones.
+; t is the old type
+; ft is the new type to update with
+; pos? indicates polarity
+; - if true, we're updating with a TypeFilter so we use restrict
+; - if false, we're updateing with a NotTypeFilter so we use remove
+; lo is a sequence of path elements, in the same order as -> (left to right)
+;[Type Type Boolean PathElems -> Type]
+(defn update* [t ft pos? lo]
+  {:pre [(r/Type? t)
+         (r/Type? ft)
+         (con/boolean? pos?)
+         (fl/path-elems? lo)]
    :post [(r/Type? %)]}
   (u/p :check/update
   (let [t (c/fully-resolve-type t)]
@@ -127,45 +136,33 @@
       ; The easy cases: we have a filter without a further path to travel down.
       ; Just update t with the correct polarity.
 
-      (and (fl/TypeFilter? lo)
-           (empty? (:path lo))) 
-      (let [u (:type lo)
-            _ (assert (r/Type? u))
-            r (c/restrict t u)]
-        r)
-
-      (and (fl/NotTypeFilter? lo)
-           (empty? (:path lo))) 
-      (let [u (:type lo)]
-        (assert (r/Type? u))
-        (remove/remove* t u))
+      (empty? lo)
+      (if pos?
+        (c/restrict t ft)
+        (remove/remove* t ft))
 
       ; unwrap unions and intersections to update their members
 
-      (r/Union? t) (let [ts (:types t)
-                       new-ts (mapv (fn [t] 
-                                      (let [n (update t lo)]
-                                        n))
-                                    ts)]
-                   (apply c/Un new-ts))
-      (r/Intersection? t) (let [ts (:types t)]
-                          (apply c/In (doall (map (fn [t] (update t lo)) ts))))
+      (or (r/Union? t)        
+          (r/Intersection? t)) 
+      (apply (if (r/Union? t) c/Un c/In)
+             (map #(update* % ft pos? lo) (:types t)))
 
       ;from here, t is fully resolved and is not a Union or Intersection
 
       ;heterogeneous map ops
       ; Positive and negative information down a keyword path
       ; eg. (number? (-> hmap :a :b))
-      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
-           (pe/KeyPE? (first (:path lo)))
+      (and (pe/KeyPE? (first lo))
            (r/HeterogeneousMap? t))
-      (let [polarity (fl/TypeFilter? lo)
-            {update-to-type :type :keys [path id]} lo
+      (let [polarity pos?
+            update-to-type ft
+            path lo
             [fkeype & rstpth] path
             fpth (cu/KeyPE->Type fkeype)
-            ; use this filter to update the right hand side value
-            next-filter ((if polarity fo/-filter fo/-not-filter) 
-                         update-to-type id rstpth)
+            update-inner (fn 
+                           ([old] (update* old ft pos? rstpth))
+                           ([old new] (update* old new pos? rstpth)))
             present? (contains? (:types t) fpth)
             optional? (contains? (:optional t) fpth)
             absent? (contains? (:absent-keys t) fpth)]
@@ -177,7 +174,7 @@
           present?
             ; -hmap simplifies to bottom if an entry is bottom
             (c/make-HMap
-              :mandatory (update-in (:types t) [fpth] update next-filter)
+              :mandatory (update-in (:types t) [fpth] update-inner)
               :optional (:optional t)
               :absent-keys (:absent-keys t)
               :complete? (c/complete-hmap? t))
@@ -189,32 +186,32 @@
           (let [; KeyPE are only used for `get` operations where `nil` is the
                 ; not-found value. If the filter does not hold when updating
                 ; it to nil, then we can assume this key path is present.
-                update-to-mandatory? (r/Bottom? (update r/-nil next-filter))]
+                update-to-mandatory? (r/Bottom? (update-inner r/-nil))]
             (if update-to-mandatory?
               (c/make-HMap 
-                :mandatory (assoc-in (:types t) [fpth] (update r/-any next-filter))
+                :mandatory (assoc-in (:types t) [fpth] (update-inner r/-any))
                 :optional (:optional t)
                 :absent-keys (:absent-keys t)
                 :complete? (c/complete-hmap? t))
               (c/make-HMap 
                 :mandatory (:types t)
                 :optional (if optional?
-                            (update-in (:optional t) [fpth] update next-filter)
-                            (assoc-in (:optional t) [fpth] (update r/-any next-filter)))
+                            (update-in (:optional t) [fpth] update-inner)
+                            (assoc-in (:optional t) [fpth] (update-inner r/-any)))
                 :absent-keys (:absent-keys t)
                 :complete? (c/complete-hmap? t))))))
 
       ; nil returns nil on keyword lookups
-      (and (fl/NotTypeFilter? lo)
-           (pe/KeyPE? (first (:path lo)))
+      (and (not pos?)
+           (pe/KeyPE? (first lo))
            (r/Nil? t))
-      (update r/-nil (update-in lo [:path] next))
+      (update* r/-nil ft pos? (next lo))
 
       ; update count information based on a call to `count`
       ; eg. (= 1 (count a))
-      (and (fl/TypeFilter? lo)
-           (pe/CountPE? (first (:path lo))))
-      (let [u (:type lo)]
+      (and pos?
+           (pe/CountPE? (first lo)))
+      (let [u ft]
         (if-let [cnt (cond 
                        ; for (= 1 (count v))
                        (and (r/Value? u) (integer? (:val u)))
@@ -237,41 +234,41 @@
               t)))
 
       ;can't do much without a NotCountRange type or difference type
-      (and (fl/NotTypeFilter? lo)
-           (pe/CountPE? (first (:path lo))))
+      (and (not pos?)
+           (pe/CountPE? (first lo)))
       t
 
-      (and (fl/TypeFilter? lo)
-           (pe/NthPE? (-> lo :path first))
+      (and pos?
+           (pe/NthPE? (first lo))
            (c/AnyHSequential? t))
-      (let [type (:type lo)
-            path-expr (-> lo :path first)
+      (let [type ft
+            path-expr (first lo)
             idx (:idx path-expr)
             fixed-types (conj (vec (repeat idx r/-any)) type)
             restriction-type (r/-hsequential fixed-types :rest r/-any)]
         (c/restrict t restriction-type))
 
-      (and (fl/NotTypeFilter? lo)
-           (pe/NthPE? (-> lo :path first))
+      (and (not pos?)
+           (pe/NthPE? (first lo))
            (c/AnyHSequential? t))
       t
 
       ; Update class information based on a call to `class`
       ; eg. (= java.lang.Integer (class a))
-      (and (fl/TypeFilter? lo)
-           (pe/ClassPE? (-> lo :path first)))
-      (let [_ (assert (empty? (rest (:path lo))))
-            u (:type lo)]
+      (and pos?
+           (pe/ClassPE? (first lo)))
+      (let [_ (assert (not (next lo)))
+            u ft]
         (cond 
           ;restrict the obvious case where the path is the same as a Class Value
           ; eg. #(= (class %) Number)
           (and (r/Value? u)
                (class? (:val u)))
-          (c/restrict t (c/RClass-of-with-unknown-params (:val u)))
+          (update* t (c/RClass-of-with-unknown-params (:val u)) pos? nil)
 
           ; handle (class nil) => nil
           (r/Nil? u)
-          (c/restrict t r/-nil)
+          (update* t r/-nil pos? nil)
 
           :else
           (do (u/tc-warning "Cannot infer type via ClassPE from type " (prs/unparse-type u))
@@ -280,8 +277,8 @@
       ; Does not tell us anything.
       ; eg. (= Number (class x)) ;=> false
       ;     does not reveal whether x is a subtype of Number, eg. (= Integer (class %))
-      (and (fl/NotTypeFilter? lo)
-           (pe/ClassPE? (-> lo :path first)))
+      (and (not pos?)
+           (pe/ClassPE? (first lo)))
       t
 
       ; keyword invoke of non-hmaps
@@ -290,16 +287,13 @@
       ; 
       ; I don't think there's anything interesting worth encoding:
       ; use HMap for accurate updating.
-      (and (or (fl/TypeFilter? lo)
-               (fl/NotTypeFilter? lo))
-           (pe/KeyPE? (first (:path lo))))
+      (pe/KeyPE? (first lo))
       t
 
       ; calls to `keys` and `vals`
-      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
-           ((some-fn pe/KeysPE? pe/ValsPE?) (first (:path lo))))
-      (let [[fstpth & rstpth] (:path lo)
-            u (:type lo)
+      ((some-fn pe/KeysPE? pe/ValsPE?) (first lo))
+      (let [[fstpth & rstpth] lo
+            u ft
             ;_ (prn "u" (prs/unparse-type u))
 
             ; solve for x:  t <: (Seqable x)
@@ -313,7 +307,7 @@
             ;_ (prn "subst for Keys/Vals" subst)
             _ (when-not subst
                 (err/int-error (str "Cannot update " (if (pe/KeysPE? fstpth) "keys" "vals") " of an "
-                                  "IPersistentMap with type: " (pr-str (prs/unparse-type u)))))
+                                    "IPersistentMap with type: " (pr-str (prs/unparse-type u)))))
             element-t-subst (get subst x)
             _ (assert (crep/t-subst? element-t-subst))
             ; the updated 'keys/vals' type
@@ -321,16 +315,22 @@
             ;_ (prn "element-t" (prs/unparse-type element-t))
             _ (assert element-t)]
         (assert (empty? rstpth) (str "Further path NYI keys/vals"))
-        (if (fl/TypeFilter? lo)
-          (c/restrict t
-                      (if (pe/KeysPE? fstpth)
-                        (c/RClass-of IPersistentMap [element-t r/-any])
-                        (c/RClass-of IPersistentMap [r/-any element-t])))
+        (if pos?
+          (update* t
+                   (if (pe/KeysPE? fstpth)
+                     (c/RClass-of IPersistentMap [element-t r/-any])
+                     (c/RClass-of IPersistentMap [r/-any element-t]))
+                   pos? nil)
           ; can we do anything for a NotTypeFilter?
           t))
 
 
       :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo))))))))
+
+(defn update [t lo]
+  {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]
+   :post [(r/Type? %)]}
+  (update* t (:type lo) (fl/TypeFilter? lo) (fl/filter-path lo)))
 
 ;; sets the flag box to #f if anything becomes (U)
 ;[PropEnv (Seqable Filter) (Atom Boolean) -> PropEnv]
