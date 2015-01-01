@@ -1,6 +1,7 @@
 # 0.2.75 - SNAPSHOT
 
 - Fix [CTYP-169](http://dev.clojure.org/jira/browse/CTYP-169)
+- update* is like Typed Racket's update
 
 # 0.2.74 - 30 December 2014
 
