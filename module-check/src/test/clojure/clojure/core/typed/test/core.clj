@@ -4278,3 +4278,25 @@
 
 (deftest CTYP-169-count-pe-test
   (is-tc-e (defn f [c :- clojure.lang.Counted] :- t/Int (count c))))
+
+; CTYP-108
+;(tc-e 
+;  (let [{:keys [a] :as props}
+;        (ann-form {} '{})]
+;    (when-not (and a)
+;      (print-env "")
+;      props)))
+;
+;{:env {a__#0 (U nil false), props__#0 (HMap :mandatory {}), map__63343__#1 (HMap :mandatory {}), map__63343__#0 (HMap :mandatory {})}, 
+; :props ((when (is (U nil false) props__#0) 
+;           (is (U nil false) map__63343__#1)) 
+;         (when (! (U nil false) props__#0) 
+;           (! (U nil false) map__63343__#1)) 
+;         (| (is (U nil false) map__63343__#1 [(Key :a)]) 
+;            (is (HMap :absent-keys #{:a}) map__63343__#1)) 
+;         (when (is (U nil false) map__63343__#1) 
+;           (is (U nil false) map__63343__#0)) 
+;         (when (! (U nil false) map__63343__#1) 
+;           (! (U nil false) map__63343__#0)) 
+;         (is (U nil false) a__#0))}
+;
