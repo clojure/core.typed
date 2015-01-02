@@ -1,6 +1,8 @@
 (ns clojure.core.typed.check-cljs
   (:require [clojure.core.typed]
             [clojure.core.typed.ast-utils :as ast-u]
+            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.local-result :as local-result]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.check.let :as let]
             [clojure.core.typed.check.loop :as loop]
@@ -41,8 +43,7 @@
             [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :a obj]
-            [clojure.core.typed.analyze-cljs :as ana])
-  (:import (clojure.core.typed.type_rep Value DottedPretype)))
+            [clojure.core.typed.analyze-cljs :as ana]))
 
 (alias 't 'clojure.core.typed)
 
@@ -205,26 +206,22 @@
         (assoc expr
                expr-type actual)))))
 
+;only local bindings are immutable, vars/js do not partipate in occurrence typing
+(defn js-var-result [expr vname expected]
+  {:pre [((every-pred symbol? namespace) vname)
+         ((some-fn nil? r/TCResult?) expected)]
+   :post [(r/TCResult? %)]}
+  (binding [vs/*current-expr* expr]
+    (let [t (var-env/type-of vname)]
+      (below/maybe-check-below
+        (ret t)
+        expected))))
+
 (add-check-method :var
-  [{{vname :name} :info :keys [env] :as expr} & [expected]]
+  [{{vname :name} :info :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (binding [vs/*current-env* env
-                                  vs/*current-expr* expr]
-                          (let [t (var-env/type-of-nofail vname)]
-                            (if t
-                              t
-                              (err/tc-delayed-error (str "Found untyped var: " vname)
-                                                  :return (or (when expected
-                                                                (ret-t expected))
-                                                              (r/TCError-maker))))))
-                        ;only local bindings are immutable, vars/js do not partipate in occurrence typing
-                        (if-not (namespace vname)
-                          (fl/-FS (fl/-not-filter (c/Un r/-nil r/-false) vname)
-                                  (fl/-filter (c/Un r/-nil r/-false) vname))
-                          (fl/-FS f/-top f/-top))
-                        (if-not (namespace vname)
-                          (o/-path nil vname)
-                          o/-empty))))
+         expr-type ((if (namespace vname) js-var-result local-result/local-result)
+                    expr vname expected)))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
 (u/special-do-op spec/special-form internal-special-form)

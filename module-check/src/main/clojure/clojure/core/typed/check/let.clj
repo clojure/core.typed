@@ -47,7 +47,7 @@
                        cexpr (assoc expr
                                     :init cinit
                                     u/expr-type (u/expr-type cinit))
-                       {:keys [t fl flow]} (u/expr-type cinit)
+                       {:keys [t fl flow o]} (u/expr-type cinit)
                        _ (when (and expected-bnd
                                     (not (sub/subtype? t expected-bnd)))
                            (err/tc-delayed-error 
@@ -65,7 +65,7 @@
                            flow-atom (atom true)
                            new-env (-> env
                                        ;update binding type
-                                       (assoc-in [:l sym] t)
+                                       (lex/extend-env sym t o)
                                        ;update props
                                        (update-in [:props] #(set 
                                                               (apply concat 

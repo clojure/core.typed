@@ -2,6 +2,9 @@
 
 - Fix [CTYP-169](http://dev.clojure.org/jira/browse/CTYP-169)
 - update* is like Typed Racket's update
+- obviously truthy local bindings now infer filters of {:then tt :else ff}
+  instead of {:then (! (U nil false) x) :else (is (U nil false) x)}
+  - taken from Typed Racket
 
 # 0.2.74 - 30 December 2014
 
