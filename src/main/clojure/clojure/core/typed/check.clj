@@ -45,6 +45,7 @@
             [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.check.try :as try]
             [clojure.core.typed.check.catch :as catch]
+            [clojure.core.typed.local-result :as local-result]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.value :as value]
             [clojure.core.typed.check.special.ann-form :as ann-form]
@@ -1353,21 +1354,10 @@
   [expr & [expected]]
   (monitor/check-monitor check expr expected))
 
-
 (add-check-method :local
   [{sym :name :as expr} & [expected]]
-  (binding [vs/*current-expr* expr
-            vs/*current-env* (:env expr)]
-    (let [t (var-env/type-of sym)
-          final-ret (prs/with-unparse-ns (cu/expr-ns expr)
-                      (below/maybe-check-below
-                        (r/ret t 
-                               (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
-                                       (fo/-filter (c/Un r/-nil r/-false) sym))
-                               (obj/-path nil sym))
-                        expected))]
-      (assoc expr
-             u/expr-type final-ret))))
+  (assoc expr
+         u/expr-type (local-result/local-result expr sym expected)))
 
 (add-check-method :host-interop
   [{:keys [m-or-f target] :as expr} & [expected]]

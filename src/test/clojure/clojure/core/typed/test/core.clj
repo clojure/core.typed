@@ -265,15 +265,15 @@
 
 (deftest path-test
   (is-clj (= (tc-t (fn [a] (let [a 1] a)))
-         (ret (make-FnIntersection
-                (Function-maker [-any]
-                              (make-Result (-val 1)
-                                           (-FS -top -top)
-                                           -empty)
-                              nil nil nil))
-              (-FS -top -bot) -empty)))
+             (ret (make-FnIntersection
+                    (Function-maker [-any]
+                                    (make-Result (-val 1)
+                                                 (-true-filter)
+                                                 -empty)
+                                    nil nil nil))
+                  (-FS -top -bot) -empty)))
   (is-clj (= (tc-t (let [a nil] a))
-         (ret -nil (-FS -top -top) -empty))))
+             (ret -nil (-FS -top -top) -empty))))
 
 (deftest equiv-test
   ; 1 arity :else filter is always bot
@@ -310,22 +310,18 @@
 
 (deftest refine-test
   (is-clj (= (tc-t 
-           (clojure.core.typed/fn [a :- (U (HMap :mandatory {:op (Value :if)})
-                                            (HMap :mandatory {:op (Value :var)}))]
-                           (when (= (:op a) :if) 
-                             a)))
+               (fn [a :- (U (HMap :mandatory {:op (Value :if)})
+                            (HMap :mandatory {:op (Value :var)}))]
+                 (when (= (:op a) :if) 
+                   a)))
          (ret (make-FnIntersection
                 (Function-maker
                     [(Un (make-HMap :mandatory {(-val :op) (-val :if)})
                          (make-HMap :mandatory {(-val :op) (-val :var)}))]
                     (make-Result (Un -nil (make-HMap :mandatory {(-val :op) (-val :if)}))
                                  (-FS (-and (-filter (-val :if) 0 [(-kpe :op)])
-                                            (-not-filter (Un -false -nil) 0)
                                             (-filter (make-HMap :mandatory {(-val :op) (-val :if)}) 0))
-                                           ; what are these filters doing here?
-                                      (-or (-and (-filter (-val :if) 0 [(-kpe :op)])
-                                                 (-filter (Un -false -nil) 0))
-                                           (-not-filter (-val :if) 0 [(-kpe :op)])))
+                                      (-not-filter (-val :if) 0 [(-kpe :op)]))
                                  -empty)
                     nil nil nil))
               (-FS -top -bot)
@@ -483,7 +479,7 @@
              (ret (make-FnIntersection 
                     (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
                                     (make-Result (-val 1) 
-                                                 (-FS -top -top)  ; have to throw out filters whos id's go out of scope
+                                                 (-true-filter)
                                                  ;(-path [(-kpe :a)] 0) ; requires 'equivalence' filters
                                                  -empty)
                                     nil nil nil))
@@ -503,7 +499,7 @@
   (is-clj (= (tc-t (let [{a :a} {:a 1}]
                  a))
          (ret (-val 1) 
-              (-FS -top -top) ; a goes out of scope, throw out filters
+              (-true-filter)
               -empty)))
   ;FIXME should be (-FS -bot (! ISeq 0))
   #_(is-clj (= (tc-t (clojure.core.typed/fn> [a :- (HMap :mandatory {:a (Value 1)})]
@@ -558,7 +554,7 @@
                                 e)))
                       (ret (make-FnIntersection 
                              (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MyName)]
-                                         (make-Result (-val 1) (-FS -top -top) -empty)
+                                         (make-Result (-val 1) (-true-filter) -empty)
                                          nil nil nil))
                            (-FS -top -bot) -empty)))
   (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MapName]
@@ -950,7 +946,8 @@
                     [a b c]))
              (-hvec [(-val 1)
                      (-val 2)
-                     (-hvec [(-val 1) (-val 2)])])))
+                     (-hvec [(-val 1) (-val 2)])]
+                    :filters [(-true-filter) (-true-filter) (-true-filter)])))
   ;Map destructuring of vector
   ;FIXME needs implementing, but gives a decent error msg
   #_(is-clj (= (ret-t (tc-t (let [{a 0 b 1 :as c} [1 2]] 
@@ -1848,8 +1845,8 @@
             m))
         (parse-clj `['{} :-> 
                      '{}
-                     :filters {:then (~'! (U nil false) 0)
-                               :else (~'is (U nil false) 0)}
+                     :filters {:then ~'tt
+                               :else ~'ff}
                      :object {:id 0}])))
   (is (both-subtype? 
         (ety
@@ -1860,8 +1857,8 @@
             m))
         (parse-clj `[(HMap) :-> 
                      (HMap :mandatory {:foo (Vec Any)})
-                     :filters {:then (~'! (U nil false) 0)
-                               :else (~'is (U nil false) 0)}
+                     :filters {:then ~'tt
+                               :else ~'ff}
                      :object {:id 0}])))
   (is (both-subtype? 
         (ety 
@@ -1872,8 +1869,8 @@
         (parse-clj `[(HMap :mandatory {:bar Any}) :-> 
                      (HMap :mandatory {:bar Any}
                            :optional {:foo nil})
-                     :filters {:then (~'! (U nil false) 0)
-                               :else (~'is (U nil false) 0)}
+                     :filters {:then ~'tt
+                               :else ~'ff}
                      :object {:id 0}])))
   (is
     (both-subtype?
@@ -1885,8 +1882,8 @@
       (parse-clj `[(HMap) :-> 
                    ; not sure if this should simplify to (HMap)
                    (HMap :optional {:foo Any})
-                   :filters {:then (~'! (U nil false) 0)
-                             :else (~'is (U nil false) 0)}
+                   :filters {:then ~'tt
+                             :else ~'ff}
                    :object {:id 0}])))
   (is 
     (clj
@@ -3718,7 +3715,7 @@
     (is-tc-e (loop [a :- Num 1] a)
              :expected-ret
              (ret (parse-clj `Num)))
-    (is-tc-err (loop [a :- Num 1] a)
+    (is-tc-e (loop [a :- Num 1] a)
              :expected-ret
              (ret (parse-clj `Num)
                   (-true-filter)
@@ -4104,12 +4101,11 @@
     (is-tc-err (let [a 1]
                a)
              Sym)
-    (is-tc-err (let [a 1]
-                 a)
-               :expected-ret
-               (ret (parse-clj `Any)
-                    (-true-filter)
-                    ))
+    (is-tc-e (let [a 1]
+               a)
+             :expected-ret
+             (ret (parse-clj `Any)
+                  (-true-filter)))
     (is-tc-err (let [a 1]
                  a)
                :expected-ret

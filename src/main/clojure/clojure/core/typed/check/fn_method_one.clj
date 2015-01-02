@@ -98,7 +98,7 @@
         ;        ; Update filters that reference bindings that the params shadow.
         ;        ; Abstracting references to parameters is handled later in abstract-result, but
         ;        ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`).
-        ;        ; c/In short, don't shadow parameters if you want meaningful filters.
+        ;        ; In short, don't shadow parameters if you want meaningful filters.
         ;        props (mapv (fn [oldp]
         ;                      (reduce (fn [p sym]
         ;                                {:pre [(fl/Filter? p)
