@@ -41,6 +41,7 @@
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.core.typed.internal]
+            [clojure.core.typed.path-type :refer :all]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]])
 ; we want clojure.lang.Seqable to be scoped here. 
@@ -4278,6 +4279,76 @@
 
 (deftest CTYP-169-count-pe-test
   (is-tc-e (defn f [c :- clojure.lang.Counted] :- t/Int (count c))))
+
+(deftest path-type-test
+  (is-clj (= (path-type -any nil)
+             -any))
+  (is-clj (= (path-type -nil nil)
+             -nil))
+  (is-clj (= (path-type -nil [(-kpe :a)])
+             -nil))
+  (is-clj (= (path-type (-complete-hmap {(-val :a) (-val :b)}) [(-kpe :a)])
+             (-val :b)))
+  (is-clj (= (path-type (-partial-hmap {(-val :a) (-val :b)}) [(-kpe :a)])
+             (-val :b)))
+  (is-clj (= (path-type (make-HMap :optional {(-val :a) (-val :b)}) [(-kpe :a)])
+             (Un -nil (-val :b))))
+  (is-clj (= (path-type (make-HMap :optional {(-val :a) (-val :b)}
+                                   :complete? true) 
+                        [(-kpe :a)])
+             (Un -nil (-val :b))))
+  (is-clj (= (path-type (make-HMap :optional {(-val :a) (-val :b)}
+                                   :complete? true) 
+                        [(-kpe :a)])
+             (Un -nil (-val :b))))
+  (is-clj (= (path-type (make-HMap :complete? true)
+                        [(-kpe :a)])
+             -nil))
+  (is-clj (= (path-type (make-HMap :complete? false)
+                        [(-kpe :a)])
+             -any))
+  (is-clj (= (path-type (make-HMap :absent-keys #{(-val :a)})
+                        [(-kpe :a)])
+             -nil))
+  (is-clj (= (path-type -nil
+                        [(-kpe :a)])
+             -nil))
+  (is-clj (= (path-type -any
+                        [(-kpe :a)])
+             -any))
+  (is-clj (= (path-type (-val :b)
+                        [(-kpe :a)])
+             -any))
+  ; um CountPE just returning Int will probably do
+  (is-clj (= (path-type (-val :b)
+                        [(CountPE-maker)])
+             (Name-maker `Int)))
+  (is-clj (= (path-type (parse-clj `(Vec Int))
+                        [(CountPE-maker)])
+             (Name-maker `Int)))
+  (is-clj (= (path-type (-hvec [(-val :a) (-val :b) (-val :c)])
+                        [(NthPE-maker 0)])
+             (-val :a)))
+  (is-clj (= (path-type (-hvec [(-val :a) (-val :b) (-val :c)])
+                        [(NthPE-maker 1)])
+             (-val :b)))
+  (is-clj (= (path-type (-hvec [(-val :a) (-val :b) (-val :c)])
+                        [(NthPE-maker 2)])
+             (-val :c)))
+  (is-clj (= (path-type (-hvec [(-val :a) (-val :b) (-val :c)])
+                        [(NthPE-maker 3)])
+             -any))
+  (is-clj (= (path-type (Un (-hvec [(-val :b)])
+                            (-hvec [(-val :a) (-val :b) (-val :c)]))
+                        [(NthPE-maker 0)])
+             (Un (-val :a) (-val :b))))
+  )
+
+; This works in Di's work I think
+;(tc-e (fn [a]
+;        {:pre [(symbol? (nth a 0))]}
+;        a)
+;      ['[Any] -> '[Sym]])
 
 ; CTYP-108
 ;(tc-e 
