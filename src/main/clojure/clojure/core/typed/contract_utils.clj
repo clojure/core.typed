@@ -77,3 +77,5 @@
 (defn sequential-c? [c?]
   (every-pred sequential?
               (every-c? c?)))
+
+(def local-sym? (every-pred symbol? (complement namespace)))
