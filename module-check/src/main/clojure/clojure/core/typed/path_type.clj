@@ -3,6 +3,7 @@
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as t]
@@ -27,7 +28,7 @@
   ([t ps] (path-type t ps #{}))
   ([t ps resolved]
    {:pre [(r/Type? t)
-          (fl/path-elems? ps)
+          (pr/path-elems? ps)
           (con/set-c? r/Type?)]
     :post [(r/Type? %)]}
    (let [t (c/fully-resolve-type t resolved)]
@@ -59,11 +60,24 @@
             (r/Nil? t))
        (path-type r/-nil (next ps))
 
+       (and (pe/KeyPE? (first ps))
+            (r/Record? t))
+       (let [ksym (-> (first ps) :val name symbol)
+             _ (assert (symbol? ksym))]
+         (get (:fields t) ksym r/-any))
+
        (pe/KeyPE? (first ps))
        (path-type r/-any (next ps))
 
        (pe/CountPE? (first ps))
        (path-type (r/Name-maker `t/Int) (next ps))
+
+       (and (pe/NthPE? (first ps))
+            (r/HeterogeneousList? t))
+       (path-type
+         (c/HList->HSequential t)
+         ps
+         (conj resolved t))
 
        (and (pe/NthPE? (first ps))
             (c/AnyHSequential? t))

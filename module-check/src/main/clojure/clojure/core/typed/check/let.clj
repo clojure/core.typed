@@ -59,8 +59,19 @@
                    (cond
                      (fl/FilterSet? fl)
                      (let [{:keys [then else]} fl
-                           p* [(fo/-imp (fo/-not-filter (c/Un r/-nil r/-false) sym) then)
-                               (fo/-imp (fo/-filter (c/Un r/-nil r/-false) sym) else)]
+                           p* (cond
+                                (not (c/overlap t (c/Un r/-nil r/-false))) [then]
+                                ;; n is being bound to an expression w/ object o
+                                ;; we don't need any new info, aliasing and the
+                                ;; lexical environment will have the needed info
+                                (obj/Path? o) []
+
+                                ;; n is being bound to an expression w/o an object
+                                ;; so remember n in our propositions
+                                :else [(fo/-or (fo/-and (fo/-not-filter (c/Un r/-nil r/-false) sym)
+                                                        then)
+                                               (fo/-and (fo/-filter (c/Un r/-nil r/-false) sym) 
+                                                        else))])
                            flow-f (r/flow-normal flow)
                            flow-atom (atom true)
                            new-env (-> env

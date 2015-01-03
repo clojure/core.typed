@@ -1,8 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.path-rep
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed :as t])
-  (:import (clojure.lang Keyword)))
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed :as t]))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -43,12 +43,12 @@
   "A path calling clojure.core/count"
   [])
 
-(t/ann-record KeyPE [val :- Keyword])
+(t/ann-record KeyPE [val :- t/Kw])
 (u/def-object KeyPE [val]
   "A key in a hash-map"
   [(keyword? val)])
 
-(t/ann ^:no-check -kpe [Keyword -> KeyPE])
+(t/ann ^:no-check -kpe [t/Kw -> KeyPE])
 (def -kpe KeyPE-maker)
 
 (t/ann-record KeysPE [])
@@ -69,3 +69,5 @@
 (declare-path-elem KeysPE)
 (declare-path-elem ValsPE)
 
+(def path-elems? (every-pred (some-fn nil? seq)
+                             (con/every-c? PathElem?)))

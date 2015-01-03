@@ -480,8 +480,7 @@
                     (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
                                     (make-Result (-val 1) 
                                                  (-true-filter)
-                                                 ;(-path [(-kpe :a)] 0) ; requires 'equivalence' filters
-                                                 -empty)
+                                                 (-path [(-kpe :a)] 0))
                                     nil nil nil))
                   (-FS -top -bot)
                   -empty)))
@@ -537,15 +536,22 @@
                            maprl)]
                      maprl))))))
   ;destructuring a variable of union type
-  (is-clj (= (->
-               (tc-t (fn [{a :a} :- (U (HMap :mandatory {:a (Value 1)})
-                                       (HMap :mandatory {:b (Value 2)}))]
-                       a))
-               ret-t)
+  (is-clj (= (ety (fn [{a :a} :- (U (HMap :mandatory {:a (Value 1)})
+                                    (HMap :mandatory {:b (Value 2)}))]
+                    a))
              (make-FnIntersection 
                (make-Function [(Un (make-HMap :mandatory {(-val :a) (-val 1)})
                                    (make-HMap :mandatory {(-val :b) (-val 2)}))]
-                              (Un (-val 1) -any))))))
+                              -any
+                              nil nil
+                              :filter (-FS (-and (-not-filter (Un -nil -false) 0 [(-kpe :a)])
+                                                  (-filter 
+                                                    (parse-clj
+                                                      `(U (HMap :mandatory {:a (Val 1)}) 
+                                                          (HMap :mandatory {:a Any, :b (Val 2)})))
+                                                    0))
+                                            (-filter (Un -nil -false) 0 [(-kpe :a)]))
+                              :object (-path [(-kpe :a)] 0))))))
 
 (deftest Name-resolve-test
   (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MyName]
@@ -554,7 +560,9 @@
                                 e)))
                       (ret (make-FnIntersection 
                              (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MyName)]
-                                         (make-Result (-val 1) (-true-filter) -empty)
+                                         (make-Result (-val 1) 
+                                                      (-true-filter)
+                                                      (-path [(-kpe :a)] 0))
                                          nil nil nil))
                            (-FS -top -bot) -empty)))
   (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MapName]
@@ -4341,6 +4349,43 @@
              (Un (-val :a) (-val :b))))
   )
 
+(deftest aliasing-test
+  (is-tc-e
+    (let* [map__64934 {} 
+           map__64934 (if (clojure.core/seq? map__64934) 
+                        (clojure.lang.PersistentHashMap/create (clojure.core/seq map__64934)) 
+                        map__64934)
+           b (clojure.core/get map__64934 :b)] 
+      (ann-form b (U nil Number))))
+  (is-tc-err
+    (let [{:keys [b]} {}] (ann-form b Number)))
+  (is-tc-e
+    (let [{:keys [b] :or {b 3}} {}] 
+      (ann-form b Number)))
+  (is-tc-e
+    (do
+      (ann-record FooRec [a :- Number])
+      (defrecord FooRec [a])
+      (let [{:keys [a]} (->FooRec 1)]
+        (ann-form a Number))))
+  (is-tc-e
+    (do
+      (ann-record FooRec [a :- Number])
+      (defrecord FooRec [a])
+      (:a (->FooRec 1))))
+  ;FIXME weird error?
+  #_(is-tc-e
+    (do
+      (ann-record FooRec [a :- Number])
+      (defrecord FooRec [a])
+      (:a (:a (->FooRec 1)))))
+  )
+
+;  (let* [map__65083 {} 
+;         map__65083 (if (clojure.core/seq? map__65083) (clojure.lang.PersistentHashMap/create (clojure.core/seq map__65083)) map__65083) 
+;         b (clojure.core/get map__65083 :b 3)] 
+;    (ann-form b Number))
+
 ; This works in Di's work I think
 ;(tc-e (fn [a]
 ;        {:pre [(symbol? (nth a 0))]}
@@ -4348,12 +4393,14 @@
 ;      ['[Any] -> '[Sym]])
 
 ; CTYP-108
-;(tc-e 
-;  (let [{:keys [a] :as props}
-;        (ann-form {} '{})]
-;    (when-not (and a)
-;      (print-env "")
-;      props)))
+#_(do
+(tc-e 
+  (let [{:keys [a b c d e f g h] :as props}
+        (ann-form {} '{})]
+    (when-not (and a b c d e f g h)
+      (print-env "")
+      props)))
+:ok)
 ;
 ;{:env {a__#0 (U nil false), props__#0 (HMap :mandatory {}), map__63343__#1 (HMap :mandatory {}), map__63343__#0 (HMap :mandatory {})}, 
 ; :props ((when (is (U nil false) props__#0) 

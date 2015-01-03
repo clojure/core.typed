@@ -1,23 +1,24 @@
 (ns clojure.core.typed.test.rbt-test
   (:refer-clojure :exclude [and])
-  (:require [clojure.core.typed.test.test-utils :refer :all]
+  (:require ;[clojure.core.typed.test.test-utils :refer :all]
             [clojure.core.typed :refer [ann inst cf fn> pfn> defalias declare-names
                                         print-env print-filterset check-ns typed-deps
                                         ann-form]]
             [clojure.core.typed.test.rbt-types]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-rep :refer :all]
-            [clojure.core.typed.type-ctors :refer :all]
-            [clojure.core.typed.filter-rep :refer :all]
-            [clojure.core.typed.filter-ops :refer :all]
-            [clojure.core.typed.object-rep :refer :all]
-            [clojure.core.typed.path-rep :refer :all]
-            [clojure.core.typed.parse-unparse :refer :all]
+            ;[clojure.core.typed.type-rep :refer :all]
+            ;[clojure.core.typed.type-ctors :refer :all]
+            ;[clojure.core.typed.filter-rep :refer :all]
+            ;[clojure.core.typed.filter-ops :refer :all]
+            ;[clojure.core.typed.object-rep :refer :all]
+            ;[clojure.core.typed.path-rep :refer :all]
+            ;[clojure.core.typed.parse-unparse :refer :all]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.update :as update]
             [clojure.repl :refer [pst]]
-            [clojure.test :refer :all]))
+            ;[clojure.test :refer :all]
+            ))
 
 ;(defmacro check-rbt [& body]
 ;  `(do (check-ns '~'clojure.core.typed.test.rbt-types)
