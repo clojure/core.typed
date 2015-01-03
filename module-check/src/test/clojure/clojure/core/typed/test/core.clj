@@ -4379,7 +4379,65 @@
       (ann-record FooRec [a :- Number])
       (defrecord FooRec [a])
       (:a (:a (->FooRec 1)))))
-  )
+  ; used to take infinite time
+  (is-tc-e
+    (let [{:keys [a b c d e f g h] :as props}
+          (ann-form {} '{})]
+      (when-not (and a b c d e f g h)
+        #_(print-env "")
+        props)))
+  (testing "simultaneous local updates"
+    (is-tc-e
+      (let [old :- (U nil Num) 1
+            new old]
+        (when (number? new)
+          (+ old new))))
+    (is-tc-e
+      (let [old :- (U nil Num) 1
+            new old]
+        (when (number? old)
+          (+ old new))))
+    (is-tc-e
+      (let [{lkup :a} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? lkup)
+          (inc alias))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? (:a old))
+          (inc lkup))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? (:a old))
+          (inc (:a old)))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? (:a old))
+          (inc alias))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? alias)
+          (inc (:a old)))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? alias)
+          (inc lkup))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? lkup)
+          (inc alias))))
+    (is-tc-e
+      (let [{lkup :a :as old} :- '{:a (U nil Num)} {:a 1}
+            alias lkup]
+        (when (number? lkup)
+          (inc (:a old)))))
+  ))
 
 ;  (let* [map__65083 {} 
 ;         map__65083 (if (clojure.core/seq? map__65083) (clojure.lang.PersistentHashMap/create (clojure.core/seq map__65083)) map__65083) 
@@ -4393,14 +4451,6 @@
 ;      ['[Any] -> '[Sym]])
 
 ; CTYP-108
-#_(do
-(tc-e 
-  (let [{:keys [a b c d e f g h] :as props}
-        (ann-form {} '{})]
-    (when-not (and a b c d e f g h)
-      (print-env "")
-      props)))
-:ok)
 ;
 ;{:env {a__#0 (U nil false), props__#0 (HMap :mandatory {}), map__63343__#1 (HMap :mandatory {}), map__63343__#0 (HMap :mandatory {})}, 
 ; :props ((when (is (U nil false) props__#0) 
