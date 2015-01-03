@@ -4437,6 +4437,10 @@
             alias lkup]
         (when (number? lkup)
           (inc (:a old)))))
+    (is-tc-e 
+      (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
+        {:pre [(number? a)]} 
+        m))
   ))
 
 ;  (let* [map__65083 {} 
