@@ -7,6 +7,7 @@
   - taken from Typed Racket
 - Add [let-aliasing](http://andmkent.com/blog/2014/12/20/let-aliasing-in-typed-racket/)
   - Thanks to [Andrew Kent](https://twitter.com/andmkent_) for original design/implementation and help
+- Let-aliasing fixes [CTYP-108](http://dev.clojure.org/jira/browse/CTYP-108)
 
 # 0.2.74 - 30 December 2014
 
