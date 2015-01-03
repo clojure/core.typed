@@ -5,6 +5,8 @@
 - obviously truthy local bindings now infer filters of {:then tt :else ff}
   instead of {:then (! (U nil false) x) :else (is (U nil false) x)}
   - taken from Typed Racket
+- Add [let-aliasing](http://andmkent.com/blog/2014/12/20/let-aliasing-in-typed-racket/)
+  - Thanks to [Andrew Kent](https://twitter.com/andmkent_) for original design/implementation and help
 
 # 0.2.74 - 30 December 2014
 
