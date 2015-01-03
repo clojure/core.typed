@@ -1,3 +1,8 @@
+# 0.2.76 - 3 January 2015
+
+- let aliasing tests
+- Improve `clojure.core/flatten` type
+
 # 0.2.75 - 2 January 2015
 
 - Fix [CTYP-169](http://dev.clojure.org/jira/browse/CTYP-169)

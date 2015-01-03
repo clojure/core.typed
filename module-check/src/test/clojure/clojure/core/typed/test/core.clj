@@ -4437,12 +4437,31 @@
             alias lkup]
         (when (number? lkup)
           (inc (:a old)))))
-    (is-tc-e 
-      (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
-        {:pre [(number? a)]} 
-        m))
-  ))
+    ))
 
+(deftest flatten-test
+  (is-tc-e (flatten nil))
+  (is-tc-e (flatten [1 2]))
+  (is-tc-e (vec (flatten [1 2])))
+  (is-tc-err (flatten :a)))
+
+;    (is-tc-e 
+;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
+;                {:pre [(number? a)]} 
+;                m)
+;            m :- '{:a (U nil Num)}
+;  ))
+;
+;(tc-e (do (ann f (All [a] [a -> a]))
+;          (defn f [x]
+;            (if (number? x)
+;              (do 
+;                (print-env "a")
+;                x)
+;              x))))
+;
+;(tc-e (fn [a] (not (number? a))) )
+;(tc-e (filter (fn [a] (not (number? a))) )
 ;  (let* [map__65083 {} 
 ;         map__65083 (if (clojure.core/seq? map__65083) (clojure.lang.PersistentHashMap/create (clojure.core/seq map__65083)) map__65083) 
 ;         b (clojure.core/get map__65083 :b 3)] 
