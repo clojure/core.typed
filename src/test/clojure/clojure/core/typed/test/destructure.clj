@@ -6,6 +6,13 @@
 (let [{:keys [b] :or {b 3}} {}]
   (ann-form b Number))
 
+(let* [map__65083 {} 
+       map__65083 (if (seq? map__65083) 
+                    (clojure.lang.PersistentHashMap/create (clojure.core/seq map__65083)) 
+                    map__65083) 
+       b (get map__65083 :b 3)] 
+  (ann-form b Number))
+
 (let [{:as c} {}]
   (ann-form c '{}))
 

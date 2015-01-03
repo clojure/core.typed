@@ -35,12 +35,22 @@
                                       (= "clojure.core.typed.lex_env.PropEnv"
                                          (.getName (class a))))))
 
+(defn lookup-alias [sym]
+  {:pre [(con/local-sym? sym)]
+   :post [(obj/RObject? %)]}
+  (or (get-in *lexical-env* [:aliases sym])
+      (obj/-id-path sym)))
+
 (defn lookup-local [sym]
-  (-> *lexical-env* :l sym))
+  {:pre [(con/local-sym? sym)]
+   :post [((some-fn nil? r/Type?) %)]}
+  (get-in *lexical-env* [:l sym]))
 
 (defn merge-locals [env new]
+  {:pre [(PropEnv? env)]
+   :post [(PropEnv? %)]}
   (-> env
-    (update-in [:l] #(merge % new))))
+      (update-in [:l] merge new)))
 
 (defmacro with-locals [locals & body]
   `(binding [*lexical-env* (merge-locals *lexical-env* ~locals)]
@@ -54,13 +64,20 @@
          (r/Type? t)
          (obj/RObject? o)]
    :post [(PropEnv? %)]}
-  (assoc-in env [:l id] t)
-  #_(cond
+  (cond
     ; no aliasing to add
     (obj/EmptyObject? o)
     (-> env
         (assoc-in [:l id] t))
 
     (obj/Path? o)
-    (-> env
-        (assoc-in [:aliases id] o))))
+    (if (seq (:path o))
+      (-> env
+          (assoc-in [:aliases id] o))
+      ; if we have an empty path, add a "normal" entry to our
+      ; type environment. Not sure why this is needed, Andrew K added
+      ; it to TR because tests were failing.
+      (-> env
+          (assoc-in [:l (:id o)] t)
+          (assoc-in [:aliases id] o))
+      )))

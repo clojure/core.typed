@@ -13,6 +13,7 @@
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.core.typed.remove :as remove])
@@ -128,7 +129,7 @@
   {:pre [(r/Type? t)
          (r/Type? ft)
          (con/boolean? pos?)
-         (fl/path-elems? lo)]
+         (pr/path-elems? lo)]
    :post [(r/Type? %)]}
   (u/p :check/update
   (let [t (c/fully-resolve-type t)]

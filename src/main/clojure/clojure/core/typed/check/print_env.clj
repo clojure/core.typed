@@ -18,6 +18,7 @@
      (prn {:env (into {} (for [[k v] (:l e)]
                            [k (prs/unparse-type v)]))
            :props (map prs/unparse-filter (:props e))
+           :aliases (:aliases e)
            ;:frees (map (t/fn> 
            ;              [nme :- t/Sym, bnd :- (U nil Bounds)]
            ;              {:pre [(symbol? nme)

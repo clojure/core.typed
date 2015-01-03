@@ -70,16 +70,13 @@
 (t/ann -no-filter Filter)
 (def -no-filter (NoFilter-maker))
 
-(def path-elems? (every-pred (some-fn nil? seq)
-                             (con/every-c? pr/PathElem?)))
-
 (u/ann-record TypeFilter [type :- r/Type,
                           path :- (t/U nil (Seqable IPathElem))
                           id :- NameRef])
 (u/def-filter TypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is of given type"
   [(r/Type? type)
-   (path-elems? path)
+   (pr/path-elems? path)
    (name-ref? id)]
   :methods
   [p/IFilter])
@@ -90,7 +87,7 @@
 (u/def-filter NotTypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is NOT of given type"
   [(r/Type? type)
-   (path-elems? path)
+   (pr/path-elems? path)
    (name-ref? id)]
   :methods
   [p/IFilter])
@@ -104,7 +101,7 @@
 
 (defn filter-path [f]
   {:pre [((some-fn TypeFilter? NotTypeFilter?) f)]
-   :post [(path-elems? %)]}
+   :post [(pr/path-elems? %)]}
   (:path f))
 
 (u/ann-record AndFilter [fs :- (IPersistentSet Filter)])
