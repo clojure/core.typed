@@ -1243,6 +1243,7 @@
         (inc a)))))
 
 (deftest for-test
+  (is-tc-e (check-ns 'clojure.core.typed.test.for))
   (is-tc-e
     (for
       [a :- (U nil Number), [1 nil 2 3]

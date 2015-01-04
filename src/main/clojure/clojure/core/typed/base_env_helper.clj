@@ -35,10 +35,14 @@
                        _# (alter-meta! v# merge (assoc meta# :doc doc#))]
                    [(with-meta s# nil) (prs/parse-type t#)])))))))
 
-(defmacro var-mappings [& args]
+(defmacro var-mappings [this-ns & args]
   `(impl/with-clojure-impl
-     (let [ts# (partition 2 '~args)
-           conveyed-parse# (bound-fn* prs/parse-type)]
+     (let [this-ns# ~this-ns
+           _# (assert (instance? clojure.lang.Namespace this-ns#))
+           ts# (partition 2 '~args)
+           conveyed-parse# (fn [s#]
+                             (binding [prs/*parse-type-in-ns* this-ns#]
+                               (prs/parse-type s#)))]
        (into {}
              (doall
                (for [[s# t#] ts#]
