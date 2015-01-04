@@ -1,3 +1,10 @@
+# 0.2.77 - SNAPSHOT
+
+- Complete [CTYP-186](http://dev.clojure.org/jira/browse/CTYP-186) - type check `restore-right`
+  - includes useful tweaks to occurrence typing
+- Fix [CTYP-185](http://dev.clojure.org/jira/browse/CTYP-185) - base-env load ordering issues
+  - reported by dblarons
+
 # 0.2.76 - 3 January 2015
 
 - let aliasing tests
