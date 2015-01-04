@@ -39,7 +39,7 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (defonce ^:dynamic *parse-type-in-ns* nil)
-(set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
+(set-validator! #'*parse-type-in-ns* (some-fn nil? symbol? con/namespace?))
 
 (declare unparse-type unparse-filter unparse-filter-set unparse-flow-set)
 
@@ -69,7 +69,7 @@
   `(binding [*parse-type-in-ns* ~sym]
      ~@body))
 
-(declare parse-type resolve-type-clj resolve-type-cljs)
+(declare parse-type parse-type* resolve-type-clj resolve-type-cljs)
 
 (defn parse-clj [s]
   (impl/with-clojure-impl
@@ -79,7 +79,10 @@
   (impl/with-cljs-impl
     (parse-type s)))
 
-(defmulti parse-type class)
+(defn parse-type [s]
+  (parse-type* s))
+
+(defmulti parse-type* class)
 (defmulti parse-type-list 
   (fn [[n]]
     {:post [((some-fn nil? symbol?) %)]}
@@ -759,7 +762,7 @@
 
 (defn- parse-in-ns []
   {:post [(symbol? %)]}
-  (or *parse-type-in-ns* 
+  (or (some-> *parse-type-in-ns* ns-name)
       (impl/impl-case
         :clojure (ns-name *ns*)
         :cljs (do
@@ -853,8 +856,8 @@
   [[n & args :as syn]]
   (parse-type-list-default syn))
 
-(defmethod parse-type Cons [l] (parse-type-list l))
-(defmethod parse-type IPersistentList [l] 
+(defmethod parse-type* Cons [l] (parse-type-list l))
+(defmethod parse-type* IPersistentList [l] 
   (parse-type-list l))
 
 (defmulti parse-type-symbol
@@ -973,9 +976,9 @@
   [sym]
   (parse-type-symbol-default sym))
 
-(defmethod parse-type Symbol [l] (parse-type-symbol l))
-(defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
-(defmethod parse-type nil [_] r/-nil)
+(defmethod parse-type* Symbol [l] (parse-type-symbol l))
+(defmethod parse-type* Boolean [v] (if v r/-true r/-false)) 
+(defmethod parse-type* nil [_] r/-nil)
 
 (declare parse-path-elem parse-filter*)
 
@@ -1168,11 +1171,11 @@
                      :mandatory-kws (when mandatory-kws
                                       (parse-kw-map mandatory-kws)))))
 
-(defmethod parse-type IPersistentVector
+(defmethod parse-type* IPersistentVector
   [f]
   (apply r/make-FnIntersection [(parse-function f)]))
 
-(defmethod parse-type :default
+(defmethod parse-type* :default
   [k]
   (err/int-error (str "Bad type syntax: " (pr-str k)
                       (when ((some-fn symbol? keyword?) k)

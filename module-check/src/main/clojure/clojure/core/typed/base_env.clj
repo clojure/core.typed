@@ -115,11 +115,14 @@ clojure.java.io/IOFactory
               [(U (Indexed x) (SequentialSeqable x) nil) AnyInteger y -> (U x y)]
               [(U (Indexed x) (SequentialSeqable x) nil) AnyInteger -> (U x nil)])))))
 
+(def this-ns *ns*)
+
 (delay-and-cache-env ^:private init-var-env
   (reset-alias-env!)
   (merge
    (common/parse-clj-ann-map common/common-var-annotations)
    (h/var-mappings
+     this-ns
 
 clojure.core.typed/check-ns (IFn [Symbol -> Any]
                                 [-> Any])
@@ -456,6 +459,7 @@ clojure.core/dissoc
        (IFn [(Map k v) Any * -> (Map k v)]))
 )
     (h/var-mappings
+      this-ns
 
 clojure.core/zipmap
      (All [k v]
@@ -668,6 +672,7 @@ clojure.core/keyword? (Pred Keyword)
 clojure.core/map? (Pred (Map Any Any))
 )
     (h/var-mappings
+      this-ns
 
 clojure.core/cast (All [x] [Class x -> x])
 
@@ -1028,6 +1033,7 @@ clojure.core/get
             ))
 )
     (h/var-mappings
+      this-ns
 
 clojure.core/get-in
     (IFn [Any (U nil (Seqable Any)) -> Any]
@@ -1432,6 +1438,7 @@ clojure.core/rand-nth (All [x] [(U (Indexed x) (SequentialSeqable x)) -> x])
 
       )
 (h/var-mappings
+  this-ns
 clojure.set/union (All [x] [(Set x) * -> (Set x)])
 clojure.set/intersection (All [x] [(Set x) (Set x) * -> (Set x)])
 clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
