@@ -386,7 +386,7 @@
                 not-atomic* (for [p not-atomic
                                   :when (not-any? (fn [a] (implied-atomic? p a)) atomic)]
                               p)]
-            ;(prn "not-atomic*" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic*))
+            ;(prn "not-atomic*" not-atomic*)
              ;; `compact' takes care of implications between atomic props
             (apply mk (compact (concat not-atomic* atomic) false)))))
         (let [ffs (first fs)]
@@ -397,10 +397,12 @@
             (fr/TopFilter? ffs) (recur (next fs) result)
             :else (let [t ffs]
                     (cond
-                      (some (fn [f] (opposite? f ffs)) (concat (rest fs) result)) 
+                      (some (fn [f] (opposite? f ffs)) (concat (rest fs) result))
                       fr/-bot
-                      (some (fn [f] (or (= f t)
-                                        (implied-atomic? t f))) result) 
+                      (some (fn [f] 
+                              (or (= f t)
+                                  (implied-atomic? t f))) 
+                            (concat (rest fs) result))
                       (recur (rest fs) result)
                       :else
                       (recur (rest fs) (cons t result))))))))))
@@ -439,7 +441,14 @@
         (fr/BotFilter? f2) true
         (and (fr/TopFilter? f1)
              ((some-fn fr/TypeFilter? fr/NotTypeFilter?) f2)) true
-        (fr/OrFilter? f1) (boolean (some #(u/filter= % f2) (:fs f1)))
+
+        ; we don't learn anything intesting if everything on the right
+        ; appears on the left
+        (and (fr/OrFilter? f1)
+             (fr/OrFilter? f2))
+        (empty? (set/difference (:fs f2) (:fs f1)))
+
+        (fr/OrFilter? f1) (contains? (:fs f1) f2)
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))
                                        (= (:path f1) (:path f2))
