@@ -16,6 +16,7 @@
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.profiling :as p :refer [defn]]
+            [clojure.set :as set]
             [clojure.core.typed.remove :as remove])
   (:import (clojure.lang IPersistentMap)))
 
@@ -82,17 +83,21 @@
                 (recur (cons p derived-props) derived-atoms (next worklist))))
             (fl/OrFilter? p)
             (let [ps (:fs p)
-                  new-or (loop [ps ps
-                                result []]
-                           (cond
-                             (empty? ps) (apply fo/-or result)
-                             (some (fn [other-p] (fo/opposite? (first ps) other-p))
-                                   (concat derived-props derived-atoms))
-                             (recur (next ps) result)
-                             (some (fn [other-p] (fo/implied-atomic? (first ps) other-p))
-                                   derived-atoms)
-                             fl/-top
-                             :else (recur (next ps) (cons (first ps) result))))]
+                  new-or (if (some (fn [f] (fo/implied-atomic? p f))
+                                   (disj (set/union (set worklist) (set derived-props)) 
+                                         p))
+                           fl/-top
+                           (loop [ps ps
+                                  result []]
+                             (cond
+                               (empty? ps) (apply fo/-or result)
+                               (some (fn [other-p] (fo/opposite? (first ps) other-p))
+                                     (concat derived-props derived-atoms))
+                               (recur (next ps) result)
+                               (some (fn [other-p] (fo/implied-atomic? (first ps) other-p))
+                                     derived-atoms)
+                               fl/-top
+                               :else (recur (next ps) (cons (first ps) result)))))]
               (if (fl/OrFilter? new-or)
                 (recur (cons new-or derived-props) derived-atoms (next worklist))
                 (recur derived-props derived-atoms (cons new-or (next worklist)))))
@@ -358,6 +363,23 @@
                                            (when-not t
                                              (err/int-error (str "Updating local not in scope: " (:id f))))
                                            (update t f)))]
+                  ; update flag if a variable is now bottom
+                  (when-let [bs (some #{(c/Un)} (vals (:l new-env)))]
+                    (reset! flag false))
+                  new-env)
+
+                (and (fl/OrFilter? f)
+                     (every? (some-fn fl/TypeFilter? fl/NotTypeFilter?) (:fs f))
+                     (apply = (map fl/filter-id (:fs f))))
+                (let [id (-> f :fs first fl/filter-id)
+                      _ (assert (symbol? id))
+                      new-env (update-in env [:l id]
+                                         (fn [t]
+                                           (when-not t
+                                             (err/int-error (str "Updating local not in scope: " (:id f))))
+                                           (apply c/Un
+                                                  (map (fn [f] (update t f)) 
+                                                       (:fs f)))))]
                   ; update flag if a variable is now bottom
                   (when-let [bs (some #{(c/Un)} (vals (:l new-env)))]
                     (reset! flag false))

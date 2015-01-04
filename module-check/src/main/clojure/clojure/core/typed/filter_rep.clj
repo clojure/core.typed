@@ -104,6 +104,11 @@
    :post [(pr/path-elems? %)]}
   (:path f))
 
+(defn filter-id [f]
+  {:pre [((some-fn TypeFilter? NotTypeFilter?) f)]
+   :post [(name-ref? %)]}
+  (:id f))
+
 (u/ann-record AndFilter [fs :- (IPersistentSet Filter)])
 (u/def-filter AndFilter [fs]
   "Logical conjunction of filters"

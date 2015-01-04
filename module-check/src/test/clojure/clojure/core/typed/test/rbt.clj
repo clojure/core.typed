@@ -1,37 +1,10 @@
 (ns clojure.core.typed.test.rbt
-;  (:refer-clojure :exclude [and])
-;  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> defalias declare-names
-;                                        print-env print-filterset check-ns typed-deps
-;                                        ann-form]]
-;            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty
-;                                                       Red Black bt]]
-;            #_[clojure.core.typed.subtype :as sub]
-;            #_[clojure.core.typed.check :as chk]
-;            #_[clojure.core.typed.parse-unparse :as prs]
-;            #_[clojure.core.typed.filter-ops :as fo]
-;            [clojure.repl :refer [pst]]
-;            [clojure.math.combinatorics :as comb]
-;            [clojure.jvm.tools.analyzer :refer [ast]]))
-  )
-
-(comment
-(defmacro and
-  "Scheme's and. Returns false on a false case."
-  {:added "1.0"}
-  ([] true)
-  ([x] x)
-  ([x & next]
-   `(if ~x (and ~@next) false)))
-
-(defmacro and-trace
-  "Scheme's and. Returns false on a false case."
-  {:added "1.0"}
-  ([] true)
-  ([x] x)
-  ([x & next]
-   `(print-filterset ~(str "trace result:\n" `(and ~x ~@next))
-      (if (print-filterset ~(str "trace test\n" x) ~x) (and-trace ~@next) false))))
-
+  (:require [clojure.core.typed 
+             :refer [ann print-env print-filterset ann-form]
+             :as t]
+            [clojure.core.typed.test.rbt-types 
+             :refer [badRight rbt EntryT Empty Red Black bt]
+             :as rbt]))
 
 ; This is an implementation of red-black tree invariant checking.
 ; Invariants are copied from Rowan Davies' PhD dissertation
@@ -49,6 +22,128 @@
      (Fn [badRight -> rbt]))
 (defn restore-right [tmap]
   (cond
+    (and (-> tmap :tree #{:Black})
+         (-> tmap :left :tree #{:Red})
+         (-> tmap :right :tree #{:Red})
+         (-> tmap :right :left :tree #{:Red}))
+    (let [;_ (print-env "down first then")
+          {lt :left rt :right e :entry} tmap
+          ;re-color
+          res {:tree :Red
+               :entry e
+               :left (assoc lt
+                            :tree :Black)
+               :right (assoc rt
+                             :tree :Black)}]
+      ;(print-env "restore-right: output first branch (res)")
+      (ann-form res rbt))
+
+    (and (-> tmap :tree #{:Black})
+         (-> tmap :left :tree #{:Red})
+         (-> tmap :right :tree #{:Red})
+         (-> tmap :right :right :tree #{:Red}))
+    (let [; Input to the second case: - Rowan
+          ; Empty | Black of 'a entry * 'a rbt * 'a rbt | Red of 'a entry * 'a bt * 'a bt
+          ; | Black of 'a entry * 'a rbt * (Red of 'a entry * 'a bt * 'a rbt)
+          ;_ (print-env "down TEST2")
+          _ (ann-form tmap
+                      (t/U Empty
+                         (Black rbt rbt)
+                         (Red bt bt)
+                         (Black rbt (Red bt rbt))))
+          {lt :left rt :right e :entry} tmap
+          ;re-color
+          res {:tree :Red
+               :entry e
+               :left (assoc lt
+                            :tree :Black)
+               :right (assoc rt
+                             :tree :Black)}]
+      ;(print-env "restore-right: output second branch (res)")
+      (ann-form res rbt))
+
+    (and (-> tmap :tree #{:Black})
+         (-> tmap :right :tree #{:Red})
+         (-> tmap :right :left :tree #{:Red}))
+    (let [{e :entry
+           l :left
+           {re :entry
+            {rle :entry
+             rll :left
+             rlr :right}
+            :left
+            rr :right}
+           :right} tmap
+          ;l is black, deep rotate
+          res {:tree :Black
+               :entry rle
+               :left {:tree :Red
+                      :entry e
+                      :left l
+                      :right rll}
+               :right {:tree :Red
+                       :entry re
+                       :left rlr
+                       :right rr}}]
+      (ann-form res rbt))
+
+    (and (-> tmap :tree #{:Black})
+         (-> tmap :right :tree #{:Red})
+         (-> tmap :right :right :tree #{:Red}))
+    (let [;_ (print-env "down TEST4")
+          {e :entry
+           l :left
+           {re :entry
+            rl :left
+            rr :right} 
+           :right} tmap]
+      ;l is black, shallow rotate
+      (ann-form
+        {:tree :Black
+         :entry re
+         :left {:tree :Red
+                :entry e
+                :left l
+                :right rl}
+         :right rr}
+        rbt))
+
+    :else (do (print-env "last branch")
+;{:env {tmap badRight}, 
+; :props ((| (! (Val :Red)   tmap [(Key :right) (Key :left) (Key :tree)]) 
+;            (! (Val :Black) tmap [(Key :tree)]) 
+;            (! (Val :Red)   tmap [(Key :right) (Key :tree)])) 
+;         (| (! (Val :Red)   tmap [(Key :right) (Key :left) (Key :tree)]) 
+;            (! (Val :Black) tmap [(Key :tree)]) 
+;            (! (Val :Red)   tmap [(Key :right) (Key :tree)]) 
+;            (! (Val :Red)   tmap [(Key :left)  (Key :tree)])) 
+;         (| (! (Val :Red)   tmap [(Key :right) (Key :right) (Key :tree)]) 
+;            (! (Val :Black) tmap [(Key :tree)]) 
+;            (! (Val :Red)   tmap [(Key :right) (Key :tree)]) 
+;            (! (Val :Red)   tmap [(Key :left)  (Key :tree)])) 
+;         (| (! (Val :Red)   tmap [(Key :right) (Key :right) (Key :tree)]) 
+;            (! (Val :Black) tmap [(Key :tree)]) 
+;            (! (Val :Red)   tmap [(Key :right) (Key :tree)]))), 
+; :aliases {}}
+
+;{:env {tmap badRight}, 
+; :props (& (| (! (t/Val :Red)   tmap [(Key :right) (Key :left) (Key :tree)]) 
+;              (! (t/Val :Black) tmap [(Key :tree) ]) 
+;              (! (t/Val :Red)   tmap [(Key :right) (Key :tree)])) 
+;           (| (! (t/Val :Red)   tmap [(Key :right) (Key :right) (Key :tree)]) 
+;              (! (t/Val :Black) tmap [(Key :tree)]) 
+;              (! (t/Val :Red)   tmap [(Key :right) (Key :tree)]))), 
+; :aliases {}}
+;
+;((| (! (t/Val :Red) tmap__#0 [(Key :right) (Key :left) (Key :tree)]) 
+;    (! (t/Val :Black) tmap__#0 [(Key :tree)]) 
+;    (! (t/Val :Red) tmap__#0 [(Key :right) (Key :tree)]) 
+;    (! (t/Val :Red) tmap__#0 [(Key :left) (Key :tree)])))
+
+ tmap)))
+
+#_(defn restore-right [tmap]
+  (cond
     (print-filterset 
       "TEST1 
         FS
@@ -60,7 +155,7 @@
                   (! ':Red tmap [(Key :left) (Key :tree)])
                   (! ':Red tmap [(Key :right) (Key :tree)])
                   (! ':Red tmap [(Key :right) (Key :left) (Key :tree)]))}"
-      (and-trace (= :Black (-> tmap :tree))
+      (and (= :Black (-> tmap :tree))
            (= :Red (-> tmap :left :tree))
            (= :Red (-> tmap :right :tree))
            (= :Red (-> tmap :right :left :tree))))
@@ -347,13 +442,12 @@
         (-not-filter (-val :Red) [(-kpe :right) (-kpe :left) (-kpe :tree)] tmap)))))))
 
   ;output of the :else of first branch
-(let [fs (read-string "#clojure.core.typed.FilterSet{:then #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}, :else #clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}} #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id tmap}}} #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}}} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}}} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}} #clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}}")]
-
-  (->
-    (env+ (-PropEnv {'tmap (->Name 'typed.test.rbt/badRight)}
-                     [])
-          [(:else fs)]
-          (atom true))
-    :l (get 'tmap)))
-)
+;(let [fs (read-string "#clojure.core.typed.FilterSet{:then #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}, :else #clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}} #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id tmap}}} #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}}} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id tmap} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}}} #clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}} #clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id tmap}}}}")]
+;
+;  (->
+;    (env+ (-PropEnv {'tmap (->Name 'typed.test.rbt/badRight)}
+;                     [])
+;          [(:else fs)]
+;          (atom true))
+;    :l (get 'tmap)))
 )
