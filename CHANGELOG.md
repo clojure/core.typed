@@ -1,4 +1,4 @@
-# 0.2.77 - SNAPSHOT
+# 0.2.77 - 4 January 2015
 
 - Complete [CTYP-186](http://dev.clojure.org/jira/browse/CTYP-186) - type check `restore-right`
   - includes useful tweaks to occurrence typing
