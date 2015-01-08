@@ -58,13 +58,12 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 [Ambrose's blog](http://frenchy64.github.io/)
 
-## Leiningen Plugin
+## Plugins
 
-[lein-typed](https://github.com/frenchy64/lein-typed)
-
-## Vim Plugin
-
-[vim-typedclojure](https://github.com/typedclojure/vim-typedclojure)
+- Leiningen: [lein-typed](https://github.com/frenchy64/lein-typed)
+- Boot: [boot-typed](https://github.com/zilti/boot-typed)
+- Emacs: [typed-clojure-mode](https://github.com/typedclojure/typed-clojure-mode)
+- Vim: [vim-typedclojure](https://github.com/typedclojure/vim-typedclojure)
 
 ## Quickstart
 
