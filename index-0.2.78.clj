@@ -7,6 +7,11 @@
    "This namespace contains typed wrapper macros, type aliases\nand functions for type checking Clojure code. check-ns is the interface\nfor checking namespaces, cf for checking individual forms."}
   {:source-url nil,
    :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.ast-utils-api.html",
+   :name "clojure.core.typed.ast-utils",
+   :doc nil}
+  {:source-url nil,
+   :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.async-api.html",
    :name "clojure.core.typed.async",
    :doc
@@ -28,6 +33,18 @@
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check-ns-clj-api.html",
    :name "clojure.core.typed.check-ns-clj",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/8e196d58ba20e96c7334ebdc42053edc3279c9d0/module-check/src/main/clojure/clojure/core/typed/check/fn_methods.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.fn-methods-api.html",
+   :name "clojure.core.typed.check.fn-methods",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/81a3bc793db822eaeee5d59f1498fbaa24639cdd/module-check/src/main/clojure/clojure/core/typed/check/monitor.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.monitor-api.html",
+   :name "clojure.core.typed.check.monitor",
    :doc nil}
   {:source-url
    "https://github.com/clojure/core.typed/blob/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj",
@@ -107,9 +124,9 @@
    :name "All",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1467",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1467",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/All",
    :doc "A polymorphic binder",
@@ -120,9 +137,9 @@
    :name "Any",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1327",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1327",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Any",
    :doc "Any is the top type that contains all types.",
@@ -144,9 +161,9 @@
    :name "AnyValue",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1332",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1332",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/AnyValue",
    :doc "AnyValue contains all Value singleton types",
@@ -157,9 +174,9 @@
    :name "Assoc",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1446",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1446",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Assoc",
    :doc "A type representing an assoc operation",
@@ -224,9 +241,9 @@
    :name "CountRange",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1365",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1365",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/CountRange",
    :doc "A type representing a range of counts for a collection",
@@ -259,9 +276,9 @@
    :name "Difference",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1376",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1376",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Difference",
    :doc
@@ -273,9 +290,9 @@
    :name "Dissoc",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1451",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1451",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Dissoc",
    :doc "A type representing a dissoc operation",
@@ -319,9 +336,9 @@
    :name "ExactCount",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1371",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1371",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ExactCount",
    :doc "A type representing a precise count for a collection",
@@ -354,9 +371,9 @@
    :name "Get",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1456",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1456",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Get",
    :doc "A type representing a get operation",
@@ -377,9 +394,9 @@
    :name "HMap",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1399",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1399",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/HMap",
    :doc "HMap is a type for heterogeneous maps.",
@@ -398,9 +415,9 @@
    :name "HSeq",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1415",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1415",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/HSeq",
    :doc "HSeq is a type for heterogeneous seqs",
@@ -419,9 +436,9 @@
    :name "HSequential",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1408",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1408",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/HSequential",
    :doc
@@ -433,9 +450,9 @@
    :name "HSet",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1422",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1422",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/HSet",
    :doc
@@ -453,9 +470,9 @@
    :name "HVec",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1387",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1387",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/HVec",
    :doc
@@ -478,9 +495,9 @@
    :name "I",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1348",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1348",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/I",
    :doc "I represents an intersection of types",
@@ -518,9 +535,9 @@
    :name "IFn",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1431",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1431",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/IFn",
    :doc "An ordered intersection type of function arities.",
@@ -736,9 +753,9 @@
    :name "Nothing",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1342",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1342",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Nothing",
    :doc
@@ -771,9 +788,9 @@
    :name "Pred",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1439",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1439",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Pred",
    :doc
@@ -806,9 +823,9 @@
    :name "Rec",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1462",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1462",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Rec",
    :doc "A recursive type",
@@ -969,9 +986,9 @@
    :name "TFn",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1472",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1472",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/TFn",
    :doc "A type function",
@@ -982,9 +999,9 @@
    :name "U",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1337",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1337",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/U",
    :doc "U represents a union of types",
@@ -995,9 +1012,9 @@
    :name "Val",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1353",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1353",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Val",
    :doc "A singleton type for a constant value.",
@@ -1008,9 +1025,9 @@
    :name "Value",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1359",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1359",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Value",
    :doc "A singleton type for a constant value.",
@@ -1054,9 +1071,9 @@
    :name "ann",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1698",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1698",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann",
    :doc
@@ -1071,9 +1088,9 @@
    :name "ann-datatype",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1748",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1748",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-datatype",
    :doc
@@ -1090,7 +1107,7 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-form",
    :doc "Annotate a form with an expected type.",
    :var-type "macro",
-   :line 123,
+   :line 134,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& args]),
    :forms
@@ -1099,9 +1116,9 @@
    :name "ann-interface",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1980",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1980",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-interface",
    :doc
@@ -1113,9 +1130,9 @@
    :name "ann-many",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1734",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1734",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-many",
    :doc
@@ -1132,9 +1149,9 @@
    :name "ann-precord",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1907",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1907",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-precord",
    :doc
@@ -1149,9 +1166,9 @@
    :name "ann-protocol",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1921",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1921",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-protocol",
    :doc
@@ -1166,9 +1183,9 @@
    :name "ann-record",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1836",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1836",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ann-record",
    :doc
@@ -1186,16 +1203,16 @@
    :doc
    "Like atom, but with optional type annotations.\n\nSame as (atom (ann-form init t) args*)\n\neg. (atom 1) : (Atom1 (Value 1))\n    (atom :- Num, 1) : (Atom1 Num)",
    :var-type "macro",
-   :line 198,
+   :line 209,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([t init & args]),
    :name "atom>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1218",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1218",
    :deprecated "0.2.58",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/atom>",
    :doc
@@ -1207,9 +1224,9 @@
    :name "cf",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2160",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2160",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/cf",
    :doc
@@ -1219,9 +1236,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2148",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2148",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/check-form*",
    :namespace "clojure.core.typed",
@@ -1232,9 +1249,9 @@
    :name "check-form*"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2126",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2126",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/check-form-info",
    :namespace "clojure.core.typed",
@@ -1245,9 +1262,9 @@
    :name "check-form-info"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2200",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2200",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/check-ns",
    :namespace "clojure.core.typed",
@@ -1258,9 +1275,9 @@
    :name "check-ns"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2183",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2183",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/check-ns-info",
    :namespace "clojure.core.typed",
@@ -1273,9 +1290,9 @@
    :name "declare-alias-kind",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1164",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1164",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/declare-alias-kind",
    :doc
@@ -1287,9 +1304,9 @@
    :name "declare-datatypes",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1142",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1142",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/declare-datatypes",
    :doc "Declare datatypes, similar to declare but on the type level.",
@@ -1300,9 +1317,9 @@
    :name "declare-names",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1177",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1177",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/declare-names",
    :doc "Declare names, similar to declare but on the type level.",
@@ -1313,9 +1330,9 @@
    :name "declare-protocols",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1153",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1153",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/declare-protocols",
    :doc "Declare protocols, similar to declare but on the type level.",
@@ -1339,10 +1356,10 @@
    :name "def-alias",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1254",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1254",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/def-alias",
    :doc
@@ -1355,10 +1372,10 @@
    :name "def>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L764",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L764",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/def>",
    :doc
@@ -1370,9 +1387,9 @@
    :name "defalias",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1287",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1287",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/defalias",
    :doc
@@ -1382,8 +1399,24 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:arglists ([& args]),
    :forms
-   [(defn poly? name docstring? [param :- type *] :- type exprs*)
-    (defn poly? name docstring? ([param :- type *] :- type exprs*) +)],
+   [(defn name docstring? [param :- type *] :- type exprs*)
+    (defn
+     :forall
+     poly
+     name
+     docstring?
+     [param :- type *]
+     :-
+     type
+     exprs*)
+    (defn poly? name docstring? ([param :- type *] :- type exprs*) +)
+    (defn
+     :forall
+     poly
+     name
+     docstring?
+     ([param :- type *] :- type exprs*)
+     +)],
    :name "defn",
    :namespace "clojure.core.typed",
    :source-url nil,
@@ -1391,9 +1424,9 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/defn",
    :doc
-   "Like defn, but with optional annotations. All annotations default to Any,\nlike the typed fn macro. Rest parameters default to starred.\n\neg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)\n\n;annotate return\n(defn fname [a :- String] :- String ...)\n\n;multi-arity\n(defn fname \n  ([a :- String] :- String ...)\n  ([a :- String, b :- Number] :- Long ...))",
+   "Like defn, but expands to clojure.core.typed/fn. If a polymorphic binder is\nsupplied before the var name, expands to clojure.core.typed/pfn.\n\neg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)\n\n;annotate return\n(defn fname [a :- String] :- String ...)\n\n;multi-arity\n(defn fname \n  ([a :- String] :- String ...)\n  ([a :- String, b :- Number] :- Long ...))\n\n;polymorphic function\n(defn :forall [x y]\n  fname \n  ([a :- x] :- (Coll y) ...)\n  ([a :- Str, b :- y] :- y ...))",
    :var-type "macro",
-   :line 228,
+   :line 239,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([name & fdecl]),
    :forms
@@ -1402,10 +1435,10 @@
    :name "defn>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L731",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L731",
    :deprecated "0.2.57",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/defn>",
    :doc
@@ -1423,16 +1456,16 @@
    :doc
    "Like defprotocol, but with optional type annotations.\n\nOmitted annotations default to Any. The first argument\nof a protocol cannot be annotated.\n\nAdd a binder before the protocol name to define a polymorphic\nprotocol. A binder before the method name defines a polymorphic\nmethod, however a method binder must not shadow type variables\nintroduced by a protocol binder.\n\nReturn types for each method arity can be annotated.\n\nUnlike clojure.core/defprotocol, successive methods can\nhave the same arity. Semantically, providing multiple successive\nmethods of the same arity is the same as just providing the left-most\nmethod. However the types for these methods will be accumulated into\na Fn type.\n\neg. ;annotate single method\n(defprotocol MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;polymorphic protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;multiple types for the same method\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Integer\n     [this a :- Long] :- Long\n     [this a :- Number] :- Number))\n\n;polymorphic method+protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  ([y] a [this a :- x, b :- y] :- y))\n",
    :var-type "macro",
-   :line 133,
+   :line 144,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& body]),
    :name "defprotocol>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1068",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1068",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/defprotocol>",
    :doc
@@ -1444,9 +1477,9 @@
    :name "doseq",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L572",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L572",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/doseq",
    :doc
@@ -1458,10 +1491,10 @@
    :name "doseq>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L467",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L467",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/doseq>",
    :doc
@@ -1473,9 +1506,9 @@
    :name "dotimes",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L171",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L171",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/dotimes",
    :doc
@@ -1487,10 +1520,10 @@
    :name "dotimes>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L148",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L148",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/dotimes>",
    :doc
@@ -1500,9 +1533,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2260",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2260",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/envs",
    :namespace "clojure.core.typed",
@@ -1525,9 +1558,9 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/fn",
    :doc
-   "Like clojure.core/fn, but with optional annotations.\n\neg. ;these forms are equivalent\n    (fn [a] b)\n    (fn [a :- Any] b)\n    (fn [a :- Any] :- Any b)\n    (fn [a] :- Any b)\n\n    ;annotate return\n    (fn [a :- String] :- String body)\n\n    ;named fn\n    (fn fname [a :- String] :- String body)\n\n    ;rest parameter\n    (fn [a :- String & b :- Number *] body)\n\n    ;dotted rest parameter\n    (fn [a :- String & b :- Number ... x] body)\n\n    ;multi-arity\n    (fn fname \n      ([a :- String] :- String ...)\n      ([a :- String, b :- Number] :- String ...))",
+   "Like clojure.core/fn, but with optional annotations.\n\neg. ;these forms are equivalent\n    (fn [a] b)\n    (fn [a :- Any] b)\n    (fn [a :- Any] :- Any b)\n    (fn [a] :- Any b)\n\n    ;annotate return\n    (fn [a :- String] :- String body)\n\n    ;named fn\n    (fn fname [a :- String] :- String body)\n\n    ;rest parameter\n    (fn [a :- String & b :- Number *] body)\n\n    ;dotted rest parameter\n    (fn [a :- String & b :- Number ... x] body)\n\n    ;multi-arity\n    (fn fname \n      ([a :- String] :- String ...)\n      ([a :- String, b :- Number] :- String ...))\n\n    ; polymorphic binder\n    (fn :forall [x y z]\n      fname \n      ([a :- String] :- String ...)\n      ([a :- String, b :- Number] :- String ...))\n",
    :var-type "macro",
-   :line 56,
+   :line 66,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& forms]),
    :forms
@@ -1539,10 +1572,10 @@
    :name "fn>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L688",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L688",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/fn>",
    :doc
@@ -1554,9 +1587,9 @@
    :name "for",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L326",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L326",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/for",
    :doc
@@ -1568,10 +1601,10 @@
    :name "for>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L193",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L193",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/for>",
    :doc
@@ -1583,9 +1616,9 @@
    :name "inst",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L112",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L112",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/inst",
    :doc
@@ -1597,9 +1630,9 @@
    :name "inst-ctor",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L120",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L120",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/inst-ctor",
    :doc
@@ -1612,9 +1645,9 @@
    :name "into-array>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1633",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1633",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/into-array>",
    :doc
@@ -1633,16 +1666,16 @@
    :doc
    "Like clojure.core/let but supports optional type annotations.\n\neg. (let [a :- Type, b\n          a2 1.2]\n      body)",
    :var-type "macro",
-   :line 111,
+   :line 122,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([fn-specs-and-annotations & body]),
    :forms [(letfn> [fn-spec-or-annotation*] expr*)],
    :name "letfn>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L796",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L796",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/letfn>",
    :doc
@@ -1652,9 +1685,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L51",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L51",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/load-if-needed",
    :namespace "clojure.core.typed",
@@ -1673,17 +1706,17 @@
    :doc
    "Like clojure.core/loop, and supports optional type annotations.\nArguments default to a generalised type based on the initial value.\n\neg. (loop [a :- Number 1\n           b :- (U nil Number) nil]\n      ...)",
    :var-type "macro",
-   :line 93,
+   :line 104,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([bndings* & forms]),
    :forms [(loop> [binding :- type init*] exprs*)],
    :name "loop>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1086",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1086",
    :deprecated "0.2.45",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/loop>",
    :doc
@@ -1693,9 +1726,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L64",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L64",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/method-type",
    :namespace "clojure.core.typed",
@@ -1708,9 +1741,9 @@
    :name "nilable-param",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1672",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1672",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/nilable-param",
    :doc
@@ -1722,9 +1755,9 @@
    :name "non-nil-return",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1655",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1655",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/non-nil-return",
    :doc
@@ -1736,9 +1769,9 @@
    :name "override-constructor",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2049",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2049",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/override-constructor",
    :doc "Override all constructors for Class ctorsym with type.",
@@ -1749,9 +1782,9 @@
    :name "override-method",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2060",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2060",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/override-method",
    :doc "Override type for qualified method methodsym.",
@@ -1762,9 +1795,9 @@
    :name "pfn>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L679",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L679",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/pfn>",
    :doc
@@ -1776,9 +1809,9 @@
    :name "pred",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2281",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2281",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/pred",
    :doc
@@ -1788,9 +1821,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1686",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1686",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/print-env",
    :namespace "clojure.core.typed",
@@ -1801,9 +1834,9 @@
    :name "print-env"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L89",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L89",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/print-filterset",
    :namespace "clojure.core.typed",
@@ -1822,16 +1855,16 @@
    :doc
    "Like ref, but with optional type annotations.\n\nSame as (ref (ann-form init t) args*)\n\neg. (ref 1) : (Ref1 (Value 1))\n    (ref :- Num, 1) : (Ref1 Num)",
    :var-type "macro",
-   :line 213,
+   :line 224,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([t init & args]),
    :name "ref>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L1236",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L1236",
    :deprecated "0.2.58",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/ref>",
    :doc
@@ -1841,9 +1874,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L56",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L56",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/reset-caches",
    :namespace "clojure.core.typed",
@@ -1853,9 +1886,9 @@
    :name "reset-caches"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2243",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2243",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/statistics",
    :namespace "clojure.core.typed",
@@ -1873,15 +1906,15 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/tc-ignore",
    :doc "Ignore forms in body during type checking",
    :var-type "macro",
-   :line 179,
+   :line 190,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& args]),
    :name "typed-deps",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2071",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2071",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/typed-deps",
    :doc
@@ -1891,9 +1924,9 @@
    :file "module-rt/src/main/clojure/clojure/core/typed.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2251",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2251",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/var-coverage",
    :namespace "clojure.core.typed",
@@ -1906,9 +1939,9 @@
    :name "var>",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2100",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2100",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/var>",
    :doc
@@ -1920,9 +1953,9 @@
    :name "warn-on-unannotated-vars",
    :namespace "clojure.core.typed",
    :source-url
-   "https://github.com/clojure/core.typed/blob/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj#L2114",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj#L2114",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e0183d95248097ec21b384072debc6bf8a2426a2/module-rt/src/main/clojure/clojure/core/typed.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/warn-on-unannotated-vars",
    :doc
@@ -1940,8 +1973,22 @@
    :doc
    "Like when-let, but fails if the binding yields a false value.",
    :var-type "macro",
-   :line 191,
+   :line 202,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
+  {:arglists ([m]),
+   :name "fixed-arity",
+   :namespace "clojure.core.typed.ast-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/e1be930db29eb51566e2a41cdb906856a8604961/module-rt/src/main/clojure/clojure/core/typed/ast_utils.clj#L211",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/e1be930db29eb51566e2a41cdb906856a8604961/module-rt/src/main/clojure/clojure/core/typed/ast_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-utils/fixed-arity",
+   :doc
+   "Returns the number of parameters for a :fn-method or :method.\nNote :method AST nodes include the 'this' parameter.",
+   :var-type "function",
+   :line 211,
+   :file "module-rt/src/main/clojure/clojure/core/typed/ast_utils.clj"}
   {:arglists ([form expected expected-provided?]),
    :name "check-form-cljs",
    :namespace "clojure.core.typed.check-form-cljs",
@@ -1972,6 +2019,38 @@
    :line 6,
    :file
    "module-check/src/main/clojure/clojure/core/typed/check_ns_clj.clj"}
+  {:arglists
+   ([mthods
+     {:keys [dom rest drest kws], :as f}
+     {:keys [recur-target-fn]}]),
+   :name "check-Function",
+   :namespace "clojure.core.typed.check.fn-methods",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/8e196d58ba20e96c7334ebdc42053edc3279c9d0/module-check/src/main/clojure/clojure/core/typed/check/fn_methods.clj#L30",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/8e196d58ba20e96c7334ebdc42053edc3279c9d0/module-check/src/main/clojure/clojure/core/typed/check/fn_methods.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.fn-methods/check-Function",
+   :doc "Check individual Function type against all methods",
+   :var-type "function",
+   :line 30,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/fn_methods.clj"}
+  {:arglists ([check {:keys [target], :as expr} expected]),
+   :name "check-monitor",
+   :namespace "clojure.core.typed.check.monitor",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/81a3bc793db822eaeee5d59f1498fbaa24639cdd/module-check/src/main/clojure/clojure/core/typed/check/monitor.clj#L11",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/81a3bc793db822eaeee5d59f1498fbaa24639cdd/module-check/src/main/clojure/clojure/core/typed/check/monitor.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.monitor/check-monitor",
+   :doc
+   "monitor-enter and monitor-exit both take any object and return nil",
+   :var-type "function",
+   :line 11,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/monitor.clj"}
   {:arglists ([nsym {:keys [ast-for-ns collect-asts collect-ns]}]),
    :name "collect-ns*",
    :namespace "clojure.core.typed.collect-utils",
@@ -2041,37 +2120,37 @@
    :name "ann-form",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L123",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L134",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/ann-form",
    :doc "Annotate a form with an expected type.",
    :var-type "macro",
-   :line 123,
+   :line 134,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& args]),
    :name "atom",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L198",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L209",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/atom",
    :doc
    "Like atom, but with optional type annotations.\n\nSame as (atom (ann-form init t) args*)\n\neg. (atom 1) : (Atom1 (Value 1))\n    (atom :- Num, 1) : (Atom1 Num)",
    :var-type "macro",
-   :line 198,
+   :line 209,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([name & fdecl]),
    :forms [(def name docstring? :- type? expr)],
    :name "def",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L22",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L22",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/def",
    :doc
@@ -2081,34 +2160,50 @@
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& args]),
    :forms
-   [(defn poly? name docstring? [param :- type *] :- type exprs*)
-    (defn poly? name docstring? ([param :- type *] :- type exprs*) +)],
+   [(defn name docstring? [param :- type *] :- type exprs*)
+    (defn
+     :forall
+     poly
+     name
+     docstring?
+     [param :- type *]
+     :-
+     type
+     exprs*)
+    (defn poly? name docstring? ([param :- type *] :- type exprs*) +)
+    (defn
+     :forall
+     poly
+     name
+     docstring?
+     ([param :- type *] :- type exprs*)
+     +)],
    :name "defn",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L228",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L239",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/defn",
    :doc
-   "Like defn, but with optional annotations. All annotations default to Any,\nlike the typed fn macro. Rest parameters default to starred.\n\neg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)\n\n;annotate return\n(defn fname [a :- String] :- String ...)\n\n;multi-arity\n(defn fname \n  ([a :- String] :- String ...)\n  ([a :- String, b :- Number] :- Long ...))",
+   "Like defn, but expands to clojure.core.typed/fn. If a polymorphic binder is\nsupplied before the var name, expands to clojure.core.typed/pfn.\n\neg. (defn fname [a :- Number, b :- (U Symbol nil)] :- Integer ...)\n\n;annotate return\n(defn fname [a :- String] :- String ...)\n\n;multi-arity\n(defn fname \n  ([a :- String] :- String ...)\n  ([a :- String, b :- Number] :- Long ...))\n\n;polymorphic function\n(defn :forall [x y]\n  fname \n  ([a :- x] :- (Coll y) ...)\n  ([a :- Str, b :- y] :- y ...))",
    :var-type "macro",
-   :line 228,
+   :line 239,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& body]),
    :name "defprotocol",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L133",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L144",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/defprotocol",
    :doc
    "Like defprotocol, but with optional type annotations.\n\nOmitted annotations default to Any. The first argument\nof a protocol cannot be annotated.\n\nAdd a binder before the protocol name to define a polymorphic\nprotocol. A binder before the method name defines a polymorphic\nmethod, however a method binder must not shadow type variables\nintroduced by a protocol binder.\n\nReturn types for each method arity can be annotated.\n\nUnlike clojure.core/defprotocol, successive methods can\nhave the same arity. Semantically, providing multiple successive\nmethods of the same arity is the same as just providing the left-most\nmethod. However the types for these methods will be accumulated into\na Fn type.\n\neg. ;annotate single method\n(defprotocol MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;polymorphic protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Number))\n\n;multiple types for the same method\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  (a [this a :- Integer] :- Integer\n     [this a :- Long] :- Long\n     [this a :- Number] :- Number))\n\n;polymorphic method+protocol\n(defprotocol [[x :variance :covariant]]\n  MyProtocol\n  ([y] a [this a :- x, b :- y] :- y))\n",
    :var-type "macro",
-   :line 133,
+   :line 144,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& forms]),
    :forms
@@ -2120,53 +2215,53 @@
    :name "fn",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L56",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L66",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/fn",
    :doc
-   "Like clojure.core/fn, but with optional annotations.\n\neg. ;these forms are equivalent\n    (fn [a] b)\n    (fn [a :- Any] b)\n    (fn [a :- Any] :- Any b)\n    (fn [a] :- Any b)\n\n    ;annotate return\n    (fn [a :- String] :- String body)\n\n    ;named fn\n    (fn fname [a :- String] :- String body)\n\n    ;rest parameter\n    (fn [a :- String & b :- Number *] body)\n\n    ;dotted rest parameter\n    (fn [a :- String & b :- Number ... x] body)\n\n    ;multi-arity\n    (fn fname \n      ([a :- String] :- String ...)\n      ([a :- String, b :- Number] :- String ...))",
+   "Like clojure.core/fn, but with optional annotations.\n\neg. ;these forms are equivalent\n    (fn [a] b)\n    (fn [a :- Any] b)\n    (fn [a :- Any] :- Any b)\n    (fn [a] :- Any b)\n\n    ;annotate return\n    (fn [a :- String] :- String body)\n\n    ;named fn\n    (fn fname [a :- String] :- String body)\n\n    ;rest parameter\n    (fn [a :- String & b :- Number *] body)\n\n    ;dotted rest parameter\n    (fn [a :- String & b :- Number ... x] body)\n\n    ;multi-arity\n    (fn fname \n      ([a :- String] :- String ...)\n      ([a :- String, b :- Number] :- String ...))\n\n    ; polymorphic binder\n    (fn :forall [x y z]\n      fname \n      ([a :- String] :- String ...)\n      ([a :- String, b :- Number] :- String ...))\n",
    :var-type "macro",
-   :line 56,
+   :line 66,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([bvec & forms]),
    :forms [(let [binding :- type? init*] exprs*)],
    :name "let",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L111",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L122",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/let",
    :doc
    "Like clojure.core/let but supports optional type annotations.\n\neg. (let [a :- Type, b\n          a2 1.2]\n      body)",
    :var-type "macro",
-   :line 111,
+   :line 122,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([bindings & exprs]),
    :forms [(loop [binding :- type? init*] exprs*)],
    :name "loop",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L93",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L104",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/loop",
    :doc
    "Like clojure.core/loop, and supports optional type annotations.\nArguments default to a generalised type based on the initial value.\n\neg. (loop [a :- Number 1\n           b :- (U nil Number) nil]\n      ...)",
    :var-type "macro",
-   :line 93,
+   :line 104,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([fdecl name]),
    :name "parse-colon",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L14",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L14",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/parse-colon",
    :doc "Returns a vector of [provided? t args]",
@@ -2177,42 +2272,42 @@
    :name "ref",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L213",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L224",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/ref",
    :doc
    "Like ref, but with optional type annotations.\n\nSame as (ref (ann-form init t) args*)\n\neg. (ref 1) : (Ref1 (Value 1))\n    (ref :- Num, 1) : (Ref1 Num)",
    :var-type "macro",
-   :line 213,
+   :line 224,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([& body]),
    :name "tc-ignore",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L179",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L190",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/tc-ignore",
    :doc "Ignore forms in body during type checking",
    :var-type "macro",
-   :line 179,
+   :line 190,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([b & body]),
    :name "when-let-fail",
    :namespace "clojure.core.typed.macros",
    :source-url
-   "https://github.com/clojure/core.typed/blob/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L191",
+   "https://github.com/clojure/core.typed/blob/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L202",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/90668de712da4791677415c23ce94aff4e1cee26/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
+   "https://github.com/clojure/core.typed/raw/92f59fda3bd6cf404c7f16185a2e656c4ccbef24/module-rt/src/main/clojure/clojure/core/typed/macros.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.macros/when-let-fail",
    :doc
    "Like when-let, but fails if the binding yields a false value.",
    :var-type "macro",
-   :line 191,
+   :line 202,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
   {:arglists ([nsyms]),
    :name "statistics",
