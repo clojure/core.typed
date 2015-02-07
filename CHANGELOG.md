@@ -1,3 +1,7 @@
+# 0.2.78 - SNAPSHOT
+
+- fix [CTYP-196](http://dev.clojure.org/jira/browse/CTYP-196)
+
 # 0.2.77 - 4 January 2015
 
 - Complete [CTYP-186](http://dev.clojure.org/jira/browse/CTYP-186) - type check `restore-right`
