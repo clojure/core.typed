@@ -4528,6 +4528,10 @@
   (is-tc-e (vec (flatten [1 2])))
   (is-tc-err (flatten :a)))
 
+(deftest CTYP-196-frees
+  (is-tc-e (let [a first]
+             a)))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
