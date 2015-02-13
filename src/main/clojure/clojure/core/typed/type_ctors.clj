@@ -2272,8 +2272,7 @@
                                 (if-let [v (get (.types t) k)]
                                   v
                                   ; if key is known absent, or we have a complete map, we know precisely the result.
-                                  (if (or (contains? (.absent-keys t) k)
-                                          (complete-hmap? t))
+                                  (if (contains? (.absent-keys t) k)
                                     (do
                                       #_(tc-warning
                                         "Looking up key " (ind/unparse-type k) 
@@ -2287,7 +2286,9 @@
                                       (do #_(tc-warning "Looking up key " (ind/unparse-type k)
                                                         " in heterogeneous map type " (ind/unparse-type t)
                                                         " which does not declare the key absent ")
-                                          r/-any)))))
+                                          (if (complete-hmap? t)
+                                            (or default r/-nil)
+                                            r/-any))))))
 
       (r/Record? t) (find-val-type (Record->HMap t) k default)
 
