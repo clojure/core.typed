@@ -830,7 +830,18 @@
   ;keyword-invoke with default
   (is-tc-e (:a (ann-form {} (HMap :optional {:a Number}))
                'a)
-           (U Number Symbol)))
+           (U Number Symbol))
+  ; absent keys, optional keys and complete HMaps
+  (is-clj (= (tc-t (:o (ann-form {} (HMap :optional {:o (Val "v")} :complete? true))))
+             (ret (Un -nil (-val "v")))))
+  (is-clj (= (tc-t (:a (ann-form {} (HMap :absent-keys #{:a} :complete? true))))
+             (ret -nil)))
+  (is-clj (= (tc-t (:a (ann-form {} (HMap :absent-keys #{:a} :complete? false))))
+             (ret -nil)))
+  (is-clj (= (tc-t (:n (ann-form {} (HMap :complete? true))))
+             (ret -nil)))
+  (is-clj (= (tc-t (:n (ann-form {} (HMap :complete? false))))
+             (ret -any))))
 
 (defn print-cset [cs]
   (into {} (doall
