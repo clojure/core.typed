@@ -5,6 +5,7 @@ Thanks to Nathan Sorenson who contributed patches included in this release.
 - Fix bad propositions in isa?
 - fix [CTYP-196](http://dev.clojure.org/jira/browse/CTYP-196)
 - Fix [CTYP-198](http://dev.clojure.org/jira/browse/CTYP-198)
+- Fix a bunch of special type checked forms (eg. merge) not checking expected type
 
 # 0.2.77 - 4 January 2015
 
