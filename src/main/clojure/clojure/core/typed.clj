@@ -1301,10 +1301,8 @@ for checking namespaces, cf for checking individual forms."}
    (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
    (let [m (vary-meta sym
                       update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t))))
-         qsym (if (namespace sym)
-                sym
-                (-> (symbol (-> *ns* ns-name str) (str sym))
-                    (with-meta (meta m))))]
+         qsym (-> (symbol (-> *ns* ns-name str) (str sym))
+                  (with-meta (meta m)))]
      `(do
         (declare ~sym)
         (tc-ignore (add-to-alias-env '~&form '~qsym '~t))
