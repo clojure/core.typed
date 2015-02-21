@@ -2190,7 +2190,10 @@ for checking namespaces, cf for checking individual forms."}
   - :profile         Use Timbre to profile the type checker. Timbre must be
                      added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
-                     of (Map '{:line Int :column Int :file Str} Str)."
+                     of (Map '{:line Int :column Int :file Str} Str).
+
+  Default return map
+  - :delayed-errors  A sequence of delayed errors (ex-info instances)"
   ([] (check-ns-info *ns*))
   ([ns-or-syms & opt]
    (load-if-needed)
