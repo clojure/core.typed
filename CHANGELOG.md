@@ -1,3 +1,7 @@
+# 0.2.78 - SNAPSHOT
+
+- Fix bad propositions in isa?
+
 # 0.2.77 - 4 January 2015
 
 - Complete [CTYP-186](http://dev.clojure.org/jira/browse/CTYP-186) - type check `restore-right`
