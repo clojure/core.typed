@@ -16,9 +16,15 @@
             [clojure.core.typed.collect-phase :as coll]
             [clojure.pprint :as pprint]))
 
+(defn qualify-in-cct [as]
+  (for [[k v] (partition 2 as)]
+    [(-> (symbol "clojure.core.typed" (name k))
+         (with-meta (meta k)))
+     v]))
+
 (defmacro alias-mappings [& args]
   `(impl/with-clojure-impl
-     (let [ts# (partition 2 '~args)]
+     (let [ts# (qualify-in-cct '~args)]
        (into {}
              (doall
                (for [[s# t#] ts#]
