@@ -5,6 +5,8 @@ Thanks to Nathan Sorenson who contributed patches included in this release.
 - Fix bad propositions in isa?
 - Fix [CTYP-198](http://dev.clojure.org/jira/browse/CTYP-198)
 - Fix a bunch of special type checked forms (eg. merge) not checking expected type
+- defalias's that "overwrite" existing imported vars no longer silently fail
+  - defalias must take an unqualified symbol, and its expansion includes a `declare`
 
 # 0.2.78 - 8 Feb 2015
 
