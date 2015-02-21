@@ -60,6 +60,16 @@
    :post [(Path? %)]}
   (Path-maker path id))
 
+(defn last-path-elem [o]
+  {:pre [(Path? o)]
+   :post [((some-fn nil? pr/PathElem?) %)]}
+  (last (:path o)))
+
+(defn without-final-elem [o]
+  {:pre [(Path? o)]
+   :post [(Path? %)]}
+  (update-in o [:path] (comp seq butlast)))
+
 (t/ann-record NoObject [])
 (u/def-object NoObject []
   "Represents no info about the object of this expression

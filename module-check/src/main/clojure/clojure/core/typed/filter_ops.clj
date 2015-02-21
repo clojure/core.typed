@@ -416,6 +416,8 @@
 (ind-u/add-indirection ind/-FS -FS)
 
 (defn atomic-filter? [a]
+  {;TODO :pre [(fr/Filter? a)]
+   :post [(con/boolean? %)]}
   (boolean 
     ((some-fn fr/TypeFilter? fr/NotTypeFilter?
               fr/TopFilter? fr/BotFilter?) 

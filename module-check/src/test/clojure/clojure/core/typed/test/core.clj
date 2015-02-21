@@ -1142,7 +1142,25 @@
                 (assert (isa? [(class a) (class b) 1] [Number Number]))
                 (+ a b)))
   (is-tc-e (isa? {:parents {} :ancestors {} :descendants {}} 1 1))
-  (is-tc-e #(isa? (class %) Number)))
+  (is-tc-e #(isa? (class %) Number))
+  (is (= (ret (parse-clj `(U (Value 1) (Value 2)))
+              (-true-filter))
+         (tc-e (let [m {:a :b}
+                     a :- Any 1
+                     b :- Any 2]
+                 (if (isa? (:a m) (ann-form 1 Long))
+                   1
+                   2)))))
+  (is (= (ret (parse-clj `(U (Value 1) (Value 2)))
+              (-true-filter))
+         (tc-e
+           (let [c clojure.lang.Keyword]
+             (if (isa? c Object)
+               (do (print-env "then")
+                   1)
+               (do (print-env "else")
+                   2))))))
+  )
 
 (deftest array-primitive-hint-test
   (is-tc-e (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
@@ -4528,6 +4546,11 @@
   (is-tc-e (vec (flatten [1 2])))
   (is-tc-err (flatten :a)))
 
+;
+;(try (tc-e (for [x :- Int, [[1 2] [3 4]]] :- (Seq Int) x))
+;     (catch Throwable e
+;       (clojure.repl/pst e)))
+;
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

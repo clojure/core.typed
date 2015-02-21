@@ -7,7 +7,9 @@
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.object-rep :as obj])
+            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.path-rep :as path]
+            [clojure.core.typed.tc-equiv :as equiv])
   (:import (clojure.core.typed.type_rep TCResult)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -25,8 +27,34 @@
                  {:pre [(r/TCResult? child1)
                         (r/TCResult? parent1)]
                   :post [((con/hmap-c? :then fl/Filter? :else fl/Filter?) %)]}
-                 {:then (fo/-filter-at (r/ret-t parent1) (r/ret-o child1))
-                  :else (fo/-not-filter-at (r/ret-t parent1) (r/ret-o child1))})]
+                 (let [obj (r/ret-o child1)
+                       ty (c/fully-resolve-type (r/ret-t parent1))]
+                   (cond
+                     ;; - if child1's object is terminated with a ClassPE and we have a class singleton
+                     ;;   on the right, then we strip off the last path element and claim that object is
+                     ;;   and instance of that class.
+                     ;;TODO `last` has complexity linear in length of path, use better data structure
+                     (and (obj/Path? obj)
+                          (path/ClassPE? (obj/last-path-elem obj))
+                          (r/Value? ty)
+                          (class? (:val ty)))
+                     (let [obj (obj/without-final-elem obj)
+                           ty (c/RClass-of (:val ty))]
+                       {:then (fo/-filter-at ty obj)
+                        :else (fo/-not-filter-at ty obj)})
+
+                     ;; - if we have a singleton type that is not a Class, then we're in equality mode
+                     ;;   so the filters just claim the child1 is of type parent1.
+                     (and (r/Value? ty)
+                          (not (class? (:val ty)))
+                          (equiv/equivable? ty))
+                     {:then (fo/-filter-at ty obj)
+                      :else (fo/-not-filter-at ty obj)}
+
+                     ;; - otherwise, give up
+                     :else
+                     {:then fl/-top
+                      :else fl/-top})))]
     (let [child-t (r/ret-t child-ret)
           parent-t (r/ret-t parent-ret)
           fs (cond
