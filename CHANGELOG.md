@@ -8,6 +8,10 @@ Thanks to Nathan Sorenson who contributed patches included in this release.
 - defalias's that "overwrite" existing imported vars no longer silently fail
   - defalias must take an unqualified symbol, and its expansion includes a `declare`
 
+BREAKING CHANGE
+
+- defalias :forms metadata must be quoted to avoid evaluation
+
 # 0.2.78 - 8 Feb 2015
 
 - Fix [CTYP-196](http://dev.clojure.org/jira/browse/CTYP-196)

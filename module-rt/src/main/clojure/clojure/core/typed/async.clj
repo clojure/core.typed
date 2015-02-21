@@ -71,7 +71,7 @@
 ;; Aliases
 
 (defalias 
-  ^{:forms [(Port2 t t)]}
+  ^{:forms '[(Port2 t t)]}
   Port2
   "A port that can write type w and read type r"
   (TFn [[w :variance :contravariant]
@@ -80,7 +80,7 @@
        (impl/ReadPort r))))
 
 (defalias 
-  ^{:forms [(Port t)]}
+  ^{:forms '[(Port t)]}
   Port
   "A port that can read and write type x"
   (TFn [[x :variance :invariant]]
@@ -110,27 +110,27 @@
     (Chan2 t/Nothing r)))
 
 (defalias 
-  ^{:forms [(ReadOnlyPort t)]}
+  ^{:forms '[(ReadOnlyPort t)]}
   ReadOnlyPort
   "A read-only port that can read type x"
   (TFn [[t :variance :covariant]]
     (Port2 t/Nothing t)))
 
 (defalias 
-  ^{:forms [(WriteOnlyPort t)]}
+  ^{:forms '[(WriteOnlyPort t)]}
   WriteOnlyPort
   "A write-only port that can write type p"
   (TFn [[p :variance :contravariant]]
     (Port2 p t/Nothing)))
 
 (defalias
-  ^{:forms [TimeoutChan]}
+  ^{:forms '[TimeoutChan]}
   TimeoutChan
   "A timeout channel"
   (Chan Any))
 
 (defalias 
-  ^{:forms [(Buffer2 t t)]}
+  ^{:forms '[(Buffer2 t t)]}
   Buffer2
   "A buffer of that can write type w and read type t."
   (TFn [[w :variance :contravariant]
@@ -139,14 +139,14 @@
          clojure.lang.Counted)))
 
 (defalias 
-  ^{:forms [(Buffer t)]}
+  ^{:forms '[(Buffer t)]}
   Buffer
   "A buffer of type x."
   (TFn [[x :variance :invariant]]
     (Buffer2 x x)))
 
 (defalias 
-  ^{:forms [(UnblockingBuffer2 t t)]}
+  ^{:forms '[(UnblockingBuffer2 t t)]}
   UnblockingBuffer2
   "An unblocking buffer that can write type w and read type t."
   (TFn [[w :variance :contravariant]
@@ -155,7 +155,7 @@
          impl/UnblockingBuffer)))
 
 (defalias 
-  ^{:forms [(UnblockingBuffer t)]}
+  ^{:forms '[(UnblockingBuffer t)]}
   UnblockingBuffer
   "An unblocking buffer of type x."
   (TFn [[x :variance :invariant]]

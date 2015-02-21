@@ -998,11 +998,10 @@
 
 (deftest names-expansion-test
   (is (do
-        (tc-e (defalias clojure.core.typed.test.core/MyAlias
-                (U nil (HMap :mandatory {:a Number}))))
-        (clj
-          (subtype? (Name-maker 'clojure.core.typed.test.core/MyAlias)
-                    -any)))))
+        (tc-e (do
+                (defalias MyAlias
+                  (U nil (HMap :mandatory {:a Number})))
+                (-> nil (ann-form MyAlias) (ann-form Any)))))))
 
 (deftest ccfind-test
   (is-clj
