@@ -2243,7 +2243,8 @@
          (r/Type? k)
          ((some-fn nil? r/Type?) default)]
    :post [(r/Type? %)]}
-  (let [t (fully-resolve-type t)]
+  (let [t (fully-resolve-type t)
+        default (or default r/-nil)]
     (cond
       ; propagate the error
       (r/TCError? t) t
@@ -2267,28 +2268,32 @@
                                (find-val-type hmap k default)
                                r/-any))
                            :else r/-any))
-      (r/HeterogeneousMap? t) (let [^HeterogeneousMap t t]
-                                ; normal case, we have the key declared present
-                                (if-let [v (get (.types t) k)]
-                                  v
-                                  ; if key is known absent, or we have a complete map, we know precisely the result.
-                                  (if (contains? (.absent-keys t) k)
-                                    (do
-                                      #_(tc-warning
+      (r/HeterogeneousMap? t) (let [pres ((:types t) k)
+                                    opt  ((:optional t) k)]
+                                (cond
+                                  ; normal case, we have the key declared present
+                                  pres pres
+
+                                  ; absent key, default
+                                  ((:absent-keys t) k)
+                                  (do
+                                    #_(tc-warning
                                         "Looking up key " (ind/unparse-type k) 
                                         " in heterogeneous map type " (ind/unparse-type t)
                                         " that declares the key always absent.")
-                                      (or default r/-nil))
-                                    ; if key is optional the result is the val or the default
-                                    (if-let [opt (get (:optional t) k)]
-                                      (Un opt (or default r/-nil))
-                                      ; otherwise result is t/Any
-                                      (do #_(tc-warning "Looking up key " (ind/unparse-type k)
-                                                        " in heterogeneous map type " (ind/unparse-type t)
-                                                        " which does not declare the key absent ")
-                                          (if (complete-hmap? t)
-                                            (or default r/-nil)
-                                            r/-any))))))
+                                    default)
+
+                                  ; if key is optional the result is the val or the default
+                                  opt (Un opt default)
+
+                                  ; if map is complete, entry must be missing
+                                  (complete-hmap? t) default
+
+                                  :else
+                                  (do #_(tc-warning "Looking up key " (ind/unparse-type k)
+                                                    " in heterogeneous map type " (ind/unparse-type t)
+                                                    " which does not declare the key absent ")
+                                      r/-any)))
 
       (r/Record? t) (find-val-type (Record->HMap t) k default)
 
@@ -2310,7 +2315,7 @@
                                              [java.util.Map t/Any y# :-> (t/U y# t/Any)]
                                              [String t/Any y# :-> (t/U y# Character)]
                                              ))))
-                      [(r/ret t) (r/ret k) (r/ret (or default r/-nil))] nil)
+                      [(r/ret t) (r/ret k) (r/ret default)] nil)
         r/ret-t)
       :else r/-any)))
 
