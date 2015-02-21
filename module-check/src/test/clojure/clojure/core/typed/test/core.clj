@@ -4576,6 +4576,31 @@
   (is-tc-e (let [a first]
              a)))
 
+(deftest recursive-defalias-test
+  ;; List already refers to c.c.t/List
+  (is (thrown?
+        java.lang.IllegalStateException
+        (tc-e (do (defalias List
+              (U '{:op ':cons
+                   :car Any
+                   :cdr List}
+                 '{:op ':nil}))
+            (let [a :- List1, {:op :nil}
+                  b :- List1, {:op :cons 
+                               :car 1
+                               :cdr a}])))))
+  (is-tc-e
+    (do (defalias List1
+          (U '{:op ':cons
+               :car Any
+               :cdr List1}
+             '{:op ':nil}))
+        (let [a :- List1, {:op :nil}
+              b :- List1, {:op :cons 
+                           :car 1
+                           :cdr a}]))))
+
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
