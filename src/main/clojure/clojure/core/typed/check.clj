@@ -486,7 +486,9 @@
         (r/KwArgsSeq? targett)
         (assoc expr
                :args cargs
-               u/expr-type (r/ret (c/KwArgsSeq->HMap targett)))
+               u/expr-type (below/maybe-check-below
+                             (r/ret (c/KwArgsSeq->HMap targett))
+                             expected))
         (r/HeterogeneousSeq? targett)
         (let [res (reduce (fn [t [kt vt]]
                             {:pre [(r/Type? t)]}
@@ -498,7 +500,9 @@
                           (c/-complete-hmap {}) (:types targett))]
           (assoc expr
                  :args cargs
-                 u/expr-type (r/ret res)))
+                 u/expr-type (below/maybe-check-below
+                               (r/ret res)
+                               expected)))
         :else :default))))
 
 ;; FIXME when updating tools.analyzer past 0.5.0, update :keyword-invoke fields
@@ -568,7 +572,9 @@
         ; push-thread-bindings is unannotated
         #_(update-in [:fn] check)
         (assoc :args cargs
-               u/expr-type (r/ret r/-nil)))))
+               u/expr-type (below/maybe-check-below
+                             (r/ret r/-nil)
+                             expected)))))
 
 (defn swap!-dummy-arg-expr [env [target-expr & [f-expr & args]]]
   (assert f-expr)
@@ -656,7 +662,9 @@
             (if (seq @delayed-errors)
               :default
               (assoc expr
-                     u/expr-type (r/ret deref-type)))))
+                     u/expr-type (below/maybe-check-below
+                                   (r/ret deref-type)
+                                   expected)))))
       :default)))
 
 ;=
@@ -732,10 +740,12 @@
                             vs/*current-expr* expr]
                     (doall (map prs/parse-type (ast-u/quote-expr-val targs-exprs))))]
         (assoc expr
-               u/expr-type (r/ret 
-                             (binding [prs/*unparse-type-in-ns* (cu/expr-ns expr)
-                                       vs/*current-expr* expr]
-                               (inst/manual-inst ptype targs))))))))
+               u/expr-type (below/maybe-check-below
+                             (r/ret 
+                               (binding [prs/*unparse-type-in-ns* (cu/expr-ns expr)
+                                         vs/*current-expr* expr]
+                                 (inst/manual-inst ptype targs)))
+                             expected))))))
 
 (defonce ^:dynamic *inst-ctor-types* nil)
 (set-validator! #'*inst-ctor-types* (some-fn nil? (con/every-c? r/Type?)))
@@ -765,7 +775,9 @@
     (print-env/print-env*))
   ;DO NOT REMOVE
   (assoc expr
-         u/expr-type (r/ret r/-nil (fo/-false-filter) obj/-empty)))
+         u/expr-type (below/maybe-check-below
+                       (r/ret r/-nil (fo/-false-filter) obj/-empty)
+                       expected)))
 
 ;filter printing
 (add-invoke-special-method 'clojure.core.typed/print-filterset
@@ -801,7 +813,9 @@
                             prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (prs/parse-type tsyn))]
     (assoc expr
-           u/expr-type (r/ret parsed-ty))))
+           u/expr-type (below/maybe-check-below
+                         (r/ret parsed-ty)
+                         expected))))
 
 ;pred
 (add-invoke-special-method 'clojure.core.typed/pred*
@@ -818,7 +832,9 @@
           (prs/with-parse-ns nsym
             (prs/parse-type tsyn)))]
     (assoc expr
-           u/expr-type (r/ret (prs/predicate-for ptype)))))
+           u/expr-type (below/maybe-check-below
+                         (r/ret (prs/predicate-for ptype))
+                         expected))))
 
 ;fn literal
 (add-invoke-special-method 'clojure.core.typed/fn>-ann
@@ -913,9 +929,11 @@
         (update-in [:fn] check)
         (assoc 
           :args cargs
-          u/expr-type (r/ret (r/-hvec (mapv (comp r/ret-t u/expr-type) cargs)
-                                  :filters (mapv (comp r/ret-f u/expr-type) cargs)
-                                  :objects (mapv (comp r/ret-o u/expr-type) cargs)))))))
+          u/expr-type (below/maybe-check-below
+                        (r/ret (r/-hvec (mapv (comp r/ret-t u/expr-type) cargs)
+                                        :filters (mapv (comp r/ret-f u/expr-type) cargs)
+                                        :objects (mapv (comp r/ret-o u/expr-type) cargs)))
+                        expected)))))
 
 ;make hash-map
 (add-invoke-special-method 'clojure.core/hash-map
@@ -928,8 +946,10 @@
       (-> expr
         (update-in [:fn] check)
         (assoc :args cargs
-               u/expr-type (r/ret (c/-complete-hmap
-                                (apply hash-map (mapv (comp r/ret-t u/expr-type) cargs))))))
+               u/expr-type (below/maybe-check-below
+                             (r/ret (c/-complete-hmap
+                                      (apply hash-map (mapv (comp r/ret-t u/expr-type) cargs))))
+                             expected)))
       :else (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
 
 ;(apply concat hmap)
@@ -949,7 +969,9 @@
                     (cu/expected-error r (r/ret-t expected))))]
           (-> expr
               (update-in [:fn] check)
-              (assoc u/expr-type (r/ret r))))
+              (assoc u/expr-type (below/maybe-check-below
+                                   (r/ret r)
+                                   expected))))
         :else cu/not-special))))
 
 ;apply hash-map
@@ -967,7 +989,9 @@
       (-> expr
           (update-in [:fn] check)
           (assoc :args cargs
-                 u/expr-type (r/ret (c/KwArgsSeq->HMap (-> (u/expr-type (last cargs)) r/ret-t)))))
+                 u/expr-type (below/maybe-check-below
+                               (r/ret (c/KwArgsSeq->HMap (-> (u/expr-type (last cargs)) r/ret-t)))
+                               expected)))
 
       (and (seq cargs)
            ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
@@ -978,9 +1002,11 @@
       (-> expr
           (update-in [:fn] check)
           (assoc :args cargs
-                 u/expr-type (r/ret (c/-complete-hmap
-                                  (apply hash-map (concat (map (comp r/ret-t u/expr-type) (butlast cargs))
-                                                          (mapcat vector (:types (r/ret-t (u/expr-type (last cargs)))))))))))
+                 u/expr-type (below/maybe-check-below
+                               (r/ret (c/-complete-hmap
+                                        (apply hash-map (concat (map (comp r/ret-t u/expr-type) (butlast cargs))
+                                                                (mapcat vector (:types (r/ret-t (u/expr-type (last cargs)))))))))
+                               expected)))
       :else cu/not-special)))
 
 
@@ -1027,9 +1053,11 @@
         (update-in [:fn] check)
         (assoc
           :args cargs
-          u/expr-type (r/ret new-hmaps
-                         (fo/-true-filter) ;assoc never returns nil
-                         obj/-empty)))
+          u/expr-type (below/maybe-check-below
+                        (r/ret new-hmaps
+                               (fo/-true-filter) ;assoc never returns nil
+                               obj/-empty)
+                        expected)))
       
       ;; to do: improve this error message
       (err/tc-delayed-error (str "Cannot assoc args `"
@@ -1057,7 +1085,9 @@
           (update-in [:fn] check)
           (assoc
             :args cargs
-            u/expr-type (r/ret new-t)))
+            u/expr-type (below/maybe-check-below
+                          (r/ret new-t)
+                          expected)))
       (invoke/normal-invoke check expr fexpr args expected
                      :cargs cargs))))
 
@@ -1073,9 +1103,11 @@
       (-> expr
           (update-in [:fn] check)
           (assoc :args cargs
-                 u/expr-type (r/ret merged
-                                (fo/-true-filter) ;assoc never returns nil
-                                obj/-empty)))
+                 u/expr-type (below/maybe-check-below
+                               (r/ret merged
+                                      (fo/-true-filter) ;assoc never returns nil
+                                      obj/-empty)
+                               expected)))
       (invoke/normal-invoke check expr fexpr args expected
                      :cargs cargs))))
 
@@ -1089,9 +1121,11 @@
       (-> expr
           (update-in [:fn] check)
           (assoc :args cargs
-                 u/expr-type (r/ret conjed
-                                (fo/-true-filter) ; conj never returns nil
-                                obj/-empty)))
+                 u/expr-type (below/maybe-check-below
+                               (r/ret conjed
+                                      (fo/-true-filter) ; conj never returns nil
+                                      obj/-empty)
+                               expected)))
       (invoke/normal-invoke check expr fexpr args expected
                      :cargs cargs))))
 
@@ -1102,6 +1136,7 @@
             vs/*current-env* env]
     (let [error-expr (-> expr
                          (update-in [:fn] check)
+                         ;;TODO does this need below/maybe-check-below?
                          (assoc u/expr-type (r/ret (r/TCError-maker))))]
       (cond
         (not (< 3 (count args))) (err/tc-delayed-error (str "update-in takes at least 3 arguments"
@@ -1169,7 +1204,9 @@
       (-> expr
         (update-in [:fn] check)
         (assoc :args cargs
-               u/expr-type (r/ret actual))))))
+               u/expr-type (below/maybe-check-below
+                             (r/ret actual)
+                             expected))))))
 
 ; FIXME this needs a line number from somewhere!
 (defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
@@ -1516,7 +1553,9 @@
         _ (mm/add-multimethod-dispatch-type mm-qual (r/ret-t (u/expr-type cdisp)))]
     (assoc expr
            :args cargs
-           u/expr-type (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected))))))
+           u/expr-type (below/maybe-check-below
+                         (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected)))
+                         expected))))
 
 (defmethod new-special :default [expr & [expected]] cu/not-special)
 
@@ -1630,12 +1669,10 @@
         ;ignore macro definitions and declare
         (or (.isMacro ^Var var)
             (not init-provided))
-        (let [actual-t (c/RClass-of Var [(r/Bottom) r/-any])
-              _ (when (and expected
-                           (not (sub/subtype? actual-t (r/ret-t expected))))
-                  (cu/expected-error actual-t (r/ret-t expected)))]
-          (assoc expr
-                 u/expr-type (r/ret actual-t)))
+        (assoc expr
+               u/expr-type (below/maybe-check-below
+                             (r/ret (c/RClass-of Var [(r/Bottom) r/-any]))
+                             expected))
 
         :else (def/check-normal-def check expr expected)))))
 
@@ -1664,7 +1701,9 @@
                             (c/DataType-fields* dt))
           expected-field-syms (vec (keys expected-fields))
           ret-expr (assoc expr
-                          u/expr-type (r/ret (c/RClass-of Class)))]
+                          u/expr-type (below/maybe-check-below
+                                        (r/ret (c/RClass-of Class))
+                                        expected))]
 
       (cond
         (not dtp)
@@ -1764,7 +1803,9 @@
 (add-check-method :import
   [expr & [expected]]
   (assoc expr
-         u/expr-type (r/ret r/-nil)))
+         u/expr-type (below/maybe-check-below
+                       (r/ret r/-nil)
+                       expected)))
 
 (add-check-method :case-test
   [{:keys [test] :as expr} & [expected]]
@@ -1816,7 +1857,9 @@
                             filter (fo/-FS fl/-top fl/-top)
                             ; TODO
                             object obj/-empty]
-                        (r/ret type filter object))]
+                        (below/maybe-check-below
+                          (r/ret type filter object)
+                          expected))]
       (assoc expr
              :test ctarget
              :tests ctests

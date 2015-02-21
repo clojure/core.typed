@@ -2268,6 +2268,16 @@
   (equal-types (merge {:b 6} {'a 5})
                (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
 
+  (is-tc-e (fn [m1 :- '{:a Num}
+                m2 :- '{:b Num}]
+             :- '{:a Any :b Num}
+             (merge m1 m2)))
+
+  (is-tc-err (fn [m1 :- '{:a Num}
+                  m2 :- '{:b Num}]
+               :- '{:a Num :b Num}
+               (merge m1 m2)))
+
 ;;  TODO not handling presence of non keyword keys yet
 ;;   (equal-types (merge {'a 5} {:b 6})
 ;;                (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
