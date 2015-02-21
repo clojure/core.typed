@@ -1,6 +1,7 @@
 # 0.2.78 - SNAPSHOT
 
 - Fix bad propositions in isa?
+- fix [CTYP-196](http://dev.clojure.org/jira/browse/CTYP-196)
 
 # 0.2.77 - 4 January 2015
 
