@@ -1298,15 +1298,16 @@ for checking namespaces, cf for checking individual forms."}
    `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
   ([sym t]
    (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
-   (let [qsym (if (namespace sym)
+   (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
+   (let [m (vary-meta sym
+                      update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t))))
+         qsym (if (namespace sym)
                 sym
-                (symbol (-> *ns* ns-name str) (str sym)))
-         m (-> (meta sym)
-             (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
+                (-> (symbol (-> *ns* ns-name str) (str sym))
+                    (with-meta (meta m))))]
      `(do
+        (declare ~sym)
         (tc-ignore (add-to-alias-env '~&form '~qsym '~t))
-        (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
-          (tc-ignore (alter-meta! v# merge '~m)))
         (def-alias* '~qsym '~t)))))
 
 #_(defmacro tag
