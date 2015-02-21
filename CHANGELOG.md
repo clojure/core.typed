@@ -1,7 +1,10 @@
 # 0.2.78 - SNAPSHOT
 
+Thanks to Nathan Sorenson who contributed patches included in this release.
+
 - Fix bad propositions in isa?
 - fix [CTYP-196](http://dev.clojure.org/jira/browse/CTYP-196)
+- Fix [CTYP-198](http://dev.clojure.org/jira/browse/CTYP-198)
 
 # 0.2.77 - 4 January 2015
 
