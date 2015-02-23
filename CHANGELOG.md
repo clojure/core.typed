@@ -1,5 +1,8 @@
 # 0.2.81 - SNAPSHOT
 
+- fix isa? and = not checking filters
+- generalise ClassPE case in update
+
 # 0.2.80 - 20 Feb 2015
 
 Thanks to Nathan Sorenson who contributed patches included in this release.

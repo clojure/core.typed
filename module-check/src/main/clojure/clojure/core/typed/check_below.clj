@@ -10,6 +10,20 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.debug :as dbg]))
 
+(defn simple-filter-better? [f1 f2]
+  (or (fl/NoFilter? f2)
+      (sub/subtype-filter? f1 f2)))
+
+;; apply f1 to the current environment, and if the type filter
+;; is boring enough it will reflect in the updated type environment
+;(defn can-extract-in? [env f1 f2]
+;  (cond
+;    (fl/TypeFilter? f2) (let [good? (atom true)
+;                              new-env (update/env+ env [f1] good?)]
+;                          (boolean
+;                            (when @good?
+;                            )))
+
 ;; check-below : (/\ (Result Type -> Result)
 ;;                   (Result Result -> Result)
 ;;                   (Type Result -> Type)
@@ -22,18 +36,18 @@
    :post [(cond
             (r/TCResult? tr1) (r/TCResult? %)
             (r/Type? tr1) (r/Type? %))]}
-  (letfn [(filter-better? [{f1+ :then f1- :else :as f1}
+  (letfn [;; Try and use subtyping, otherwise 
+          (filter-better? [{f1+ :then f1- :else :as f1}
                            {f2+ :then f2- :else :as f2}]
             {:pre [(fl/FilterSet? f1)
                    (fl/FilterSet? f2)]
              :post [(con/boolean? %)]}
             (cond
               (= f1 f2) true
-              (and (or (fl/NoFilter? f2+)
-                       (sub/subtype-filter? f1+ f2+))
-                   (or (fl/NoFilter? f2-)
-                       (sub/subtype-filter? f1- f2-))) true
-              :else false))
+              :else
+              (let [f1-better? (simple-filter-better? f1+ f2+)
+                    f2-better? (simple-filter-better? f1- f2-)] 
+                (and f1-better? f2-better?))))
           (object-better? [o1 o2]
             {:pre [(obj/RObject? o1)
                    (obj/RObject? o2)]

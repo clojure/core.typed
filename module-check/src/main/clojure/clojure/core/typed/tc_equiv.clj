@@ -3,6 +3,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.contract-utils :as con]
             [clojure.math.combinatorics :as comb]))
 
@@ -14,8 +15,9 @@
       ((some-fn number? symbol? keyword? nil? true? false? class?) (:val t)))))
 
 ;[Any TCResult * -> TCResult]
-(defn tc-equiv [comparator & vs]
-  {:pre [(every? r/TCResult? vs)]
+(defn tc-equiv [comparator vs expected]
+  {:pre [(every? r/TCResult? vs)
+         ((some-fn nil? r/TCResult?) expected)]
    :post [(r/TCResult? %)]}
   (assert (#{:=} comparator))
   (assert (seq vs))
@@ -48,5 +50,7 @@
                                [fl/-top])))
         ;_ (prn else-filter)
         ]
-    (r/ret (c/Un r/-false r/-true)
-           (fo/-FS then-filter else-filter))))
+    (below/maybe-check-below
+      (r/ret (c/Un r/-false r/-true)
+             (fo/-FS then-filter else-filter))
+      expected)))

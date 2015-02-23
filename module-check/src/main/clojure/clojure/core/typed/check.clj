@@ -223,14 +223,6 @@
                                   (fo/-true-filter))
                            expected)))))
 
-
-(comment
-  (equiv/tc-equiv (r/ret (r/-val :if))
-            (r/ret (prs/parse-type '(U ':if ':case))
-                 ))
-
-  )
-
 (defmulti invoke-special (fn [{fexpr :fn :keys [op] :as expr} & args] 
                            {:pre [(#{:invoke} op)]
                             :post [((some-fn nil? symbol?) %)]}
@@ -676,7 +668,7 @@
     (-> expr
         (update-in [:fn] check)
         (assoc :args cargs
-               u/expr-type (apply equiv/tc-equiv := (map u/expr-type cargs))))))
+               u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected)))))
 
 ;identical
 (defmethod static-method-special 'clojure.lang.Util/identical
@@ -686,7 +678,7 @@
   (let [cargs (mapv check args)]
     (assoc expr
            :args cargs
-           u/expr-type (apply equiv/tc-equiv := (map u/expr-type cargs)))))
+           u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected))))
 
 ;equiv
 (defmethod static-method-special 'clojure.lang.Util/equiv
@@ -694,7 +686,7 @@
   (let [cargs (mapv check args)]
     (assoc expr
            :args cargs
-           u/expr-type (apply equiv/tc-equiv := (map u/expr-type cargs)))))
+           u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected))))
 
 ;isa? (2 arity is special)
 (add-invoke-special-method 'clojure.core/isa?
@@ -706,7 +698,8 @@
           (update-in [:fn] check)
           (assoc :args cargs
                  u/expr-type (isa/tc-isa? (u/expr-type cchild-expr)
-                                          (u/expr-type cparent-expr)))))
+                                          (u/expr-type cparent-expr)
+                                          expected))))
     :else :default))
 
 ;FIXME need to review if any repeated "check"s happen between invoke-apply and specials

@@ -142,7 +142,7 @@
                           ;_ (prn "disp-app-ret" disp-app-ret)
                           ;_ (prn "disp-fn-type" (prs/unparse-type dispatch-fn-type))
                           ;_ (prn "dom" dom)
-                          isa-ret (isa/tc-isa? disp-app-ret dispatch-val-ret)
+                          isa-ret (isa/tc-isa? disp-app-ret dispatch-val-ret nil)
                           then-filter (-> isa-ret r/ret-f :then)
                           _ (assert then-filter)]
                       then-filter)))
@@ -194,7 +194,7 @@
                                    ;type hasn't changed, no new propositions
                                    fs
                                    ;new type, add positive proposition
-                                   (conj fs (fo/-filter t sym))))
+                                   (conj fs (fo/-filter-at t (lex/lookup-alias sym :env env)))))
                                #{}
                                (:l then-env))
 

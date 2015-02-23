@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.isa
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.filter-protocols :as fprotocol]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.contract-utils :as con]
@@ -17,10 +18,12 @@
 ;(t/ann tc-isa? [TCResult TCResult -> TCResult])
 (defn tc-isa? 
   "Type check a call to isa?. Assumes global hierarchy.
-  Also supports the case where both elements are vectors, but not recursively."
-  [child-ret parent-ret]
+  Also supports the case where both elements are vectors, but not recursively.
+  Ensures result is below expected."
+  [child-ret parent-ret expected]
   {:pre [(r/TCResult? child-ret)
-         (r/TCResult? parent-ret)]
+         (r/TCResult? parent-ret)
+         ((some-fn r/TCResult? nil?) parent-ret)]
    :post [(r/TCResult? %)]}
   (t/letfn> [fs :- [TCResult TCResult -> '{:then fprotocol/IFilter :else fprotocol/IFilter}]
              (fs [child1 parent1]
@@ -70,5 +73,7 @@
                ; simple (isa? child parent) 
                :else (let [{:keys [then else]} (fs child-ret parent-ret)]
                        (fo/-FS then else)))]
-      (r/ret (c/Un r/-true r/-false) fs obj/-empty))))
+      (below/maybe-check-below
+        (r/ret (c/Un r/-true r/-false) fs obj/-empty)
+        expected))))
 

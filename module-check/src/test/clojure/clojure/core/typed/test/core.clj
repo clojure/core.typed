@@ -1170,7 +1170,40 @@
                    1)
                (do (print-env "else")
                    2))))))
+  (is-tc-err (do (ann nil?? (Pred nil))
+                 (defn nil?? [x]
+                   (not (isa? (-> x class class class class) Object)))))
+  (is-tc-e (do (ann rnil [Any -> nil])
+               (defn rnil [x]
+                 (when (isa? (-> x class class class class class class class class class) nil)
+                   x))))
+  (is-tc-e (do (ann robject [Any -> Object])
+               (defn robject [x]
+                 (if (isa? (-> x class class class class class class class) Object)
+                   x
+                   (Object.)))))
+  (is-tc-e (do (ann rnilobject [Any -> nil])
+               (defn rnilobject [x]
+                 (if (not (isa? (-> x class class) Object))
+                   x
+                   nil))))
+  (is-tc-err (do (ann robject [Any -> nil])
+               (defn robject [x]
+                 (if (isa? (-> x class class) Object)
+                   x
+                   nil))))
+  ;(is-tc-e (do (ann nil?? (Pred nil))
+  ;             (defn nil?? [x]
+  ;               (not (isa? (-> x class class) Object)))))
   )
+
+(deftest equiv-filters-test
+  (is-tc-e (do (ann a? (Pred ':a))
+               (defn a? [x]
+                 (= :a x))))
+  (is-tc-err (do (ann a? (Pred ':b))
+                 (defn a? [x]
+                   (= :a x)))))
 
 (deftest array-primitive-hint-test
   (is-tc-e (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
@@ -2138,8 +2171,9 @@
 
 (deftest CTYP-62-equiv-test
   (is (tc-equiv := 
-                (ret (-val "a"))
-                (ret -any))
+                [(ret (-val "a"))
+                 (ret -any)]
+                nil)
       (ret (Un -false -true)))
   (is (= (eret (= "a" (clojure.core.typed/ann-form 1 clojure.core.typed/Any)))
          (ret (Un -false -true))))

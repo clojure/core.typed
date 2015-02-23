@@ -35,10 +35,11 @@
                                       (= "clojure.core.typed.lex_env.PropEnv"
                                          (.getName (class a))))))
 
-(defn lookup-alias [sym]
-  {:pre [(con/local-sym? sym)]
+(defn lookup-alias [sym & {:keys [env]}]
+  {:pre [(con/local-sym? sym)
+         ((some-fn nil? PropEnv?) env)]
    :post [(obj/RObject? %)]}
-  (or (get-in *lexical-env* [:aliases sym])
+  (or (get-in (or env *lexical-env*) [:aliases sym])
       (obj/-id-path sym)))
 
 (defn lookup-local [sym]
