@@ -35,12 +35,15 @@
             _ (assert ((some-fn obj/Path? obj/EmptyObject?) o))
             this-pelem (pe/-kpe (:val kwt))
             val-type (c/find-val-type targett kwt defaultt)]
-        (if (not= (c/Un) val-type)
-          (binding [vs/*current-expr* (or expr vs/*current-expr*)]
-            (below/maybe-check-below
+        (binding [vs/*current-expr* (or expr vs/*current-expr*)]
+          (below/maybe-check-below
+            (if (not= (c/Un) val-type)
               (r/ret val-type
                      (fo/-FS (if (obj/Path? o)
-                               (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
+                               ;; if val-type is falsey, this will simplify to ff
+                               (fo/-and
+                                 (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
+                                 (fo/-not-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem])))
                                fl/-top)
                              (if (obj/Path? o)
                                (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
@@ -49,10 +52,10 @@
                      (if (obj/Path? o)
                        (update-in o [:path] #(seq (concat % [this-pelem])))
                        o))
-              expected-ret))
-          (do (u/tc-warning (str "Keyword lookup gave bottom type: "
-                               (:val kwt) " " (prs/unparse-type targett)))
-              (r/ret r/-any))))
+              (do (u/tc-warning (str "Keyword lookup gave bottom type: "
+                                     (:val kwt) " " (prs/unparse-type targett)))
+                  (r/ret r/-any)))
+            expected-ret)))
 
       :else (err/int-error (str "keyword-invoke only supports keyword lookup, no default. Found " 
                               (prs/unparse-type kwt)))))))

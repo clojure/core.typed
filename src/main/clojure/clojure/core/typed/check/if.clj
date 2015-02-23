@@ -42,8 +42,8 @@
                                  u/expr-type (r/ret (c/Un))))))]
       (let [tst (u/expr-type ctest)
             {fs+ :then fs- :else :as f1} (r/ret-f tst)
-            ;          _ (prn "check-if: fs+" (prs/unparse-filter fs+))
-            ;          _ (prn "check-if: fs-" (prs/unparse-filter fs-))
+            ;          _ (prn "check-if: fs+" fs+)
+            ;          _ (prn "check-if: fs-" fs-)
             flag+ (atom true :validator con/boolean?)
             flag- (atom true :validator con/boolean?)
 

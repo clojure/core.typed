@@ -301,7 +301,7 @@
          (ret 
            (parse-type 
              `(IFn [(U '{:op (Value :var)} '{:op (Value :if)}) :-> (U ':var ':if) 
-                    :filters {:then (~'is (U (Value :var) (Value :if)) 0 [(~'Key :op)]), 
+                    :filters {:then (~'! (U nil false) 0 [(~'Key :op)]), 
                               :else (~'| (~'is (HMap :absent-keys #{:op}) 0) 
                                          (~'is (U nil false) 0 [(~'Key :op)]))} 
                     :object {:path [(~'Key :op)], :id 0}]))
@@ -1995,8 +1995,7 @@
             [m :- (HMap)]
             (assert (:foo m))
             m))
-        (parse-clj `['{} :-> 
-                     '{}
+        (parse-clj `['{} :-> '{:foo Any}
                      :filters {:then ~'tt
                                :else ~'ff}
                      :object {:id 0}])))
@@ -4518,6 +4517,10 @@
     (let [{:keys [b] :or {b 3}} {}] 
       (ann-form b Number)))
   (is-tc-e
+    (let [m {}
+          b (if (print-filterset "a" (:b m)) (:b m) 3)]
+      (ann-form b Number)))
+  (is-tc-e
     (do
       (ann-record FooRec [a :- Number])
       (defrecord FooRec [a])
@@ -4592,7 +4595,24 @@
             alias lkup]
         (when (number? lkup)
           (inc (:a old)))))
-    ))
+    (is-tc-e
+      (do
+        (ann parent ['{:file (U nil java.io.File)} -> (U nil Str)])
+        (defn parent [m]
+          (let [^java.io.File file (:file m)]
+            (when (instance? java.io.File (:file m))
+              (.getParent file))))))
+    (is-tc-e
+      (defn parent [m :- '{:str (U nil Str)}]
+        (when (:str m)
+          (ann-form (:str m) Str))))
+    (is-tc-e
+      (do
+        (ann parent ['{:file (U nil java.io.File)} -> (U nil Str)])
+        (defn parent [m]
+          (let [^java.io.File file (:file m)]
+            (when (:file m)
+              (.getParent file))))))))
 
 (deftest flatten-test
   (is-tc-e (flatten nil))
