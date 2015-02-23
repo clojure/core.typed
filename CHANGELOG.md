@@ -1,4 +1,8 @@
-# 0.2.81 - SNAPSHOT
+# 0.2.82 - SNAPSHOT
+
+- better handling of non-nil default values for kw-lookup and get
+
+# 0.2.81 - 22 Feb 2015
 
 - fix isa? and = not checking filters
 - generalise ClassPE case in update
