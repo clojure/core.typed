@@ -294,14 +294,15 @@
   ;a => 0
   (is-clj 
     (= (tc-t 
-         (clojure.core.typed/fn [a :- (U (HMap :mandatory {:op (Value :if)})
-                                          (HMap :mandatory {:op (Value :var)}))] 
-                                 (:op a)))
+         (fn [a :- (U '{:op (Value :if)}
+                      '{:op (Value :var)})] 
+           (:op a)))
        (clj
          (ret 
            (parse-type 
              `(IFn [(U '{:op (Value :var)} '{:op (Value :if)}) :-> (U ':var ':if) 
-                    :filters {:then (~'! (U nil false) 0 [(~'Key :op)]), 
+                    :filters {:then (& (~'! (U nil false) 0 [(~'Key :op)])
+                                       (~'is (U ':if ':var) 0 [(~'Key :op)]))
                               :else (~'| (~'is (HMap :absent-keys #{:op}) 0) 
                                          (~'is (U nil false) 0 [(~'Key :op)]))} 
                     :object {:path [(~'Key :op)], :id 0}]))
@@ -814,7 +815,7 @@
   ;false valued key, a bit conservative in filters for now
   (is-clj (= (tc-t (let [a {:a nil}]
                      (:a a)))
-             (ret -nil (-FS -top -top) -empty)))
+             (ret -nil (-FS -bot -top) -empty)))
   ;multiple levels
   (is-clj (= (tc-t (let [a {:c {:a :b}}]
                      (-> a :c :a)))
