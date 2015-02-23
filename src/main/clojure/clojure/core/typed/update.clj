@@ -15,6 +15,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.set :as set]
             [clojure.core.typed.remove :as remove])
@@ -261,31 +262,42 @@
 
       ; Update class information based on a call to `class`
       ; eg. (= java.lang.Integer (class a))
-      (and pos?
-           (pe/ClassPE? (first lo)))
-      (let [_ (assert (not (next lo)))
-            u ft]
+      (pe/ClassPE? (first lo))
+      (let [u ft]
         (cond 
           ;restrict the obvious case where the path is the same as a Class Value
-          ; eg. #(= (class %) Number)
-          (and (r/Value? u)
+          (and pos?
+               (r/Value? u)
                (class? (:val u)))
-          (update* t (c/RClass-of-with-unknown-params (:val u)) pos? nil)
+          (update* t (c/RClass-of-with-unknown-params (:val u)) true (next lo))
 
-          ; handle (class nil) => nil
-          (r/Nil? u)
-          (update* t r/-nil pos? nil)
+          ; For this case to be sound, we need to prove there doesn't exist a subclass
+          ; of (:val u). Finding subclasses is difficult on the JVM, even after verifying
+          ; if a class is final.
+          ;(and (not pos?)
+          ;     (r/Value? u)
+          ;     (class? (:val u)))
+          ;(update* t (c/RClass-of-with-unknown-params (:val u)) true (next lo))
 
-          :else
-          (do (u/tc-warning "Cannot infer type via ClassPE from type " (prs/unparse-type u))
-              t)))
+          (and pos?
+               (sub/subtype? u (c/RClass-of Object)))
+          (update* t (c/RClass-of Object) true (next lo))
 
-      ; Does not tell us anything.
-      ; eg. (= Number (class x)) ;=> false
-      ;     does not reveal whether x is a subtype of Number, eg. (= Integer (class %))
-      (and (not pos?)
-           (pe/ClassPE? (first lo)))
-      t
+          (and pos?
+               (sub/subtype? u r/-nil))
+          (update* t r/-nil true (next lo))
+
+          ;flip polarity in recursive calls
+          (and (not pos?)
+               (sub/subtype? (c/RClass-of Object) u))
+          (update* t r/-nil true (next lo))
+
+          (and (not pos?)
+               (sub/subtype? r/-nil u))
+          (update* t (c/RClass-of Object) true (next lo))
+
+          ;; t = Any
+          :else t))
 
       ; keyword invoke of non-hmaps
       ; (let [a (ann-form {} (Map Any Any))]
