@@ -1193,6 +1193,10 @@
                  (if (isa? (-> x class class) Object)
                    x
                    nil))))
+  (is-tc-e (do (defn minc [x :- (U nil Num)]
+                 (if (isa? (-> x class class) Class)
+                   (inc x)
+                   0))))
   ;(is-tc-e (do (ann nil?? (Pred nil))
   ;             (defn nil?? [x]
   ;               (not (isa? (-> x class class) Object)))))
@@ -4515,7 +4519,12 @@
   (is-tc-err
     (let [{:keys [b]} {}] (ann-form b Number)))
   (is-tc-e
-    (let [{:keys [b] :or {b 3}} {}] 
+    (let [m {}
+          b (or (:b m) 3)]
+      (ann-form b Number)))
+  (is-tc-e
+    (let [m {}
+          b (get m :b 3)]
       (ann-form b Number)))
   (is-tc-e
     (let [m {}
@@ -4613,7 +4622,35 @@
         (defn parent [m]
           (let [^java.io.File file (:file m)]
             (when (:file m)
-              (.getParent file))))))))
+              (.getParent file))))))
+    (is-tc-e
+      (fn [{:keys [a]} :- (HMap :mandatory {:a Num}
+                                :absent-keys #{:b})]
+        (when a
+          (inc a))))
+    (is-tc-e
+      (fn [{:keys [a] :as m} :- (HMap :optional {:a Num})]
+        (when (print-filterset "a" a)
+          (inc a))))
+    (is-tc-e
+      (fn [{:keys [a] :as m} :- (U (HMap :mandatory {:a Num})
+                                   (HMap :absent-keys #{:a}))]
+        (when (print-filterset "a" a)
+          (inc a))))
+    (is-tc-e
+      (fn [{:keys [a b]} :- (U (HMap :mandatory {:a Num}
+                                     :complete? true)
+                               (HMap :mandatory {:b Num}
+                                     :complete? true))]
+        (when (and a b)
+          (+ a b))))
+    (is-tc-e
+      (fn [{:keys [a b]} :- (U (HMap :mandatory {:a Num}
+                                     :absent-keys #{:b})
+                               (HMap :mandatory {:b Num}
+                                     :absent-keys #{:a}))]
+        (when (and a b)
+          (+ a b))))))
 
 (deftest flatten-test
   (is-tc-e (flatten nil))

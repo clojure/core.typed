@@ -185,8 +185,16 @@
               :optional (:optional t)
               :absent-keys (:absent-keys t)
               :complete? (c/complete-hmap? t))
-          absent?
-            t
+          (or absent?
+              (and (c/complete-hmap? t)
+                   (not present?)
+                   (not optional?)))
+            ; if an absent key is not nil, we have a contradiction
+            (if (r/Bottom? (update-inner r/-nil))
+              (r/Bottom)
+              t)
+
+
 
           ; key not declared present or absent
           :else

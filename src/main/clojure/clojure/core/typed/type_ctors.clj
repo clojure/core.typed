@@ -2241,10 +2241,9 @@
 (defn find-val-type [t k default]
   {:pre [(r/Type? t)
          (r/Type? k)
-         ((some-fn nil? r/Type?) default)]
+         (r/Type? default)]
    :post [(r/Type? %)]}
-  (let [t (fully-resolve-type t)
-        default (or default r/-nil)]
+  (let [t (fully-resolve-type t)]
     (cond
       ; propagate the error
       (r/TCError? t) t
@@ -2252,7 +2251,7 @@
                      _ (when-not bnd
                          (err/int-error (str "No bounds for type variable: " name bnds/*current-tvar-bnds*)))]
                  (find-val-type (:upper-bound bnd) k default))
-      (r/Nil? t) (or default r/-nil)
+      (r/Nil? t) default
       (r/AssocType? t) (let [t* (apply ind/assoc-pairs-noret (:target t) (:entries t))]
                          (cond
                            (:dentries t) (do
