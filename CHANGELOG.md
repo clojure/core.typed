@@ -2,6 +2,7 @@
 
 - fix isa? and = not checking filters
 - generalise ClassPE case in update
+- fix +ve proposition for keyword-invoke
 
 # 0.2.80 - 20 Feb 2015
 
