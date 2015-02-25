@@ -195,24 +195,22 @@
               t)
 
 
-
-          ; key not declared present or absent
+          ; key is either unspoken for or :optional
           :else
           (let [; KeyPE are only used for `get` operations where `nil` is the
                 ; not-found value. If the filter does not hold when updating
                 ; it to nil, then we can assume this key path is present.
-                update-to-mandatory? (r/Bottom? (update-inner r/-nil))]
+                update-to-mandatory? (r/Bottom? (update-inner r/-nil))
+                old-type (or ((:optional t) fpth) r/-any)]
             (if update-to-mandatory?
               (c/make-HMap 
-                :mandatory (assoc-in (:types t) [fpth] (update-inner r/-any))
-                :optional (:optional t)
+                :mandatory (assoc-in (:types t) [fpth] (update-inner old-type))
+                :optional (dissoc (:optional t) fpth)
                 :absent-keys (:absent-keys t)
                 :complete? (c/complete-hmap? t))
               (c/make-HMap 
                 :mandatory (:types t)
-                :optional (if optional?
-                            (update-in (:optional t) [fpth] update-inner)
-                            (assoc-in (:optional t) [fpth] (update-inner r/-any)))
+                :optional (assoc-in (:optional t) [fpth] (update-inner old-type))
                 :absent-keys (:absent-keys t)
                 :complete? (c/complete-hmap? t))))))
 

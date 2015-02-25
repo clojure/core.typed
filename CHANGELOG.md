@@ -1,4 +1,8 @@
-# 0.2.82 - SNAPSHOT
+# 0.2.83 - 23 Feb 2015
+
+- fix `(fn [m :- (HMap :optional {:a (U Num)})] (if (:a m) (inc (:a m)) 0))`
+
+# 0.2.82 - 23 Feb 2015
 
 - better handling of non-nil default values for kw-lookup and get
 
