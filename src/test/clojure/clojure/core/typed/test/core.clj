@@ -4691,6 +4691,11 @@
                            :car 1
                            :cdr a}]))))
 
+(deftest hmap-optional-update-test
+  (is-tc-e
+    (fn [m :- (HMap :optional {:a (U nil Number)})]
+      (if (:a m) (inc (:a m)) 0))))
+
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
