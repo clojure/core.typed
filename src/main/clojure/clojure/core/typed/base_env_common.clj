@@ -645,7 +645,7 @@
     clojure.core/inc [Number -> Number]
     clojure.core/set (All [a] [(Coll a) -> (Set a)])
     clojure.core/nfirst (All [a b c] [(Seqable (Seqable a)) -> (ASeq a)])
-    clojure.core/group-by (All [a b] [[a -> b] (Coll a) -> (Map b a)])
+    clojure.core/group-by (All [x y] [[x -> y] (U nil (Seqable x)) -> (Map y (Vec x))])
     clojure.core/keep (All [a b] [[a -> (Option b)] (Coll a) -> (Option (ASeq b))])
     clojure.core/seqable? [Any -> Boolean]
     clojure.core/sort-by (All [a] (IFn [(Coll a) -> (ASeq a)]
