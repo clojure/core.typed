@@ -4696,6 +4696,12 @@
     (fn [m :- (HMap :optional {:a (U nil Number)})]
       (if (:a m) (inc (:a m)) 0))))
 
+(deftest group-by-test
+  (is-tc-err (group-by (inst identity Num) [1 2 3])
+             (Map Num Num))
+  (is-tc-e (group-by (inst identity Num) [1 2 3])
+           (Map Num (Vec Num))))
+
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 

@@ -848,9 +848,6 @@ clojure.core/deliver (All [x] [(Promise x) x -> (U nil (Promise x))])
 
 clojure.core/flatten [(U nil (Seqable Any)) -> (Seq Any)]
 
-;TODO review
-;clojure.core/group-by (All [x y] [[x -> y] (U nil (Seqable x)) -> (Map y (Vec x))])
-
 clojure.core/map-indexed
      (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
 
