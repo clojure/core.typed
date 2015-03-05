@@ -36,19 +36,19 @@
    :post [((con/set-c? symbol?) %)]}
   (p/p :ns-deps-utils/ns-form-deps
    (let [ndeps (ns-parse/deps-from-ns-decl ns-form)]
-     ; tools.namespace can return nil here
+     ;; tools.namespace can return nil here
      (set ndeps))))
 
 (defn deps-for-ns
   "Returns the dependencies for a namespace"
   [nsym]
-  {:pre [(symbol? nsym)]}
-  (let [ns-form (ns-form-for-ns nsym)
-        _ (when-not ns-form
-            (err/int-error (str "No ns form for " nsym)))]
-    (ns-form-deps ns-form)))
+  {:pre [(symbol? nsym)]
+   :post [(set? %)]}
+  (if-let [ns-form (ns-form-for-ns nsym)]
+    (ns-form-deps ns-form)
+    #{}))
 
-(defn requires-tc? 
+(defn requires-tc?
   "Returns true if the ns-form refers to clojure.core.typed"
   [ns-form]
   {:pre [ns-form]
@@ -87,7 +87,7 @@
        (requires-tc? ns-form)
        (not (collect-only-ns? ns-form))))
 
-(defn should-check-ns? 
+(defn should-check-ns?
   "Returns true if the given namespace should be type checked"
   [nsym]
   {:pre [(symbol? nsym)]
