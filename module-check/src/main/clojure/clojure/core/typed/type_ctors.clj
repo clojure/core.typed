@@ -1532,113 +1532,119 @@
 
 ;true if types t1 and t2 overlap (NYI)
 (t/ann ^:no-check overlap [r/Type r/Type -> t/Any])
-(defn overlap [t1 t2]
-  (let [subtype? @(subtype?-var)
-        t1 (fully-resolve-type t1)
-        t2 (fully-resolve-type t2)
-        eq (= t1 t2)
-        hmap-and-seq? (fn [h s] (and (r/HeterogeneousMap? h)
-                                     (impl/impl-case
-                                       :clojure (and (r/RClass? s)
-                                                     ('#{clojure.lang.ISeq} (:the-class s)))
-                                       :cljs (and (r/Protocol? s)
-                                                  ('#{cljs.core/ISeq} (:the-var s))))))
-        hvec-and-seq? (fn [h s] (and (r/HeterogeneousVector? h)
-                                     (impl/impl-case
-                                       :clojure (and (r/RClass? s)
-                                                     ('#{clojure.lang.ISeq} (:the-class s)))
-                                       :cljs (and (r/Protocol? s)
-                                                  ('#{cljs.core/ISeq} (:the-var s))))))
-        record-and-iseq? (fn [r s]
-                           (and (r/Record? r)
-                                (subtype? s (impl/impl-case
-                                              :clojure (RClass-of clojure.lang.ISeq [r/-any])
-                                              :cljs (Protocol-of 'cljs.core/ISeq [r/-any])))))]
-    (cond 
-      eq eq
+(defn overlap 
+  ([t1 t2] (overlap #{} t1 t2))
+  ([A t1 t2]
+  (if (contains? A [t1 t2])
+    true
+    (let [A* (conj A [t1 t2])
+          overlap #(overlap A* %1 %2)
+          subtype? @(subtype?-var)
+          t1 (fully-resolve-type t1)
+          t2 (fully-resolve-type t2)
+          eq (= t1 t2)
+          hmap-and-seq? (fn [h s] (and (r/HeterogeneousMap? h)
+                                       (impl/impl-case
+                                         :clojure (and (r/RClass? s)
+                                                       ('#{clojure.lang.ISeq} (:the-class s)))
+                                         :cljs (and (r/Protocol? s)
+                                                    ('#{cljs.core/ISeq} (:the-var s))))))
+          hvec-and-seq? (fn [h s] (and (r/HeterogeneousVector? h)
+                                       (impl/impl-case
+                                         :clojure (and (r/RClass? s)
+                                                       ('#{clojure.lang.ISeq} (:the-class s)))
+                                         :cljs (and (r/Protocol? s)
+                                                    ('#{cljs.core/ISeq} (:the-var s))))))
+          record-and-iseq? (fn [r s]
+                             (and (r/Record? r)
+                                  (subtype? s (impl/impl-case
+                                                :clojure (RClass-of clojure.lang.ISeq [r/-any])
+                                                :cljs (Protocol-of 'cljs.core/ISeq [r/-any])))))]
+      (cond 
+        eq eq
 
-      (and (r/Value? t1)
-           (r/Value? t2))
-      eq
+        (and (r/Value? t1)
+             (r/Value? t2))
+        eq
 
-      (r/Union? t1)
-      (boolean 
-        (some #(overlap % t2) (.types ^Union t1)))
+        (r/Union? t1)
+        (boolean 
+          (some #(overlap % t2) (:types t1)))
 
-      (r/Union? t2)
-      (boolean 
-        (some #(overlap t1 %) (.types ^Union t2)))
+        (r/Union? t2)
+        (boolean 
+          (some #(overlap t1 %) (:types t2)))
 
-      (r/Intersection? t1)
-      (every? #(overlap % t2) (.types ^Intersection t1))
+        (r/Intersection? t1)
+        (every? #(overlap % t2) (:types t1))
 
-      (r/Intersection? t2)
-      (every? #(overlap t1 %) (.types ^Intersection t2))
+        (r/Intersection? t2)
+        (every? #(overlap t1 %) (:types t2))
 
-      (and (r/NotType? t1)
-           (r/NotType? t2))
-      ;FIXME what if both are Not's?
-      true
+        (and (r/NotType? t1)
+             (r/NotType? t2))
+        ;FIXME what if both are Not's?
+        true
 
-      ; eg. (overlap (Not Number) Integer) => false
-      ;     (overlap (Not Integer) Number) => true
-      ;     (overlap (Not y) x) => true
-      (r/NotType? t1)
-      (let [neg-type (fully-resolve-type (:type t1))]
-        (or (some (some-fn r/B? r/F?) [neg-type t2])
-            (not (overlap neg-type t2))))
+        ; eg. (overlap (Not Number) Integer) => false
+        ;     (overlap (Not Integer) Number) => true
+        ;     (overlap (Not y) x) => true
+        (r/NotType? t1)
+        (let [neg-type (fully-resolve-type (:type t1))]
+          (or (some (some-fn r/B? r/F?) [neg-type t2])
+              (not (overlap neg-type t2))))
 
-      (r/NotType? t2)
-      ;switch arguments to catch above case
-      (overlap t2 t1)
+        (r/NotType? t2)
+        ;switch arguments to catch above case
+        (overlap t2 t1)
 
-      ;if both are Classes, and at least one isn't an interface, then they must be subtypes to have overlap
-;      (and (r/RClass? t1)
-;           (r/RClass? t2)
-;           (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
-;                 {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
-;             (some (complement :interface) [t1-flags t2-flags])))
-;      (or (subtype? t1 t2)
-;          (subtype? t2 t1))
-      (and (r/RClass? t1)
-           (r/RClass? t2))
-      (let [_ (impl/assert-clojure)
-            {t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
-            {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
-        ; there is only an overlap if a class could have both classes as parents
+        ;if both are Classes, and at least one isn't an interface, then they must be subtypes to have overlap
+        ;      (and (r/RClass? t1)
+        ;           (r/RClass? t2)
+        ;           (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
+        ;                 {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
+        ;             (some (complement :interface) [t1-flags t2-flags])))
+        ;      (or (subtype? t1 t2)
+        ;          (subtype? t2 t1))
+        (and (r/RClass? t1)
+             (r/RClass? t2))
+        (let [_ (impl/assert-clojure)
+              {t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
+              {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
+          ; there is only an overlap if a class could have both classes as parents
+          (or (subtype? t1 t2)
+              (subtype? t2 t1)
+              ; from here they are disjoint
+
+              (cond
+                ; no potential ancestors
+                (some :final [t1-flags t2-flags]) false
+                ; if we have two things that are not interfaces, ie. abstract, normal
+                ; classes, there is no possibility of overlap
+                (every? (complement :interface) [t1-flags t2-flags]) false
+                :else true)))
+
+        (some r/Extends? [t1 t2])
+        (let [[^Extends the-extends other-type] (if (r/Extends? t1)
+                                                  [t1 t2]
+                                                  [t2 t1])]
+          ; returns true if at least one +ve type overlaps, and if
+          ; no negative types overlap, else false
+          (boolean
+            (and (some (fn [pos] (overlap pos other-type)) (.extends the-extends))
+                 (not-any? (fn [neg] (overlap neg other-type)) (.without the-extends)))))
+
+        (or (r/Value? t1)
+            (r/Value? t2)) 
         (or (subtype? t1 t2)
-            (subtype? t2 t1)
-            ; from here they are disjoint
+            (subtype? t2 t1))
 
-            (cond
-              ; no potential ancestors
-              (some :final [t1-flags t2-flags]) false
-              ; if we have two things that are not interfaces, ie. abstract, normal
-              ; classes, there is no possibility of overlap
-              (every? (complement :interface) [t1-flags t2-flags]) false
-              :else true)))
+        (and (r/CountRange? t1)
+             (r/CountRange? t2)) 
+        (countrange-overlap? t1 t2)
 
-      (some r/Extends? [t1 t2])
-      (let [[^Extends the-extends other-type] (if (r/Extends? t1)
-                                                [t1 t2]
-                                                [t2 t1])]
-        ; returns true if at least one +ve type overlaps, and if
-        ; no negative types overlap, else false
-        (boolean
-          (and (some (fn [pos] (overlap pos other-type)) (.extends the-extends))
-               (not-any? (fn [neg] (overlap neg other-type)) (.without the-extends)))))
-
-      (or (r/Value? t1)
-          (r/Value? t2)) 
-      (or (subtype? t1 t2)
-          (subtype? t2 t1))
-
-      (and (r/CountRange? t1)
-           (r/CountRange? t2)) 
-      (countrange-overlap? t1 t2)
-
-      (and (r/HeterogeneousMap? t1)
-           (r/HeterogeneousMap? t2)) 
+        (and (r/HeterogeneousMap? t1)
+             (r/HeterogeneousMap? t2)) 
         (let [common-mkeys (set/intersection 
                              (set (-> t1 :types keys))
                              (set (-> t2 :types keys)))]
@@ -1646,53 +1652,53 @@
             ; if there is an intersection in the mandatory keys
             ; each entry in common should overlap
             (not (empty? common-mkeys))
-              (every? identity
-                      (for [[k1 v1] (select-keys (:types t1) common-mkeys)]
-                        (let [v2 ((:types t2) k1)]
-                          (assert v2)
-                          (overlap v1 v2))))
+            (every? identity
+                    (for [[k1 v1] (select-keys (:types t1) common-mkeys)]
+                      (let [v2 ((:types t2) k1)]
+                        (assert v2)
+                        (overlap v1 v2))))
             ;TODO more cases. incorporate completeness
             :else true))
 
-      ;for map destructuring mexpansion
-      (or (hmap-and-seq? t1 t2)
-          (hmap-and-seq? t2 t1))
-      false
+                ;for map destructuring mexpansion
+        (or (hmap-and-seq? t1 t2)
+            (hmap-and-seq? t2 t1))
+        false
 
-      ;for vector destructuring mexpansion
-      (or (hvec-and-seq? t1 t2)
-          (hvec-and-seq? t2 t1))
-      false
+        ;for vector destructuring mexpansion
+        (or (hvec-and-seq? t1 t2)
+            (hvec-and-seq? t2 t1))
+        false
 
-      ;for map destructuring of records. A record is never an ISeq
-      (or (record-and-iseq? t1 t2)
-          (record-and-iseq? t2 t1))
-      false
+        ;for map destructuring of records. A record is never an ISeq
+        (or (record-and-iseq? t1 t2)
+            (record-and-iseq? t2 t1))
+        false
 
-      (and (AnyHSequential? t1)
-           (AnyHSequential? t2))
-      (let [rest-sub? (fn [t1 t2]
-                             ; punt on drest
-                        (and (not-any? :drest [t1 t2])
-                             (or (== (count (:types t1))
-                                     (count (:types t2)))
-                                 (and (<= (count (:types t1))
-                                          (count (:types t2)))
-                                      (:rest t1)))
-                             (every? identity
-                                     (map subtype?
-                                          ; rest type is non-nil if needed.
-                                          (u/pad-right (count (:types t2))
-                                                       (:types t1)
-                                                       (:rest t1))
-                                          (:types t2)))
-                             (if (every? :rest [t1 t2])
-                               (subtype? (:rest t1) (:rest t2))
-                               true)))]
-        (or (rest-sub? t1 t2)
-            (rest-sub? t2 t1)))
+        (and (AnyHSequential? t1)
+             (AnyHSequential? t2))
+        (let [rest-sub? (fn [t1 t2]
+                          ; punt on drest
+                          (and (not-any? :drest [t1 t2])
+                               (or (== (count (:types t1))
+                                       (count (:types t2)))
+                                   (and (<= (count (:types t1))
+                                            (count (:types t2)))
+                                        (:rest t1)))
+                               (every? identity
+                                       (map subtype?
+                                            ; rest type is non-nil if needed.
+                                            (u/pad-right (count (:types t2))
+                                                         (:types t1)
+                                                         (:rest t1))
+                                            (:types t2)))
+                               (if (every? :rest [t1 t2])
+                                 (subtype? (:rest t1) (:rest t2))
+                                 true)))]
+          (or (rest-sub? t1 t2)
+              (rest-sub? t2 t1)))
 
-      :else true))) ;FIXME conservative result
+        :else true))))) ;FIXME conservative result
 
 ; restrict t1 to be a subtype of t2
 (t/ann ^:no-check restrict [r/Type r/Type -> r/Type])
