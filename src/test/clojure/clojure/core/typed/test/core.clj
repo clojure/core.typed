@@ -2960,6 +2960,16 @@
             (sub?-q
               nil
               `(Rec [x#] (Vec (U ':a x#))))))
+  (is
+    (clj (not
+           (subtype?
+             (parse-type `(Rec [x#] (U nil '[Any x#])))
+             (parse-type `(Rec [x#] '[Number x#]))))))
+  ;; infinite loop
+  (is
+    (clj (overlap
+           (parse-type `(Rec [x#] (U nil '[Any x#])))
+           (parse-type `(Rec [x#] '[Number x#])))))
   (is (check-ns 'clojure.core.typed.test.rec-type)))
 
 (deftest poly-rec-type-test
