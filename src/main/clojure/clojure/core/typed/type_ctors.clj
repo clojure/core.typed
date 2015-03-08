@@ -1530,16 +1530,22 @@
     ;; ---->>
     true))
 
+(def ^:dynamic *overlap-seen* #{})
+
 ;true if types t1 and t2 overlap (NYI)
 (t/ann ^:no-check overlap [r/Type r/Type -> t/Any])
 (defn overlap 
-  ([t1 t2] (overlap #{} t1 t2))
+  ([t1 t2] (overlap *overlap-seen* t1 t2))
   ([A t1 t2]
   (if (contains? A [t1 t2])
     true
     (let [A* (conj A [t1 t2])
           overlap #(overlap A* %1 %2)
-          subtype? @(subtype?-var)
+          ;; handle mutual recursion between subtyping and overlap
+          subtype? (let [subtype? @(subtype?-var)]
+                     #(binding [*overlap-seen* A*]
+                        (subtype? %1 %2)))
+
           t1 (fully-resolve-type t1)
           t2 (fully-resolve-type t2)
           eq (= t1 t2)
@@ -1686,14 +1692,14 @@
                                             (count (:types t2)))
                                         (:rest t1)))
                                (every? identity
-                                       (map subtype?
-                                            ; rest type is non-nil if needed.
-                                            (u/pad-right (count (:types t2))
-                                                         (:types t1)
-                                                         (:rest t1))
-                                            (:types t2)))
+                                       (mapv overlap
+                                             ; rest type is non-nil if needed.
+                                             (u/pad-right (count (:types t2))
+                                                          (:types t1)
+                                                          (:rest t1))
+                                             (:types t2)))
                                (if (every? :rest [t1 t2])
-                                 (subtype? (:rest t1) (:rest t2))
+                                 (overlap (:rest t1) (:rest t2))
                                  true)))]
           (or (rest-sub? t1 t2)
               (rest-sub? t2 t1)))
