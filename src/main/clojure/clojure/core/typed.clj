@@ -1285,14 +1285,19 @@ for checking namespaces, cf for checking individual forms."}
         (def-alias* '~qsym '~t)))))
 
 (defmacro defalias 
-  "Define a type alias. Takes an optional doc-string as a second
+  "Define a recursive type alias. Takes an optional doc-string as a second
   argument.
 
   Updates the corresponding var with documentation.
   
   eg. (defalias MyAlias
         \"Here is my alias\"
-        (U nil String))"
+        (U nil String))
+  
+      ;; recursive alias
+      (defalias Expr
+        (U '{:op ':if :test Expr :then Expr :else Expr}
+           '{:op ':const :val Any}))"
   ([sym doc-str t]
    (assert (string? doc-str) "Doc-string passed to defalias must be a string")
    `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
