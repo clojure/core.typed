@@ -1,5 +1,6 @@
 (ns clojure.core.typed.check.do
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
@@ -44,7 +45,9 @@
                           flow-atom (atom true)
                           ;_ (prn flow)
                           ;add normal flow filter
-                          nenv (update/env+ env [flow] flow-atom)
+                          nenv (if (fl/NoFilter? flow)
+                                 env
+                                 (update/env+ env [flow] flow-atom))
                           ;_ (prn nenv)
                           ]
   ;                        _ (when-not @flow-atom 

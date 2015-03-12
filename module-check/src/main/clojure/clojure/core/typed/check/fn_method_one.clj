@@ -185,9 +185,11 @@
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
 
-        {:keys [then]} (-> crng-nopass u/expr-type r/ret-f)
         then-env (u/p :check/check-fn-method1-env+-rng
-                   (update/env+ env [then] (atom true)))
+                      (let [{:keys [then]} (-> crng-nopass u/expr-type r/ret-f)]
+                        (if (fl/NoFilter? then)
+                          env
+                          (update/env+ env [then] (atom true)))))
         new-then-props (reduce (fn [fs [sym t]]
                                  {:pre [((con/set-c? fl/Filter?) fs)]}
                                  (if (= t (get-in env [:l sym]))

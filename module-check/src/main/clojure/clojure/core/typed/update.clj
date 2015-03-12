@@ -360,7 +360,8 @@
 ;[PropEnv (Seqable Filter) (Atom Boolean) -> PropEnv]
 (defn env+ [env fs flag]
   {:pre [(lex/PropEnv? env)
-         (every? fl/Filter? fs)
+         (every? (every-pred fl/Filter? (complement fl/NoFilter?)) 
+                 fs)
          (con/boolean? @flag)]
    :post [(lex/PropEnv? %)
           ; flag should be updated by the time this function exits
