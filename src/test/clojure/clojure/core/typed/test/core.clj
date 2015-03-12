@@ -4712,6 +4712,13 @@
   (is-tc-e (group-by (inst identity Num) [1 2 3])
            (Map Num (Vec Num))))
 
+(deftest defrecord-test
+  (is-tc-e (do (ann-record Foo [a :- Int])
+               (defrecord Foo [a])
+               (defn foo [] :- Foo (->Foo 3)))))
+
+(deftest CTYP-189-test
+  (is-tc-e (for [x :- Int []] :- Int x)))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
