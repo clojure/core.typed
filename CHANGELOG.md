@@ -2,6 +2,7 @@
 
 - Fix group-by annotation [CTYP-199](http://dev.clojure.org/jira/browse/CTYP-199)
 - Fix infinite overlap checking
+- fix [CTYP-189](http://dev.clojure.org/jira/browse/CTYP-189)
 
 # 0.2.83 - 23 Feb 2015
 
