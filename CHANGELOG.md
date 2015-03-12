@@ -1,3 +1,7 @@
+# 0.2.85 - SNAPSHOT
+
+- document defalias is recursive
+
 # 0.2.84 - 11 March 2015
 
 - Fix group-by annotation [CTYP-199](http://dev.clojure.org/jira/browse/CTYP-199)
