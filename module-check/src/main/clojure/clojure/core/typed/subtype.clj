@@ -33,6 +33,12 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
+(defn ^:private gen-repeat [times repeated]
+  (reduce (fn [acc cur]
+            (concat acc cur))
+          []
+          (repeat times repeated)))
+
 ;(defalias Seen Any)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -52,7 +58,7 @@
 (defn currently-subtyping? []
   (boolean (seq *sub-current-seen*)))
 
-(declare subtypes*-varargs)
+(declare subtypes*-varargs subtype?)
 
 ;[(t/Seqable Type) (t/Seqable Type) Type -> Boolean]
 (defn subtypes-varargs?
@@ -61,6 +67,14 @@
   (handle-failure
     (subtypes*-varargs #{} argtys dom rst kws)
     true))
+
+(defn subtypes-prest? [argtys dom prest]
+  "True if argtys are under dom and prest"
+  (let [dom-count (count dom)
+        [argtys-dom argtys-rest] (split-at dom-count argtys)]
+    (handle-failure
+      (subtypes*-varargs #{} argtys-dom dom nil nil)
+      (subtype? (r/-hvec (vec argtys-rest)) prest))))
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
 ;subtypeA* takes an extra argument (the current-seen subtypes), called by subtype
@@ -411,6 +425,22 @@
         (subtype s (c/-resolve t))
 
         (and (r/AssocType? s)
+             (r/RClass? t)
+             ; (Map xx yy)
+             (= 'clojure.lang.IPersistentMap (:the-class t)))
+        (let [{:keys [target entries dentries]} s
+              {:keys [poly? the-class]} t
+              ; _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI subtype of dentries AssocType " s)))
+              ; we assume its all right
+              entries-keys (map first entries)
+              entries-vals (map second entries)]
+          (if (and (subtype? target t)
+                   (every? identity (map subtype? entries-keys (repeat (first poly?))))
+                   (every? identity (map subtype? entries-vals (repeat (second poly?)))))
+            *sub-current-seen*
+            (fail! s t)))
+
+        (and (r/AssocType? s)
              (r/AssocType? t)
              (r/F? (:target s))
              (r/F? (:target t))
@@ -452,17 +482,75 @@
         (and (r/HSequential? s)
              (r/HSequential? t))
         (if (and (cond
-                   ; simple case, no rest types
+                   ; simple case, no rest, drest, repeat types
                    (and (not-any? :rest [s t])
-                        (not-any? :drest [s t]))
+                        (not-any? :drest [s t])
+                        (not-any? :repeat [s t]))
                    (let []
                      (and (= (count (:types s))
                              (count (:types t)))
                           (every? identity (map subtype? (:types s) (:types t)))))
 
+                   ; repeat on left
+                   (and (:repeat s)
+                        (not (:drest t)))
+                   (let [s-types (:types s)
+                         t-types (:types t)
+                         s-types-count (count s-types)
+                         t-types-count (count t-types)]
+                     (cond
+                       (:rest t)
+                       (and (= 1 s-types-count)
+                            (every? identity (map subtype?
+                                                  (repeat (first s-types))
+                                                  t-types))
+                            (subtype? (first s-types) (:rest t)))
+
+                       ; both s & t have :repeat
+                       (:repeat t)
+                       (if (and (<= t-types-count
+                                    s-types-count)
+                                (zero? (rem s-types-count
+                                            t-types-count)))
+                         (every? identity (map subtype?
+                                               s-types
+                                               (gen-repeat (/ (count s-types)
+                                                              (count t-types)) t-types)))
+                         false)
+
+                       ; nothing on right
+                       :else
+                       false))
+
+                   ; repeat on right
+                   (and (:repeat t)
+                        (not (:drest s)))
+                   (let [s-types (:types s)
+                         t-types (:types t)
+                         s-types-count (count s-types)
+                         t-types-count (count t-types)]
+                     (if (:rest s)
+                       (and (= 1 t-types-count)
+                            (every? identity (map subtype?
+                                                  s-types
+                                                  (repeat (first t-types))))
+                            (subtype? (:rest s) (first t-types)))
+
+                       ; nothing on left
+                       (and (or (zero? s-types-count)
+                                (<= t-types-count
+                                    s-types-count))
+                            (if (zero? (rem s-types-count
+                                            t-types-count))
+                              (every? identity (map subtype?
+                                                    s-types
+                                                    (gen-repeat (/ s-types-count
+                                                                   t-types-count) t-types)))
+                              false))))
+
                    ; rest on right
                    (and (:rest t)
-                        (not (:drest s)))
+                        (not ((some-fn :drest :repeat) s)))
                    (and (>= (count (:types s))
                             (count (:types t)))
                         (if (:rest s)
@@ -532,6 +620,13 @@
                    (c/HSeq->HSequential s))
                  t)
 
+        ; repeat Heterogeneous* can always accept nil
+        (and (r/Nil? s)
+             (or (r/HeterogeneousVector? t)
+                 (r/HeterogeneousSeq? t)
+                 (r/HSequential? t))
+             (:repeat t))
+          *sub-current-seen*
 
         ;every rtype entry must be in ltypes
         ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
@@ -635,6 +730,7 @@
                                      :cljs (c/Protocol-of 'cljs.core/ISeq [ss])))]))
                    t))
 
+        ; TODO add repeat support
         (r/HSequential? s)
         (let [ss (apply c/Un
                         (concat
@@ -656,6 +752,7 @@
                           (count (:types s))))
                    t))
 
+        ; TODO add repeat support
         (r/HeterogeneousVector? s)
         (subtype (c/upcast-hvec s) t)
 
@@ -673,6 +770,7 @@
                          (r/make-ExactCountRange (count (:types s))))
                    t))
 
+        ; TODO add repeat support
         (r/HeterogeneousSeq? s)
         (let [ss (apply c/Un
                         (concat
@@ -972,8 +1070,8 @@
     ;; top for functions is above everything
     (r/TopFunction? t) A0
     ;; the really simple case
-    (and (not ((some-fn :rest :drest :kws) s))
-         (not ((some-fn :rest :drest :kws) t)))
+    (and (not ((some-fn :rest :drest :kws :prest) s))
+         (not ((some-fn :rest :drest :kws :prest) t)))
     (do
       (when-not (= (count (.dom s))
                    (count (.dom t)))
@@ -986,6 +1084,59 @@
                    (map vector (.dom t) (.dom s)))))
         (subtypeA* (.rng s) (.rng t))))
 
+    (and (:prest s)
+         (:prest t))
+    (if (and (= (count (.dom s))
+                (count (.dom t)))
+             (-> *sub-current-seen*
+               ((fn [A0]
+                  (reduce (fn [A* [s t]]
+                            (subtypeA* A* s t))
+                          A0
+                          (map vector (.dom t) (.dom s)))))
+               (subtypeA* (.rng s) (.rng t)))
+             (subtype (.prest s) (.prest t)))
+      *sub-current-seen*
+      (fail! s t))
+
+    (and (:rest s)
+         (:prest t))
+    (let [_ (subtypeA* *sub-current-seen* (.rng s) (.rng t))
+          subtype-list (fn [s t]
+                         (for [s s
+                               t t]
+                           (subtypeA* *sub-current-seen* s t)))
+          s-dom (.dom s)
+          s-dom-count (count s-dom)
+          t-dom (.dom t)
+          t-dom-count (count t-dom)
+          s-rest (.rest s)
+          t-prest-types (-> t :prest :types)
+          t-prest-types-count (count t-prest-types)
+          _ (subtype-list (repeat t-prest-types-count s-rest) t-prest-types)]
+      (if (> s-dom-count t-dom-count)
+        ; hard mode
+        (let [[s-dom-short s-dom-rest] (split-at t-dom-count s-dom)
+              _ (subtype-list t-dom s-dom-short)
+              remain-repeat-count (rem (count s-dom-rest) t-prest-types-count)
+              ceiling (fn [up low]
+                        {:pre [(every? integer? [up low])]}
+                        (let [result (quot up low)]
+                          (if (zero? (rem up low))
+                            result
+                            (inc result))))
+              repeat-times (if (empty? s-dom-rest)
+                             0
+                             (ceiling (count s-dom-rest) t-prest-types-count))
+              _ (subtype-list (concat s-dom-rest (repeat remain-repeat-count s-rest))
+                              (gen-repeat repeat-times t-prest-types))]
+          *sub-current-seen*)
+        ; easy mode
+        (let [[t-dom-short t-dom-rest] (split-at s-dom-count t-dom)
+              _ (subtype-list t-dom-short s-dom)
+              _ (subtype-list t-dom-rest (repeat (count t-dom-rest) s-rest))]
+          *sub-current-seen*)))
+
     ;kw args
     (and (.kws s)
          (.kws t))
@@ -995,12 +1146,12 @@
       (subtype-kwargs* (.kws t) (.kws s)))
 
     (and (:rest s)
-         (not ((some-fn :rest :drest :kws) t)))
+         (not ((some-fn :rest :drest :kws :prest) t)))
     (-> *sub-current-seen*
       (subtypes*-varargs (.dom t) (.dom s) (.rest s) nil)
       (subtypeA* (.rng s) (.rng t)))
 
-    (and (not ((some-fn :rest :drest :kws) s))
+    (and (not ((some-fn :rest :drest :kws :prest) s))
          (:rest t))
     (fail! s t)
 

@@ -480,8 +480,9 @@
                                    objects :- (t/Vec p/IRObject)
                                    ;variable members to the right of fixed
                                    rest :- (t/U nil Type)
-                                   drest :- (t/U nil DottedPretype)])
-(u/def-type HeterogeneousVector [types fs objects rest drest]
+                                   drest :- (t/U nil DottedPretype)
+                                   repeat :- Boolean])
+(u/def-type HeterogeneousVector [types fs objects rest drest repeat]
   "A constant vector, clojure.lang.IPersistentVector"
   [(vector? types)
    (every? (some-fn Type? Result?) types)
@@ -490,29 +491,32 @@
    (vector? objects)
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
-   (#{0 1} (count (filter identity [rest drest])))
+   (#{0 1} (count (filter identity [rest drest repeat])))
+   (if repeat (not-empty types) true)
    ((some-fn nil? Type?) rest)
-   ((some-fn nil? DottedPretype?) drest)]
+   ((some-fn nil? DottedPretype?) drest)
+   ((some-fn true? false?) repeat)]
   :methods
   [p/TCType])
 
-(t/ann ^:no-check -hvec 
+(t/ann ^:no-check -hvec
        [(t/Vec Type) & :optional {:filters (t/Seqable p/IFilterSet) :objects (t/Seqable p/IRObject)
-                                  :rest (t/U nil Type) :drest (t/U nil DottedPretype)} -> Type])
-(defn -hvec 
-  [types & {:keys [filters objects rest drest]}]
+                                  :rest (U nil Type) :drest (U nil DottedPretype) :repeat Boolean} -> Type])
+(defn -hvec
+  [types & {:keys [filters objects rest drest] repeat? :repeat}]
   (if (some Bottom? types)
     (Bottom)
     (HeterogeneousVector-maker types
                                (if filters
                                  (vec filters)
-                                 (vec (repeat (count types) (ind/-FS (ind/-top-fn) 
+                                 (vec (repeat (count types) (ind/-FS (ind/-top-fn)
                                                                      (ind/-top-fn)))))
                                (if objects
                                  (vec objects)
                                  (vec (repeat (count types) (ind/-empty-fn))))
                                rest
-                               drest)))
+                               drest
+                               (if repeat? true false))))
 
 (u/ann-record HeterogeneousList [types :- (t/Seqable Type)])
 (u/def-type HeterogeneousList [types]
@@ -527,8 +531,9 @@
                                 objects :- (t/Vec p/IRObject)
                                 ;variable members to the right of fixed
                                 rest :- (t/U nil Type)
-                                drest :- (t/U nil DottedPretype)])
-(u/def-type HeterogeneousSeq [types fs objects rest drest]
+                                drest :- (t/U nil DottedPretype)
+                                repeat :- Boolean])
+(u/def-type HeterogeneousSeq [types fs objects rest drest repeat]
   "A constant seq, clojure.lang.ISeq"
   [(sequential? types)
    (every? Type? types)
@@ -537,9 +542,11 @@
    (vector? objects)
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
-   (#{0 1} (count (filter identity [rest drest])))
+   (#{0 1} (count (filter identity [rest drest repeat])))
+   (if repeat (not-empty types) true)
    ((some-fn nil? Type?) rest)
-   ((some-fn nil? DottedPretype?) drest)]
+   ((some-fn nil? DottedPretype?) drest)
+   ((some-fn true? false?) repeat)]
   :methods
   [p/TCType])
 
@@ -547,7 +554,7 @@
        [(t/Seqable Type) & :optional {:filters (t/Seqable p/IFilterSet) :objects (t/Seqable p/IRObject)
                                   :rest (t/U nil Type) :drest (t/U nil DottedPretype)} -> Type])
 (defn -hseq
-  [types & {:keys [filters objects rest drest]}]
+  [types & {:keys [filters objects rest drest] repeat? :repeat}]
   (if (some Bottom? types)
     (Bottom)
     (HeterogeneousSeq-maker types
@@ -559,15 +566,17 @@
                               (vec objects)
                               (vec (repeat (count types) (ind/-empty-fn))))
                             rest
-                            drest)))
+                            drest
+                            (if repeat? true false))))
 
 (u/ann-record HSequential [types :- (t/Seqable Type)
                            fs :- (t/Vec p/IFilterSet)
                            objects :- (t/Vec p/IRObject)
                            ;variable members to the right of fixed
                            rest :- (t/U nil Type)
-                           drest :- (t/U nil DottedPretype)])
-(u/def-type HSequential [types fs objects rest drest]
+                           drest :- (t/U nil DottedPretype)
+                           repeat :- Boolean])
+(u/def-type HSequential [types fs objects rest drest repeat]
   "A constant Sequential, clojure.lang.Sequential"
   [(sequential? types)
    (every? (some-fn Type? Result?) types)
@@ -576,9 +585,11 @@
    (vector? objects)
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
-   (#{0 1} (count (filter identity [rest drest])))
+   (#{0 1} (count (filter identity [rest drest repeat])))
+   (or (not repeat) (not-empty types))
    ((some-fn nil? Type?) rest)
-   ((some-fn nil? DottedPretype?) drest)]
+   ((some-fn nil? DottedPretype?) drest)
+   (con/boolean? repeat)]
   :methods
   [p/TCType])
 
@@ -586,7 +597,7 @@
        [(t/Seqable Type) & :optional {:filters (t/Seqable p/IFilterSet) :objects (t/Seqable p/IRObject)
                                   :rest (t/U nil Type) :drest (t/U nil DottedPretype)} -> Type])
 (defn -hsequential
-  [types & {:keys [filters objects rest drest]}]
+  [types & {:keys [filters objects rest drest] repeat? :repeat}]
   (if (some Bottom? types)
     (Bottom)
     (HSequential-maker types
@@ -598,7 +609,8 @@
                          (vec objects)
                          (vec (repeat (count types) (ind/-empty-fn))))
                        rest
-                       drest)))
+                       drest
+                       (if repeat? true false))))
 
 (u/ann-record HSet [fixed :- (t/Set Type)
                     complete? :- Boolean])
@@ -638,8 +650,7 @@
    (or (DottedPretype? dentries)
        (nil? dentries))
    (and (every? (con/hvector-c? Type? Type?) entries)
-        (sequential? entries))
-   (not (and entries dentries))]
+        (sequential? entries))]
   :methods
   [p/TCType])
 
@@ -737,23 +748,36 @@
 
 (u/ann-record Function [dom :- (t/U nil (t/Seqable Type)),
                         rng :- Result,
-                        rest :- (t/U nil Type)
-                        drest :- (t/U nil DottedPretype)
-                        kws :- (t/U nil KwArgs)])
-(u/def-type Function [dom rng rest drest kws]
+                        rest :- (t/U nil Type),
+                        drest :- (t/U nil DottedPretype),
+                        kws :- (t/U nil KwArgs),
+                        prest :- (t/U nil Type),
+                        pdot :- (t/U nil DottedPretype)])
+(u/def-type Function [dom rng rest drest kws prest pdot]
   "A function arity, must be part of an intersection"
   [(or (nil? dom)
        (sequential? dom))
    (every? Type? dom)
    (Result? rng)
-   ;at most one of rest drest or kws can be provided
-   (#{0 1} (count (filter identity [rest drest kws])))
+   ;at most one of rest drest kws prest or pdot can be provided
+   (#{0 1} (count (filter identity [rest drest kws prest pdot])))
+   ; we could have prest without repeat, but why would you do that
+   (if prest (and (:repeat prest) (:types prest)) true)
+   ; we could have pdot without repeat, but why would you do that
+   (if pdot
+     (and (-> pdot :pre-type :repeat)
+          (-> pdot :pre-type :types))
+     true)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
        (DottedPretype? drest))
    (or (nil? kws)
-       (KwArgs? kws))]
+       (KwArgs? kws))
+   (or (nil? prest)
+       (Type? prest))
+   (or (nil? pdot)
+       (DottedPretype? pdot))]
   :methods
   [p/TCAnyType])
 
@@ -1038,26 +1062,25 @@
                  (or flow (-flow (ind/-top-fn))))))
 
 (t/ann ^:no-check make-Function
-       (t/IFn [(t/U nil (t/Seqable Type)) Type -> Function]
-           [(t/U nil (t/Seqable Type)) Type (t/U nil Type) -> Function]
-           [(t/U nil (t/Seqable Type)) Type (t/U nil Type) (t/U nil Type) 
-            & :optional 
-              {:filter (t/U nil p/IFilterSet) :object (t/U nil p/IRObject)
-               :flow (t/U nil FlowSet)
-               :mandatory-kws (t/U nil (t/Map Type Type))
-               :optional-kws (t/U nil (t/Map Type Type))}
-            -> Function]))
+       [(t/U nil (t/Seqable Type))
+        Type
+        & :optional
+        {:rest (t/U nil Type) :drest (t/U nil Type) :prest (t/U nil Type)
+         :filter (t/U nil p/IFilterSet) :object (t/U nil p/IRObject)
+         :flow (t/U nil FlowSet)
+         :mandatory-kws (t/U nil (t/Map Type Type))
+         :optional-kws (t/U nil (t/Map Type Type))}
+        -> Function])
 (defn make-Function
   "Make a function, wrap range type in a Result.
   Accepts optional :filter and :object parameters that default to the most general filter
   and EmptyObject"
-  ([dom rng] (make-Function dom rng nil nil))
-  ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws flow]}]
-   (Function-maker dom (make-Result rng filter object flow)
-                   rest drest (when (or mandatory-kws optional-kws)
-                                (-kw-args :mandatory (or mandatory-kws {})
-                                          :optional (or optional-kws {}))))))
+  [dom rng & {:keys [rest drest prest pdot filter object mandatory-kws optional-kws flow]}]
+  (Function-maker dom (make-Result rng filter object flow)
+                  rest drest (when (or mandatory-kws optional-kws)
+                               (-kw-args :mandatory (or mandatory-kws {})
+                                         :optional (or optional-kws {})))
+                  prest pdot))
 
 
 ;;;;;;;;;;;;;;;;;

@@ -93,10 +93,20 @@
    (c? dc)
    (r/F? dbound)])
 
-(t/defalias DCon (t/U dcon dcon-exact dcon-dotted))
+; this dcon is used for check prest with drest, because prest will
+; have repeat in it, then the dcon must contains it for future check
+(u/ann-record dcon-repeat [fixed :- (t/Seqable c)
+                           repeat :- (t/NonEmptySeq c)])
+(u/defrecord dcon-repeat [fixed repeat]
+  ""
+  [(every? c? fixed)
+   (not-empty repeat)
+   (every? c? repeat)])
+
+(t/defalias DCon (t/U dcon dcon-exact dcon-dotted dcon-repeat))
 
 (t/ann ^:no-check dcon-c? (t/Pred DCon))
-(def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
+(def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted? dcon-repeat?))
 
 ;; map : hash mapping index variables to dcons
 (u/ann-record dmap [map :- (t/Map t/Sym DCon)])

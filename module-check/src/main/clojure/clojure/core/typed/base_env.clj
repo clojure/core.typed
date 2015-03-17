@@ -38,9 +38,7 @@
                       (recur (inc num)
                              (conj result (conj dom rtn-type))
                              (conj dom num-t))))
-                  (repeat rtn-type)
-                  (repeat nil)
-                  (repeat nil))))))
+                  (repeat rtn-type))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
@@ -100,10 +98,9 @@ clojure.java.io/IOFactory
 (defn ^:private count-type []
   (impl/with-clojure-impl
     (r/make-FnIntersection
-      (r/make-Function 
+      (r/make-Function
         [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.lang.Counted))]
         (prs/parse-type '(U java.lang.Integer java.lang.Long))
-        nil nil
         :object (obj/-path [(pe/CountPE-maker)] 0)))))
 
 (defn ^:private nth-type []
@@ -397,6 +394,7 @@ clojure.core/concat (All [x] [(Option (Seqable x)) * -> (ASeq x)])
 
 clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)])
 clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
+clojure.core/hash-map (All [x y] [(HSequential [x y] :repeat true) <* -> (Map x y)])
 clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
@@ -450,9 +448,22 @@ clojure.core/disj
               [(Set x) Any Any * -> (Set x)]))
 
 clojure.core/assoc
-     (All [b c d]
-       (IFn [(Map b c) b c -> (Map b c)]
-           [(Vec d) AnyInteger d -> (Vec d)]))
+     (All [m k v c ...]
+          (IFn [m k v (t/HSeq [c c] :repeat true) <... c
+                -> (Assoc m k v c ... c)]
+;               [m k v (t/HSeq [k v] :repeat true) <*
+;                -> (Assoc m k v)]
+               [nil k v (t/HSeq [c c] :repeat true) <... c
+                -> (Assoc nil k v c ... c)]
+               [nil k v (t/HSeq [k v] :repeat true) <*
+                -> (Map k v)]))
+;     (All [b c d]
+;       (Fn [(Map b c) b c -> (Map b c)]
+;           [(Vec d) AnyInteger d -> (Vec d)]
+;           [d b c (HSequential [b c] :repeat true) <* -> (Assoc d b c)]))
+;     (All [b c d]
+;       (IFn [(Map b c) b c -> (Map b c)]
+;           [(Vec d) AnyInteger d -> (Vec d)]))
 
 clojure.core/dissoc
      (All [k v]
@@ -487,11 +498,11 @@ clojure.core/comp
 
 clojure.core/apply
      (All [y a b c d r z ...]
-          (IFn [[z ... z -> y] (HSequential [z ... z]) -> y]
-              [[a z ... z -> y] a (HSequential [z ... z]) -> y]
-              [[a b z ... z -> y] a b (HSequential [z ... z]) -> y]
-              [[a b c z ... z -> y] a b c (HSequential [z ... z]) -> y]
-              [[a b c d z ... z -> y] a b c d (HSequential [z ... z]) -> y]
+          (IFn [[z ... z -> y] (U nil (HSequential [z ... z])) -> y]
+              [[a z ... z -> y] a (U nil (HSequential [z ... z])) -> y]
+              [[a b z ... z -> y] a b (U nil (HSequential [z ... z])) -> y]
+              [[a b c z ... z -> y] a b c (U nil (HSequential [z ... z])) -> y]
+              [[a b c d z ... z -> y] a b c d (U nil (HSequential [z ... z])) -> y]
               [[r * -> y] (U nil (Seqable r)) -> y]
               [[a r * -> y] a (U nil (Seqable r)) -> y]
               [[a b r * -> y] a b (U nil (Seqable r)) -> y]
@@ -850,6 +861,9 @@ clojure.core/flatten [(U nil (Seqable Any)) -> (Seq Any)]
 
 clojure.core/map-indexed
      (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
+
+clojure.core/keep-indexed
+     (All [a c] [[Number a -> (U nil c)] (Seqable a) -> (Seq c)])
 
 clojure.core/merge-with
      (All [k v]
