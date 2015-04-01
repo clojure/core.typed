@@ -92,6 +92,53 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>truezip-maven-plugin</artifactId>
+        <version>1.1</version>
+        <executions>
+          <execution>
+            <id>remove-3rd-party-AOT</id>
+            <goals>
+              <goal>remove</goal>
+            </goals>
+            <phase>package</phase>
+            <configuration>
+              <fileset>
+                <directory>target/core.typed-0.2.85-SNAPSHOT.jar</directory>
+                <includes>
+                  <include>clojure/core/async</include>
+                  <include>clojure/core/async*</include>
+                  <include>clojure/jvm</include>
+                  <include>clojure/jvm*</include>
+                  <!-- don't remove cljs/core/typed -->
+                  <include>cljs/*$*</include>
+                  <include>cljs/*__*</include>
+                  <include>cljs/source_map</include>
+                  <include>cljs/source_map*</include>
+                  <include>cljs/jvm</include>
+                  <include>cljs/tagged_literals</include>
+                  <include>cljs/js_deps</include>
+                  <include>clojure/core/cache</include>
+                  <include>clojure/core/cache*</include>
+                  <include>clojure/core/memoize</include>
+                  <include>clojure/core/memoize*</include>
+                  <include>clojure/tools</include>
+                  <include>clojure/tools*</include>
+                  <include>clojure/data</include>
+                  <include>clojure/data*</include>
+                  <include>clojure/math</include>
+                  <include>clojure/math*</include>
+                  <include>clojure/core/contracts</include>
+                  <include>clojure/core/contracts*</include>
+                  <include>clojure/core/unify</include>
+                  <include>clojure/core/unify*</include>
+                </includes>
+              </fileset>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 

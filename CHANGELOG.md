@@ -1,6 +1,7 @@
 # 0.2.85 - SNAPSHOT
 
 - document defalias is recursive
+- erase 3rd party AOT files from `org.clojure/core.typed` jar
 
 # 0.2.84 - 11 March 2015
 
