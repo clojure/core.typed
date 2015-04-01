@@ -28,6 +28,7 @@
                o)
               (cond 
                 (= i k) (if polarity fl/-top fl/-bot)
+                ;; TODO delete this case - Ambrose
                 (free-in/index-free-in? k t) (if polarity fl/-top fl/-bot)
                 :else f)
 
@@ -37,6 +38,7 @@
                                           (subst-type t k o polarity)
                                           i*
                                           (concat p p*))
+                                ;; TODO delete this case - Ambrose
                                 (free-in/index-free-in? k t) (if polarity fl/-top fl/-bot)
                                 :else f))
               :else (err/int-error (str "what is this? " o))))]
