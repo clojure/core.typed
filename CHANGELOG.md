@@ -1,4 +1,9 @@
-# 0.2.85 - SNAPSHOT
+# 0.2.86 - 1 April 2015
+
+- depend on clojure 1.7.0-alpha6
+- bump math.combinatorics dep to 0.1.1
+
+# 0.2.85 - 1 April 2015
 
 - document defalias is recursive
 - erase 3rd party AOT files from `org.clojure/core.typed` jar
