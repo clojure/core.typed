@@ -1749,16 +1749,20 @@
 (t/ann ^:no-check remove-scopes [t/AnyInteger (t/U Scope r/Type) -> (t/U Scope r/Type)])
 (defn remove-scopes 
   "Unwrap n Scopes"
-  [n sc]
+  [^long n sc]
   {:pre [(con/znat? n)
          (or (zero? n)
              (r/Scope? sc))]
-   :post [(or (r/Scope? %) (r/Type? %))]}
-  (last
-    (take (inc n) (iterate (t/fn [t :- Scope]
-                             (assert (r/Scope? t) "Tried to remove too many Scopes")
-                             (:body t))
-                           sc))))
+   :post [(r/Type? %)]}
+  (loop [n n
+         sc sc]
+    (if (zero? n)
+      (do
+        (assert (r/Type? sc) (str "Did not remove enough scopes" sc))
+        sc)
+      (do
+        (assert (r/Scope? sc) (str "Tried to remove too many Scopes: " sc))
+        (recur (dec n) (:body sc))))))
 
 (t/ann ^:no-check rev-indexed (t/All [x] [(t/Seqable x) -> (t/Seqable '[t/AnyInteger x])]))
 (defn- rev-indexed 
