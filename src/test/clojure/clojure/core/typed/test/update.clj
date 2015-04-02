@@ -1,5 +1,4 @@
 (ns clojure.core.typed.test.update
-  (:refer-clojure :exclude [update])
   (:require 
     ; this loads the type system, must go first
     [clojure.core.typed.test.test-utils :refer :all]

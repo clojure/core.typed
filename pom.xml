@@ -193,7 +193,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>math.combinatorics</artifactId>
-      <version>0.1.1</version>
+      <version>0.0.8</version>
       <exclusions>
         <exclusion>
           <groupId>org.clojure</groupId>

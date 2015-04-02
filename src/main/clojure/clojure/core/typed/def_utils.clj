@@ -1,7 +1,6 @@
 (ns clojure.core.typed.def-utils
-  (:refer-clojure :exclude [defrecord defprotocol definterface])
-  (:require [clojure.core.contracts.constraints :as contracts]
-            [clojure.core :as core]))
+  (:refer-clojure :exclude [defrecord defprotocol])
+  (:require [clojure.core.contracts.constraints :as contracts]))
 
 (defmacro defrecord [name slots inv-description invariants & etc]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
@@ -9,6 +8,6 @@
     `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
 (defmacro defprotocol [name & args]
-  ;only define protocol if symbol doesn't resolve, not completely sure if this behaves like defonce
+  ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
-    `(core/defprotocol ~name ~@args)))
+    `(clojure.core/defprotocol ~name ~@args)))
