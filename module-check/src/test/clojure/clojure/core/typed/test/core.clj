@@ -76,9 +76,6 @@
            (-> body Scope-maker Scope-maker Scope-maker)))))
 
 (deftest remove-scopes-test
-  (is-clj (let [scope (Scope-maker (make-F 'a))]
-        (= (remove-scopes 0 scope)
-           scope)))
   (is-clj (let [body (make-F 'a)]
         (= (remove-scopes 1 (Scope-maker body))
            body))))
