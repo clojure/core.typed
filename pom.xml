@@ -105,7 +105,7 @@
             <phase>package</phase>
             <configuration>
               <fileset>
-                <directory>target/core.typed-0.2.85-SNAPSHOT.jar</directory>
+                <directory>target/core.typed-${project.version}.jar</directory>
                 <includes>
                   <include>clojure/core/async</include>
                   <include>clojure/core/async*</include>
