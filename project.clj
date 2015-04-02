@@ -10,12 +10,12 @@
                  [org.clojure/tools.reader "0.8.4"]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/math.combinatorics "0.1.1"
+                 [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojurescript "0.0-2268"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojure "1.7.0-alpha6"]
+                 [org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.namespace "0.2.5"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
