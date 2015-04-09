@@ -7,11 +7,6 @@
    "This namespace contains typed wrapper macros, type aliases\nand functions for type checking Clojure code. check-ns is the interface\nfor checking namespaces, cf for checking individual forms."}
   {:source-url nil,
    :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.ast-utils-api.html",
-   :name "clojure.core.typed.ast-utils",
-   :doc nil}
-  {:source-url nil,
-   :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.async-api.html",
    :name "clojure.core.typed.async",
    :doc
@@ -2115,20 +2110,6 @@
    :var-type "macro",
    :line 202,
    :file "module-check/src/main/clojure/clojure/core/typed/macros.clj"}
-  {:arglists ([m]),
-   :name "fixed-arity",
-   :namespace "clojure.core.typed.ast-utils",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/e1be930db29eb51566e2a41cdb906856a8604961/module-rt/src/main/clojure/clojure/core/typed/ast_utils.clj#L211",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e1be930db29eb51566e2a41cdb906856a8604961/module-rt/src/main/clojure/clojure/core/typed/ast_utils.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-utils/fixed-arity",
-   :doc
-   "Returns the number of parameters for a :fn-method or :method.\nNote :method AST nodes include the 'this' parameter.",
-   :var-type "function",
-   :line 211,
-   :file "module-rt/src/main/clojure/clojure/core/typed/ast_utils.clj"}
   {:arglists ([form expected expected-provided?]),
    :name "check-form-cljs",
    :namespace "clojure.core.typed.check-form-cljs",
