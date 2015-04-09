@@ -14,7 +14,7 @@
 
 (defn check-form-info
   [{:keys [impl ast-for-form unparse-ns
-           check-expr collect-expr]} 
+           check-expr collect-expr post-ast-fn]} 
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast]}]
   (assert (not (and expected-ret type-provided?)))
@@ -37,7 +37,8 @@
                 c-ast (try
                         (do (collect-expr ast)
                             (reset-caches/reset-caches)
-                            (check-expr ast expected))
+                            ((or post-ast-fn identity)
+                             (check-expr ast expected)))
                         (catch ExceptionInfo e
                           (when (err/tc-error? (ex-data e))
                             (reset! terminal-error? e))

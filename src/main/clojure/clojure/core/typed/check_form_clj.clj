@@ -3,14 +3,15 @@
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.check :as chk-clj]
             [clojure.core.typed.collect-phase :as collect-clj]
-            [clojure.core.typed.current-impl :as impl])) 
+            [clojure.core.typed.current-impl :as impl]))
 
 (defn config-map []
   {:impl impl/clojure
    :ast-for-form ana-clj/ast-for-form
    :unparse-ns *ns*
    :collect-expr collect-clj/collect-ast
-   :check-expr chk-clj/check-expr})
+   :check-expr chk-clj/check-expr
+   :post-ast-fn ana-clj/eval-ast})
 
 (defn check-form-info
   [form & opt]

@@ -15,7 +15,8 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as T]
             [clojure.core.cache :as cache]
-            [clojure.core :as core]))
+            [clojure.core :as core])
+  (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -105,7 +106,7 @@
       (taj/desugar-host-expr form env))))
 
 (defn analyze1 [form env]
-  (taj/analyze+eval form env {:bindings {#'ta/macroexpand-1 macroexpand-1}}))
+  (taj/analyze form env {:bindings {#'ta/macroexpand-1 macroexpand-1}}))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
@@ -173,3 +174,11 @@
          (when cache
            (cache/miss cache nsym asts))
          asts)))))
+
+(defn eval-ast [ast]
+  ;; based on jvm/analyze+eval
+  (let [frm (emit-form/emit-form ast)
+        result (try (eval frm)  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
+                    (catch Exception e
+                      (ExceptionThrown. e)))]
+    (merge ast {:result result})))
