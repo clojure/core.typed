@@ -34,7 +34,8 @@
           <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
           <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
           <testDeclareNamespacesOnly>true</testDeclareNamespacesOnly>
-          <temporaryOutputDirectory>false</temporaryOutputDirectory>
+          <!-- Don't put AOT files in jar -->
+          <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <namespaces>
             <!-- depends on core.async -->
             <namespace>!cljs.core.typed.async</namespace>
@@ -92,7 +93,7 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
+      <!--<plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>truezip-maven-plugin</artifactId>
         <version>1.1</version>
@@ -111,7 +112,6 @@
                   <include>clojure/core/async*</include>
                   <include>clojure/jvm</include>
                   <include>clojure/jvm*</include>
-                  <!-- don't remove cljs/core/typed -->
                   <include>cljs/*$*</include>
                   <include>cljs/*__*</include>
                   <include>cljs/source_map</include>
@@ -138,7 +138,7 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
+      </plugin>-->
     </plugins>
   </build>
 
