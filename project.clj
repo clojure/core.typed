@@ -30,7 +30,8 @@
                  ]
 
   ; fireplace repl middleware
-  :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+  :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl
+                                    clojure.core.typed.repl/wrap-clj-repl]}
 
   :plugins [[lein-typed "0.3.1"]]
   :core.typed {:check [clojure.core.typed.test.records]
