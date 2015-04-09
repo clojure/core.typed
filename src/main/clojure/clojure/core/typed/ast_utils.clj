@@ -1,7 +1,9 @@
-(ns clojure.core.typed.ast-utils
+(ns ^:skip-wiki clojure.core.typed.ast-utils
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; AST ops
