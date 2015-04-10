@@ -21,7 +21,8 @@
       (empty? mfns) [(fn-method1/check-fn-method1 
                        method 
                        (r/make-Function (repeat (count required-params) r/-any) ;doms
-                                        r/-any  ;rng 
+                                        r/-any  ;rng
+                                        :rest
                                         (when rest-param ;rest
                                           r/-any))
                        :recur-target-fn recur-target-fn)]

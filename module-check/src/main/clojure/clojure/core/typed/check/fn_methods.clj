@@ -29,7 +29,7 @@
 
 (defn check-Function
   "Check individual Function type against all methods"
-  [mthods {:keys [dom rest drest kws] :as f} {:keys [recur-target-fn]}]
+  [mthods {:keys [dom rest drest kws prest pdot] :as f} {:keys [recur-target-fn]}]
   {:pre [((every-pred methods? seq) mthods)
          (r/Function? f)
          ((some-fn nil? ifn?) recur-target-fn)]
@@ -45,7 +45,7 @@
           (let [variadic?   (ast-u/variadic-method? method)
                 fixed-arity (ast-u/fixed-arity method)]
             (cond
-              (or rest drest)
+              (or rest drest prest pdot)
               (cond
                 (not variadic?) nil
 

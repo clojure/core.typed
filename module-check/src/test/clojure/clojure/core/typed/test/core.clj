@@ -92,10 +92,10 @@
 
 (deftest parse-type-fn-test
   (is-clj (= (parse-type '[nil * -> nil])
-         (make-FnIntersection (make-Function () -nil -nil))))
-  (is-clj (= (parse-type '(clojure.core.typed/All [x ...] [nil ... x -> nil]))
+         (make-FnIntersection (make-Function () -nil :rest -nil))))
+  (is-clj (= (parse-type '(All [x ...] [nil ... x -> nil]))
          (PolyDots* '(x) [no-bounds]
-                    (make-FnIntersection (make-Function () -nil nil (DottedPretype1-maker -nil 'x)))))))
+                    (make-FnIntersection (make-Function () -nil :drest (DottedPretype1-maker -nil 'x)))))))
 
 (deftest poly-constructor-test
   (is-clj (= (Poly-body*
@@ -246,7 +246,7 @@
                 (Function-maker [] (make-Result -nil
                                             (-FS -bot -top)
                                             (EmptyObject-maker))
-                            nil nil nil))
+                            nil nil nil nil nil))
               (-FS -top -bot)
               (EmptyObject-maker))))
   (is-clj (= (tc-t (fn [] 1))
@@ -254,7 +254,7 @@
                 (Function-maker [] (make-Result (-val 1)
                                               (-FS -top -bot)
                                               (EmptyObject-maker))
-                              nil nil nil))
+                              nil nil nil nil nil))
               (-FS -top -bot)
               (EmptyObject-maker))))
   (is-clj (= (tc-t (let []))
@@ -262,13 +262,13 @@
 
 (deftest path-test
   (is-clj (= (tc-t (fn [a] (let [a 1] a)))
-             (ret (make-FnIntersection
-                    (Function-maker [-any]
-                                    (make-Result (-val 1)
-                                                 (-true-filter)
-                                                 -empty)
-                                    nil nil nil))
-                  (-FS -top -bot) -empty)))
+         (ret (make-FnIntersection
+                (Function-maker [-any]
+                              (make-Result (-val 1)
+                                           (-FS -top -bot)
+                                           -empty)
+                              nil nil nil nil nil))
+              (-FS -top -bot) -empty)))
   (is-clj (= (tc-t (let [a nil] a))
              (ret -nil (-FS -top -top) -empty))))
 
@@ -321,7 +321,7 @@
                                             (-filter (make-HMap :mandatory {(-val :op) (-val :if)}) 0))
                                       (-not-filter (-val :if) 0 [(-kpe :op)]))
                                  -empty)
-                    nil nil nil))
+                    nil nil nil nil nil))
               (-FS -top -bot)
               -empty))))
 
@@ -550,7 +550,7 @@
   (is-clj (= (-> 
            (tc-t (let [a {:a 1}]
                    (if (seq? a)
-                     (apply hash-map a)
+                     (apply (clojure.core.typed/inst hash-map Keyword Number) a)
                      a)))
            ret-t)
          (-complete-hmap {(-val :a) (-val 1)})))
@@ -561,7 +561,7 @@
                                     (make-Result (-val 1) 
                                                  (-true-filter)
                                                  (-path [(-kpe :a)] 0))
-                                    nil nil nil))
+                                    nil nil nil nil nil))
                   (-FS -top -bot)
                   -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
@@ -574,7 +574,7 @@
                                       ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
                                       -empty)
-                         nil nil nil))))
+                         nil nil nil nil nil))))
   (is-clj (= (tc-t (let [{a :a} {:a 1}]
                  a))
          (ret (-val 1) 
@@ -586,7 +586,7 @@
          (ret (make-FnIntersection
                 (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
                               (make-Result -false (-false-filter) -empty)
-                              nil nil nil))
+                              nil nil nil nil nil))
               (-FS -top -bot)
               -empty)))
   ;roughly the macroexpansion of map destructuring
@@ -640,10 +640,8 @@
                                 e)))
                       (ret (make-FnIntersection 
                              (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MyName)]
-                                         (make-Result (-val 1) 
-                                                      (-true-filter)
-                                                      (-path [(-kpe :a)] 0))
-                                         nil nil nil))
+                                         (make-Result (-val 1) (-true-filter) (-path [(-kpe :a)] 0))
+                                         nil nil nil nil nil))
                            (-FS -top -bot) -empty)))
   (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MapName]
                                                     (let [{e :a} tmap]
@@ -652,7 +650,7 @@
                                                             (make-Result (make-HMap :mandatory {(-val :a) (-val 1)
                                                                                  (-val :c) (-val :b)})
                                                                          (-FS -top -bot) -empty)
-                                                            nil nil nil))
+                                                            nil nil nil nil nil))
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
   (is-with-aliases (subtype? 
@@ -715,7 +713,7 @@
                                                                (-val :c) (-val :d)
                                                                (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)}))]
                                 (make-Result t (-FS -top -bot) -empty))
-                              nil nil nil))
+                              nil nil nil nil nil))
               (-FS -top -bot) -empty))))
 
 ;(tc-t (clojure.core.typed/fn> [[a :- Number]
@@ -3041,10 +3039,11 @@
   )
 
 (deftest apply-hmap-test
-  (is-tc-e (apply hash-map [:a 1 :b 2])
-           (HMap :mandatory {:a Number
-                             :b Number}
-                 :complete? true)))
+  (is-tc-e (apply (inst hash-map Keyword Number) [:a 1 :b 2])
+           :expected (Map Keyword Number)))
+;         (HMap :mandatory {:a Number
+;                           :b Number}
+;               :complete? true)))
 
 (deftest HVec-parse-ast-test
   (is (clojure.core.typed.parse-ast/parse-clj `(HVec [Number])))
@@ -4434,6 +4433,94 @@
 #_(is (cf (juxt (ann-form vector [Number * -> '[Number]]))))
 #_(cf (t/juxt first :- [(Seq Number) -> (U nil Number)]
               rest :- [(Seq Number) -> (Seq Number)]))
+
+(deftest subtype-heterogeneous*-with-repeat
+  (let [t (impl/with-clojure-impl
+            (parse-type '(HSequential [Number String] :repeat true)))]
+    ; HVec, HSeq are all rely on HSequential to implement subtype
+    (is-clj (subtype? (parse-type '(HSequential [Number String])) t))
+
+    (is-clj (subtype? (parse-type '(HSequential [Number String Number String])) t))
+
+    ; if both s and t have :repeat, then (count (:types t)) should <= (count (:types s))
+    (is-clj (subtype? (parse-type '(HSequential [Number String Number String] :repeat true)) t))
+    (is-clj (not (subtype? t (parse-type '(HSequential [Number String Number String] :repeat true)))))
+
+    (is-clj (not (subtype? (parse-type '(HSequential [Number])) t)))
+
+    (is-clj (not (subtype? (parse-type '(HSequential [Number String Number])) t)))
+
+    ; they are same
+    (is-clj (subtype? (parse-type '(HSequential [Number] :repeat true))
+                      (parse-type '(HSequential [Number Number *]))))
+    (is-clj (subtype? (parse-type '(HSequential [Number Number *]))
+                      (parse-type '(HSequential [Number] :repeat true))))
+
+    (is-clj (subtype? (parse-type '(HSequential [Number] :repeat true))
+                      (parse-type '(HSequential [Number Number Number *]))))
+
+    (is-clj (not (subtype? (parse-type '(HSequential [Number] :repeat true))
+                           (parse-type '(HSequential [Number Number String *])))))
+
+    (is-clj (not (subtype? (parse-type '(HSequential [Number] :repeat true))
+                           (parse-type '(HSequential [Number String Number *])))))
+
+    (is-clj (subtype? (parse-type '(HVec [Number String Number String])) t))
+
+    (is-clj (not (subtype? (parse-type '(HVec [Number String] :repeat true))
+                           (parse-type '(HSequential [Number String Number String])))))
+
+    (is-clj (subtype? (parse-type '(HSeq [Number String Number String])) t))))
+
+(deftest function-prest
+  (is-tc-e (fn [a & rst] 1) [Number (HSeq [Number String] :repeat true) <* -> Number])
+  (is-cf (fn [a & rst]
+           (when-not (empty? rst) (first rst)))
+         [Number (HSeq [Number String] :repeat true) <* -> (U nil Number)])
+  (is-tc-e (hash-map 1 "a" 2 "c" 3 "d") :expected (Map Number String))
+  (is-clj (not (subtype? (parse-type `[(HSeq [String Number] :repeat true) ~'<* ~'-> String])
+                         (parse-type `[(HSeq [String Number String] :repeat true) ~'<* ~'-> String]))))
+  (is (check-ns 'clojure.core.typed.test.prest-cs-gen))
+  (is-tc-e (map (inst hash-map Number String) [1 2 3] ["a b c"])
+           :expected (NonEmptySeq (Map Number String)))
+  (is-tc-err (hash-map 1 "a" 2 \c) :expected (Map Number String))
+  )
+
+(deftest normal-invoke-apply
+  (is-tc-e (apply (inst hash-map Number String) 1 ["a"]) :expected (Map Number String))
+  (is-tc-e (apply (inst hash-map Number String) 1 "a" [2 "b"]) :expected (Map Number String))
+  (is-tc-e (apply (inst hash-map Number String) 1 "a" [2 "b" 3 "c"]) :expected (Map Number String))
+  (is-tc-e (apply (inst hash-map Number String) 1 "a" [2 "b" 3 "c" 4 "c"]) :expected (Map Number String))
+  (is-tc-e (apply (inst hash-map Number String) 1 "a" []) :expected (Map Number String))
+  (is-tc-e (apply (inst hash-map Number String) 1 "a" nil) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 "b" 3 \c]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 \a [2 "c"]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]) :expected (Map Number String))
+  (is-tc-err (apply (inst hash-map Number String) 1 \a [2 \c]) :expected (Map Number String))
+  )
+
+(deftest nil-empty-with-repeat
+  (let [t (impl/with-clojure-impl
+            (parse-type '(HSequential [Number String] :repeat true)))
+        tt (impl/with-clojure-impl
+             (parse-type '(All [k v] (HSequential [k v] :repeat true))))
+        cg #(cs-gen #{} ;V
+                    (zipmap '[k v] (repeat no-bounds)) ;X
+                    {} ;Y
+                    % ;S
+                    tt)]
+    (is-clj (subtype? (parse-type '(HSequential [])) t))
+    (is-clj (subtype? (parse-type '(HVec [])) t))
+    (is-clj (subtype? (parse-type '(HSeq [])) t))
+    (is-clj (subtype? -nil t))
+    (is-clj (subtype? -nil (parse-type '(HVec [Number String] :repeat true))))
+    (is-clj (subtype? -nil (parse-type '(HSeq [Number String] :repeat true))))
+    (is-clj (do (cg (parse-type '(HSequential []))) true))
+    (is-clj (do (cg (parse-type '(HVec []))) true))
+    (is-clj (do (cg (parse-type '(HSeq []))) true))
+    (is-clj (do (cg -nil) true))
+  ))
 
 ;(clojure.core.typed/All [b ...] [b ... b -> (HVec [b ... b])]) <: [java.lang.Number * -> (HVec [java.lang.Number])]
 

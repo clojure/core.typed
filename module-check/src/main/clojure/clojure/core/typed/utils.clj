@@ -398,7 +398,6 @@
              ss)
       (flush))))
 
-
 (defn pad-right
   "Returns a sequence of length cnt that is s padded to the right with copies
   of v."
@@ -406,5 +405,16 @@
   {:pre [(integer? cnt)]}
   (concat s
           (repeat (- cnt (count s)) v)))
+
+(defn pad-smaller 
+  "If left is smaller, pad it with padl until the same size as right.
+  Similar if right is smaller."
+  [left padl right padr]
+  (let [lc (count left)
+        rc (count right)]
+    (cond
+      (<= lc rc) [(pad-right rc left padl) right]
+      ;covers (= lc rc) and (> lc rc)
+      :else [left (pad-right lc right padr)])))
 
 )

@@ -31,7 +31,7 @@
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
                                         JSNominal Protocol HeterogeneousVector GetType HSequential
-                                        HeterogeneousList HeterogeneousSeq HSet)
+                                        HeterogeneousList HeterogeneousSeq AssocType HSet)
            (clojure.lang IPersistentMap IPersistentVector Var)))
 
 (t/tc-ignore
@@ -79,7 +79,8 @@
                   :filters (:fs v)
                   :objects (:objects v)
                   :rest (:rest v)
-                  :drest (:drest v)))
+                  :drest (:drest v)
+                  :repeat (:repeat v)))
 
 (t/ann ^:no-check HList->HSequential [HeterogeneousList -> HSequential])
 (defn HList->HSequential [l]
@@ -95,7 +96,8 @@
                   :filters (:fs s)
                   :objects (:objects s)
                   :rest (:rest s)
-                  :drest (:drest s)))
+                  :drest (:drest s)
+                  :repeat (:repeat s)))
 
 (t/tc-ignore
 (def AnyHSequential?
@@ -1782,7 +1784,7 @@
 
 (f/add-fold-case ::abstract-many
                  Function
-                 (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
+                 (fn [{:keys [dom rng rest drest kws prest pdot] :as ty} {{:keys [name count outer sb]} :locals}]
                    (r/Function-maker (doall (map sb dom))
                                  (sb rng)
                                  (when rest (sb rest))
@@ -1799,7 +1801,15 @@
                                                         [k (sb v)])))]
                                      (-> kws
                                        (update-in [:mandatory] abstract-kw-map)
-                                       (update-in [:optional] abstract-kw-map)))))))
+                                       (update-in [:optional] abstract-kw-map))))
+                                 (when prest
+                                   (sb prest))
+                                 (when pdot
+                                   (-> pdot
+                                       (update-in [:pre-type] sb)
+                                       (update-in [:name] #(if (= % name)
+                                                             (+ count outer)
+                                                             %)))))))
 
 (f/add-fold-case ::abstract-many
                  HeterogeneousVector
@@ -1830,7 +1840,20 @@
                                          (update-in [:pre-type] sb)
                                          (update-in [:name] #(if (= % name)
                                                                (+ count outer)
-                                                               %)))))))
+                                                               %))))
+                            :repeat (:repeat ty))))
+
+(f/add-fold-case ::abstract-many
+                 AssocType
+                 (fn [{:keys [target entries dentries]} {{:keys [name count outer sb]} :locals}]
+                   (r/AssocType-maker (sb target)
+                                      (mapv (fn [[k v]] [(sb k) (sb v)]) entries)
+                                      (when dentries
+                                        (-> dentries
+                                          (update-in [:pre-type] sb)
+                                          (update-in [:name] #(if (= % name)
+                                                                (+ count outer)
+                                                                %)))))))
 
 (f/add-fold-case ::abstract-many
                  Mu
@@ -1922,7 +1945,7 @@
 
 (f/add-fold-case ::instantiate-many
                Function
-               (fn [{:keys [dom rng rest drest kws]} {{:keys [count outer image sb]} :locals}]
+               (fn [{:keys [dom rng rest drest kws prest pdot]} {{:keys [count outer image sb]} :locals}]
                  (r/Function-maker (map sb dom)
                              (sb rng)
                              (when rest
@@ -1940,7 +1963,15 @@
                                                     [k (sb v)])))]
                                  (-> kws
                                    (update-in [:mandatory] instantiate-kw-map)
-                                   (update-in [:optional] instantiate-kw-map)))))))
+                                   (update-in [:optional] instantiate-kw-map))))
+                             (when prest
+                               (sb prest))
+                             (when pdot
+                               (-> pdot
+                                 (update-in [:pre-type] sb)
+                                 (update-in [:name] #(if (= (+ count outer) %)
+                                                       image
+                                                       %)))))))
 
 (f/add-fold-case ::instantiate-many
                  HeterogeneousVector
@@ -1971,7 +2002,20 @@
                                          (update-in [:pre-type] sb)
                                          (update-in [:name] #(if (= (+ count outer) %)
                                                                image
-                                                               %)))))))
+                                                               %))))
+                            :repeat (:repeat ty))))
+
+(f/add-fold-case ::instantiate-many
+                 AssocType
+                 (fn [{:keys [target entries dentries]} {{:keys [count outer image sb]} :locals}]
+                   (r/AssocType-maker (sb target)
+                                      (map (fn [[k v]] [(sb k) (sb v)]) entries)
+                                      (when dentries
+                                        (-> dentries
+                                          (update-in [:pre-type] sb)
+                                          (update-in [:name] #(if (= (+ count outer) %)
+                                                                image
+                                                                %)))))))
 
 (f/add-fold-case ::instantiate-many
                Mu
@@ -2091,19 +2135,16 @@
            (r/make-Function
              [(-partial-hmap {(r/-val kw) (r/make-F 'x)})]
              (r/make-F 'x)
-             nil nil
              :object (or/-path [(path/-kpe kw)] 0))
            (r/make-Function
              [(Un (make-HMap
                     :optional {(r/-val kw) (r/make-F 'x)})
                   r/-nil)]
              (Un r/-nil (r/make-F 'x))
-             nil nil
              :object (or/-path [(path/-kpe kw)] 0))
            (r/make-Function
              [r/-any]
              r/-any
-             nil nil
              :object (or/-path [(path/-kpe kw)] 0)))))
 
 (t/ann KeywordValue->Fn [Value -> r/Type])
