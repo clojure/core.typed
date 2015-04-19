@@ -79,3 +79,6 @@
               (every-c? c?)))
 
 (def local-sym? (every-pred symbol? (complement namespace)))
+
+;; FIXME when 1.7 is released, change to IAtom
+(defn atom? [v] (instance? clojure.lang.Atom v))

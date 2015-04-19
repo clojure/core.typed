@@ -2134,17 +2134,22 @@ for checking namespaces, cf for checking individual forms."}
   Options
   - :expected        Type syntax representing the expected type for this form
                      type-provided? option must be true to utilise the type.
-  - :type-provided?  If true, use the expected type to check the form
+  - :type-provided?  If true, use the expected type to check the form.
   - :profile         Use Timbre to profile the type checker. Timbre must be
                      added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str).
   - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
                      annotated with the static types inferred after checking.
+                     If a fatal error occurs, mapped to nil.
+  - :no-eval         If true, don't evaluate :out-form. Removes :result return value.
+                     It is highly recommended to evaluate :out-form manually.
   
   Default return map
   - :delayed-errors  A sequence of delayed errors (ex-info instances)
-  - :ret             TCResult inferred for the current form"
+  - :ret             TCResult inferred for the current form
+  - :out-form        The macroexpanded result of type-checking, if successful. 
+  - :result          The evaluated result of :out-form, unless :no-eval is provided."
   [form & opt]
   (load-if-needed)
   (apply (impl/v 'clojure.core.typed.check-form-clj/check-form-info) form opt))
