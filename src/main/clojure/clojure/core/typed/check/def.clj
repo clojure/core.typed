@@ -20,7 +20,9 @@
         vsym (ast-u/def-var-name expr)
         warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
         t (var-env/lookup-Var-nofail vsym)
+        ;_ (prn "lookup var" vsym t)
         check? (var-env/check-var? vsym)
+        ;_ (prn "check? var" vsym check?)
         cljs-ret (r/ret r/-any)]
     (cond
       ; check against an expected type

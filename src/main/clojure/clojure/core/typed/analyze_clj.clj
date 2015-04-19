@@ -13,8 +13,10 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as T]
             [clojure.core.cache :as cache]
+            [clojure.set :as set]
             [clojure.core :as core])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
@@ -105,8 +107,18 @@
              (taj/desugar-host-expr form env)))))
       (taj/desugar-host-expr form env))))
 
-(defn analyze1 [form env]
-  (taj/analyze form env {:bindings {#'ta/macroexpand-1 macroexpand-1}}))
+;; bindings-atom records any side effects during macroexpansion. Useful
+;; for nREPL middleware.
+(defn analyze1 [form env & {:keys [bindings-atom]}]
+  {:pre [((some-fn nil? con/atom?) bindings-atom)]}
+  (let [old-bindings (or (some-> bindings-atom deref) {})]
+    (with-bindings old-bindings
+      ;(prn "analyze1 namespace" *ns*)
+      (let [ana (taj/analyze form env {:bindings {#'ta/macroexpand-1 macroexpand-1}})]
+        ;; only record vars that were already bound
+        (when bindings-atom
+          (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))
+        ana))))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
@@ -125,8 +137,8 @@
 
 (defn ast-for-form
   "Returns an AST node for the form"
-  [form]
-  (analyze1 form (taj/empty-env)))
+  [form & {:keys [bindings-atom]}]
+  (analyze1 form (taj/empty-env) :bindings-atom bindings-atom))
 
 
 (defn ast-for-file

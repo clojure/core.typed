@@ -26,6 +26,7 @@
   {:pre [(#{:const} (:op expr))
          ((some-fn nil? r/TCResult?) expected)]
    :post [(-> % u/expr-type r/TCResult?)]}
+  ;(prn "check-value" val expected)
   (binding [vs/*current-expr* expr]
     (let [inferred-ret (r/ret (const/constant-type val)
                               (filter-for-value val)

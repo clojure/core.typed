@@ -1,6 +1,7 @@
-(ns clojure.core.typed.check-form-common
+(ns ^:skip-wiki clojure.core.typed.check-form-common
   (:require [clojure.core.typed.profiling :as p]
             [clojure.core.typed.check :as chk]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.cache :as cache]
@@ -12,11 +13,62 @@
             [clojure.core.typed.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
 
+;; (check-form-info config-map form & kw-args)
+;; 
+;; Takes a configuration map which different implementations can customize
+;; (via eg. clojure.core.typed.check-form-{clj,cljs}), a form to type check
+;; and keyword arguments propagated from core.typed users
+;; (via eg. {clojure,cljs}.core.typed/check-form-info).
+;;
+;; Also see docstrings for clojure.core.typed/check-form-info
+;; and cljs.core.typed/check-form-info.
+;;
+;; 
+;; Takes config-map as first argument:
+;;  Mandatory
+;; - :impl          keyword passed to impl/with-full-impl, which is wrapped around 
+;;                  the entire function.
+;; - :ast-for-form  function from form to tools.analyzer AST
+;; - :collect-expr  side-effecting function taking AST and collecting type annotations
+;; - :check-expr    function taking AST and expected type and returns a checked AST.
+;;
+;;  Optional
+;; - :eval-out-ast  function taking checked AST which evaluates it and returns the AST
+;;                  with a :result entry attached, the result of evaluating it,
+;;                  if no type errors occur.
+;; - :unparse-ns    namespace in which to pretty-print type.  (FIXME Currently unused)
+;; - :emit-form     function from AST to equivalent form, returned in :out-form entry.
+;;
+;;  (From here, copied from clojure.core.typed/check-form-info)
+;; Keyword arguments
+;;  Options
+;;  - :expected        Type syntax representing the expected type for this form
+;;                     type-provided? option must be true to utilise the type.
+;;  - :type-provided?  If true, use the expected type to check the form.
+;;  - :profile         Use Timbre to profile the type checker. Timbre must be
+;;                     added as a dependency.
+;;  - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
+;;                     of (Map '{:line Int :column Int :file Str} Str).
+;;  - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
+;;                     annotated with the static types inferred after checking.
+;;                     If a fatal type error occurs, :checked-ast is nil.
+;;  - :no-eval         If true, don't evaluate :out-form. Removes :result return value.
+;;                     It is highly recommended to evaluate :out-form manually.
+;;  - :bindings-atom   an atom which contains a value suitable for with-bindings.
+;;                     Will be updated during macroexpansion and evaluation.
+;;  
+;;  Default return map
+;;  - :delayed-errors  A sequence of delayed errors (ex-info instances)
+;;  - :ret             TCResult inferred for the current form
+;;  - :out-form        The macroexpanded result of type-checking, if successful. 
+;;  - :result          The evaluated result of :out-form, unless :no-eval is provided."
 (defn check-form-info
   [{:keys [impl ast-for-form unparse-ns
-           check-expr collect-expr post-ast-fn]} 
+           check-expr collect-expr eval-out-ast
+           emit-form]} 
    form & {:keys [expected-ret expected type-provided? profile file-mapping
-                  checked-ast]}]
+                  checked-ast no-eval bindings-atom]}]
+  {:pre [((some-fn nil? con/atom?) bindings-atom)]}
   (assert (not (and expected-ret type-provided?)))
   (p/profile-if profile
     (reset-caches/reset-caches)
@@ -33,26 +85,37 @@
                            expected-ret
                            (when type-provided?
                              (r/ret (prs/parse-type expected))))
-                ast (ast-for-form form)
+                ast (ast-for-form form :bindings-atom bindings-atom)
                 c-ast (try
                         (do (collect-expr ast)
                             (reset-caches/reset-caches)
-                            ((or post-ast-fn identity)
-                             (check-expr ast expected)))
+                            (let [c-ast (check-expr ast expected)
+                                  eval-cexp (or (when-not no-eval
+                                                  eval-out-ast)
+                                                identity)]
+                              (if (empty? @vs/*delayed-errors*)
+                                (eval-cexp c-ast)
+                                c-ast)))
                         (catch ExceptionInfo e
-                          (when (err/tc-error? (ex-data e))
-                            (reset! terminal-error? e))
+                          (if (err/tc-error? (ex-data e))
+                            (reset! terminal-error? e)
+                            (throw e))
                           nil))
-                res (u/expr-type c-ast)]
+                res (some-> c-ast u/expr-type)
+                delayed-errors (concat @vs/*delayed-errors*
+                                       (some-> @terminal-error? vector))]
             (merge
-              {:delayed-errors (concat @vs/*delayed-errors*
-                                       (when-let [e @terminal-error?]
-                                         [e]))
+              {:delayed-errors delayed-errors
                :ret (or res (r/ret r/-error))}
               (when checked-ast
+                ;; fatal type error = nil
                 {:checked-ast c-ast})
-              (when (#{impl/clojure} impl)
+              (when (and (#{impl/clojure} impl)
+                         (not no-eval)
+                         (empty? delayed-errors))
                 {:result (:result ast)})
+              (when (and c-ast emit-form)
+                {:out-form (emit-form c-ast)})
               (when (#{impl/clojure} impl)
                 (when file-mapping
                   {:file-mapping (file-map/ast->file-mapping c-ast)})))))))))
