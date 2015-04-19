@@ -16,7 +16,8 @@
 
 (defn ast-for-form
   "Returns an AST node for the form"
-  [form]
+  [form & {:keys []}]
+  ;; TODO support bindings-atom, as in c.c.t.analyze-clj
   (-> (jana/analyze-form form)
       hyg/ast-hy))
 

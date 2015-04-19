@@ -182,11 +182,13 @@
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
   {:pre [(var? var)]}
+  ;(prn " checking var" var)
   (binding [vs/*current-expr* expr]
     (let [id (coerce/var->symbol var)
           _ (when-not (var-env/used-var? id)
               (var-env/add-used-var id))
           t (var-env/lookup-Var-nofail (coerce/var->symbol var))]
+      ;(prn " annotation" t)
       (if t
         (assoc expr
                u/expr-type (below/maybe-check-below
@@ -1654,7 +1656,7 @@
 
 (add-check-method :def
   [{:keys [var init init-provided env] :as expr} & [expected]]
-  ;(prn "Checking def" var)
+  ;(prn " Checking def" var)
   (let [init-provided (contains? expr :init)]
     (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
               vs/*current-expr* expr]

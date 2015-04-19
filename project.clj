@@ -15,7 +15,7 @@
                  [org.clojure/clojurescript "0.0-2268"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojure "1.7.0-alpha6"]
+                 [org.clojure/clojure "1.7.0-beta1"]
                  [org.clojure/tools.namespace "0.2.5"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
@@ -30,7 +30,7 @@
                  ]
 
   ; fireplace repl middleware
-  :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl
+  :repl-options {:nrepl-middleware [#_cemerick.piggieback/wrap-cljs-repl
                                     clojure.core.typed.repl/wrap-clj-repl]}
 
   :plugins [[lein-typed "0.3.1"]]
