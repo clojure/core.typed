@@ -130,17 +130,17 @@
 
 (def reread-with-tr (comp tr/read readers/indexing-push-back-reader print-str))
 
-(defn ast-for-str
-  "Returns an AST node for the string, using tools.reader."
-  [form-str]
-  (analyze1 (-> form-str readers/indexing-push-back-reader tr/read) (taj/empty-env)))
+;(defn ast-for-str
+;  "Returns an AST node for the string, using tools.reader."
+;  [form-str]
+;  (analyze1 (-> form-str readers/indexing-push-back-reader tr/read) (taj/empty-env)))
 
 (defn ast-for-form
   "Returns an AST node for the form"
   [form & {:keys [bindings-atom]}]
   (analyze1 form (taj/empty-env) :bindings-atom bindings-atom))
 
-
+(declare eval-ast)
 (defn ast-for-file
   "Returns a vector of AST nodes contained
   in the given file"
@@ -156,7 +156,8 @@
                (loop [asts []]
                  (let [form (tr/read reader false eof)]
                    (if (not= eof form)
-                     (let [a (analyze1 form (taj/empty-env))]
+                     ;; TODO move this eval-ast after type checking
+                     (let [a (eval-ast (analyze1 form (taj/empty-env)))]
                        (recur (conj asts a)))
                      asts))))]
     asts))
@@ -194,3 +195,48 @@
                     (catch Exception e
                       (ExceptionThrown. e)))]
     (merge ast {:result result})))
+
+(defn analyze+eval
+  "Like analyze but evals the form after the analysis and attaches the
+   returned value in the :result field of the AST node.
+   If evaluating the form will cause an exception to be thrown, the exception
+   will be caught and the :result field will hold an ExceptionThrown instance
+   with the exception in the \"e\" field.
+
+   Useful when analyzing whole files/namespaces.
+  
+   Takes :eval-fn option that takes an AST and returns an evaluated AST."
+  ([form] (analyze+eval form (taj/empty-env) {}))
+  ([form env] (analyze+eval form env {}))
+  ([form env {:keys [eval-fn] :or {eval-fn eval-ast} :as opts}]
+     (ta-env/ensure (taj/global-env)
+       (taj/update-ns-map!) 
+       (let [[mform raw-forms] (binding [ta/macroexpand-1 (get-in opts [:bindings #'ta/macroexpand-1] 
+                                                                  ;; use custom macroexpand-1
+                                                                  macroexpand-1)]
+                                 (loop [form form raw-forms []]
+                                   (let [mform (ta/macroexpand-1 form env)]
+                                     (if (= mform form)
+                                       [mform (seq raw-forms)]
+                                       (recur mform (conj raw-forms form))))))]
+         (if (and (seq? mform) (= 'do (first mform)) (next mform))
+           ;; handle the Gilardi scenario
+           (let [[statements ret] (taj/butlast+last (rest mform))
+                 statements-expr (mapv (fn [s] (analyze+eval s (-> env
+                                                                   (taj-utils/ctx :statement)
+                                                                   (assoc :ns (ns-name *ns*)))
+                                                             opts))
+                                       statements)
+                 ret-expr (analyze+eval ret (assoc env :ns (ns-name *ns*)) opts)]
+             (-> {:op         :do
+                 :top-level  true
+                 :form       mform
+                 :statements statements-expr
+                 :ret        ret-expr
+                 :children   [:statements :ret]
+                 :env        env
+                 :result     (:result ret-expr)
+                 :raw-forms  raw-forms}
+               source-info/source-info))
+           (merge (eval-fn (taj/analyze mform env opts))
+                  {:raw-forms raw-forms}))))))

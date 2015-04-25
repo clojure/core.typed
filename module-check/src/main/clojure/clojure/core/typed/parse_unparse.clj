@@ -1190,6 +1190,15 @@
 (defonce ^:dynamic *unparse-type-in-ns* nil)
 (set-validator! #'*unparse-type-in-ns* (some-fn nil? symbol?))
 
+(defn unparse-in-ns []
+  {:post [(symbol? %)]}
+  (or (some-> *unparse-type-in-ns* ns-name)
+      (impl/impl-case
+        :clojure (ns-name *ns*)
+        :cljs (do
+                (require '[clojure.core.typed.util-cljs])
+                ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))))
+
 (defmacro with-unparse-ns [sym & body]
   `(binding [*unparse-type-in-ns* ~sym]
      ~@body))
@@ -1241,7 +1250,7 @@
   {:pre [(symbol? sym)]
    :post [(symbol? %)]}
   (if-let [ns (and (not vs/*verbose-types*)
-                   (some-> *unparse-type-in-ns* find-ns))]
+                   (some-> (unparse-in-ns) find-ns))]
         ; use an import name
     (or (Class-symbol-intern sym ns)
         ; core.lang classes are special
@@ -1254,7 +1263,7 @@
   {:pre [(namespace sym)]
    :post [(symbol? %)]}
   (if-let [ns (and (not vs/*verbose-types*)
-                   (some-> *unparse-type-in-ns* find-ns))]
+                   (some-> (unparse-in-ns) find-ns))]
         ; use unqualified name if interned
     (or (var-symbol-intern sym ns)
         ; use aliased ns if not interned, but ns is aliased
@@ -1271,6 +1280,7 @@
 
 (defn unparse-type [t]
   ; quick way of giving a Name that the user is familiar with
+  ;(prn *ns* *unparse-type-in-ns*)
   (if-let [nsym (-> t meta :source-Name)]
     nsym
     (unparse-type* t)))
