@@ -5,6 +5,7 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
             [clojure.tools.namespace.parse :as ns]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.main :as main])
   (:import java.io.Writer))
 
@@ -47,32 +48,37 @@
       ;(prn "should-check?" should-check?)
       (if should-check?
         (binding [*out* (@session #'*out*)]
-          (try
-            (let [{:keys [delayed-errors out-form ret]} 
-                  ;; FIXME should bindings should be in scope when rcode is macroexpanded?
-                  ;; probably need to pass bindings into tools.analyzer expansion
-                  (binding [*ns* current-ns]
-                    (t/check-form-info rcode
-                                       :no-eval true
-                                       :bindings-atom session))]
-              (prn :- (:t ret))
-              (flush)
-              (if (seq delayed-errors)
-                ;; ** throws exception, jumps to catch clause **
-                (err/print-errors! delayed-errors)
-                (handler (assoc msg :code (binding [*print-dup* true]
-                                            ;; TODO out-form should have types attached to it!
-                                            (pr-str out-form))))))
-            (catch Throwable e
-              (let [root-ex (#'clojure.main/root-cause e)]
-                (when-not (instance? ThreadDeath root-ex)
-                  (flush)
-                  (swap! session assoc #'*e e)
-                  (transport/send transport 
-                                  (misc/response-for msg {:status :eval-error
-                                                          :ex (-> e class str)
-                                                          :root-ex (-> root-ex class str)}))
-                  (main/repl-caught e))))))
+          (t/load-if-needed)
+          (impl/with-clojure-impl
+            (try
+              (let [[{:keys [delayed-errors out-form ret]} 
+                     new-ns]
+                    ;; FIXME should bindings should be in scope when rcode is macroexpanded?
+                    ;; probably need to pass bindings into tools.analyzer expansion
+                    (binding [*ns* current-ns]
+                      [(t/check-form-info rcode
+                                          :no-eval true
+                                          :bindings-atom session)
+                       *ns*])]
+                (binding [*ns* new-ns]
+                  (prn :- (:t ret)))
+                (flush)
+                (if (seq delayed-errors)
+                  ;; ** throws exception, jumps to catch clause **
+                  (err/print-errors! delayed-errors)
+                  (handler (assoc msg :code (binding [*print-dup* true]
+                                              ;; TODO out-form should have types attached to it!
+                                              (pr-str out-form))))))
+              (catch Throwable e
+                (let [root-ex (#'clojure.main/root-cause e)]
+                  (when-not (instance? ThreadDeath root-ex)
+                    (flush)
+                    (swap! session assoc #'*e e)
+                    (transport/send transport 
+                                    (misc/response-for msg {:status :eval-error
+                                                            :ex (-> e class str)
+                                                            :root-ex (-> root-ex class str)}))
+                    (main/repl-caught e)))))))
         (handler msg)))))
 
 (mid/set-descriptor! #'wrap-clj-repl
