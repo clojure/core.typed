@@ -38,7 +38,7 @@
                                   (var-env/with-lexical-env env
                                     (check expr
                                            ;propagate expected type only to final expression
-                                           (when (= (inc n) nexprs)
+                                           (when (== (inc n) nexprs)
                                              expected))))
                           res (u/expr-type cexpr)
                           flow (-> res r/ret-flow r/flow-normal)
@@ -50,17 +50,6 @@
                                  (update/env+ env [flow] flow-atom))
                           ;_ (prn nenv)
                           ]
-  ;                        _ (when-not @flow-atom 
-  ;                            (binding [; always prefer envs with :line information, even if inaccurate
-  ;                                                  vs/*current-env* (if (:line (:env expr))
-  ;                                                                     (:env expr)
-  ;                                                                     vs/*current-env*)
-  ;                                      vs/*current-expr* expr]
-  ;                              (err/int-error (str "Applying flow filter resulted in local being bottom"
-  ;                                                "\n"
-  ;                                                (with-out-str (print-env* nenv))
-  ;                                                "\nOld: "
-  ;                                                (with-out-str (print-env* env))))))]
                       (if @flow-atom
                         ;reachable
                         [nenv (conj cexprs cexpr)]
