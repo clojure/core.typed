@@ -1249,29 +1249,38 @@
 (defn unparse-Class-symbol-in-ns [sym]
   {:pre [(symbol? sym)]
    :post [(symbol? %)]}
+  ;(prn "unparse-Class-symbol-in-ns" sym)
   (if-let [ns (and (not vs/*verbose-types*)
                    (some-> (unparse-in-ns) find-ns))]
-        ; use an import name
-    (or (Class-symbol-intern sym ns)
+        
+    (or 
+      ; use an import name
+      (Class-symbol-intern sym ns)
         ; core.lang classes are special
         (core-lang-Class-sym sym)
         ; otherwise use fully qualified name
         sym)
     sym))
 
-(defn unparse-var-symbol-in-ns [sym]
-  {:pre [(namespace sym)]
+(defn unparse-Name-symbol-in-ns [sym]
+  {:pre [(symbol? sym)]
    :post [(symbol? %)]}
+  ;(prn "unparse-Name-symbol-in-ns" sym)
   (if-let [ns (and (not vs/*verbose-types*)
                    (some-> (unparse-in-ns) find-ns))]
+    (or ; use an import name
+        (Class-symbol-intern sym ns)
+        ; core.lang classes are special
+        (core-lang-Class-sym sym)
         ; use unqualified name if interned
-    (or (var-symbol-intern sym ns)
-        ; use aliased ns if not interned, but ns is aliased
-        (impl/impl-case
-          :clojure
-          (when-let [alias (alias-in-ns (namespace sym) ns)]
-            (symbol (str alias) (name sym)))
-          :cljs nil)
+        (when (namespace sym)
+          (var-symbol-intern sym ns)
+          ; use aliased ns if not interned, but ns is aliased
+          (impl/impl-case
+            :clojure
+            (when-let [alias (alias-in-ns (namespace sym) ns)]
+              (symbol (str alias) (name sym)))
+            :cljs nil))
         ; otherwise use fully qualified name
         sym)
     sym))
@@ -1280,7 +1289,7 @@
 
 (defn unparse-type [t]
   ; quick way of giving a Name that the user is familiar with
-  ;(prn *ns* *unparse-type-in-ns*)
+  ;(prn "unparse-type" (class t))
   (if-let [nsym (-> t meta :source-Name)]
     nsym
     (unparse-type* t)))
@@ -1288,12 +1297,10 @@
 (defmulti unparse-type* class)
 (defn unp [t] (prn (unparse-type t)))
 
-(defmethod unparse-type* Top [_] (unparse-var-symbol-in-ns `t/Any))
+(defmethod unparse-type* Top [_] (unparse-Name-symbol-in-ns `t/Any))
 (defmethod unparse-type* TCError [_] 'Error)
-(defmethod unparse-type* Name [{:keys [id]}] (if (namespace id)
-                                               (unparse-var-symbol-in-ns id)
-                                               id))
-(defmethod unparse-type* AnyValue [_] (unparse-var-symbol-in-ns `t/AnyValue))
+(defmethod unparse-type* Name [{:keys [id]}] (unparse-Name-symbol-in-ns id))
+(defmethod unparse-type* AnyValue [_] (unparse-Name-symbol-in-ns `t/AnyValue))
 
 (defmethod unparse-type* DottedPretype
   [{:keys [pre-type name]}]
@@ -1303,9 +1310,9 @@
 
 (defmethod unparse-type* CountRange [{:keys [lower upper]}]
   (cond
-    (= lower upper) (list (unparse-var-symbol-in-ns `t/ExactCount)
+    (= lower upper) (list (unparse-Name-symbol-in-ns `t/ExactCount)
                           lower)
-    :else (list* (unparse-var-symbol-in-ns `t/CountRange)
+    :else (list* (unparse-Name-symbol-in-ns `t/CountRange)
                  lower
                  (when upper [upper]))))
 
@@ -1354,9 +1361,9 @@
   (cond
     ; Prefer the user provided Name for this type. Needs more thinking?
     ;(-> u meta :from-name) (-> u meta :from-name)
-    (seq types) (list* (unparse-var-symbol-in-ns `t/U)
+    (seq types) (list* (unparse-Name-symbol-in-ns `t/U)
                        (doall (map unparse-type types)))
-    :else (unparse-var-symbol-in-ns `t/Nothing)))
+    :else (unparse-Name-symbol-in-ns `t/Nothing)))
 
 (defmethod unparse-type* FnIntersection
   [{types :types}]
@@ -1367,17 +1374,17 @@
     (unparse-type (first types))
 
     :else
-    (list* (unparse-var-symbol-in-ns `t/IFn)
+    (list* (unparse-Name-symbol-in-ns `t/IFn)
            (doall (map unparse-type types)))))
 
 (defmethod unparse-type* Intersection
   [{types :types}]
-  (list* (unparse-var-symbol-in-ns `t/I)
+  (list* (unparse-Name-symbol-in-ns `t/I)
          (doall (map unparse-type types))))
 
 (defmethod unparse-type* DifferenceType
   [{:keys [type without]}]
-  (list* (unparse-var-symbol-in-ns `t/Difference)
+  (list* (unparse-Name-symbol-in-ns `t/Difference)
          (unparse-type* type)
          (doall (map unparse-type without))))
 
@@ -1435,7 +1442,7 @@
 
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
-  (let [s (impl/impl-case :clojure (unparse-var-symbol-in-ns the-var)
+  (let [s (impl/impl-case :clojure (unparse-Name-symbol-in-ns the-var)
                           :cljs the-var)]
     (if poly?
       (list* s (mapv unparse-type poly?))
@@ -1444,26 +1451,20 @@
 (defmethod unparse-type* DataType
   [{:keys [the-class poly?]}]
   (if poly?
-    (list* (unparse-Class-symbol-in-ns the-class) (mapv unparse-type poly?))
-    (unparse-Class-symbol-in-ns the-class)))
-
-(defmulti unparse-RClass :the-class)
-
-(defmethod unparse-RClass :default
-  [{:keys [the-class poly?]}]
-  (list* (unparse-Class-symbol-in-ns the-class) (doall (map unparse-type poly?))))
+    (list* (unparse-Name-symbol-in-ns the-class) (mapv unparse-type poly?))
+    (unparse-Name-symbol-in-ns the-class)))
 
 (defmethod unparse-type* RClass
   [{:keys [the-class poly?] :as r}]
   (if (empty? poly?)
-    (unparse-Class-symbol-in-ns the-class)
-    (unparse-RClass r)))
+    (unparse-Name-symbol-in-ns the-class)
+    (list* (unparse-Name-symbol-in-ns the-class) (doall (map unparse-type poly?)))))
 
 (defmethod unparse-type* Mu
   [m]
   (let [nme (-> (c/Mu-fresh-symbol* m) r/make-F r/F-original-name)
         body (c/Mu-body* nme m)]
-    (list (unparse-var-symbol-in-ns `t/Rec) [nme] (unparse-type body))))
+    (list (unparse-Name-symbol-in-ns `t/Rec) [nme] (unparse-type body))))
 
 (defn unparse-poly-bounds-entry [name {:keys [upper-bound lower-bound higher-kind] :as bnds}]
   (let [name (-> name r/make-F r/F-original-name)
@@ -1511,7 +1512,7 @@
         bbnds (c/Poly-bbnds* free-names p)
         binder (mapv unparse-poly-bounds-entry free-names bbnds)
         body (c/Poly-body* free-names p)]
-    (list (unparse-var-symbol-in-ns `t/All) binder (unparse-type body))))
+    (list (unparse-Name-symbol-in-ns `t/All) binder (unparse-type body))))
 
 ;(ann unparse-typefn-bounds-entry [t/Sym Bounds Variance -> Any])
 (defn unparse-typefn-bounds-entry [name {:keys [upper-bound lower-bound higher-kind]} v]
@@ -1538,13 +1539,13 @@
         bbnds (c/TypeFn-bbnds* free-names p)
         binder (mapv unparse-typefn-bounds-entry free-names bbnds (:variances p))
         body (c/TypeFn-body* free-names p)]
-    (list (unparse-var-symbol-in-ns `t/TFn) binder (unparse-type body))))
+    (list (unparse-Name-symbol-in-ns `t/TFn) binder (unparse-type body))))
 
 (defmethod unparse-type* Value
   [v]
   (if ((some-fn r/Nil? r/True? r/False?) v)
     (:val v)
-    (list (unparse-var-symbol-in-ns `t/Val) (:val v))))
+    (list (unparse-Name-symbol-in-ns `t/Val) (:val v))))
 
 (defn- unparse-map-of-types [m]
   (into {} (map (fn [[k v]]
@@ -1554,7 +1555,7 @@
 
 (defmethod unparse-type* HeterogeneousMap
   [^HeterogeneousMap v]
-  (list* (unparse-var-symbol-in-ns `t/HMap)
+  (list* (unparse-Name-symbol-in-ns `t/HMap)
          (concat
            ; only elide if other information is present
            (when (or (seq (:types v))
@@ -1572,7 +1573,7 @@
 
 (defmethod unparse-type* HeterogeneousSeq
   [{:keys [types rest drest fs objects] :as v}]
-  (list* (unparse-var-symbol-in-ns `t/HSeq)
+  (list* (unparse-Name-symbol-in-ns `t/HSeq)
          (concat
            (map unparse-type (:types v))
            (when rest [(unparse-type rest) '*])
@@ -1585,7 +1586,7 @@
 
 (defmethod unparse-type* HSequential
   [{:keys [types rest drest fs objects] :as v}]
-  (list* (unparse-var-symbol-in-ns `t/HSequential)
+  (list* (unparse-Name-symbol-in-ns `t/HSequential)
          (vec
            (concat
              (map unparse-type (:types v))
@@ -1600,7 +1601,7 @@
 (defmethod unparse-type* HSet
   [{:keys [fixed] :as v}]
   {:pre [(every? r/Value? fixed)]}
-  (list (unparse-var-symbol-in-ns `t/HSet) (set (map :val fixed))))
+  (list (unparse-Name-symbol-in-ns `t/HSet) (set (map :val fixed))))
 
 (defmethod unparse-type* KwArgsSeq
   [^KwArgsSeq v]
@@ -1617,7 +1618,7 @@
 
 (defmethod unparse-type* HeterogeneousVector
   [{:keys [types rest drest fs objects] :as v}]
-  (list* (unparse-var-symbol-in-ns `t/HVec)
+  (list* (unparse-Name-symbol-in-ns `t/HVec)
          (vec
            (concat
              (map unparse-type (:types v))
@@ -1637,13 +1638,13 @@
 (defmethod unparse-type* AssocType
   [{:keys [target entries dentries]}]
   (assert (not dentries) "dentries for Assoc NYI")
-  (list* (unparse-var-symbol-in-ns `t/Assoc)
+  (list* (unparse-Name-symbol-in-ns `t/Assoc)
          (unparse-type target)
          (doall (map unparse-type (apply concat entries)))))
 
 (defmethod unparse-type* GetType
   [{:keys [target key not-found]}]
-  (list* (unparse-var-symbol-in-ns `t/Get)
+  (list* (unparse-Name-symbol-in-ns `t/Get)
          (unparse-type target)
          (unparse-type key)
          (when (not= r/-nil not-found)
