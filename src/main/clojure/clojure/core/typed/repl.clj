@@ -47,7 +47,8 @@
       ;(prn "msg" msg)
       ;(prn "should-check?" should-check?)
       (if should-check?
-        (binding [*out* (@session #'*out*)]
+        (binding [*out* (@session #'*out*)
+                  *err* (@session #'*err*)]
           (t/load-if-needed)
           (impl/with-clojure-impl
             (try
