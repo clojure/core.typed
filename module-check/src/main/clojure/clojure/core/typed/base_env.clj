@@ -3,6 +3,8 @@
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList
                          IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap ISeq IPersistentCollection
+                         ITransientCollection ITransientSet 
+                         ITransientAssociative ITransientMap ITransientVector
                          ILookup Indexed Associative
                          IRef Reduced)
            (java.util Comparator Collection))
@@ -454,9 +456,18 @@ clojure.core/assoc
        (IFn [(Map b c) b c -> (Map b c)]
            [(Vec d) AnyInteger d -> (Vec d)]))
 
+clojure.core/assoc!
+     (All [b c d]
+          (IFn [(ITransientMap b c) b c -> (ITransientMap b c)]
+               [(ITransientVector d) AnyInteger d -> (ITransientVector d)]))
+
 clojure.core/dissoc
      (All [k v]
        (IFn [(Map k v) Any * -> (Map k v)]))
+
+clojure.core/dissoc!
+     (All [k v] 
+          (IFn [(ITransientMap k v) Any * -> (ITransientMap k v)]))
 )
     (h/var-mappings
       this-ns
