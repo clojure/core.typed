@@ -1093,9 +1093,19 @@
 
 (deftest transient-collection-test
   (is-tc-e (transient []) (clojure.lang.ITransientVector Any))
+  (is-tc-e (transient [1 2 3]) (clojure.lang.ITransientVector Number))
   (is-tc-e (transient #{}) (clojure.lang.ITransientSet Any))
+  (is-tc-e (transient #{1 2}) (clojure.lang.ITransientSet Number))
   (is-tc-e (transient {}) (clojure.lang.ITransientMap Any Any))
+  (is-tc-e (transient {:a "a" :b "b" :c "c"}) (clojure.lang.ITransientMap Keyword String))
   (is-tc-e (transient {1 "a" 2 "b"}) (clojure.lang.ATransientMap Number String)))
+
+(deftest assoc!-test
+  (is-tc-e (assoc! (transient {}) :a 1) (clojure.lang.ITransientMap Keyword Number))
+  (is-tc-e (assoc! (transient {"a" 1}) "b" 2) (clojure.lang.ITransientMap String Number))
+  (is-tc-e (assoc! (transient [1 2 3]) 0 10) (clojure.lang.ITransientVector Number))
+  (is-tc-err (assoc! (transient [1 2 3] 4 10)) (clojure.lang.ITransientVector Number)))
+
 
 ;; `do` is special at the top level, tc-ignore should expand out to `do`
 (tc-ignore
