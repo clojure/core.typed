@@ -1097,6 +1097,8 @@
   (is-tc-e (transient #{}) (clojure.lang.ITransientSet Any))
   (is-tc-e (transient #{1 2}) (clojure.lang.ITransientSet Number))
   (is-tc-e (transient {}) (clojure.lang.ITransientMap Any Any))
+  (is-tc-e (transient (sorted-set 4 3 1 2)) (clojure.lang.ITransientSet Number))
+  (is-tc-e (transient (hash-set 1 2 1 2)) (clojure.lang.ITransientSet Number))
   (is-tc-e (transient {:a "a" :b "b" :c "c"}) (clojure.lang.ITransientMap Keyword String))
   (is-tc-e (transient {1 "a" 2 "b"}) (clojure.lang.ATransientMap Number String)))
 
@@ -1105,6 +1107,10 @@
   (is-tc-e (assoc! (transient {"a" 1}) "b" 2) (clojure.lang.ITransientMap String Number))
   (is-tc-e (assoc! (transient [1 2 3]) 0 10) (clojure.lang.ITransientVector Number))
   (is-tc-err (assoc! (transient [1 2 3] 4 10)) (clojure.lang.ITransientVector Number)))
+
+(deftest dissoc!-test
+  (is-tc-e (dissoc! (transient {}) :a) (clojure.lang.ITransientMap Any Any))
+  (is-tc-e (dissoc! (transient {:a 1 :b 2}) :a) (clojure.lang.ITransientMap Keyword Number)))
 
 
 ;; `do` is special at the top level, tc-ignore should expand out to `do`
