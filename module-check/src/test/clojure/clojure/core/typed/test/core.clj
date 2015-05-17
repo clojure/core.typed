@@ -49,7 +49,9 @@
 ; is less useful here.
   (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
                                              for doseq def remove filter defn atom ref]])
-  (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap
+  (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap ITransientMap 
+                         ITransientSet ITransientCollection ITransientAssociative
+                         ATransientMap ATransientSet ITransientVector IEditableCollection
                          ExceptionInfo Var Seqable)))
 
 ;Aliases used in unit tests
@@ -803,7 +805,6 @@
                       -empty))))
          
 
-
 (deftest check-get-keyword-invoke-test
   ;truth valued key
   (is-clj (= (tc-t (let [a {:a 1}]
@@ -1089,6 +1090,12 @@
 
 (deftest hmap-subtype
   (is-tc-e {} (clojure.lang.APersistentMap Any Any)))
+
+(deftest transient-collection-test
+  (is-tc-e (transient []) (clojure.lang.ITransientVector Any))
+  (is-tc-e (transient #{}) (clojure.lang.ITransientSet Any))
+  (is-tc-e (transient {}) (clojure.lang.ITransientMap Any Any))
+  (is-tc-e (transient {1 "a" 2 "b"}) (clojure.lang.ATransientMap Number String)))
 
 ;; `do` is special at the top level, tc-ignore should expand out to `do`
 (tc-ignore
