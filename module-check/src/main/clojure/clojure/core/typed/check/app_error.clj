@@ -6,8 +6,53 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.subtype :as sub]
             [clojure.string :as str]))
 
+;; true if domains of l is a subtype of domains of r.
+;; returns false if any of arg-ret-types are a subtype of ;; r.
+(defn domain-subtype? [l r arg-ret-types]
+  (boolean
+    (when (and (not (:kws r))
+               (not (:drest r))
+               (not (:rest r)))
+      (and (== (count (:dom l))
+               (count (:dom r))
+               (count arg-ret-types))
+           (every? identity 
+                   (map (fn [ld rd ad]
+                          (and (sub/subtype? ld rd)
+                               (not (sub/subtype? rd (r/ret-t ad)))))
+                        (:dom l) 
+                        (:dom r)
+                        arg-ret-types))))))
+
+(defn trim-arities [arities arg-ret-types]
+  ;try and prune some of the arities
+  ; Lots more improvements we can port from Typed Racket:
+  ;  typecheck/tc-app-helper.rkt
+  (let [matching-arities 
+          (remove (fn [{:keys [dom rest drest kws rng]}]
+                    ;remove arities that have a differing
+                    ; number of fixed parameters than what we
+                    ; require
+                    (or
+                      (and (not rest) (not drest) (not kws)
+                           (not= (count dom)
+                                 (count arg-ret-types)))
+                      ; remove if we don't have even the fixed args
+                      (< (count arg-ret-types)
+                         (count dom))))
+                  arities)
+        remove-sub
+          (reduce (fn [acc ar]
+                    ;; assumes most general arities come last
+                    (conj (vec (remove #(domain-subtype? % ar arg-ret-types) acc)) 
+                          ar))
+                  [] matching-arities)]
+    (or (seq remove-sub)
+        ;if we remove all the arities, default to all of them
+        arities)))
 
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
 ; -> Any]
@@ -16,26 +61,7 @@
          (or (not poly?)
              ((some-fn r/Poly? r/PolyDots?) poly?))]
    :post [(r/TCResult? %)]}
-  (let [fin (apply r/make-FnIntersection
-                   ;try and prune some of the arities
-                   ; Lots more improvements we can port from Typed Racket:
-                   ;  typecheck/tc-app-helper.rkt
-                   (or
-                     (seq
-                       (remove (fn [{:keys [dom rest drest kws rng]}]
-                                 ;remove arities that have a differing
-                                 ; number of fixed parameters than what we
-                                 ; require
-                                 (or
-                                   (and (not rest) (not drest) (not kws)
-                                        (not= (count dom)
-                                              (count arg-ret-types)))
-                                   ; remove if we don't have even the fixed args
-                                   (< (count arg-ret-types)
-                                      (count dom))))
-                               (:types fin)))
-                     ;if we remove all the arities, default to all of them
-                     (:types fin)))
+  (let [fin (apply r/make-FnIntersection (trim-arities (:types fin) arg-ret-types))
         static-method? (= :static-call (:op fexpr))
         instance-method? (= :instance-call (:op fexpr))
         method-sym (when (or static-method? instance-method?)
