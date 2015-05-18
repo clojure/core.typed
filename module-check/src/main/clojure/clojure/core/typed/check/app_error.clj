@@ -116,7 +116,7 @@
                                (map (partial apply pr-str) (map (comp prs/unparse-result :rng) (:types fin))))
           "\n\n"
           (when expected (str "with expected type:\n\t" (pr-str (prs/unparse-type (r/ret-t expected))) "\n\n"))
-          "in: " (if fexpr
+          #_#_"in: " (if fexpr
                    (if (or static-method? instance-method?)
                      (ast-u/emit-form-fn fexpr)
                      (list* (ast-u/emit-form-fn fexpr)
