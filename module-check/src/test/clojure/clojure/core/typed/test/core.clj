@@ -4723,6 +4723,66 @@
   (is-tc-err (zero? 'a) Boolean)
   (is-tc-e zero? [Number -> Boolean]))
 
+(deftest CTYP-181-prim-cast-test
+  (is-tc-e float [Number -> Float])
+  ;; inlinings
+  (is-tc-e (float 1) Float)
+  (is-tc-err (float 'a) Float)
+  (is-tc-err (let [^Character c \c]
+               (float c))
+             Float)
+
+  (is-tc-e double [Number -> Double])
+  ;; inlinings
+  (is-tc-e (double 1) Double)
+  (is-tc-err (double 'a) Double)
+  (is-tc-err (let [^Character c \c]
+               (double c))
+             Double)
+
+  (is-tc-e int [(U Character Number) -> Integer])
+  ;; inlinings
+  (is-tc-e (int 1) Integer)
+  (is-tc-e (int \c) Integer)
+  (is-tc-err (int 'a) Integer)
+
+  (is-tc-e long [(U Character Number) -> Long])
+  ;; inlinings
+  (is-tc-e (long 1) Long)
+  (is-tc-e (let [^Character c \c]
+             (long c)) 
+           Long)
+  (is-tc-err (long 'a) Long)
+
+  (is-tc-e num [Number -> Number])
+  ;; inlinings
+  (is-tc-e (num 1) Number)
+  (is-tc-err (let [^Character c \c]
+               (num c))
+             Number)
+  (is-tc-err (num 'a) Number)
+
+  (is-tc-e short [(U Character Number) -> Short])
+  ;; inlinings
+  (is-tc-e (short 1) Short)
+  (is-tc-e (let [^Character c \c]
+             (short c))
+           Short)
+  (is-tc-err (short 'a) Short)
+
+  (is-tc-e byte [(U Character Number) -> Byte])
+  (is-tc-e (byte 1) Byte)
+  (is-tc-e (let [^Character c \c]
+             (byte c))
+           Byte)
+  (is-tc-err (byte 'a) Byte)
+
+  (is-tc-e char [(U Character Number) -> Character])
+  (is-tc-e (char 1) Character)
+  (is-tc-e (char \c) Character)
+  (is-tc-err (char 'a) Character)
+  )
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
