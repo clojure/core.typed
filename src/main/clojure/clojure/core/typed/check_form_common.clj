@@ -117,7 +117,7 @@
                                  (throw e))
                                ast)))
                 c-ast (ast-for-form form
-                                    {:bindings bindings-atom
+                                    {:bindings-atom bindings-atom
                                      :eval-fn eval-ast
                                      :expected expected
                                      :stop-analysis stop-analysis})
