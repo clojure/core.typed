@@ -182,10 +182,15 @@ for checking namespaces, cf for checking individual forms."}
   (@#'core/assert-args
      (vector? bindings) "a vector for its binding"
      (= 2 (count bindings)) "exactly 2 forms in binding vector")
-  (let [i (first bindings)
-        n (second bindings)]
+  (let [[i t? t n] (if (= :- (second bindings))
+                     (let [[i _ t n] bindings]
+                       (assert (== (count bindings) 4) "Bad arguments to dotimes")
+                       [i true t n])
+                     (let [[i n] bindings]
+                       (assert (== (count bindings) 2) "Bad arguments to dotimes")
+                       [i nil nil n]))]
     `(let [n# (long ~n)]
-       (loop [~i :- Int 0]
+       (loop [~i :- ~(if t? t `Int) 0]
          (when (< ~i n#)
            ~@body
            (recur (unchecked-inc ~i)))))))
