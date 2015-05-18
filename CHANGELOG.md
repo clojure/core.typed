@@ -1,6 +1,9 @@
 # 0.2.89 - SNAPSHOT
 
+Thanks to Allen Rohner who provided patches for this release.
+
 - Fix CTYP-215
+- Fix CTYP-174
 
 # 0.2.88 - 18 May 2015
 
