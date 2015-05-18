@@ -1,4 +1,8 @@
-# 0.2.87 - 18 May 2015
+# 0.2.89 - SNAPSHOT
+
+- Fix CTYP-215
+
+# 0.2.88 - 18 May 2015
 
 ## Typed REPL
 
@@ -19,9 +23,9 @@ Then the typed REPL can be invoked by code such as this.
 (inc 'a)
 ```
 
-`ns` often doesn't add metadata correctly but this usually doesn't matter because
-core.typed will read the syntactic `ns` form directly to decided whether the namespace
-is typed.
+# 0.2.87 - 1 April 2015
+
+- Remove AOT files from jar again
 
 # 0.2.86 - 1 April 2015
 
