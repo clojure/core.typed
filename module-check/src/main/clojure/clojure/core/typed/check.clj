@@ -949,14 +949,15 @@
 ;(apply concat hmap)
 (add-invoke-apply-method 'clojure.core/concat
   [{[_ & args] :args :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
+  {:post [(or (and (-> % u/expr-type r/TCResult?)
+                   (vector? (:args %)))
+              (= % cu/not-special))]}
   (let [cargs (mapv check args)
         tmap (when (#{1} (count cargs))
                (c/fully-resolve-type (r/ret-t (u/expr-type (last cargs)))))]
     (binding [vs/*current-expr* expr]
       (cond
-        tmap
+        (r/HeterogeneousMap? tmap)
         (let [r (c/HMap->KwArgsSeq tmap false)
               _ (when expected
                   (when-not (sub/subtype? r (r/ret-t expected))

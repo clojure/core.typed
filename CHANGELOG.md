@@ -6,6 +6,7 @@ Thanks to Allen Rohner who provided patches for this release.
 - Fix CTYP-174
 - Fix CTYP-181
   - better types for primitive casts
+- Fix CTYP-170
 
 # 0.2.88 - 18 May 2015
 
