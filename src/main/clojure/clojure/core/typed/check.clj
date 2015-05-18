@@ -1400,8 +1400,7 @@
                                m-or-f 
                                (-> ctarget u/expr-type r/ret-t) 
                                [])
-                             "\n\nHint: use *warn-on-reflection* to identify reflective calls"
-                             "\n\nin: " (ast-u/emit-form-fn expr)))
+                             "\n\nHint: use *warn-on-reflection* to identify reflective calls"))
     (assoc expr 
            :target ctarget
            u/expr-type (cu/error-ret expected))))
@@ -1581,8 +1580,7 @@
                                        nil 
                                        (map (comp r/ret-t u/expr-type) cargs)
                                        :constructor-call clssym)
-                                     ".\n\nHint: add type hints"
-                                     "\n\nin: " (ast-u/emit-form-fn expr))
+                                     ".\n\nHint: add type hints")
                                 :form (ast-u/emit-form-fn expr)
                                 :return (assoc expr
                                                :args cargs
