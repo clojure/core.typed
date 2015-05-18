@@ -46,7 +46,8 @@
       ;(prn "ns-msg" (:ns msg))
       ;(prn "msg" msg)
       ;(prn "should-check?" should-check?)
-      (if should-check?
+      (cond 
+        should-check?
         (binding [*out* (@session #'*out*)
                   *err* (@session #'*err*)]
           (t/load-if-needed)
@@ -80,9 +81,9 @@
                                                             :ex (-> e class str)
                                                             :root-ex (-> root-ex class str)}))
                     (main/repl-caught e)))))))
-        (handler msg)))))
+        :else (handler msg)))))
 
 (mid/set-descriptor! #'wrap-clj-repl
   {:requires #{"clone"}
-   :expects #{"eval"}
+   :expects #{"eval" "load-file"}
    :handles {}})
