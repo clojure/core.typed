@@ -1340,8 +1340,12 @@ clojure.core/>= [Number Number * -> Boolean]
 
 clojure.core/== [Number Number * -> Boolean]
 
-clojure.core/max [Number Number * -> Number]
-clojure.core/min [Number Number * -> Number]
+clojure.core/max (IFn [Long Long * -> Long]
+                      [Double Double * -> Double]
+                      [Number Number * -> Number])
+clojure.core/min (IFn [Long Long * -> Long]
+                      [Double Double * -> Double]
+                      [Number Number * -> Number])
 
 clojure.core/ref (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta (U nil (Map Any Any))
                                           :min-history (U nil AnyInteger)

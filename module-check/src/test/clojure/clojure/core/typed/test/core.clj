@@ -4786,6 +4786,12 @@
 (deftest CTYP-170-test
   (is-tc-e (apply concat [[]])))
 
+(deftest CTYP-200-test
+  (is-tc-e (min 1 2) Int)
+  (is-tc-e (max 1 2) Int)
+  (is-tc-e (#'min 1 2) Int)
+  (is-tc-e (#'max 1 2) Int))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
