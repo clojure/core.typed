@@ -226,7 +226,7 @@
                                        6)
                       *print-level* (when-not uvs/*verbose-forms*
                                       4)]
-              (println form))
+              (prn form))
             (println)
             (println)
             (flush)))

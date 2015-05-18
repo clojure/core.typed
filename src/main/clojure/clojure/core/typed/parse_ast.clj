@@ -506,7 +506,7 @@
                        (map first))
         _ (when-not (every? keyword? flat-keys)
             (err/int-error (str "HMap requires keyword arguments, given " (pr-str (first flat-keys))
-                                " in: " (pr-str all))))
+                                #_#_" in: " (pr-str all))))
         _ (let [kf (->> flat-keys
                         multi-frequencies
                         (map first)
