@@ -13,6 +13,7 @@
 
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
+  ;(prn "gen-protocol*")
   (let [_ (when-not (symbol? vsym)
             (err/int-error
               (str "First argument to ann-protocol must be a symbol: " vsym)))
@@ -33,21 +34,24 @@
              (map (comp r/make-F :fname) parsed-binder))
         bnds (when parsed-binder
                (map :bnd parsed-binder))
-        _ (assert (= (count fs) (count bnds)))
+        _ (assert (== (count fs) (count bnds)))
         _ (assert ((some-fn nil? map?) mths))
         _ (when-let [[m] (seq (remove symbol? (keys mths)))]
             (err/int-error (str "Method names to ann-protocol must be symbols: " m)))
+        ;_ (prn "gen-protocol after method symbol check")
         _ (doseq [[n1 n2] (comb/combinations (keys mths) 2)]
             (when (= (munge n1) (munge n2))
               (err/int-error 
                 (str "Protocol methods for " vsym " must have distinct representations: "
                      "both " n1 " and " n2 " compile to " (munge n1)))))
+        ;_ (prn "gen-protocol after distinct rep check")
         ms (into {} (for [[knq v] mths]
                       (let [_ (when (namespace knq)
                                 (err/int-error "Protocol method should be unqualified"))
                             mtype (free-ops/with-bounded-frees (zipmap fs bnds)
-                                    (binding [vs/*current-env* current-env
+                                    (binding [vs/*current-env*       current-env
                                               prs/*parse-type-in-ns* current-ns]
+                                      ;(prn "parsing" v current-ns *ns*)
                                       (prs/parse-type v)))]
                          (let [rt (c/fully-resolve-type mtype)
                                fin? (fn [f]
@@ -64,6 +68,7 @@
                                (when (r/PolyDots? rt) 
                                  (let [names (c/PolyDots-fresh-symbols* rt)]
                                    (fin? (c/PolyDots-body* names rt)))))
+                             ;(prn "throwing method type")
                              (err/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
                                                " taking at least one fixed argument: "
                                                (prs/unparse-type mtype)))))
@@ -71,6 +76,7 @@
         ;_ (prn "collect protocol methods" (into {} ms))
         t (c/Protocol* (map :name fs) (map :variance parsed-binder) 
                        fs s on-class ms (map :bnd parsed-binder))]
+    ;(prn "Adding protocol" s t)
     (ptl-env/add-protocol s t)
     ; annotate protocol var as Any
     (var-env/add-nocheck-var s)

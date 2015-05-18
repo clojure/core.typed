@@ -21,6 +21,12 @@
     (assert res (str "Can't find " f " in classpath"))
     (io/reader res)))
 
+;; returns a map with keys
+;; - :delayed errors    a vector of ExceptionInfo instances representing type errors
+;;
+;; Optional
+;; - :file-mapping      a map from namespace symbols to vectors of AST nodes
+;;                      Added if true :file-mapping keyword is passed as an option
 (defn check-ns-info
   [impl ns-or-syms & {:keys [collect-only trace profile file-mapping]}]
   (p/profile-if profile

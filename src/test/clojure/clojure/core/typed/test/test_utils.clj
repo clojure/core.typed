@@ -35,18 +35,15 @@
     `(let [expected-ret# ~expected-ret]
        (binding [*ns* *ns*
                  *file* *file*]
-         ; checking (do ~ns-form ~frm) doesn't seem to work too well.
-         ; Don't check the ns form if we don't have extra requires, it's
-         ; much faster.
-         ~(if requires
-            `(t/check-form-info
-               '~ns-form)
-            ns-form)
          (t/check-form-info 
-           '~frm
+           '(do ~ns-form 
+                ~(if provided?
+                   `(t/ann-form ~frm ~syn)
+                   frm))
            :expected-ret expected-ret#
-           :expected '~syn
-           :type-provided? ~provided?)))))
+           ;:expected '~syn
+           ;:type-provided? ~provided?
+           )))))
 
 (defmacro tc-e 
   "Type check an an expression in namespace that :refer's

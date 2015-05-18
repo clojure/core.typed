@@ -12,7 +12,7 @@
    :unparse-ns *ns*
    :collect-expr collect-clj/collect-ast
    :check-expr chk-clj/check-expr
-   :eval-out-ast ana-clj/eval-ast
+   :eval-out-ast (partial ana-clj/eval-ast {})
    :emit-form emit-form/emit-form})
 
 (defn check-form-info
