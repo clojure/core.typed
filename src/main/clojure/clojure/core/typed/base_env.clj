@@ -1288,19 +1288,18 @@ clojure.core/rseq
        [(clojure.core.typed/Reversible x) -> (Option (NonEmptyASeq x))])
 
 ;coercions
-;TODO maybe these argument type shouldn't be Any
 clojure.core/bigdec [Number -> BigDecimal]
 clojure.core/bigint [Number -> clojure.lang.BigInt]
 clojure.core/biginteger [Number -> java.math.BigInteger]
 clojure.core/boolean [Any -> Boolean]
-clojure.core/byte [Any -> Byte]
-clojure.core/char [Any -> Character]
-clojure.core/double [Any -> Double]
-clojure.core/float [Any -> Float]
-clojure.core/int [Any -> Integer]
-clojure.core/long [Any -> Long]
-clojure.core/num [Any -> Number]
-clojure.core/short [Any -> Short]
+clojure.core/byte [(U Character Number) -> Byte]
+clojure.core/char [(U Character Number) -> Character]
+clojure.core/double [Number -> Double]
+clojure.core/float [Number -> Float]
+clojure.core/int [(U Character Number) -> Integer]
+clojure.core/long [(U Character Number) -> Long]
+clojure.core/num [Number -> Number]
+clojure.core/short [(U Character Number) -> Short]
 
 ;array ctors
 clojure.core/boolean-array (IFn [(U nil Number (Seqable Boolean)) -> (Array boolean)]
@@ -1766,8 +1765,26 @@ clojure.lang.Util/compare [Any Any -> Number]
 
 ; this is overloaded in interesting ways, but this is good enough for destructuring purposes
 clojure.lang.PersistentHashMap/create [(U nil (ISeq Any) java.util.Map (ReadOnlyArray Object)) -> (Map Any Any)]
+
+clojure.lang.RT/floatCast  [Number -> Float]
+clojure.lang.RT/byteCast   [(U Character Number) -> Byte]
+clojure.lang.RT/charCast   [(U Character Number) -> Character]
+clojure.lang.RT/doubleCast [Number -> Double]
+clojure.lang.RT/intCast    [(U Character Number) -> Integer]
+clojure.lang.RT/longCast   [(U Character Number) -> Long]
+clojure.lang.RT/shortCast  [(U Character Number) -> Short]
+
+clojure.lang.RT/uncheckedFloatCast  [Number -> Float]
+clojure.lang.RT/uncheckedByteCast   [(U Character Number) -> Byte]
+clojure.lang.RT/uncheckedCharCast   [(U Character Number) -> Character]
+clojure.lang.RT/uncheckedIntCast    [(U Character Number) -> Integer]
+clojure.lang.RT/uncheckedLongCast   [(U Character Number) -> Long]
+clojure.lang.RT/uncheckedShortCast  [(U Character Number) -> Short]
+
+clojure.lang.Numbers/num   [Number -> Number]
     )
-    {'clojure.lang.RT/count (count-type)}))
+    {'clojure.lang.RT/count (count-type)
+     }))
 
 (comment
   clojure.lang.IFn/invoke (All [r a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 a20 arest]
