@@ -4783,6 +4783,9 @@
   (is-tc-err (char 'a) Character)
   )
 
+(deftest CTYP-170-test
+  (is-tc-e (apply concat [[]])))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
