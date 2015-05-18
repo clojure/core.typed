@@ -17,6 +17,7 @@
             [clojure.core.typed :as T]
             [clojure.core.cache :as cache]
             [clojure.core.typed.special-form :as spec]
+            [clojure.core.typed.errors :as err]
             [clojure.set :as set]
             [clojure.core :as core])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
@@ -229,7 +230,8 @@
   [p]
   {:pre [(string? p)]}
   (let [pres (io/resource p)
-        _ (assert (instance? java.net.URL pres) (str "Cannot find file: " p))
+        _ (when-not (instance? java.net.URL pres)
+            (err/int-error (str "Cannot find file: " p)))
         file (-> pres io/reader slurp)
         reader (readers/indexing-push-back-reader file 1 p)
         eof  (reify)
