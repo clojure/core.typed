@@ -2,6 +2,7 @@
   (:require [clojure.core.typed.test.test-utils :refer :all]
             [clojure.test :refer :all]
             [clojure.core.typed :as t]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.type-rep :refer :all]
             [clojure.core.typed.type-ctors :refer :all]
             [clojure.core.typed.parse-unparse :refer [unparse-type]]
@@ -45,7 +46,8 @@
                        (RClass-of PersistentHashMap [num num]) (Un -nil (-hvec [num num]))
                        (RClass-of PersistentTreeMap [num num]) (Un -nil (-hvec [num num]))}]
           (t/check-form* '(fn [a] (first a))
-                         (unparse-type
-                           (make-FnIntersection
-                             (make-Function [t] r)))))
+                         (binding [vs/*verbose-types* true]
+                           (unparse-type
+                             (make-FnIntersection
+                               (make-Function [t] r))))))
         true)))

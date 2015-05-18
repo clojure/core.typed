@@ -28,7 +28,8 @@
 ;;  Mandatory
 ;; - :impl          keyword passed to impl/with-full-impl, which is wrapped around 
 ;;                  the entire function.
-;; - :ast-for-form  function from form to tools.analyzer AST
+;; - :ast-for-form  function from form to tools.analyzer AST, taking :bindings-atom as keyword
+;;                  argument.
 ;; - :collect-expr  side-effecting function taking AST and collecting type annotations
 ;; - :check-expr    function taking AST and expected type and returns a checked AST.
 ;;
@@ -65,7 +66,7 @@
 (defn check-form-info
   [{:keys [impl ast-for-form unparse-ns
            check-expr collect-expr eval-out-ast
-           emit-form]} 
+           emit-form eval-out-ast]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast no-eval bindings-atom]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)]}
@@ -73,7 +74,7 @@
   (p/profile-if profile
     (reset-caches/reset-caches)
     (if vs/*checking*
-      (throw (Exception. "Found inner call to check-ns or cf"))
+      (err/int-error "Found inner call to check-ns or cf")
       (impl/with-full-impl impl
         (binding [vs/*checking* true
                   vs/*already-collected* (atom #{})
@@ -85,22 +86,41 @@
                            expected-ret
                            (when type-provided?
                              (r/ret (prs/parse-type expected))))
-                ast (ast-for-form form :bindings-atom bindings-atom)
-                c-ast (try
-                        (do (collect-expr ast)
-                            (reset-caches/reset-caches)
-                            (let [c-ast (check-expr ast expected)
-                                  eval-cexp (or (when-not no-eval
-                                                  eval-out-ast)
-                                                identity)]
-                              (if (empty? @vs/*delayed-errors*)
-                                (eval-cexp c-ast)
-                                c-ast)))
-                        (catch ExceptionInfo e
-                          (if (err/tc-error? (ex-data e))
-                            (reset! terminal-error? e)
-                            (throw e))
-                          nil))
+                no-errors? (fn [] (and (empty? @vs/*delayed-errors*)
+                                       (not @terminal-error?)))
+                stop-analysis (atom nil)
+                stop! (fn [] (reset! stop-analysis true))
+                eval-ast (fn [{:keys [expected] :as opt} ast]
+                           (try
+                             (do (when (no-errors?)
+                                   (collect-expr ast))
+                                 (let [c-ast (if (no-errors?)
+                                               (do 
+                                                 (reset-caches/reset-caches)
+                                                 (check-expr ast expected))
+                                               ast)
+                                       eval-cexp (or (when-not no-eval
+                                                       eval-out-ast)
+                                                     identity)]
+                                   (if (no-errors?)
+                                     (eval-cexp c-ast)
+                                     (do
+                                       ;; if we don't evaluate this form and we're part of a top-level
+                                       ;; `do`, then we have to stop analyze+eval from analyzing the
+                                       ;; rest of the do expression. This eval-ast function will not be called again.
+                                       (stop!)
+                                       c-ast))))
+                             (catch ExceptionInfo e
+                               (if (err/tc-error? (ex-data e))
+                                 (do (stop!)
+                                     (reset! terminal-error? e))
+                                 (throw e))
+                               ast)))
+                c-ast (ast-for-form form
+                                    {:bindings bindings-atom
+                                     :eval-fn eval-ast
+                                     :expected expected
+                                     :stop-analysis stop-analysis})
                 res (some-> c-ast u/expr-type)
                 delayed-errors (concat @vs/*delayed-errors*
                                        (some-> @terminal-error? vector))]
@@ -113,7 +133,7 @@
               (when (and (#{impl/clojure} impl)
                          (not no-eval)
                          (empty? delayed-errors))
-                {:result (:result ast)})
+                {:result (:result c-ast)})
               (when (and c-ast emit-form)
                 {:out-form (emit-form c-ast)})
               (when (#{impl/clojure} impl)

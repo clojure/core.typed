@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.parse-unparse
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
             [clojure.core.typed.utils :as u]
@@ -948,11 +949,23 @@
                      :clojure (clj-primitives-fn)
                      :cljs (cljs-primitives-fn))
         rsym (impl/impl-case
-               :clojure (when-let [res (when (symbol? sym)
-                                         (resolve-type-clj sym))]
+               :clojure (let [res (when (symbol? sym)
+                                    (resolve-type-clj sym))]
                           (cond 
                             (class? res) (coerce/Class->symbol res)
-                            (var? res) (coerce/var->symbol res)))
+                            (var? res)   (coerce/var->symbol res)
+                            ;; name doesn't resolve, try declared protocol or datatype
+                            ;; in the current namespace
+                            :else (let [ns (parse-in-ns)
+                                        dprotocol (if (namespace sym)
+                                                    sym
+                                                    (symbol (str ns) (str sym)))
+                                        ddatatype (if (some #{\.} (str sym))
+                                                    sym
+                                                    (symbol (str (munge ns)) (str sym)))]
+                                    (cond
+                                      (nme-env/declared-protocol? dprotocol) dprotocol
+                                      (nme-env/declared-datatype? ddatatype) ddatatype))))
                :cljs (when (symbol? sym)
                        (resolve-type-cljs sym)))
         free (when (symbol? sym) 

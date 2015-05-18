@@ -93,9 +93,9 @@
 
 (defmethod internal-collect-expr ::core/ns
   [{[_ _ {{ns-form :form} :val :as third-arg} :as statements] :statements fexpr :ret :as expr}]
-  {:pre []}
   (assert ns-form (str "No ns form found for " (cu/expr-ns expr)))
   (assert ('#{clojure.core/ns ns} (first ns-form)))
+  ;(prn "collecting ns form")
   (let [prs-ns (dep-u/ns-form-name ns-form)
         deps   (dep-u/ns-form-deps ns-form)
         tdeps (set (filter dep-u/should-check-ns? deps))]
@@ -326,6 +326,7 @@
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{3})
   (let [[binder varsym mth] (ast-u/constant-exprs args)]
+    ;(prn "collected ann-protocol" varsym)
     (gen-protocol/gen-protocol* env (chk-u/expr-ns expr) varsym binder mth)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-pprotocol*

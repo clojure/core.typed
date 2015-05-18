@@ -127,10 +127,18 @@
   (add-type-name sym protocol-name-type)
   nil)
 
+(t/ann declared-protocol? [t/Any -> t/Any])
+(defn declared-protocol? [sym]
+  (= protocol-name-type (get-type-name sym)))
+
 (t/ann declare-datatype* [t/Sym -> nil])
 (defn declare-datatype* [sym]
   (add-type-name sym datatype-name-type)
   nil)
+
+(t/ann declared-datatype? [t/Any -> t/Any])
+(defn declared-datatype? [sym]
+  (= datatype-name-type (get-type-name sym)))
 
 (t/ann ^:no-check resolve-name* [t/Sym -> r/Type])
 (defn resolve-name* [sym]

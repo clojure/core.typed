@@ -45,6 +45,7 @@
 
 (t/ann add-protocol [t/Sym r/Type -> nil])
 (defn add-protocol [sym t]
+  ;(prn "add-protocol" sym t)
   (assert-protocol-env)
   (t/when-let-fail [e *current-protocol-env*]
     (let [swap!' (t/inst swap! ProtocolEnv ProtocolEnv t/Sym r/Type)

@@ -81,7 +81,6 @@
             [clojure.core.typed.open-result :as open-result]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.path-rep :as pe]
-            [clojure.core.typed.protocol-env :as pcl-env]
             [clojure.core.typed.protocol-env :as ptl-env]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.reflect-utils :as reflect-u]
@@ -1676,7 +1675,7 @@
   {:pre [(class? expired-class)]
    :post [(-> % u/expr-type r/TCResult?)]}
   ;TODO check fields match, handle extra fields in records
-  #_(prn "Checking deftype definition:" nme)
+  ;(prn "Checking deftype definition:" expired-class)
   (binding [vs/*current-env* env]
     (let [compiled-class 
           (-> expired-class coerce/Class->symbol coerce/symbol->Class)

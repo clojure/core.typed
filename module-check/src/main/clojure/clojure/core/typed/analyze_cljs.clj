@@ -16,10 +16,13 @@
 
 (defn ast-for-form
   "Returns an AST node for the form"
-  [form & {:keys []}]
+  [form {:keys [expected eval-fn] :as opt}]
   ;; TODO support bindings-atom, as in c.c.t.analyze-clj
-  (-> (jana/analyze-form form)
-      hyg/ast-hy))
+  (let [ast (-> (jana/analyze-form form)
+                hyg/ast-hy)]
+    (if eval-fn
+      (eval-fn opt ast)
+      ast)))
 
 (defn ast-for-ns 
   "Returns a vector of AST nodes contained

@@ -1,3 +1,28 @@
+# 0.2.87 - 18 May 2015
+
+## Typed REPL
+
+core.typed is now integrated into the compilation process for namespaces with
+`:core.typed` metadata mapped to a true value.
+
+To enable the typed REPL, add this to your project.clj:
+
+```clojure
+  :repl-options {:nrepl-middleware [clojure.core.typed.repl/wrap-clj-repl]}
+```
+
+Then the typed REPL can be invoked by code such as this.
+
+```clojure
+(ns ^:core.typed typed)
+
+(inc 'a)
+```
+
+`ns` often doesn't add metadata correctly but this usually doesn't matter because
+core.typed will read the syntactic `ns` form directly to decided whether the namespace
+is typed.
+
 # 0.2.86 - 1 April 2015
 
 - depend on clojure 1.7.0-alpha6
