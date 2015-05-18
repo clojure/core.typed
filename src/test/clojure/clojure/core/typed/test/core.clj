@@ -1324,7 +1324,17 @@
 
 (deftest dotimes-test
   (is-tc-e (dotimes [i 100] (inc i)) nil)
-  (is-tc-e (dotimes [i :- Num 100] (inc i)) nil))
+  (is-tc-e (dotimes [i :- Num 100] (inc i)) nil)
+  (is (let [a (atom 0)]
+        (clojure.core.typed/dotimes
+          [i 10]
+          (swap! a inc))
+        (= @a 10)))
+  (is (let [a (atom 0)]
+        (clojure.core.typed/dotimes
+          [i :- Num, 10]
+          (swap! a inc))
+        (= @a 10))))
 
 (deftest records-test
   (is (check-ns 'clojure.core.typed.test.records))
