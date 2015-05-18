@@ -12,7 +12,7 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go\n\nchan\n  use chan\n\nbuffer\n  use buffer (similar for other buffer constructors)\n"}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/78f4b5d58d712d9b67738a807aadcec641638078/module-check/src/main/clojure/clojure/core/typed/base_env_common.clj",
+   "https://github.com/clojure/core.typed/blob/2121d252454283140bad8d263e7bd9883aaca00d/module-check/src/main/clojure/clojure/core/typed/base_env_common.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.base-env-common-api.html",
    :name "clojure.core.typed.base-env-common",
