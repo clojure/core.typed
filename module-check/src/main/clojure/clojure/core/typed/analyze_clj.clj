@@ -183,7 +183,7 @@
                source-info/source-info))
            (merge (if (some-> stop-analysis deref)
                     (unanalyzed-expr mform)
-                    (eval-fn opts (taj/analyze mform env opts)))
+                    (eval-fn opts (taj/analyze mform env (dissoc opts :bindings-atom))))
                   {:raw-forms raw-forms}))))))
 
 (def thread-bindings {#'ta/macroexpand-1 macroexpand-1})
@@ -191,16 +191,18 @@
 ;; bindings is an atom that records any side effects during macroexpansion. Useful
 ;; for nREPL middleware.
 (defn analyze1
+  ([form] (analyze1 form (taj/empty-env) {}))
   ([form env] (analyze1 form env {}))
-  ([form env {:keys [bindings] :as opts}]
-   {:pre [((some-fn nil? con/atom?) bindings)]}
-   (let [old-bindings (or (some-> bindings deref) {})]
+  ([form env {:keys [bindings-atom] :as opts}]
+   {:pre [((some-fn nil? con/atom?) bindings-atom)]}
+   (let [old-bindings (or (some-> bindings-atom deref) {})]
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
-       (let [ana (analyze+eval form env opts)]
+       (let [ana (analyze+eval form env 
+                               (merge-with merge opts {:bindings thread-bindings}))]
          ;; only record vars that were already bound
-         (when bindings
-           (reset! bindings (select-keys (get-thread-bindings) (keys old-bindings))))
+         (when bindings-atom
+           (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))
          ana)))))
 
 (defn ast-for-form-in-ns
@@ -209,7 +211,7 @@
   [nsym form]
   (binding [*ns* (or (find-ns nsym)
                      *ns*)]
-    (analyze1 form (taj/empty-env))))
+    (analyze1 form)))
 
 (def reread-with-tr (comp tr/read readers/indexing-push-back-reader print-str))
 
