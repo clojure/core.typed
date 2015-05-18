@@ -269,7 +269,6 @@
     clojure.core/bit-shift-left [AnyInteger AnyInteger -> AnyInteger]
     clojure.core/bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
     clojure.core/pos? (IFn [Number -> Boolean])
-                                        ;clojure.core/zero? (Pred (Value 0))
     clojure.core/neg? (IFn [Number -> Boolean])
     clojure.core/nthnext
     (All [x]

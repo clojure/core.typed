@@ -4717,6 +4717,12 @@
 (deftest CTYP-189-test
   (is-tc-e (for [x :- Int []] :- Int x)))
 
+(deftest CTYP-215-zero?-test
+  ; inlinings
+  (is-tc-e (zero? 1) Boolean)
+  (is-tc-err (zero? 'a) Boolean)
+  (is-tc-e zero? [Number -> Boolean]))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

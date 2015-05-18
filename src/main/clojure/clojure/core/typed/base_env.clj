@@ -666,7 +666,9 @@ clojure.core/vector? (Pred (Vec Any))
 clojure.core/nil? (Pred nil)
 clojure.core/false? (Pred false)
 clojure.core/true? (Pred true)
-clojure.core/zero? (Pred (Value 0))
+clojure.core/zero?  [Number -> Boolean
+                     :filters {:then (is (Value 0) 0)
+                               :else (!  (Value 0) 0)}]
 clojure.core/symbol? (Pred Symbol)
 clojure.core/keyword? (Pred Keyword)
 clojure.core/map? (Pred (Map Any Any))
@@ -1756,7 +1758,9 @@ clojure.lang.Numbers/lte [Number Number -> Boolean]
 clojure.lang.Numbers/gt [Number Number -> Boolean]
 clojure.lang.Numbers/gte [Number Number -> Boolean]
 
-clojure.lang.Numbers/isZero (Pred (Value 0))
+clojure.lang.Numbers/isZero [Number -> Boolean
+                             :filters {:then (is (Value 0) 0)
+                                       :else (!  (Value 0) 0)}]
 
 clojure.lang.Util/compare [Any Any -> Number]
 
