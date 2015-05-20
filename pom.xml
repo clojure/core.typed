@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.2.92-SNAPSHOT</version>
+    <version>0.2.92</version>
   </parent>
 
   <build>
@@ -152,7 +152,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.rt</artifactId>
-      <version>0.2.92-SNAPSHOT</version>
+      <version>0.2.92</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
