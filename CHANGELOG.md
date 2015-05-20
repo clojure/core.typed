@@ -1,7 +1,12 @@
-# 0.2.91 - SNAPSHOT
+# 0.2.92 - SNAPSHOT
 
 - removed `*checking*` var
 - bump tools.reader to 0.9.2
+
+# 0.2.91 - 19 May 2015
+
+- improve application error messages
+  - find most general function signature
 
 # 0.2.90 - 18 May 2015
 
