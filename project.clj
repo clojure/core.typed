@@ -7,7 +7,7 @@
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
                  [org.clojure/tools.analyzer.jvm "0.3.0"]
-                 [org.clojure/tools.reader "0.8.4"]
+                 [org.clojure/tools.reader "0.9.2"]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.1.1"

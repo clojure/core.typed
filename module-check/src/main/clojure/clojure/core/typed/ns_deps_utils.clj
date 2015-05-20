@@ -16,7 +16,8 @@
   nil if not found"
   [file]
   (p/p :ns-deps-utils/ns-form-for-file
-   (ns-file/read-file-ns-decl file)))
+   (some-> (io/resource file)
+           ns-file/read-file-ns-decl)))
 
 (defn ns-form-for-ns
   "Returns the namespace declaration for the namespace, or
@@ -24,10 +25,9 @@
   [nsym]
   {:pre [(symbol? nsym)]}
   (let [f (-> nsym coerce/ns->file)
-        res (io/resource f)]
-    (if res
-      (ns-form-for-file res)
-      (err/warn (str "File for " nsym " not found on classpath: " f)))))
+        ns (ns-form-for-file f)]
+    (or ns
+        (err/warn (str "File for " nsym " not found on classpath: " f)))))
 
 (defn ns-form-deps
   "Given a ns-form, returns a set of dependencies"
@@ -98,3 +98,19 @@
               (requires-tc? ns-form)
               (not (collect-only-ns? ns-form)))
          false)))
+
+(defn ns-has-core-typed-metadata?
+  "Returns true if the given ns form has :core.typed metadata."
+  [rcode]
+  {:post [(con/boolean? %)]}
+  (-> (second rcode)
+      meta :core.typed boolean))
+
+(defn file-has-core-typed-metadata?
+  "Returns true if the given file has :core.typed metadata."
+  [res]
+  {:pre [(string? res)]
+   :post [(con/boolean? %)]}
+  (if-let [ns-form (ns-form-for-file res)]
+    (some-> ns-form ns-has-core-typed-metadata?)
+    false))

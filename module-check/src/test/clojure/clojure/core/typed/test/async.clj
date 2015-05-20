@@ -63,17 +63,4 @@
   (require '[clojure.core.typed.current-impl :as impl]
            '[clojure.core.typed.analyze-clj :as ana]
            '[clojure.core.typed.util-vars :as vs])
-  (-> (binding [vs/*checking* true]
-        (impl/with-clojure-impl
-          (ana/ast-for-ns *ns*)))
-      (nth 1)
-      :body
-      :statements
-      first
-      :body
-      :statements
-      first
-      :form
-      meta
-      )
   )

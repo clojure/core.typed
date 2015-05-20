@@ -1326,12 +1326,10 @@ for checking namespaces, cf for checking individual forms."}
       (tag (+ (tag a long) (tag b long))
            long)"
   [form tag]
-  (if vs/*checking*
-    `(do ~spec/special-form
-         ::tag
-         {:tag '~tag}
-         ~form)
-    form))
+  `(do ~spec/special-form
+       ::tag
+       {:tag '~tag}
+       ~form))
 
 (def ^{:doc "Any is the top type that contains all types."
        :forms '[Any]

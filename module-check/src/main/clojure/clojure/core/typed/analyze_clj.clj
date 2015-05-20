@@ -117,6 +117,12 @@
    :form form
    ::unanalyzed true})
 
+(defn special-form? [mform]
+  (and (seq? mform)
+       (= 'do (first mform))
+       (or (= (second mform) spec/special-form)
+           (= (second mform) ::T/special-collect))))
+
 (declare eval-ast)
 (defn analyze+eval
   "Like analyze but evals the form after the analysis and attaches the
@@ -139,6 +145,7 @@
   ([form] (analyze+eval form (taj/empty-env) {}))
   ([form env] (analyze+eval form env {}))
   ([form env {:keys [eval-fn stop-analysis] :or {eval-fn eval-ast} :as opts}]
+   {:pre [(map? env)]}
      (ta-env/ensure (taj/global-env)
        (taj/update-ns-map!) 
        (let [[mform raw-forms] (binding [ta/macroexpand-1 (get-in opts [:bindings #'ta/macroexpand-1] 
@@ -152,8 +159,7 @@
          (if (and (seq? mform) (= 'do (first mform)) (next mform)
                   ;; if this is a typed special form like an ann-form, don't treat like
                   ;; a top-level do.
-                  (not= (second mform) spec/special-form)
-                  (not= (second mform) ::T/special-collect))
+                  (not (special-form? mform)))
            ;; handle the Gilardi scenario.
            ;; we don't track exceptional control flow on a top-level do, which
            ;; probably won't be an issue.
@@ -198,7 +204,7 @@
    (let [old-bindings (or (some-> bindings-atom deref) {})]
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
-       (let [ana (analyze+eval form env 
+       (let [ana (analyze+eval form (or env (taj/empty-env))
                                (merge-with merge opts {:bindings thread-bindings}))]
          ;; only record vars that were already bound
          (when bindings-atom

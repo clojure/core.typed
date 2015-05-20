@@ -1,4 +1,4 @@
-(ns clojure.core.typed.repl
+(ns ^:no-wiki clojure.core.typed.repl
   (:require [clojure.tools.nrepl.middleware :as mid]
             [clojure.tools.nrepl.transport :as transport]
             [clojure.tools.nrepl.misc :as misc]
@@ -6,10 +6,16 @@
             [clojure.core.typed.errors :as err]
             [clojure.tools.namespace.parse :as ns]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.ns-deps-utils :as ns-utils]
+            [clojure.core.typed.load :as load]
             [clojure.main :as main])
   (:import java.io.Writer))
 
+(def install-typed-load
+  (delay (alter-var-root #'load (constantly load/typed-load))))
+
 (defn wrap-clj-repl [handler]
+  @install-typed-load
   (fn [{:keys [code transport session op] :as msg}]
     (let [;original-ns (@session #'*ns*)
           maybe-explicit-ns (when-let [ns (some-> (:ns msg) symbol find-ns)]
@@ -36,10 +42,8 @@
           ns-form? (and (coll? rcode) 
                         (= (first rcode) 'ns)
                         (= #'ns (ns-resolve current-ns 'ns))
-                        (-> (second rcode)
-                            meta :core.typed boolean))
-          should-check? (and (= "eval" op)
-                             (or typed? ns-form?)
+                        (ns-utils/ns-has-core-typed-metadata? rcode))
+          should-check? (and (or typed? ns-form?)
                              (not @rfail?))]
       ;(prn "code" code)
       ;(prn "current-ns" current-ns)
@@ -47,7 +51,12 @@
       ;(prn "msg" msg)
       ;(prn "should-check?" should-check?)
       (cond 
-        should-check?
+        ;; TODO
+;        (and (= "load-file" op)
+;             should-check?)
+
+        (and (= "eval" op)
+             should-check?)
         (binding [*out* (@session #'*out*)
                   *err* (@session #'*err*)]
           (t/load-if-needed)
@@ -59,6 +68,11 @@
                     ;; probably need to pass bindings into tools.analyzer expansion
                     (binding [*ns* current-ns]
                       [(t/check-form-info rcode
+                                          ;; let handler evaluate code
+                                          ;;
+                                          ;; FIXME this should instead define an :eval-fn
+                                          ;; that pipes the results to the handler because
+                                          ;; of top level do expressions
                                           :no-eval true
                                           :bindings-atom session)
                        *ns*])]

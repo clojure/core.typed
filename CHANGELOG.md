@@ -1,4 +1,13 @@
-# 0.2.89 - SNAPSHOT
+# 0.2.91 - SNAPSHOT
+
+- removed `*checking*` var
+- bump tools.reader to 0.9.2
+
+# 0.2.90 - 18 May 2015
+
+- tweaks to REPL
+
+# 0.2.89 - 18 May 2015
 
 Thanks to Allen Rohner who provided patches for this release.
 
