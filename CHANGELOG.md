@@ -1,4 +1,4 @@
-# 0.2.92 - SNAPSHOT
+# 0.2.92 - 20 May 2015
 
 - removed `*checking*` var
 - bump tools.reader to 0.9.2
