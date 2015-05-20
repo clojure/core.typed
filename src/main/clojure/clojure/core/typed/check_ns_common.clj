@@ -41,76 +41,71 @@
                                 ns-or-syms)
                              [ns-or-syms]
                              ns-or-syms))]
-        (cond
-          vs/*checking* (err/int-error "Found inner call to check-ns or cf")
+        (impl/with-full-impl impl
+          (binding [vs/*delayed-errors* (err/-init-delayed-errors)
+                    vs/*already-checked* (atom #{})
+                    vs/*trace-checker* trace
+                    vs/*analyze-ns-cache* (cache/soft-cache-factory {})
+                    ; we only use this if we have exactly one namespace passed
+                    vs/*checked-asts* (when (#{impl/clojure} impl)
+                                        (when (== 1 (count nsym-coll))
+                                          (atom {})))
+                    vs/*already-collected* (atom #{})]
+            (let [terminal-error (atom nil)]
+              (reset-env/reset-envs!)
+              ;(reset-caches)
+              ;; handle terminal type error
+              (try
+                ;-------------------------
+                ; Collect phase
+                ;-------------------------
+                (let [collect-ns (impl/impl-case
+                                   :clojure collect-clj/collect-ns
+                                   :cljs    (impl/v 'clojure.core.typed.collect-cljs/collect-ns))]
+                  (doseq [nsym nsym-coll]
+                    (collect-ns nsym)))
+                (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                      collected (if-let [c vs/*already-collected*]
+                                  @c
+                                  (err/int-error "*already-collected* unbound"))]
+                  (println "Collected" (count collected) "namespaces in" ms "msecs")
+                  (flush))
 
-          :else
-          (impl/with-full-impl impl
-            (binding [vs/*checking* true
-                      vs/*delayed-errors* (err/-init-delayed-errors)
-                      vs/*already-checked* (atom #{})
-                      vs/*trace-checker* trace
-                      vs/*analyze-ns-cache* (cache/soft-cache-factory {})
-                      ; we only use this if we have exactly one namespace passed
-                      vs/*checked-asts* (when (#{impl/clojure} impl)
-                                          (when (== 1 (count nsym-coll))
-                                            (atom {})))
-                      vs/*already-collected* (atom #{})]
-              (let [terminal-error (atom nil)]
-                (reset-env/reset-envs!)
-                ;(reset-caches)
-                ;; handle terminal type error
-                (try
-                  ;-------------------------
-                  ; Collect phase
-                  ;-------------------------
-                  (let [collect-ns (impl/impl-case
-                                     :clojure collect-clj/collect-ns
-                                     :cljs    (impl/v 'clojure.core.typed.collect-cljs/collect-ns))]
+                ;-------------------------
+                ; Check phase
+                ;-------------------------
+                (when-not collect-only
+                  (let [check-ns (impl/impl-case
+                                   :clojure chk-clj/check-ns-and-deps
+                                   :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
                     (doseq [nsym nsym-coll]
-                      (collect-ns nsym)))
+                      (check-ns nsym)))
+                  (let [vs (var-env/vars-with-unchecked-defs)]
+                    (binding [*out* *err*]
+                      (doseq [v vs]
+                        (println "WARNING: Type Checker: Definition missing:" v 
+                                 "\nHint: Use :no-check metadata with ann if this is an unchecked var")
+                        (flush))))
                   (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                        collected (if-let [c vs/*already-collected*]
-                                    @c
-                                    (err/int-error "*already-collected* unbound"))]
-                    (println "Collected" (count collected) "namespaces in" ms "msecs")
-                    (flush))
-
-                  ;-------------------------
-                  ; Check phase
-                  ;-------------------------
-                  (when-not collect-only
-                    (let [check-ns (impl/impl-case
-                                     :clojure chk-clj/check-ns-and-deps
-                                     :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
-                      (doseq [nsym nsym-coll]
-                        (check-ns nsym)))
-                    (let [vs (var-env/vars-with-unchecked-defs)]
-                      (binding [*out* *err*]
-                        (doseq [v vs]
-                          (println "WARNING: Type Checker: Definition missing:" v 
-                                   "\nHint: Use :no-check metadata with ann if this is an unchecked var")
-                          (flush))))
-                    (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                          checked (some-> vs/*already-checked* deref)]
-                      (println "Checked" (count checked) "namespaces "
-                               "in" ms "msecs")
-                      (flush)))
-                  (catch ExceptionInfo e
-                    (if (-> e ex-data :type-error)
-                      (reset! terminal-error e)
-                      (throw e))))
-                (merge
-                  {:delayed-errors (vec (concat (some-> vs/*delayed-errors* deref)
-                                                (when-let [e @terminal-error]
-                                                  [e])))}
-                  (when (#{impl/clojure} impl)
-                    (when (and file-mapping
-                               (== 1 (count nsym-coll)))
-                      {:file-mapping (apply merge
-                                            (map #(impl/with-full-impl impl
-                                                    (file-map/ast->file-mapping %))
-                                                 (get (some-> vs/*checked-asts* deref) (first nsym-coll))))})))))))))))
+                        checked (some-> vs/*already-checked* deref)]
+                    (println "Checked" (count checked) "namespaces "
+                             "in" ms "msecs")
+                    (flush)))
+                (catch ExceptionInfo e
+                  (if (-> e ex-data :type-error)
+                    (reset! terminal-error e)
+                    (throw e))))
+              (merge
+                {:delayed-errors (vec (concat (some-> vs/*delayed-errors* deref)
+                                              (when-let [e @terminal-error]
+                                                [e])))}
+                (when (#{impl/clojure} impl)
+                  (when (and file-mapping
+                             (== 1 (count nsym-coll)))
+                    {:file-mapping (apply merge
+                                          (map #(impl/with-full-impl impl
+                                                  (file-map/ast->file-mapping %))
+                                               (get (some-> vs/*checked-asts* deref) (first nsym-coll))))}))))))))))
 
 (defn check-ns
   ([impl ns-or-syms & opt]

@@ -17,8 +17,10 @@
 
 (defn check-form-info
   [form & opt]
-  (apply chk-form/check-form-info (config-map)
-         form opt))
+  (let [config (config-map)]
+    (impl/with-full-impl (:impl config)
+      (apply chk-form/check-form-info config
+             form opt))))
 
 (defn check-form-cljs
   "Check a single form with an optional expected type.
@@ -27,5 +29,7 @@
   [form expected expected-provided?]
   (ucljs/with-cljs-typed-env
     (comp/with-core-cljs
-      (chk-form/check-form* (config-map)
-         form expected expected-provided?))))
+      (let [config (config-map)]
+        (impl/with-full-impl (:impl config)
+          (chk-form/check-form* config
+             form expected expected-provided?))))))

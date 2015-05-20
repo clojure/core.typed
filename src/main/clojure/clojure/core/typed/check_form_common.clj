@@ -26,8 +26,6 @@
 ;; 
 ;; Takes config-map as first argument:
 ;;  Mandatory
-;; - :impl          keyword passed to impl/with-full-impl, which is wrapped around 
-;;                  the entire function.
 ;; - :ast-for-form  function from form to tools.analyzer AST, taking :bindings-atom as keyword
 ;;                  argument.
 ;; - :collect-expr  side-effecting function taking AST and collecting type annotations
@@ -64,89 +62,84 @@
 ;;  - :out-form        The macroexpanded result of type-checking, if successful. 
 ;;  - :result          The evaluated result of :out-form, unless :no-eval is provided."
 (defn check-form-info
-  [{:keys [impl ast-for-form unparse-ns
+  [{:keys [ast-for-form unparse-ns
            check-expr collect-expr eval-out-ast
-           emit-form eval-out-ast]}
+           emit-form eval-out-ast env]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast no-eval bindings-atom]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)]}
   (assert (not (and expected-ret type-provided?)))
   (p/profile-if profile
     (reset-caches/reset-caches)
-    (if vs/*checking*
-      (err/int-error "Found inner call to check-ns or cf")
-      (impl/with-full-impl impl
-        (binding [vs/*checking* true
-                  vs/*already-collected* (atom #{})
-                  vs/*already-checked* (atom #{})
-                  vs/*delayed-errors* (err/-init-delayed-errors)
-                  vs/*analyze-ns-cache* (cache/soft-cache-factory {})]
-          (let [terminal-error? (atom nil)
-                expected (or
-                           expected-ret
-                           (when type-provided?
-                             (r/ret (prs/parse-type expected))))
-                no-errors? (fn [] (and (empty? @vs/*delayed-errors*)
-                                       (not @terminal-error?)))
-                stop-analysis (atom nil)
-                stop! (fn [] (reset! stop-analysis true))
-                eval-ast (fn [{:keys [expected] :as opt} ast]
-                           (try
-                             (do (when (no-errors?)
-                                   (collect-expr ast))
-                                 (let [c-ast (if (no-errors?)
-                                               (do 
-                                                 (reset-caches/reset-caches)
-                                                 (check-expr ast expected))
-                                               ast)
-                                       eval-cexp (or (when-not no-eval
-                                                       eval-out-ast)
-                                                     identity)]
-                                   (if (no-errors?)
-                                     (eval-cexp c-ast)
-                                     (do
-                                       ;; if we don't evaluate this form and we're part of a top-level
-                                       ;; `do`, then we have to stop analyze+eval from analyzing the
-                                       ;; rest of the do expression. This eval-ast function will not be called again.
-                                       (stop!)
-                                       c-ast))))
-                             (catch ExceptionInfo e
-                               (if (err/tc-error? (ex-data e))
-                                 (do (stop!)
-                                     (reset! terminal-error? e))
-                                 (throw e))
-                               ast)))
-                c-ast (ast-for-form form
-                                    {:bindings-atom bindings-atom
-                                     :eval-fn eval-ast
-                                     :expected expected
-                                     :stop-analysis stop-analysis})
-                res (some-> c-ast u/expr-type)
-                delayed-errors (concat @vs/*delayed-errors*
-                                       (some-> @terminal-error? vector))]
-            (merge
-              {:delayed-errors delayed-errors
-               :ret (or res (r/ret r/-error))}
-              (when checked-ast
-                ;; fatal type error = nil
-                {:checked-ast c-ast})
-              (when (and (#{impl/clojure} impl)
-                         (not no-eval)
-                         (empty? delayed-errors))
-                {:result (:result c-ast)})
-              (when (and c-ast emit-form)
-                {:out-form (emit-form c-ast)})
-              (when (#{impl/clojure} impl)
-                (when file-mapping
-                  {:file-mapping (file-map/ast->file-mapping c-ast)})))))))))
+    (binding [vs/*already-collected* (atom #{})
+              vs/*already-checked* (atom #{})
+              vs/*delayed-errors* (err/-init-delayed-errors)
+              vs/*analyze-ns-cache* (cache/soft-cache-factory {})]
+      (let [terminal-error? (atom nil)
+            expected (or
+                       expected-ret
+                       (when type-provided?
+                         (r/ret (prs/parse-type expected))))
+            no-errors? (fn [] (and (empty? @vs/*delayed-errors*)
+                                   (not @terminal-error?)))
+            stop-analysis (atom nil)
+            stop! (fn [] (reset! stop-analysis true))
+            eval-ast (fn [{:keys [expected] :as opt} ast]
+                       (try
+                         (do (when (no-errors?)
+                               (collect-expr ast))
+                             (let [c-ast (if (no-errors?)
+                                           (do 
+                                             (reset-caches/reset-caches)
+                                             (check-expr ast expected))
+                                           ast)
+                                   eval-cexp (or (when-not no-eval
+                                                   eval-out-ast)
+                                                 identity)]
+                               (if (no-errors?)
+                                 (eval-cexp c-ast)
+                                 (do
+                                   ;; if we don't evaluate this form and we're part of a top-level
+                                   ;; `do`, then we have to stop analyze+eval from analyzing the
+                                   ;; rest of the do expression. This eval-ast function will not be called again.
+                                   (stop!)
+                                   c-ast))))
+                         (catch ExceptionInfo e
+                           (if (err/tc-error? (ex-data e))
+                             (do (stop!)
+                                 (reset! terminal-error? e))
+                             (throw e))
+                           ast)))
+            c-ast (ast-for-form form
+                                {:bindings-atom bindings-atom
+                                 :eval-fn eval-ast
+                                 :expected expected
+                                 :stop-analysis stop-analysis
+                                 :env env})
+            res (some-> c-ast u/expr-type)
+            delayed-errors (concat @vs/*delayed-errors*
+                                   (some-> @terminal-error? vector))]
+        (merge
+          {:delayed-errors delayed-errors
+           :ret (or res (r/ret r/-error))}
+          (when checked-ast
+            ;; fatal type error = nil
+            {:checked-ast c-ast})
+          (when (and (impl/checking-clojure?)
+                     (not no-eval)
+                     (empty? delayed-errors))
+            {:result (:result c-ast)})
+          (when (and c-ast emit-form)
+            {:out-form (emit-form c-ast)})
+          (when (impl/checking-clojure?)
+            (when file-mapping
+              {:file-mapping (file-map/ast->file-mapping c-ast)})))))))
 
 (defn check-form*
   [{:keys [impl unparse-ns] :as config} form expected type-provided?]
   (let [{:keys [delayed-errors ret]} (check-form-info config form
                                                       :expected expected 
                                                       :type-provided? type-provided?)]
-    (impl/with-full-impl impl
-      (if-let [errors (seq delayed-errors)]
-        (err/print-errors! errors)
-        (binding [vs/*checking* true]
-          (prs/unparse-TCResult-in-ns ret unparse-ns))))))
+    (if-let [errors (seq delayed-errors)]
+      (err/print-errors! errors)
+      (prs/unparse-TCResult-in-ns ret unparse-ns))))

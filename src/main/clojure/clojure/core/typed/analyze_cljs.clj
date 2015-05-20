@@ -18,6 +18,7 @@
   "Returns an AST node for the form"
   [form {:keys [expected eval-fn] :as opt}]
   ;; TODO support bindings-atom, as in c.c.t.analyze-clj
+  ;; TODO propagate analyzer env from opt
   (let [ast (-> (jana/analyze-form form)
                 hyg/ast-hy)]
     (if eval-fn
