@@ -317,10 +317,9 @@
   (let [[t? t body] (maybe-annotation body)]
     `(let [c# (chan :- ~(if t? t `t/Any), 1)
            captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
-       ~(when vs/*checking*
-          ; wrap unexpanded go body in a thunk for type checking.
-          ; Will result in the body expanding twice.
-          `(fn [] ~@body))
+       ; wrap unexpanded go body in a thunk for type checking.
+       ; Will result in the body expanding twice.
+       (fn [] ~@body)
        ; we don't want to touch this.
        (t/tc-ignore
          (dispatch/run

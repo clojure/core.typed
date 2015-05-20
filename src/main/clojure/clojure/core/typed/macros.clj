@@ -55,13 +55,11 @@
 
 (core/defn expand-typed-fn [is-poly forms]
   (core/let [{:keys [poly fn ann]} (internal/parse-fn* forms)]
-    (if vs/*checking*
-      `(do ~spec/special-form
-           ~(core-kw :fn)
-           {:ann '~ann
-            :poly '~poly}
-           ~fn)
-      fn)))
+    `(do ~spec/special-form
+         ~(core-kw :fn)
+         {:ann '~ann
+          :poly '~poly}
+         ~fn)))
 
 (defmacro 
   ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
@@ -112,12 +110,10 @@
         ...)"
   [bindings & exprs]
   (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
-    (if vs/*checking*
-      `(do ~spec/special-form
-           ~(core-kw :loop)
-           {:ann '~ann}
-           ~loop)
-      loop)))
+    `(do ~spec/special-form
+         ~(core-kw :loop)
+         {:ann '~ann}
+         ~loop)))
 
 (defmacro 
   ^{:forms '[(let [binding :- type?, init*] exprs*)]}
@@ -134,12 +130,10 @@
 (defmacro ann-form 
   "Annotate a form with an expected type."
   [form ty]
-  (if vs/*checking*
-    `(do ~spec/special-form
-         ~(core-kw :ann-form)
-         {:type '~ty}
-         ~form)
-    form))
+  `(do ~spec/special-form
+       ~(core-kw :ann-form)
+       {:type '~ty}
+       ~form))
 
 (defmacro defprotocol
   "Like defprotocol, but with optional type annotations.
@@ -190,14 +184,9 @@
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  (if vs/*checking*
-    `(do ~spec/special-form
-         ~(core-kw :tc-ignore)
-         ~@(or body [nil]))
-    (case (count body)
-      0 nil
-      1 (first body)
-      `(do ~@body))))
+  `(do ~spec/special-form
+       ~(core-kw :tc-ignore)
+       ~@(or body [nil])))
 
 (defmacro when-let-fail 
   "Like when-let, but fails if the binding yields a false value."
