@@ -38,10 +38,12 @@
         _ (assert (not (and has-t? (contains? opts :expected-ret)))
                   "Can't provide both expected type and expected ret")
         actual-ret (gensym 'ret)]
-    `(let [{~actual-ret :ret delayed-errors# :delayed-errors} ~(tc-common* frm (assoc opts
+    `(let [{~actual-ret :ret ex# :ex delayed-errors# :delayed-errors} ~(tc-common* frm (assoc opts
                                                                                :expected-syntax {:provided? has-t?
                                                                                                  :syn t}))]
-       (or (when (empty? delayed-errors#)
+       (or (when ex#
+             (throw ex#))
+           (when (empty? delayed-errors#)
              ~(when has-ret?
                 `(assert (= ~actual-ret ~(:ret opts))))
              ~actual-ret)
@@ -62,15 +64,13 @@
         _ (assert (not (and has-t? (contains? opts :expected-ret)))
                   "Can't provide both expected type and expected ret")
         actual-ret (gensym 'ret)]
-    `(err/with-ex-info-handlers
-       [err/tc-error? (constantly true)]
-       (let [{~actual-ret :ret delayed-errors# :delayed-errors} 
-             ~(tc-common* frm 
-                          (assoc 
-                            opts
-                            :expected-syntax {:provided? has-t?
-                                              :syn t}))]
-         ~(when has-ret?
-            `(assert (= ~actual-ret ~(:ret opts))))
-         (boolean
-           (seq delayed-errors#))))))
+    `(let [{~actual-ret :ret ex# :ex} 
+           ~(tc-common* frm 
+                        (assoc 
+                          opts
+                          :expected-syntax {:provided? has-t?
+                                            :syn t}))]
+       ~(when has-ret?
+          `(assert (= ~actual-ret ~(:ret opts))))
+       (or (some-> ex# ex-data err/top-level-error?)
+           false))))

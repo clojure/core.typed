@@ -162,10 +162,10 @@
   `(equal-types-noparse ~l (binding [*ns* (find-ns '~'clojure.core.typed)] (parse-type (quote ~r)))))
 
 (defmacro tc-t [form]
-  `(let [{delayed-errors# :delayed-errors ret# :ret}
+  `(let [{ex# :ex ret# :ret}
          ~(tc-common* form {})]
-     (if-let [errors# (seq delayed-errors#)]
-       (err/print-errors! errors#)
+     (if ex#
+       (throw ex#)
        ret#)))
 
 (defmacro tc [form]

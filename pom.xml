@@ -48,14 +48,16 @@
             <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>cljs.core.typed.*</namespace>
             <!-- depends on tools.nrepl -->
-            <namespace>!clojure.core.typed.repl</namespace>
-            <namespace>!clojure.core.typed.load</namespace>
+            <!--<namespace>!clojure.core.typed.repl</namespace>
+            <namespace>!clojure.core.typed.load</namespace>-->
           </namespaces>
           <testNamespaces>
             <namespace>clojure.core.typed.test.*</namespace>
             <!-- testing runtime errors -->
             <namespace>!clojure.core.typed.test.load-file</namespace>
             <namespace>!clojure.core.typed.test.load-file2</namespace>
+            <!-- depends on tools.nrepl -->
+            <!-- <namespace>!clojure.core.typed.test.repl</namespace>-->
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
@@ -206,6 +208,18 @@
           <artifactId>clojure</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>tools.nrepl</artifactId>
+      <version>0.2.6</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>clojure</artifactId>
+        </exclusion>
+      </exclusions>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

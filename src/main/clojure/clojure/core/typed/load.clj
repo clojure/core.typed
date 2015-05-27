@@ -46,9 +46,9 @@
                (loop []
                  (let [form (reader/read opts pbr)]
                    (when-not (identical? form eof)
-                     (let [{:keys [delayed-errors]} (chk-frm/check-form-info config form)]
-                       (when (seq delayed-errors)
-                         (err/print-errors! delayed-errors)))
+                     (let [{:keys [ex]} (chk-frm/check-form-info config form)]
+                       (when ex
+                         (throw ex)))
                      ;(ana-clj/analyze+eval form (assoc env :ns (ns-name *ns*)) opts)
                      (recur))))))))))))
 

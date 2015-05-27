@@ -3623,7 +3623,7 @@
                                   (-FS -bot -top)
                                   -empty))
     (is-tc-err 1 
-               :expected-ret (ret (parse-clj 'Num)
+               :expected-ret (ret (parse-clj `Num)
                                   (-FS -bot -bot)
                                   -empty))
     (testing "checks object"
@@ -4801,6 +4801,10 @@
   (is-tc-e (max 1 2) Int)
   (is-tc-e (#'min 1 2) Int)
   (is-tc-e (#'max 1 2) Int))
+
+(deftest do-exp-repl-test
+  (is-tc-e (do (require '[clojure.core :as c])
+               (c/map inc []))))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
