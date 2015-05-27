@@ -2,6 +2,7 @@
 
 - improved typed REPL interactions
 - fix `*e` annotation, can be nil
+- depend on clojure 1.7.0-RC1
 
 ## Breaking
 
