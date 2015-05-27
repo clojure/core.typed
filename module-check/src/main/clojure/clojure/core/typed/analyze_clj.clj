@@ -262,6 +262,7 @@
           nsym)]
    :post [(vector? %)]}
   (u/p :analyze/ast-for-ns
+       ;(prn "ast-for-ns" nsym)
    (let [nsym (or (when (instance? clojure.lang.Namespace nsym)
                     (ns-name nsym))
                   ; don't call ns-name on symbols in case the namespace
@@ -282,9 +283,13 @@
 
 (defn eval-ast [opts ast]
   ;; based on jvm/analyze+eval
+  ;(let [frm (emit-form/emit-form ast)
+  ;      result (try (eval frm)  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
+  ;                  (catch Exception e
+  ;                    (ExceptionThrown. e)))]
+  ;  (merge ast {:result result})))
   (let [frm (emit-form/emit-form ast)
-        result (try (eval frm)  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
-                    (catch Exception e
-                      (ExceptionThrown. e)))]
+        ;_ (prn "form" frm)
+        result (eval frm)]  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
     (merge ast {:result result})))
 

@@ -172,7 +172,7 @@ clojure.core/add-classpath [(U String java.net.URL) -> nil]
 clojure.core/*1 Any
 clojure.core/*2 Any
 clojure.core/*3 Any
-clojure.core/*e Throwable
+clojure.core/*e (U nil Throwable)
 clojure.core/*agent* (U nil (Agent2 Nothing Any))
 clojure.core/*allow-unresolved-vars* Any
 clojure.core/*assert* Any

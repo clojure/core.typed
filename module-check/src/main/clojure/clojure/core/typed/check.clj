@@ -257,21 +257,19 @@
   {:post [(or (#{:default} %)
               (and (r/TCResult? (u/expr-type %))
                    (vector? (:args %))))]}
-  (when-not (#{2} (count args))
-    (err/int-error (str "Wrong number of arguments to clojure.core/cast,"
-                      " expected 2, given " (count args))))
-  (let [cargs (mapv check args)
-        ct (-> (first cargs) u/expr-type r/ret-t c/fully-resolve-type)]
-    (if (and (r/Value? ct) (class? (:val ct)))
-      (let [v-t (-> (check (second args)) u/expr-type r/ret-t)
-            t (c/In v-t (c/Un r/-nil (c/RClass-of-with-unknown-params (:val ct))))]
-        (-> expr
-            (update-in [:fn] check)
-            (assoc :args cargs
-                   u/expr-type (below/maybe-check-below
-                                 (r/ret t)
-                                 expected))))
-      :default)))
+  (or (when (#{2} (count args))
+        (let [cargs (mapv check args)
+              ct (-> (first cargs) u/expr-type r/ret-t c/fully-resolve-type)]
+          (when (and (r/Value? ct) (class? (:val ct)))
+            (let [v-t (-> (check (second args)) u/expr-type r/ret-t)
+                  t (c/In v-t (c/Un r/-nil (c/RClass-of-with-unknown-params (:val ct))))]
+              (-> expr
+                  (update-in [:fn] check)
+                  (assoc :args cargs
+                         u/expr-type (below/maybe-check-below
+                                       (r/ret t)
+                                       expected)))))))
+      :default))
 
 (add-invoke-special-method 'clojure.core.typed/var>*
   [{[sym-expr :as args] :args fexpr :fn :as expr} & [expected]]
@@ -533,7 +531,7 @@
 ;FIXME record checked-var-def info
 (add-invoke-special-method 'clojure.core/push-thread-bindings
   [{[bindings-expr & other-args :as args] :args :as expr} & [expected]]
-  {:post [(vector? (:args %))
+  {:post [((every-pred vector? #(= 1 (count %))) (:args %))
           (-> % u/expr-type r/TCResult?)]}
   (when-not (empty? other-args)
     (err/int-error (str "push-thread-bindings expected one argument, given " (count args))))
@@ -544,23 +542,26 @@
                  (even? (count (-> bindings-expr :args))))
     (err/nyi-error (str "Can only check push-thread-bindings with a well-formed call to hash-map as first argument"
                       " (like bindings expansion)")))
-  (let [new-bindings-exprs (apply hash-map (-> bindings-expr :args))
+  (let [new-bindings-exprs (partition 2 (-> bindings-expr :args))
         cargs
-        (vec
-          (apply concat
-                 (for [[{:keys [op var] :as var-expr} bnd-expr] new-bindings-exprs]
-                   (do
-                     (assert (#{:the-var} op))
-                     (let [expected (var-env/type-of (coerce/var->symbol var))
-                           cvar-expr (check var-expr)
-                           cexpr (check bnd-expr (r/ret expected))
-                           actual (-> cexpr u/expr-type r/ret-t)]
-                       (when (not (sub/subtype? actual expected))
-                         (err/tc-delayed-error (str "Expected binding for "
-                                                  (coerce/var->symbol var)
-                                                  " to be: " (prs/unparse-type expected)
-                                                  ", Actual: " (prs/unparse-type actual))))
-                       [cvar-expr cexpr])))))]
+        [(assoc bindings-expr
+                :args
+                (vec
+                  (apply concat
+                         (for [[{:keys [op var] :as var-expr} bnd-expr] new-bindings-exprs]
+                           (do
+                             (when-not (#{:the-var} op)
+                               (err/int-error (str "push-thread-bindings must have var literals for keys")))
+                             (let [expected (var-env/type-of (coerce/var->symbol var))
+                                   cvar-expr (check var-expr)
+                                   cexpr (check bnd-expr (r/ret expected))
+                                   actual (-> cexpr u/expr-type r/ret-t)]
+                               (when (not (sub/subtype? actual expected))
+                                 (err/tc-delayed-error (str "Expected binding for "
+                                                          (coerce/var->symbol var)
+                                                          " to be: " (prs/unparse-type expected)
+                                                          ", Actual: " (prs/unparse-type actual))))
+                               [cvar-expr cexpr]))))))]]
     (-> expr
         ; push-thread-bindings is unannotated
         #_(update-in [:fn] check)
@@ -971,7 +972,7 @@
 
 ;apply hash-map
 (add-invoke-apply-method 'clojure.core/hash-map
-  [{[_ & args] :args :as expr} & [expected]]
+  [{[fn-expr & args] :args :as expr} & [expected]]
   {:post [(or 
             (and (-> % u/expr-type r/TCResult?)
                  (vector? (:args %)))
@@ -983,7 +984,8 @@
            (r/KwArgsSeq? (u/expr-type (last cargs))))
       (-> expr
           (update-in [:fn] check)
-          (assoc :args cargs
+          ;; FIXME add annotation for hash-map to check fn-expr
+          (assoc :args (vec (concat [fn-expr] cargs))
                  u/expr-type (below/maybe-check-below
                                (r/ret (c/KwArgsSeq->HMap (-> (u/expr-type (last cargs)) r/ret-t)))
                                expected)))
@@ -996,7 +998,8 @@
                                                           (mapcat vector (:types (r/ret-t (u/expr-type (last cargs))))))))))
       (-> expr
           (update-in [:fn] check)
-          (assoc :args cargs
+          ;; FIXME add annotation for hash-map to check fn-expr
+          (assoc :args (vec (concat [fn-expr] cargs))
                  u/expr-type (below/maybe-check-below
                                (r/ret (c/-complete-hmap
                                         (apply hash-map (concat (map (comp r/ret-t u/expr-type) (butlast cargs))

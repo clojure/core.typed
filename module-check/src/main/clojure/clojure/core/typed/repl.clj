@@ -2,12 +2,15 @@
   (:require [clojure.tools.nrepl.middleware :as mid]
             [clojure.tools.nrepl.transport :as transport]
             [clojure.tools.nrepl.misc :as misc]
+            [clojure.tools.nrepl.middleware.interruptible-eval :as ev]
             [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
             [clojure.tools.namespace.parse :as ns]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
             [clojure.core.typed.load :as load]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.main :as main])
   (:import java.io.Writer))
 
@@ -61,40 +64,36 @@
                   *err* (@session #'*err*)]
           (t/load-if-needed)
           (impl/with-clojure-impl
-            (try
-              (let [[{:keys [delayed-errors out-form ret]} 
-                     new-ns]
-                    ;; FIXME should bindings should be in scope when rcode is macroexpanded?
-                    ;; probably need to pass bindings into tools.analyzer expansion
-                    (binding [*ns* current-ns]
-                      [(t/check-form-info rcode
-                                          ;; let handler evaluate code
-                                          ;;
-                                          ;; FIXME this should instead define an :eval-fn
-                                          ;; that pipes the results to the handler because
-                                          ;; of top level do expressions
-                                          :no-eval true
-                                          :bindings-atom session)
-                       *ns*])]
-                (binding [*ns* new-ns]
-                  (prn :- (:t ret)))
-                (flush)
-                (if (seq delayed-errors)
-                  ;; ** throws exception, jumps to catch clause **
-                  (err/print-errors! delayed-errors)
-                  (handler (assoc msg :code (binding [*print-dup* true]
-                                              ;; TODO out-form should have types attached to it!
-                                              (pr-str out-form))))))
-              (catch Throwable e
-                (let [root-ex (#'clojure.main/root-cause e)]
-                  (when-not (instance? ThreadDeath root-ex)
-                    (flush)
-                    (swap! session assoc #'*e e)
-                    (transport/send transport 
-                                    (misc/response-for msg {:status :eval-error
-                                                            :ex (-> e class str)
-                                                            :root-ex (-> root-ex class str)}))
-                    (main/repl-caught e)))))))
+            (let [{:keys [ret result ex]}
+                  (t/check-form-info rcode
+                                     :eval-out-ast (partial ana-clj/eval-ast {})
+                                     :bindings-atom session)]
+              (if ex
+                ;; ** throws exception, jumps to catch clause **
+                (let [root-ex (#'clojure.main/root-cause ex)]
+                  (if-not (instance? ThreadDeath root-ex)
+                    (do
+                      (flush)
+                      (swap! session assoc #'*e ex)
+                      (transport/send transport 
+                                      (misc/response-for msg {:status :eval-error
+                                                              :ex (-> ex class str)
+                                                              :root-ex (-> root-ex class str)}))
+                      (main/repl-caught ex))
+                    (transport/send transport (misc/response-for msg
+                                                                 {:status :done}))))
+                (do
+                  (swap! session assoc
+                         #'*3 (@session #'*2)
+                         #'*2 (@session #'*1)
+                         #'*1 result)
+                  (prn :- (:t ret))
+                  (flush)
+                  (transport/send transport 
+                                  (misc/response-for msg {:value (pr-str result)
+                                                          :ns (-> (@session #'*ns*) ns-name str)}))
+                  (transport/send transport 
+                                  (misc/response-for msg {:status :done})))))))
         :else (handler msg)))))
 
 (mid/set-descriptor! #'wrap-clj-repl

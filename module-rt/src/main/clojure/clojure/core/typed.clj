@@ -2149,10 +2149,13 @@ for checking namespaces, cf for checking individual forms."}
                      It is highly recommended to evaluate :out-form manually.
   
   Default return map
-  - :delayed-errors  A sequence of delayed errors (ex-info instances)
   - :ret             TCResult inferred for the current form
   - :out-form        The macroexpanded result of type-checking, if successful. 
-  - :result          The evaluated result of :out-form, unless :no-eval is provided."
+  - :result          The evaluated result of :out-form, unless :no-eval is provided.
+  - :ex              If an exception was thrown during evaluation, this key will be present
+                     with the exception as the value.
+  DEPRECATED
+  - :delayed-errors  A sequence of delayed errors (ex-info instances)"
   [form & opt]
   (load-if-needed)
   (apply (impl/v 'clojure.core.typed.check-form-clj/check-form-info) form opt))

@@ -1,3 +1,13 @@
+# 0.3.0-alpha1 - SNAPSHOT
+
+- improved typed REPL interactions
+- fix `*e` annotation, can be nil
+
+## Breaking
+
+`clojure.core.typed/check-form-info` return map entry `:delayed-errors`
+deprecated for `:ex`.
+
 # 0.2.92 - 20 May 2015
 
 - removed `*checking*` var
