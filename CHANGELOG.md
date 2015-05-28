@@ -1,4 +1,8 @@
-# 0.3.0-alpha1 - SNAPSHOT
+# 0.3.0-alpha2 - 29 May 2015
+
+- support :load-file nREPL packets
+
+# 0.3.0-alpha1 - 28 May 2015
 
 - improved typed REPL interactions
 - fix `*e` annotation, can be nil
