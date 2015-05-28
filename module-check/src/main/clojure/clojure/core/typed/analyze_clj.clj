@@ -148,6 +148,7 @@
    {:pre [(map? env)]}
      (ta-env/ensure (taj/global-env)
        (taj/update-ns-map!) 
+       ;(prn "analyze+eval" form *ns* (ns-aliases *ns*))
        (let [[mform raw-forms] (binding [ta/macroexpand-1 (get-in opts [:bindings #'ta/macroexpand-1] 
                                                                   ;; use custom macroexpand-1
                                                                   macroexpand-1)]
@@ -174,6 +175,8 @@
                                        statements)
                  ret-expr (if (some-> stop-analysis deref)
                             (unanalyzed-expr ret)
+                            ;; NB: in TAJ 0.3.0 :ns doesn't do anything.
+                            ;; later versions rebind *ns*.
                             (analyze+eval ret (assoc env :ns (ns-name *ns*)) opts))]
              (-> {:op         :do
                   :top-level  true
@@ -189,10 +192,16 @@
                source-info/source-info))
            (merge (if (some-> stop-analysis deref)
                     (unanalyzed-expr mform)
-                    (eval-fn opts (taj/analyze mform env (dissoc opts :bindings-atom))))
+                    ;; rebinds *ns* during analysis
+                    ;; FIXME unclear which map needs to have *ns*, especially post TAJ 0.3.0
+                    (eval-fn opts (taj/analyze mform (assoc env :ns (ns-name *ns*))
+                                               (-> opts 
+                                                   (dissoc :bindings-atom)
+                                                   (assoc-in [:bindings #'*ns*] *ns*)))))
                   {:raw-forms raw-forms}))))))
 
-(def thread-bindings {#'ta/macroexpand-1 macroexpand-1})
+(defn thread-bindings []
+  {#'ta/macroexpand-1 macroexpand-1})
 
 ;; bindings is an atom that records any side effects during macroexpansion. Useful
 ;; for nREPL middleware.
@@ -205,7 +214,7 @@
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
        (let [ana (analyze+eval form (or env (taj/empty-env))
-                               (merge-with merge opts {:bindings thread-bindings}))]
+                               (merge-with merge opts {:bindings (thread-bindings)}))]
          ;; only record vars that were already bound
          (when bindings-atom
            (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))

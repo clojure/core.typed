@@ -118,7 +118,8 @@
                                   (catch Throwable e
                                     e))
                                 e)]
-                        (reset! terminal-error e))))
+                        (reset! terminal-error e)
+                        nil)))
             res (some-> c-ast u/expr-type)
             delayed-errors (delayed-errors-fn)
             ex @terminal-error]

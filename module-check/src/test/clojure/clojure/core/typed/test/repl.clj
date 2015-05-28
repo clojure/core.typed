@@ -22,6 +22,83 @@
 
 ;(use-fixtures :each repl-server-fixture)
 
+(deftest eval-switch-ns
+  (is (= "blah"
+         (:ns 
+           (with-open [^java.io.Closeable server (server/start-server
+                                :handler (server/default-handler
+                                           #'repl/wrap-clj-repl))]
+             (with-open [^java.io.Closeable transport (connect :port (:port server))]
+               (let [cl (client transport Long/MAX_VALUE)
+                     ses (client-session cl)]
+                 (combine-responses
+                   (message ses
+                            {:op :eval :code "(ns blah)"}))
+                 (combine-responses
+                   (message ses
+                            {:op :eval :code "*ns*"})))))))))
+
+(deftest load-file-test
+  (is (= ["nil"]
+         (:value
+           (with-open [^java.io.Closeable server (server/start-server
+                                                   :handler (server/default-handler
+                                                              #'repl/wrap-clj-repl))]
+             (with-open [^java.io.Closeable transport (connect :port (:port server))]
+               (let [cl (client transport Long/MAX_VALUE)
+                     ses (client-session cl)]
+                 (combine-responses
+                   (message ses
+                            {:op :load-file 
+                             :file "(ns ^:core.typed foo.bar
+                                     (:require [clojure.core.typed :as t]))
+                                    (t/ann a t/Sym)
+                                    (def a 'a)"
+                             :file-path "foo/bar.clj"
+                             :file-name "bar.clj"}))))))))
+  (testing "runtime error"
+    (is (= "class java.lang.ArithmeticException"
+           (:root-ex
+             (with-open [^java.io.Closeable server (server/start-server
+                                                     :handler (server/default-handler
+                                                                #'repl/wrap-clj-repl))]
+               (with-open [^java.io.Closeable transport (connect :port (:port server))]
+                 (let [cl (client transport Long/MAX_VALUE)
+                       ses (client-session cl)]
+                   (combine-responses
+                     (message ses
+                              {:op :load-file 
+                               :file "(ns ^:core.typed foo.bar
+                                     (:require [clojure.core.typed :as t]))
+                                     (t/ann a t/Sym)
+                                     (def a 'a)
+                                     (/ 1 0)"
+                               :file-path "foo/bar.clj"
+                               :file-name "bar.clj"})))))))))
+  (testing "type error"
+    (is (= "class clojure.lang.ExceptionInfo"
+           (:root-ex
+             (with-open [^java.io.Closeable server (server/start-server
+                                                     :handler (server/default-handler
+                                                                #'repl/wrap-clj-repl))]
+               (with-open [^java.io.Closeable transport (connect :port (:port server))]
+                 (let [cl (client transport Long/MAX_VALUE)
+                       ses (client-session cl)]
+                   (combine-responses
+                     (message ses
+                              {:op :load-file 
+                               :file "(ns ^:core.typed foo.bar
+                                     (:require [clojure.core.typed :as t]))
+                                     (t/ann a t/Sym)
+                                     (def a 1)"
+                               :file-path "foo/bar.clj"
+                               :file-name "bar.clj"}))))))))
+    ))
+
+(with-open [^java.io.Closeable server (server/start-server)]
+  (with-open [transport (connect :port (:port server))]
+    (message (client transport Long/MAX_VALUE)
+             {:op :eval :code "1"})))
 
 (defmacro repl-test
   [& body]
@@ -54,14 +131,14 @@
       combine-responses
       (select-keys [:value])))
 
-;(deftest core-typed-test
-;  (repl-test
-;    (eval-msg transport "(ns bar) ")
-;    (is (= {:value ["nil"]}
-;           (eval-val transport "(ns ^:core.typed foo) ")))
-;    (is (= {:value ["nil"]}
-;           (eval-val transport "*ns*")))
-;    (is (= {:value ["2"]}
-;           (eval-val transport "(inc 1)")))
-;    )
-;  )
+(deftest core-typed-test
+  (repl-test
+    (eval-msg transport "(ns bar) ")
+    ;(is (= {:value ["nil"]}
+    ;       (eval-val transport "(ns ^:core.typed foo) ")))
+    ;(is (= {:value ["nil"]}
+    ;       (eval-val transport "*ns*")))
+    ;(is (= {:value ["2"]}
+    ;       (eval-val transport "(inc 1)")))
+    )
+  )
