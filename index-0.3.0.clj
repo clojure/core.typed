@@ -2448,42 +2448,42 @@
   {:name "*trace-checker*",
    :namespace "clojure.core.typed.util-vars",
    :source-url
-   "https://github.com/clojure/core.typed/blob/935e7c9277a1954cdd011907cb5a8abe3134b05e/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L31",
+   "https://github.com/clojure/core.typed/blob/0cfb79652a1c53473bc8438dedc0847260d28969/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L32",
    :dynamic true,
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/935e7c9277a1954cdd011907cb5a8abe3134b05e/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
+   "https://github.com/clojure/core.typed/raw/0cfb79652a1c53473bc8438dedc0847260d28969/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-vars/*trace-checker*",
    :doc "If true, print tracing information during type checking.",
    :var-type "var",
-   :line 31,
+   :line 32,
    :file "module-rt/src/main/clojure/clojure/core/typed/util_vars.clj"}
   {:name "*verbose-forms*",
    :namespace "clojure.core.typed.util-vars",
    :source-url
-   "https://github.com/clojure/core.typed/blob/935e7c9277a1954cdd011907cb5a8abe3134b05e/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L19",
+   "https://github.com/clojure/core.typed/blob/0cfb79652a1c53473bc8438dedc0847260d28969/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L20",
    :dynamic true,
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/935e7c9277a1954cdd011907cb5a8abe3134b05e/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
+   "https://github.com/clojure/core.typed/raw/0cfb79652a1c53473bc8438dedc0847260d28969/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-vars/*verbose-forms*",
    :doc
    "If true, print complete forms in error messages. Bind\naround a type checking form like cf or check-ns.\n\neg.\n(binding [*verbose-forms* true]\n  (cf ['deep ['deep ['deep ['deep]]]] Number))\n;=> <full form in error>",
    :var-type "var",
-   :line 19,
+   :line 20,
    :file "module-rt/src/main/clojure/clojure/core/typed/util_vars.clj"}
   {:name "*verbose-types*",
    :namespace "clojure.core.typed.util-vars",
    :source-url
-   "https://github.com/clojure/core.typed/blob/935e7c9277a1954cdd011907cb5a8abe3134b05e/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L6",
+   "https://github.com/clojure/core.typed/blob/0cfb79652a1c53473bc8438dedc0847260d28969/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L7",
    :dynamic true,
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/935e7c9277a1954cdd011907cb5a8abe3134b05e/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
+   "https://github.com/clojure/core.typed/raw/0cfb79652a1c53473bc8438dedc0847260d28969/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-vars/*verbose-types*",
    :doc
    "If true, print fully qualified types in error messages\nand return values. Bind around a type checking form like \ncf or check-ns.\n\neg. \n(binding [*verbose-types* true] \n  (cf 1 Number))\n;=> java.lang.Number",
    :var-type "var",
-   :line 6,
+   :line 7,
    :file
    "module-rt/src/main/clojure/clojure/core/typed/util_vars.clj"})}
