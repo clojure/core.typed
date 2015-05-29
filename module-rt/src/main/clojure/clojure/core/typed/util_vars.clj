@@ -2,6 +2,7 @@
 
 (defonce ^:skip-wiki ^:dynamic *current-env* nil)
 (defonce ^:skip-wiki ^:dynamic *current-expr* nil)
+(defonce ^:skip-wiki ^:dynamic *in-check-form* nil)
 
 (defonce ^:dynamic 
   ^{:doc 
