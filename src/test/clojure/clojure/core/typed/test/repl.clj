@@ -58,7 +58,7 @@
                              :file-name "bar.clj"}))))))))
   (testing "runtime error"
     (is (= "class java.lang.ArithmeticException"
-           (:root-ex
+           (:ex
              (with-open [^java.io.Closeable server (server/start-server
                                                      :handler (server/default-handler
                                                                 #'repl/wrap-clj-repl))]
@@ -75,9 +75,9 @@
                                      (/ 1 0)"
                                :file-path "foo/bar.clj"
                                :file-name "bar.clj"})))))))))
-  (testing "type error"
+  (testing "fireplace test"
     (is (= "class clojure.lang.ExceptionInfo"
-           (:root-ex
+           (:ex
              (with-open [^java.io.Closeable server (server/start-server
                                                      :handler (server/default-handler
                                                                 #'repl/wrap-clj-repl))]
@@ -87,13 +87,17 @@
                    (combine-responses
                      (message ses
                               {:op :load-file 
-                               :file "(ns ^:core.typed foo.bar
-                                     (:require [clojure.core.typed :as t]))
-                                     (t/ann a t/Sym)
-                                     (def a 1)"
-                               :file-path "foo/bar.clj"
-                               :file-name "bar.clj"}))))))))
-    ))
+                               :file "(ns ^:core.typed baz.boo)"
+                               :file-path "baz/boo.clj"
+                               :file-name "boo.clj"}))
+                   (combine-responses
+                     (message ses
+                              {:op :load-file 
+                               :file "(in-ns 'baz.boo)
+                                      (inc 'a)"
+                               :file-path "baz/boo.clj"
+                               :file-name "boo.clj"})))))))))
+  )
 
 (with-open [^java.io.Closeable server (server/start-server)]
   (with-open [transport (connect :port (:port server))]

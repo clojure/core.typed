@@ -100,8 +100,9 @@
         deps   (dep-u/ns-form-deps ns-form)
         tdeps (set (filter dep-u/should-check-ns? deps))]
     (dep/add-ns-deps prs-ns tdeps)
-    (doseq [dep tdeps]
-      (collect-ns dep))))
+    (when-not vs/*in-check-form*
+      (doseq [dep tdeps]
+        (collect-ns dep)))))
 
 (defmulti collect (fn [expr] (:op expr)))
 (u/add-defmethod-generator collect)
