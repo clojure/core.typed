@@ -1,3 +1,7 @@
+# 0.3.0-alpha3 - 30 May 2015
+
+- REPL tweaks
+
 # 0.3.0-alpha2 - 29 May 2015
 
 - support :load-file nREPL packets
