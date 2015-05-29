@@ -100,8 +100,15 @@
         deps   (dep-u/ns-form-deps ns-form)
         tdeps (set (filter dep-u/should-check-ns? deps))]
     (dep/add-ns-deps prs-ns tdeps)
-    (when-not vs/*in-check-form*
-      (doseq [dep tdeps]
+    (doseq [dep tdeps]
+      (if vs/*in-check-form*
+        ;; to keep compatibility with 0.2.x namespaces,
+        ;; collect namespaces that would have worked in 0.2.x but don't now.
+        (when-not (some-> dep
+                          ns-form-for-ns
+                          ns-has-core-typed-metadata?)
+          (err/warn (str nsym " does not have :core.typed metadata, only collecting annotations"))
+          (collect-ns dep))
         (collect-ns dep)))))
 
 (defmulti collect (fn [expr] (:op expr)))
