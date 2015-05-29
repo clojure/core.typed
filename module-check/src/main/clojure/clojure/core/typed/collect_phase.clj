@@ -105,9 +105,9 @@
         ;; to keep compatibility with 0.2.x namespaces,
         ;; collect namespaces that would have worked in 0.2.x but don't now.
         (when-not (some-> dep
-                          ns-form-for-ns
-                          ns-has-core-typed-metadata?)
-          (err/warn (str nsym " does not have :core.typed metadata, only collecting annotations"))
+                          dep-u/ns-form-for-ns
+                          dep-u/ns-has-core-typed-metadata?)
+          (err/warn (str dep " does not have :core.typed metadata, only collecting annotations for core.typed 0.2.x compatibility"))
           (collect-ns dep))
         (collect-ns dep)))))
 
