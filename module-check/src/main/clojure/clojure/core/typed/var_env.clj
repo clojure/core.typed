@@ -82,6 +82,10 @@
   (swap! (current-nocheck-var?) conj sym)
   nil)
 
+(defn remove-nocheck-var [sym]
+  (swap! (current-nocheck-var?) disj sym)
+  nil)
+
 (defn add-used-var [sym]
   (swap! (current-used-vars) conj sym)
   nil)
