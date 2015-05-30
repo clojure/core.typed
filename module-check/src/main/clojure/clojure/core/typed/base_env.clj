@@ -1448,6 +1448,10 @@ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
 clojure.repl/pst (IFn [-> nil]
                       [(U Int Throwable) -> nil]
                       [Throwable Int -> nil])
+clojure.repl/print-doc [Symbol -> Any]
+complete.core/completions
+(IFn [Any -> Any]
+     [Any Any -> Any])
   )
     {'clojure.core/count (count-type)
      'clojure.core/aset-boolean (aset-*-type 'boolean)
