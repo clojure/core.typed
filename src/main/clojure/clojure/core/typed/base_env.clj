@@ -1438,6 +1438,9 @@ clojure.core.match/backtrack Exception
 clojure.core/eval [Any -> Any]
 clojure.core/rand-nth (All [x] [(U (Indexed x) (SequentialSeqable x)) -> x])
 
+clojure.pprint/pprint (IFn [Any -> nil]
+                           [Any java.io.Writer -> nil])
+
       )
 (h/var-mappings
   this-ns
