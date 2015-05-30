@@ -233,6 +233,11 @@
         expected-type (binding [vs/*current-env* env
                                 prs/*parse-type-in-ns* prs-ns]
                         (prs/parse-type typesyn))]
+    (when (and (var-env/lookup-Var-nofail qsym)
+               (not (var-env/check-var? qsym))
+               check?)
+      (err/warn (str "Removing :no-check from var " qsym))
+      (var-env/remove-nocheck-var qsym))
     (when-not check?
       (var-env/add-nocheck-var qsym))
     (var-env/add-var-type qsym expected-type)
