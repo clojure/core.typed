@@ -28,7 +28,13 @@
   ([^String filename env opts]
     (t/load-if-needed)
     (ta-env/ensure (taj/global-env)
-     (let [file-url (io/resource (str filename ".clj"))]
+     (let [[file-url filename]
+           (or (let [f (str filename ".clj")]
+                 (when-let [r (io/resource f)]
+                   [r f]))
+               (let [f (str filename ".cljc")]
+                 (when-let [r (io/resource f)]
+                   [r f])))]
        (assert file-url (str "Cannot find file " filename))
        (binding [*ns*   *ns*
                  *file* filename]
@@ -82,7 +88,8 @@ directory for the current namespace otherwise."
               ;      (clojure.lang.Compiler/load base-resource-path
               ;                                  (last (re-find #"([^/]+$)" cljx-path)))))
               (cond
-                (ns-utils/file-has-core-typed-metadata? (str base-resource-path ".clj"))
+                (or (ns-utils/file-has-core-typed-metadata? (str base-resource-path ".clj"))
+                    (ns-utils/file-has-core-typed-metadata? (str base-resource-path ".cljc")))
                 (do
                   (when @#'clojure.core/*loading-verbosely*
                     (printf "Loading typed file\n" base-resource-path))
