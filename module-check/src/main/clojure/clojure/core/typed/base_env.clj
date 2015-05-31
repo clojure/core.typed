@@ -1452,6 +1452,9 @@ clojure.repl/pst (IFn [-> nil]
                       [(U Int Throwable) -> nil]
                       [Throwable Int -> nil])
 clojure.repl/print-doc [Symbol -> Any]
+clojure.repl/find-doc [(U String java.util.regex.Pattern) -> Any]
+clojure.repl/source-fn [Any -> (U nil String)]
+clojure.java.javadoc/javadoc [Object -> Any]
 complete.core/completions
 (IFn [Any -> Any]
      [Any Any -> Any])

@@ -49,7 +49,7 @@
                (ns-has-core-typed-meta? sym)))))))
 
 (defn handle-eval [handler {:keys [transport session code op] :as msg}]
-  (let [;original-ns (@session #'*ns*)
+  (let [original-ns (@session #'*ns*)
         maybe-explicit-ns (when-let [ns (some-> (:ns msg) symbol find-ns)]
                             {#'*ns* ns})
         _ (assert (if (:ns msg)
@@ -84,36 +84,41 @@
       should-check?
       (binding [*out* (@session #'*out*)
                 *err* (@session #'*err*)]
-        (t/load-if-needed)
-        (impl/with-clojure-impl
-          (let [{:keys [ret result ex]}
-                (t/check-form-info rcode
-                                   :eval-out-ast (partial ana-clj/eval-ast {})
-                                   :bindings-atom session)]
-            (if ex
-              (let [root-ex (#'clojure.main/root-cause ex)]
-                (when-not (instance? ThreadDeath root-ex)
-                  (do
-                    (flush)
-                    (swap! session assoc #'*e ex)
-                    (transport/send transport 
-                                    (misc/response-for msg {:status :eval-error
-                                                            :ex (-> ex class str)
-                                                            :root-ex (-> root-ex class str)}))
-                    (main/repl-caught ex)
-                    (flush))))
-              (do
-                (swap! session assoc
-                       #'*3 (@session #'*2)
-                       #'*2 (@session #'*1)
-                       #'*1 result)
-                (prn :- (:t ret))
-                (flush)
-                (transport/send transport 
-                                (misc/response-for msg {:value (pr-str result)
-                                                        :ns (-> (@session #'*ns*) ns-name str)}))))
-            (transport/send transport 
-                            (misc/response-for msg {:status :done})))))
+        (try
+          (t/load-if-needed)
+          (impl/with-clojure-impl
+            (let [{:keys [ret result ex]}
+                  (t/check-form-info rcode
+                                     :eval-out-ast (partial ana-clj/eval-ast {})
+                                     :bindings-atom session)]
+              (if ex
+                (let [root-ex (#'clojure.main/root-cause ex)]
+                  (when-not (instance? ThreadDeath root-ex)
+                    (do
+                      (flush)
+                      (swap! session assoc #'*e ex)
+                      (transport/send transport 
+                                      (misc/response-for msg {:status :eval-error
+                                                              :ex (-> ex class str)
+                                                              :root-ex (-> root-ex class str)}))
+                      (main/repl-caught ex)
+                      (flush))))
+                (do
+                  (swap! session assoc
+                         #'*3 (@session #'*2)
+                         #'*2 (@session #'*1)
+                         #'*1 result)
+                  (prn :- (:t ret))
+                  (flush)
+                  (transport/send transport 
+                                  (misc/response-for msg {:value (pr-str result)
+                                                          :ns (-> (@session #'*ns*) ns-name str)}))))
+              (when maybe-explicit-ns
+                (swap! session assoc #'*ns* original-ns))
+              (transport/send transport 
+                              (misc/response-for msg {:status :done}))))
+          (finally
+            (flush))))
       :else (handler msg))))
 
 (defn handle-load-file [handler {:keys [file file-name file-path session transport] :as msg}]
