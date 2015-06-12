@@ -10,12 +10,12 @@ Optional typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.3.0-alpha2.
+Latest stable release is 0.3.0-alpha5.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.3.0-alpha2"]
+[org.clojure/core.typed "0.3.0-alpha5"]
 
 ...
 ; for very recent releases
@@ -30,7 +30,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.3.0-alpha2</version>
+  <version>0.3.0-alpha5</version>
   <!-- slim jar -->
   <!-- <classifier>slim</classifier> -->
 </dependency>
