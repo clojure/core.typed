@@ -1,5 +1,7 @@
 # 0.3.0-alpha5 - 2 June 2015
 
+- restore original ns in nREPL eval 
+
 # 0.3.0-alpha4 - 31 May 2015
 
 - support .cljc files in `load`
