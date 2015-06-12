@@ -2,7 +2,11 @@
 
 <a href='http://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
 
-Gradual typing in Clojure, as a library.
+Optional typing in Clojure, as a library.
+
+## Support Typed Clojure!
+
+<iframe src="https://www.indiegogo.com/project/gradual-typing-for-clojure/embedded/4545030" width="222px" height="445px" frameborder="0" scrolling="no"></iframe>
 
 ## Releases and Dependency Information
 
