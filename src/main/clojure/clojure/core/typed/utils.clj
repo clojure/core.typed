@@ -326,6 +326,7 @@
           ~~'assertmap
           ;the body, wrapped in a profiling macro
           (u/p ~(keyword (str '~mm-name) (str ~'nme))
+               (trace '~(symbol (str '~mm-name) (str ~'nme)))
                ~@~'body)))))
 
 ;; Aliases for profiling stuff
@@ -398,6 +399,14 @@
              ss)
       (flush))))
 
+(defmacro trace [& ss]
+  `(when uvs/*trace-checker*
+     (println 
+       "TRACE: " 
+       " "
+       (:line uvs/*current-env*)
+       ~@ss)
+     (flush)))
 
 (defn pad-right
   "Returns a sequence of length cnt that is s padded to the right with copies
