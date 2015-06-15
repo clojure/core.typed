@@ -1412,6 +1412,8 @@
   [expr & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)]}
   #_(prn "static-method")
+  (u/trace 
+    "static Call: " (:method expr))
   (let [spec (static-method-special expr expected)]
     (if (not= :default spec)
       spec
