@@ -4,10 +4,6 @@
 
 Optional typing in Clojure, as a library.
 
-## Support Typed Clojure!
-
-<iframe src="https://www.indiegogo.com/project/gradual-typing-for-clojure/embedded/4545030" width="222px" height="445px" frameborder="0" scrolling="no"></iframe>
-
 ## Releases and Dependency Information
 
 Latest stable release is 0.3.0-alpha5.

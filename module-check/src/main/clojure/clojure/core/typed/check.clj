@@ -243,9 +243,12 @@
 (defmulti static-method-special (fn [expr & args]
                                   {:post [((some-fn nil? symbol?) %)]}
                                   (cu/MethodExpr->qualsym expr)))
+(u/add-defmethod-generator static-method-special)
+
 (defmulti instance-method-special (fn [expr & args]
                                     {:post [((some-fn nil? symbol?) %)]}
                                     (cu/MethodExpr->qualsym expr)))
+(u/add-defmethod-generator instance-method-special)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Keyword lookups
@@ -451,7 +454,7 @@
       (invoke/normal-invoke check expr fexpr args expected
                      :cargs cargs))))
 
-(defmethod static-method-special 'clojure.lang.RT/get
+(add-static-method-special-method 'clojure.lang.RT/get
   [{:keys [args] :as expr} & [expected]]
   {:pre [args]
    :post [(-> % u/expr-type r/TCResult?)]}
@@ -463,7 +466,7 @@
                                   :cargs cargs))))
 
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
-(defmethod static-method-special 'clojure.lang.PersistentHashMap/create
+(add-static-method-special-method 'clojure.lang.PersistentHashMap/create
   [{:keys [args] :as expr} & [expected]]
   {:post [(or (#{:default} %)
               (and (-> % u/expr-type r/TCResult?)
@@ -673,7 +676,7 @@
                u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected)))))
 
 ;identical
-(defmethod static-method-special 'clojure.lang.Util/identical
+(add-static-method-special-method 'clojure.lang.Util/identical
   [{:keys [args] :as expr} & [expected]]
   {:post [(vector? (:args %))
           (-> % u/expr-type r/TCResult?)]}
@@ -683,7 +686,7 @@
            u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected))))
 
 ;equiv
-(defmethod static-method-special 'clojure.lang.Util/equiv
+(add-static-method-special-method 'clojure.lang.Util/equiv
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)]
     (assoc expr
@@ -1009,7 +1012,7 @@
 
 
 ;nth
-(defmethod static-method-special 'clojure.lang.RT/nth
+(add-static-method-special-method 'clojure.lang.RT/nth
   [{:keys [args] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)]}
   (let [cargs (mapv check args)
@@ -1207,7 +1210,7 @@
                              expected))))))
 
 ; FIXME this needs a line number from somewhere!
-(defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
+(add-instance-method-special-method 'clojure.lang.MultiFn/addMethod
   [{[dispatch-val-expr method-expr :as args] :args target :instance :keys [env] :as expr} & [expected]]
   (when-not (= 2 (count args))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn/addMethod"))
@@ -1255,8 +1258,8 @@
                    :args cargs)))))))
 
 (add-invoke-special-method :default [& args] :default)
-(defmethod static-method-special :default [& args] :default)
-(defmethod instance-method-special :default [& args] :default)
+(add-static-method-special-method :default [& args] :default)
+(add-instance-method-special-method :default [& args] :default)
 
 
 ;TODO attach new :args etc.
@@ -1438,7 +1441,9 @@
       (assert field)
       (assoc expr
              u/expr-type (below/maybe-check-below
-                           (r/ret (cu/Field->Type field))
+                           (r/ret 
+                             (p/p :check-static-field/calling-Field->Type
+                                  (cu/Field->Type field)))
                            expected)))))
 
 (add-check-method :instance-field
@@ -1488,7 +1493,8 @@
                        override
                        ; if not a datatype field, convert as normal
                        (if field
-                         (cu/Field->Type field)
+                         (p/p :check-instance-field/calling-Field->Type
+                           (cu/Field->Type field))
                          (err/tc-delayed-error (str "Instance field " fsym " needs type hints")
                                              :form (ast-u/emit-form-fn expr)
                                              :return (r/TCError-maker))))] 
@@ -1513,9 +1519,9 @@
                          expected))))
 
 (defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (coerce/ctor-Class->symbol class)))
+(u/add-defmethod-generator new-special)
 
-
-(defmethod new-special 'clojure.lang.MultiFn
+(add-new-special-method 'clojure.lang.MultiFn
   [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
   (when-not expected
     (err/int-error "clojure.lang.MultiFn constructor requires an expected type"))
