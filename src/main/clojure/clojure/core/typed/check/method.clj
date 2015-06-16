@@ -1,6 +1,7 @@
 (ns clojure.core.typed.check.method
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.utils :as u]
@@ -28,6 +29,7 @@
                         (when msym
                           (@mth-override/METHOD-OVERRIDE-ENV msym))
                         (when method
+                          (p/p :check.method/calling-Method->Type)
                           (cu/Method->Type method)))
           ctarget (when inst?
                     (assert (:instance expr))

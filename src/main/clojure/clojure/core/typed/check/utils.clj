@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.utils
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
@@ -157,7 +158,7 @@
                             (when nilable?
                               [r/-nil]))))]
     typ
-    (err/tc-delayed-error (str "Method symbol " sym " does not resolve to a type"))))
+    (err/tc-delayed-error (str "Method or field symbol " sym " does not resolve to a type"))))
 
 ;[t/Sym Boolean -> (Option Type)]
 (defn- symbol->PArray [sym nilable?]
@@ -356,28 +357,44 @@
    :post [((every-pred namespace symbol?) %)]}
   (symbol (name declaring-class) (name name-sym)))
 
+(defn method-nilable-param? [msym nparams n]
+  {:post [(con/boolean? %)]}
+  (let [n (mtd-param-nil/nilable-param? msym nparams n)]
+    (if n
+      (u/p :check.method/has-nilable-param)
+      (u/p :check.method/no-nilable-param))
+    n))
+
+(defn method-nonnilable-return? [msym nparams]
+  {:post [(con/boolean? %)]}
+  (let [n (mtd-ret-nil/nonnilable-return? msym nparams)]
+    (if n
+      (u/p :check.method/has-nonnilable-return)
+      (u/p :check.method/no-nonnilable-return))
+    n))
 
 ;[clojure.reflect.Method -> Type]
 (defn Method->Type [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(r/FnIntersection? %)]}
+  (p/p :check.method/inside-Method->Type)
   (let [msym (Method->symbol method)
         nparams (count parameter-types)]
     (r/make-FnIntersection (r/make-Function (doall (map (fn [[n tsym]] 
                                                           (Java-symbol->Type 
                                                             tsym 
-                                                            (mtd-param-nil/nilable-param? msym nparams n)))
+                                                            (method-nilable-param? msym nparams n)))
                                                       (map-indexed vector
                                                                    (if (:varargs flags)
                                                                      (butlast parameter-types)
                                                                      parameter-types))))
                                           (Java-symbol->Type 
                                             return-type 
-                                            (not (mtd-ret-nil/nonnilable-return? msym nparams)))
+                                            (not (method-nonnilable-return? msym nparams)))
                                           (when (:varargs flags)
                                             (Java-symbol->Type 
                                               (last parameter-types) 
-                                              (mtd-param-nil/nilable-param? msym nparams (dec nparams))))))))
+                                              (method-nilable-param? msym nparams (dec nparams))))))))
 
 ;[clojure.reflect.Constructor -> Type]
 (defn Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
