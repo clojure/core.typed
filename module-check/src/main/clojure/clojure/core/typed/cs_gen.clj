@@ -25,7 +25,7 @@
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed :as t :refer [letfn>]]
             [clojure.set :as set])
-  (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
+  (:import (clojure.core.typed.type_rep F Value Poly TApp Union Unique FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
                                         Function Protocol Bounds FlowSet TCResult HSequential)
@@ -315,6 +315,13 @@
     (cr/empty-cset X Y)
     (binding [*cs-current-seen* (conj *cs-current-seen* [S T])]
       (cond
+        (and 
+          (r/Top? T)
+          (not (r/Name? S)))
+        (and
+          (not (r/Record? S))
+          (not (r/TypeFn? S)))
+        
         (r/Top? T)
         (cr/empty-cset X Y)
 
