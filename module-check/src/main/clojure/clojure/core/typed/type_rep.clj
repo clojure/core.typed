@@ -59,10 +59,19 @@
 (t/ann -any Type)
 (def -any (Top-maker))
 
-
 (u/ann-record Union [types :- (t/SortedSet Type)])
 (u/def-type Union [types]
   "An flattened, sorted union of types"
+  [(set? types)
+   (sorted? types)
+   (every? Type? types)
+   (not-any? Union? types)]
+  :methods
+  [p/TCType])
+
+(u/ann-record Unique [types :- (SortedSet Type)])
+(u/def-type Unique [types]
+  "Sorted union of Unique Types"
   [(set? types)
    (sorted? types)
    (every? Type? types)
@@ -79,8 +88,15 @@
 (defn- Un [& types]
   (Union-maker (sorted-type-set types)))
 
+(t/ann UUn [Type * -> Unique])
+(defn- UUn [& types]
+  (Unique-maker (sorted-type-set types)))
+
 (t/ann empty-union Type)
 (def empty-union (Un))
+
+(t/ann empty-unique-union UniqueType)
+(def empty-unique-union (UUn))
 
 (t/ann Bottom [-> Type])
 (defn Bottom []
@@ -164,7 +180,7 @@
   "A named free variable"
   [(symbol? name)]
   :methods
-  [p/TCType])
+  [p/TCType p/TCUType])
 
 (t/ann make-F [t/Sym -> F])
 (defn make-F

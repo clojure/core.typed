@@ -1343,6 +1343,11 @@ for checking namespaces, cf for checking individual forms."}
        ::special-type true}
   U)
 
+(def ^{:doc "UniqueType represents a unique type (values of this type can have at most one reference to it"
+       :forms '[(Unique type*)]
+       ::special-type true}
+  Unique)
+
 (def ^{:doc "Nothing is the bottom type that inhabits no types
             except itself."
        :forms '[Nothing]
