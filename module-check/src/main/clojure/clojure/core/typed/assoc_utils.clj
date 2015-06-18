@@ -4,6 +4,8 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.tvar-bnds :as bnds]
@@ -185,6 +187,10 @@
   [left right]
   {:pre [(r/HeterogeneousMap? left)
          (r/HeterogeneousMap? right)]}
+  ;; want to know how often complete HMap's help with merging.
+  (u/trace-when (c/complete-hmap? right)
+    (p/p :merge/complete-used-on-right)
+    "Merge: complete used on the right")
   (c/make-HMap
     :mandatory
       (let [m (:types left)
