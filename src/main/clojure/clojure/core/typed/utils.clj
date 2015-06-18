@@ -408,6 +408,16 @@
        ~@ss)
      (flush)))
 
+(defmacro trace-when [p & ss]
+  `(when uvs/*trace-checker*
+     (when ~p
+       (println 
+         "TRACE: " 
+         " "
+         (:line uvs/*current-env*)
+         ~@ss)
+       (flush))))
+
 (defn pad-right
   "Returns a sequence of length cnt that is s padded to the right with copies
   of v."
