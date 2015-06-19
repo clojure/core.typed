@@ -82,6 +82,8 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 ## Developer Information
 
+- [Typed Clojure Contributor Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing guidelines](CONTRIBUTING.md)
 - [GitHub Project](https://github.com/clojure/core.typed)
 - [Bug Tracker](http://dev.clojure.org/jira/browse/CTYP)
 - [Continuous Integration](http://build.clojure.org/job/core.typed/)

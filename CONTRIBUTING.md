@@ -1,3 +1,5 @@
+Before contributing to any Typed Clojure asset, please read the [Typed Clojure Contributor Code of Conduct](CODE_OF_CONDUCT.md).
+
 This is a [Clojure contrib] project.
 
 Under the Clojure contrib [guidelines], this project cannot accept
