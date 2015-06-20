@@ -60,7 +60,6 @@
   '{:P ':not, :p Prop2}))
 (t/ann parse-prop-test clojure.lang.IFn)
 (t/ann unparse-prop [Prop2 :-> t/Any])
-(t/ann clojure.pprint/pprint [t/Sym :-> nil])
 (t/ann parse-exp [t/Any :-> Exp])
 (t/ann
  unparse-type
