@@ -11,11 +11,13 @@
 (defonce ^:dynamic *current-var-annotations* nil)
 (defonce ^:dynamic *current-nocheck-var?* nil)
 (defonce ^:dynamic *current-used-vars* nil)
+(defonce ^:dynamic *current-used-once-vars* nil)
 (defonce ^:dynamic *current-checked-var-defs* nil)
 
-(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) (some-fn delay? r/Type?))))
+(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) (some-fn delay? r/Type? r/Unique?))))
 (defonce CLJ-NOCHECK-VAR? (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 (defonce CLJ-USED-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
+(defonce CLJ-USED-ONCE-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 (defonce CLJ-CHECKED-VAR-DEFS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 
 (defonce CLJS-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) r/Type?)))
@@ -40,6 +42,11 @@
     (assert env "No used var env bound")
     env))
 
+(defn current-used-once-vars []
+  (let [env *current-used-once-vars*]
+    (assert env "No used once var env bound")
+    env))
+
 (defn current-checked-var-defs []
   (let [env *current-checked-var-defs*]
     (assert env "No checked var env bound")
@@ -57,6 +64,9 @@
 
 (defn used-vars []
   @(current-used-vars))
+
+(defn used-once-vars []
+  @(current-used-once-vars))
 
 (defn checked-vars []
   @(current-checked-var-defs))
@@ -78,6 +88,9 @@
 (defn used-var? [sym]
   (contains? @(current-used-vars) sym))
 
+(defn used-once-var? [sym]
+  (contains? @(current-used-once-vars) sym))
+
 (defn add-nocheck-var [sym]
   (swap! (current-nocheck-var?) conj sym)
   nil)
@@ -86,12 +99,17 @@
   (swap! (current-used-vars) conj sym)
   nil)
 
+(defn add-used-once-var [sym]
+  (swap! (current-used-once-vars) conj sym)
+  nil)
+
 (defn add-checked-var-def [sym]
   (swap! (current-checked-var-defs) conj sym)
   nil)
 
 (defn vars-with-unchecked-defs []
   (set/difference @(current-used-vars)
+                  ;@(current-used-once-vars)
                   @(current-checked-var-defs)
                   @(current-nocheck-var?)))
 
@@ -99,6 +117,7 @@
   (reset! (current-var-annotations) m)
   (reset! (current-nocheck-var?) nocheck)
   (reset! (current-used-vars) #{})
+  ;(reset! (current-used-once-vars) #{})
   (reset! (current-checked-var-defs) #{})
   nil)
 
@@ -107,14 +126,14 @@
   nil)
 
 (defn lookup-Var-nofail [nsym]
-  {:post [((some-fn nil? r/Type?) %)]}
+  {:post [((some-fn nil? r/Type? r/Unique?) %)]}
   (or (let [e (current-var-annotations)]
         (force (@e nsym)))
       (when (impl/checking-clojurescript?)
         (@CLJS-JSVAR-ANNOTATIONS nsym))))
 
 (defn lookup-Var [nsym]
-  {:post [((some-fn nil? r/Type?) %)]}
+  {:post [((some-fn nil? r/Type? r/Unique?) %)]}
   (if-let [t (lookup-Var-nofail nsym)]
     t
     (err/int-error
@@ -122,7 +141,7 @@
 
 (defn type-of-nofail [sym]
   {:pre [(symbol? sym)]
-   :post [((some-fn nil? r/Type?) %)]}
+   :post [((some-fn nil? r/Type? r/Unique?) %)]}
   (if (and (not (namespace sym))
            (not-any? #{\.} (str sym))) 
     (lex/lookup-local sym)
@@ -130,7 +149,7 @@
 
 (defn type-of [sym]
   {:pre [(symbol? sym)]
-   :post [(r/Type? %)]}
+   :post [((some-fn r/Type? r/Unique?) %)]}
   (if-let [t (type-of-nofail sym)]
     t
     (err/int-error (str (when vs/*current-env*
