@@ -5456,6 +5456,11 @@
     (is-clj (do (cg -nil) true))
   ))
 
+(deftest some?-test
+  (is-tc-e (let [x (ann-form 1 (U nil Int))]
+             (when (some? x)
+               (inc x)))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

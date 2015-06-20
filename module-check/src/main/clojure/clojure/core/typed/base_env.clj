@@ -706,6 +706,11 @@ clojure.core/zero?  [Number -> Boolean
 clojure.core/symbol? (Pred Symbol)
 clojure.core/keyword? (Pred Keyword)
 clojure.core/map? (Pred (Map Any Any))
+
+; would be nice
+; (Pred (Not nil))
+clojure.core/some? [Any -> Boolean :filters {:then (! nil 0)
+                                             :else (is nil 0)}]
 )
     (h/var-mappings
       this-ns
@@ -774,7 +779,45 @@ clojure.string/trim [String -> String]
 clojure.string/trimr [String -> String]
 clojure.string/triml [String -> String]
 
+ clojure.data/diff [Any Any -> '[Any Any Any]]
+ clojure.instant/read-instant-date [String -> java.util.Date]
+ clojure.instant/read-instant-calendar [String -> java.util.GregorianCalendar]
+ clojure.instant/read-instant-timestamp [String -> java.sql.Timestamp]
+ clojure.repl/apropos [(U String java.util.regex.Pattern) -> (Seq Symbol)]
+ clojure.repl/demunge [String -> String]
+ clojure.repl/source-fn [Symbol -> (U String nil)]
+ clojure.template/apply-template [(Vec Any) Any (U nil (Seqable Any)) -> Any]
+ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
+ clojure.set/subset? [(Set Any) (Set Any) -> Boolean]
+ clojure.set/superset? [(Set Any) (Set Any) -> Boolean]
+ clojure.set/join (IFn [(Set (Map Any Any)) (Set (Map Any Any)) -> (Set (Map Any Any))]
+                       [(Set (Map Any Any)) (Set (Map Any Any)) (Map Any Any) -> (Set (Map Any Any))])
 
+ ; would be nice
+;(All [[m :> (Map Any Any)] k]
+;     [(Set m) (U nil (Seqable k)) -> (Map (Map k (Get m k)) (Set m))]
+;     )
+ clojure.set/index (All [x y]
+                    [(Set (Map x y)) (U nil (Seqable Any)) -> (Map (Map Any Any) (Set (Map x y)))]
+                    )
+ clojure.set/map-invert (All [a b] [(Map a b) -> (Map b a)])
+
+ ;would be nice, not quite correct though
+; (All [x y [m :< (Map x y)] k]
+;    [(Set m) (Vec k) -> (Set (Map k (Get m k)))])
+ clojure.set/project (All [x y]
+                      [(Set (Map x y)) (Vec Any) -> (Set (Map x y))])
+ clojure.set/rename (All [x y]
+                      [(Set (Map x y)) (Map Any x) -> (Set (Map x y))])
+ clojure.set/rename-keys (All [x y]
+                          [(Map x y) (Map Any x) -> (Map x y)])
+ ;like filter
+clojure.set/select (All [x y]
+                           (IFn
+                             [[x -> Any :filters {:then (is y 0)}] (Set x) -> (Set y)]
+                             [[x -> Any :filters {:then (! y 0)}] (Set x) -> (Set (I x (Not y)))]
+                             [[x -> Any] (Set x) -> (Set x)]))
+ 
 
 clojure.core/interpose (All [x] (IFn [x (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (ASeq x)])
@@ -1486,6 +1529,7 @@ clojure.pprint/pprint (IFn [Any -> nil]
 clojure.set/union (All [x] [(Set x) * -> (Set x)])
 clojure.set/intersection (All [x] [(Set x) (Set x) * -> (Set x)])
 clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
+
 
 clojure.repl/pst (IFn [-> nil]
                       [(U Int Throwable) -> nil]
