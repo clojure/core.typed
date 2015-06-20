@@ -501,3 +501,14 @@
                    _ (flush)
                    ]
          nil)))))))))
+
+(defn find-updated-locals [env1 env2]
+  {:pre [(map? env1)
+         (map? env2)]}
+  (set
+    (filter identity
+            (for [[k v1] env1]
+              (when-let [v2 (get env2 k)]
+                (when (and (sub/subtype? v1 v2)
+                           (not (sub/subtype? v2 v1)))
+                  k))))))

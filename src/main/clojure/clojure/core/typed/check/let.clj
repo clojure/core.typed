@@ -1,5 +1,7 @@
 (ns clojure.core.typed.check.let
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.profiling :as p]
+            [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
@@ -82,6 +84,10 @@
                                                               (apply concat 
                                                                      (update/combine-props p* % (atom true)))))
                                        (update/env+ [(if (= fl/-bot flow-f) fl/-top flow-f)] flow-atom))
+                           _ (u/trace-when-let
+                               [ls (seq (cu/find-updated-locals (:l env) (:l new-env)))]
+                               (p/p :check.let/updated-exceptional-control-flow)
+                               (str "Updated local in exceptional control flow (let): " ls))
                            _ (when-not @flow-atom 
                                (binding [vs/*current-expr* init]
                                  (err/int-error

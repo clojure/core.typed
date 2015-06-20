@@ -1,5 +1,7 @@
 (ns clojure.core.typed.check.do
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.lex-env :as lex]
@@ -48,6 +50,10 @@
                           nenv (if (fl/NoFilter? flow)
                                  env
                                  (update/env+ env [flow] flow-atom))
+                          _ (u/trace-when-let
+                              [ls (seq (cu/find-updated-locals (:l env) (:l nenv)))]
+                              (p/p :check.do/updated-exceptional-control-flow)
+                              (str "Updated local in exceptional control flow (do): " ls))
                           ;_ (prn nenv)
                           ]
                       (if @flow-atom
