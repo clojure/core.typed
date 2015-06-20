@@ -7,6 +7,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.type-ctors :as c])
@@ -34,6 +35,7 @@
             _ (when cinit
                 ; now consider this var as checked
                 (var-env/add-checked-var-def vsym))]
+        (p/p :check/checked-def)
         (assoc expr
                :init cinit
                u/expr-type (impl/impl-case
@@ -49,6 +51,7 @@
                      (str line ": ")) 
                    "Not checking" vsym "definition")
           (flush)
+          (p/p :check/def-not-checking-definition)
           (assoc expr
                  u/expr-type (impl/impl-case
                                :clojure (r/ret (c/RClass-of Var [(or t r/-nothing) (or t r/-any)]))
@@ -66,6 +69,7 @@
                 (var-env/add-checked-var-def vsym)
                 ; and add the inferred static type (might be Error)
                 (var-env/add-var-type vsym inferred))]
+        (p/p :check/checked-def)
         (assoc expr
                :init cinit
                u/expr-type (impl/impl-case

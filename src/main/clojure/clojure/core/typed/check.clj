@@ -1231,6 +1231,7 @@
                (not (var-env/lookup-Var-nofail mmsym)))
           (not (var-env/check-var? mmsym)))
       (do (u/tc-warning (str "Not checking defmethod" mmsym "with dispatch value" (ast-u/emit-form-fn dispatch-val-expr)))
+          (p/p :check/skip-MultiFn-addMethod)
           ret-expr)
       :else
       (let [_ (assert (#{:var} (:op target)))
@@ -1673,10 +1674,11 @@
         ;ignore macro definitions and declare
         (or (.isMacro ^Var var)
             (not init-provided))
-        (assoc expr
-               u/expr-type (below/maybe-check-below
-                             (r/ret (c/RClass-of Var [(r/Bottom) r/-any]))
-                             expected))
+        (p/p :check/ignored-typed-defmacro
+          (assoc expr
+                 u/expr-type (below/maybe-check-below
+                               (r/ret (c/RClass-of Var [(r/Bottom) r/-any]))
+                               expected)))
 
         :else (def/check-normal-def check expr expected)))))
 
