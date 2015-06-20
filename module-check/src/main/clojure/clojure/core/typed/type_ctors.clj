@@ -2286,6 +2286,8 @@
                            :else r/-any))
       (r/HeterogeneousMap? t) (let [pres ((:types t) k)
                                     opt  ((:optional t) k)]
+                                (when (complete-hmap? t)
+                                  (profile/p :check/find-val-has-complete))
                                 (profile/p :check/find-val-type-with-hmap)
                                 (cond
                                   ; normal case, we have the key declared present
