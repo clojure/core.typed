@@ -72,7 +72,7 @@
 (derive ::substitute-dots f/fold-rhs-default)
 (f/add-fold-case ::substitute-dots
   Function
-  (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
+  (fn [{:keys [dom rng unique rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
    (when kws (err/nyi-error "substitute keyword args"))
    (if (and drest
             (= name (:name drest)))
@@ -83,9 +83,11 @@
                                    ;(prn "expanded" (unparse-type expanded))
                                    (map (fn [img] (substitute img name expanded)) images))))
                        (sb rng)
+                       unique 
                        rimage nil nil)
      (r/Function-maker (doall (map sb dom))
                        (sb rng)
+                       unique
                        (and rest (sb rest))
                        (and drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                           (:name drest)))
@@ -168,10 +170,11 @@
 
 (f/add-fold-case ::substitute-dotted
   Function
-  (fn [{:keys [dom rng rest drest kws]} {{:keys [sb name image]} :locals}]
+  (fn [{:keys [dom rng unique rest drest kws]} {{:keys [sb name image]} :locals}]
    (when kws (err/nyi-error "substitute-dotted with kw arguments"))
    (r/Function-maker (doall (map sb dom))
                      (sb rng)
+                     unique 
                      (and rest (sb rest))
                      (and drest
                           (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))

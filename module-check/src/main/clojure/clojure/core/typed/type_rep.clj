@@ -753,15 +753,17 @@
 
 (u/ann-record Function [dom :- (t/U nil (t/Seqable Type)),
                         rng :- Result,
+                        unique :- Boolean,
                         rest :- (t/U nil Type)
                         drest :- (t/U nil DottedPretype)
                         kws :- (t/U nil KwArgs)])
-(u/def-type Function [dom rng rest drest kws]
+(u/def-type Function [dom rng unique rest drest kws]
   "A function arity, must be part of an intersection"
   [(or (nil? dom)
        (sequential? dom))
    (every? Type? dom)
    (Result? rng)
+   (con/boolean? unique)
    ;at most one of rest drest or kws can be provided
    (#{0 1} (count (filter identity [rest drest kws])))
    (or (nil? rest)
@@ -1069,8 +1071,8 @@
   and EmptyObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws flow]}]
-   (Function-maker dom (make-Result rng filter object flow)
+  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws flow unique] :or {unique false}}]
+   (Function-maker dom (make-Result rng filter object flow) unique
                    rest drest (when (or mandatory-kws optional-kws)
                                 (-kw-args :mandatory (or mandatory-kws {})
                                           :optional (or optional-kws {}))))))

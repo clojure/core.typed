@@ -128,7 +128,7 @@
 
 (fold/add-fold-case ::subst-type
                     Function
-                    (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [st k o polarity]} :locals}]
+                    (fn [{:keys [dom rng unique rest drest kws] :as ty} {{:keys [st k o polarity]} :locals}]
                       ;; here we have to increment the count for the domain, where the new bindings are in scope
                       (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
                             st* (if (integer? k)
@@ -138,6 +138,7 @@
                                   st)]
                         (r/Function-maker (map st dom)
                                       (st* rng)
+                                      unique 
                                       (and rest (st rest))
                                       (when drest
                                         (-> drest

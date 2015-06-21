@@ -138,6 +138,7 @@
                                     bm)))]
               (r/Function-maker dom
                                 (tfn (:rng t))
+                                (:unique t) 
                                 nil
                                 nil ;dotted pretype now expanded to fixed domain
                                 nil))

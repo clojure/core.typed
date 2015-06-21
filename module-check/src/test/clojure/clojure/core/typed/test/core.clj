@@ -248,7 +248,7 @@
                 (Function-maker [] (make-Result -nil
                                             (-FS -bot -top)
                                             (EmptyObject-maker))
-                            nil nil nil))
+                            false nil nil nil))
               (-FS -top -bot)
               (EmptyObject-maker))))
   (is-clj (= (tc-t (fn [] 1))
@@ -256,7 +256,7 @@
                 (Function-maker [] (make-Result (-val 1)
                                               (-FS -top -bot)
                                               (EmptyObject-maker))
-                              nil nil nil))
+                              false nil nil nil))
               (-FS -top -bot)
               (EmptyObject-maker))))
   (is-clj (= (tc-t (let []))
@@ -269,7 +269,7 @@
                                     (make-Result (-val 1)
                                                  (-true-filter)
                                                  -empty)
-                                    nil nil nil))
+                                    false nil nil nil))
                   (-FS -top -bot) -empty)))
   (is-clj (= (tc-t (let [a nil] a))
              (ret -nil (-FS -top -top) -empty))))
@@ -323,7 +323,7 @@
                                             (-filter (make-HMap :mandatory {(-val :op) (-val :if)}) 0))
                                       (-not-filter (-val :if) 0 [(-kpe :op)]))
                                  -empty)
-                    nil nil nil))
+                    false nil nil nil))
               (-FS -top -bot)
               -empty))))
 
@@ -563,7 +563,7 @@
                                     (make-Result (-val 1) 
                                                  (-true-filter)
                                                  (-path [(-kpe :a)] 0))
-                                    nil nil nil))
+                                    false nil nil nil))
                   (-FS -top -bot)
                   -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
@@ -576,7 +576,7 @@
                                       ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
                                       -empty)
-                         nil nil nil))))
+                         false nil nil nil))))
   (is-clj (= (tc-t (let [{a :a} {:a 1}]
                  a))
          (ret (-val 1) 
@@ -588,7 +588,7 @@
          (ret (make-FnIntersection
                 (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
                               (make-Result -false (-false-filter) -empty)
-                              nil nil nil))
+                              false nil nil nil))
               (-FS -top -bot)
               -empty)))
   ;roughly the macroexpansion of map destructuring
@@ -645,7 +645,7 @@
                                          (make-Result (-val 1) 
                                                       (-true-filter)
                                                       (-path [(-kpe :a)] 0))
-                                         nil nil nil))
+                                         false nil nil nil))
                            (-FS -top -bot) -empty)))
   (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MapName]
                                                     (let [{e :a} tmap]
@@ -654,7 +654,7 @@
                                                             (make-Result (make-HMap :mandatory {(-val :a) (-val 1)
                                                                                  (-val :c) (-val :b)})
                                                                          (-FS -top -bot) -empty)
-                                                            nil nil nil))
+                                                            false nil nil nil))
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
   (is-with-aliases (subtype? 
@@ -717,7 +717,7 @@
                                                                (-val :c) (-val :d)
                                                                (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)}))]
                                 (make-Result t (-FS -top -bot) -empty))
-                              nil nil nil))
+                              false nil nil nil))
               (-FS -top -bot) -empty))))
 
 ;(tc-t (clojure.core.typed/fn> [[a :- Number]

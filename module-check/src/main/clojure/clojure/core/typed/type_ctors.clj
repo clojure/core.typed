@@ -1795,9 +1795,10 @@
 
 (f/add-fold-case ::abstract-many
                  Function
-                 (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
+                 (fn [{:keys [dom rng unique rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
                    (r/Function-maker (doall (map sb dom))
                                  (sb rng)
+                                 unique 
                                  (when rest (sb rest))
                                  (when drest
                                    (-> drest
@@ -1935,9 +1936,10 @@
 
 (f/add-fold-case ::instantiate-many
                Function
-               (fn [{:keys [dom rng rest drest kws]} {{:keys [count outer image sb]} :locals}]
+               (fn [{:keys [dom rng unique rest drest kws]} {{:keys [count outer image sb]} :locals}]
                  (r/Function-maker (map sb dom)
                              (sb rng)
+                             unique
                              (when rest
                                (sb rest))
                              (when drest

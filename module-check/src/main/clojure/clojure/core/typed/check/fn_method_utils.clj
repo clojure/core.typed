@@ -37,6 +37,7 @@
     (r/Function-maker
       (map second args)
       (abo/abstract-result body arg-names)
+      false
       (when rest
         (second rest))
       (when drest
