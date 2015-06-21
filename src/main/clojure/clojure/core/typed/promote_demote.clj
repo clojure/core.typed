@@ -217,8 +217,8 @@
 
 (promote-demote HSet
   [T V]
-  (let [fixed (mapv promote (:fixed T) (repeat V))
-        h (r/-hset fixed (:complete? T))]
+  (let [fixed (set (mapv promote (:fixed T) (repeat V)))
+        h (r/-hset fixed :complete? (:complete? T))]
     (if (every? (fn [a] 
                   (and (r/Value? a)
                        (hset/valid-fixed? (:val a))))
