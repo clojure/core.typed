@@ -27,3 +27,13 @@
 (let [m-atom :- (Atom1 (ITransientMap Keyword Number)), (atom (transient {}))]
   (assoc! @m-atom :a 1)
   (assoc! @m-atom :b 2))
+
+; Some more interesting cases 
+
+; (let [x (transient {})] (if c x x))
+; (let [x (transient {})] (if c x x) x)
+; (let [x (transient {}) f (fn [] x)] (f) (f))
+; (let [x (transient {}) f (fn [] x) g f] (g) (f))
+; (let [x (transient {}) f [(fn [] x) g f]] (first g) g)
+; (let [x (transient {}) f [1 (fn [] x)]] (first f) (first f))
+
