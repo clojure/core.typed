@@ -4806,6 +4806,10 @@
   (is-tc-e (do (require '[clojure.core :as c])
                (c/map inc []))))
 
+; promote-demote bug with HSet's
+(deftest CTYP-214-test
+  (is-tc-e (atom #{})))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

@@ -1,3 +1,7 @@
+# 0.3.0-alpha6 - 2 June 2015
+
+- Fix CTYP-214
+
 # 0.3.0-alpha5 - 2 June 2015
 
 - restore original ns in nREPL eval 
