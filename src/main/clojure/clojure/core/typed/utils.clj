@@ -391,8 +391,8 @@
 (defn tc-warning [& ss]
   (let [env uvs/*current-env*]
     (binding [*out* *err*]
-      (apply println "WARNING: Type Checker: "
-             (str "(" (-> env :ns :name) ":" (:line env) 
+      (apply println "WARNING: "
+             (str "(" (:file env) ":" (:line env) 
                   (when-let [col (:column env)]
                     (str ":" col))
                   ") ")

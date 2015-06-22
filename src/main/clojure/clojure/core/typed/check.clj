@@ -1232,7 +1232,7 @@
       (or (and (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
                (not (var-env/lookup-Var-nofail mmsym)))
           (not (var-env/check-var? mmsym)))
-      (do (u/tc-warning (str "Not checking defmethod" mmsym "with dispatch value" (ast-u/emit-form-fn dispatch-val-expr)))
+      (do (u/tc-warning (str "Not checking defmethod " mmsym " with dispatch value" (ast-u/emit-form-fn dispatch-val-expr)))
           (p/p :check/skip-MultiFn-addMethod)
           ret-expr)
       :else
