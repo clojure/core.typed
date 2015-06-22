@@ -142,12 +142,14 @@
 
 (u/add-defmethod-generator check)
 
-(defn check-expr [expr & [expected]]
+(defn check-expr [{:keys [env] :as expr} & [expected]]
   (when vs/*trace-checker*
-    (println "Checking line:" (-> expr :env :line))
+    (println "Checking line:" (:line env))
     (flush))
   (u/p :check/check-expr
-    (check expr expected)))
+    (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
+              vs/*current-expr* expr]
+      (check expr expected))))
 
 (add-check-method :const [expr & [expected]] 
   (value/check-value expr expected))
