@@ -454,53 +454,48 @@
 (defn check-ns-and-deps*
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
-  has already been collected."
-  ([nsym {:keys [ast-for-ns
-                 check-asts
-                 check-ns]}]
+  has already been collected.
+  
+  Always checks the given namespaces, however skips dependencies
+  that are in *already-checked*."
+  ([nsym {:keys [ast-for-ns check-asts check-ns]}]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (u/p :check/check-ns-and-deps
-   (let []
-     (cond 
-       (already-checked? nsym) (do
-                                 ;(println (str "Already checked " nsym ", skipping"))
-                                 ;(flush)
-                                 nil)
-       :else
-       ; check deps
-       (let [deps (u/p :check/ns-immediate-deps 
-                    (ns-deps/typed-deps nsym))]
-         (checked-ns! nsym)
-         ;check deps added with typed-deps
-         (doseq [dep deps]
-           (check-ns dep))
-         ;check normal dependencies
-         (doseq [dep (ns-depsu/deps-for-ns nsym)
-                 :when (ns-depsu/should-check-ns? nsym)]
-           (check-ns dep))
-         ; ignore ns declaration
-         (let [ns-form (ns-depsu/ns-form-for-ns nsym)
-               check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
-           (if-not check?
-             (do (println (str "Not checking " nsym 
-                               (cond
-                                 (not ns-form) " (ns form missing)"
-                                 (ns-depsu/collect-only-ns? ns-form) " (tagged :collect-only in ns metadata)"
-                                 (not (ns-depsu/requires-tc? ns-form)) " (does not depend on clojure.core.typed)")))
-                 (flush))
-             (let [start (. System (nanoTime))
-                   asts (u/p :check/gen-analysis (ast-for-ns nsym))
-                   _ (println "Start checking" nsym)
-                   _ (flush)
-                   casts (check-asts asts)
-                   _ (assert (== (count casts) (count asts)))
-                   _ (when-let [checked-asts vs/*checked-asts*]
-                       (swap! checked-asts assoc nsym casts))
-                   _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
-                   _ (flush)
-                   ]
-         nil)))))))))
+    (let [deps (u/p :check/ns-immediate-deps 
+                 (ns-deps/typed-deps nsym))]
+      (checked-ns! nsym)
+      ;check deps added with typed-deps
+      (doseq [dep deps
+              :when (not (already-checked? dep))]
+        (check-ns dep))
+      ;check normal dependencies
+      (doseq [dep (ns-depsu/deps-for-ns nsym)
+              :when (and (ns-depsu/should-check-ns? nsym)
+                         (not (already-checked? dep)))]
+        (check-ns dep))
+      ; ignore ns declaration
+      (let [ns-form (ns-depsu/ns-form-for-ns nsym)
+            check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
+        (if-not check?
+          (do (println (str "Not checking " nsym 
+                            (cond
+                              (not ns-form) " (ns form missing)"
+                              (ns-depsu/collect-only-ns? ns-form) " (tagged :collect-only in ns metadata)"
+                              (not (ns-depsu/requires-tc? ns-form)) " (does not depend on clojure.core.typed)")))
+              (flush))
+          (let [start (. System (nanoTime))
+                asts (u/p :check/gen-analysis (ast-for-ns nsym))
+                _ (println "Start checking" nsym)
+                _ (flush)
+                casts (check-asts asts)
+                _ (assert (== (count casts) (count asts)))
+                _ (when-let [checked-asts vs/*checked-asts*]
+                    (swap! checked-asts assoc nsym casts))
+                _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
+                _ (flush)
+                ]
+            nil)))))))
 
 (defn find-updated-locals [env1 env2]
   {:pre [(map? env1)
