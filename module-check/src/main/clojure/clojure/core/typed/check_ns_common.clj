@@ -15,13 +15,6 @@
             [clojure.jvm.tools.analyzer :as jta])
   (:import (clojure.lang ExceptionInfo)))
 
-(defn cljs-reader [nsym]
-  (let [f ((impl/v 'cljs.analyzer/ns->relpath) nsym)
-        res (if (re-find #"^file://" f) (java.net.URL. f) (io/resource f))]
-    (assert res (str "Can't find " f " in classpath"))
-    (io/reader res)))
-
-
 ;; Take keywords: 
 ;;  Mandatory
 ;; - :already-checked   an atom of a set of namespace symbols that should be skipped
