@@ -1,4 +1,8 @@
-# 0.3.0-alpha6 - 2 June 2015
+# 0.3.0-SNAPSHOT
+
+- Breaking change:
+  - all `check-ns` operations now avoid rechecking transitive dependencies.
+    To explicitly recheck dependencies use the `:clean` keyword parameter.
 
 - Fix CTYP-214
 
@@ -11,8 +15,8 @@
 - support .cljc files in `load`
 - warn if :no-check is being removed from a var
 - annotate
-  - clojure.repl/print-doc
-  - complete.core annotations
+- clojure.repl/print-doc
+- complete.core annotations
 
 # 0.3.0-alpha3 - 30 May 2015
 
