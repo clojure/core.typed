@@ -61,10 +61,6 @@
           collect-asts
           collect-ns]}
    (p/p :collect-phase-utils/collect-ns
-   (if (already-collected? nsym)
-     (do #_(println (str "Already collected " nsym ", skipping"))
-         #_(flush)
-         nil)
      ; assume we're collecting this namespace, but only collect
      ; dependencies if they appear to refer to clojure.core.tyoed
      (do (collected-ns! nsym)
@@ -80,7 +76,7 @@
            (p/p :collect/collect-form
               (collect-asts asts)))
          (println (str "Finished collecting " nsym))
-         (flush))))))
+         (flush)))))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]
   {:pre [(set? cnts)]}
