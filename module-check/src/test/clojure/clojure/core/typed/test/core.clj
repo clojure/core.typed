@@ -4811,6 +4811,10 @@
 (deftest CTYP-214-test
   (is-tc-e (atom #{})))
 
+(deftest seq-branch-test
+  (is-tc-e (if (seq [1 2 3]) 1 nil)
+           Num))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

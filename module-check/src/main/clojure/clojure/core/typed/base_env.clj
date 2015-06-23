@@ -23,6 +23,15 @@
                                         HVec HSequential Keyword]
              :as t]))
 
+;; Dev notes
+;; ---------
+;;
+;; To reload these type annotations *without* restarting the repl,
+;; you should reload this file then run `(reset-clojure-envs!)`.
+;;
+;; There is some abuse of interning to get the type resolving correctly
+;; in the annotations. The goal is to simulate we're inside `clojure.core.typed`.
+
 (defn- aset-*-type [t]
   (impl/with-clojure-impl
     (let [arr-t (prs/parse-type `(~'Array ~t))
@@ -782,7 +791,9 @@ clojure.core/type [Any -> Any]
 
 clojure.core/seq (All [x]
                         (IFn 
-                          [(NonEmptyColl x) -> (NonEmptyASeq x)]
+                          [(NonEmptyColl x) -> (NonEmptyASeq x)
+                           :filters {:then tt
+                                     :else ff}]
                           [(Option (Coll x)) -> (Option (NonEmptyASeq x))
                            :filters {:then (& (is NonEmptyCount 0)
                                               (! nil 0))
