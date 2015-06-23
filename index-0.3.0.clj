@@ -42,7 +42,7 @@
    :name "clojure.core.typed.check.monitor",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj",
+   "https://github.com/clojure/core.typed/blob/0e78a78d8142abcb2b8adca95771bd49012ebd1a/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.collect-utils-api.html",
    :name "clojure.core.typed.collect-utils",
@@ -2176,9 +2176,9 @@
    :name "collect-ns*",
    :namespace "clojure.core.typed.collect-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj#L53",
+   "https://github.com/clojure/core.typed/blob/0e78a78d8142abcb2b8adca95771bd49012ebd1a/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj#L53",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/05369b9cbc4c9a26a79c0c97fcc161bfb723408c/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj",
+   "https://github.com/clojure/core.typed/raw/0e78a78d8142abcb2b8adca95771bd49012ebd1a/module-check/src/main/clojure/clojure/core/typed/collect_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.collect-utils/collect-ns*",
    :doc
