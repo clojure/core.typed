@@ -28,10 +28,7 @@
           </execution>
         </executions>
         <configuration>
-          <!-- only works with JDK 8, otherwise triggers PermGen issues -->
-          <vmargs>-Xms2048m</vmargs>
-          <vmargs>-Xmx2048m</vmargs>
-          <!-- <vmargs>-XX:MaxPermSize=128M</vmargs> -->
+          <vmargs>-XX:MaxPermSize=128M</vmargs>
           <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
           <!--<vmargs>-verbose:class</vmargs>-->
           <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
