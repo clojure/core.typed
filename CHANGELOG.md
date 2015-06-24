@@ -4,7 +4,7 @@
   - all `check-ns` operations now avoid rechecking transitive dependencies.
     To explicitly recheck dependencies use the `:clean` keyword parameter.
 
-- Fix CTYP-214
+- Fix [CTYP-214](http://dev.clojure.org/jira/browse/CTYP-214)
 - support quoted type syntax with string literals
   - '"a" == (Val "a")
 - `clojure.core/keyword` annotation is now more permissive.
