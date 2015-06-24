@@ -25,8 +25,7 @@
 (t/ann-record NthPE [idx :- Number]) ;; More specific?
 (u/def-object NthPE [idx]
   "A path accessing an indexed member, as by clojure.core/first, second, nth"
-  [(integer? idx)
-   (not (neg? idx))])
+  [(con/znat? idx)])
 
 (t/ann-record NextPE [])
 (u/def-object NextPE []

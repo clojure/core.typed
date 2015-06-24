@@ -19,9 +19,11 @@
 (defn local-ret [sym]
   {:pre [(symbol? sym)]
    :post [(r/TCResult? %)]}
+  ;(prn "local-ret" sym lex/*lexical-env*)
   (let [; see if sym is an alias for an object
         ; if not (-id-path sym) is returned
         obj (lex/lookup-alias sym)
+        ;_ (prn "alias:" obj)
         [alias-path alias-id] (cond
                                 (obj/Path? obj) [(:path obj) (:id obj)]
                                 (obj/EmptyObject? obj) [nil sym]
@@ -30,9 +32,9 @@
         _ (assert (fr/name-ref? alias-id))
         t (path-type/path-type (var-env/type-of alias-id) alias-path)]
     (r/ret t 
-           (if (c/overlap t (c/Un r/-nil r/-false))
-             (fo/-FS (fo/-not-filter-at (c/Un r/-nil r/-false) obj)
-                     (fo/-filter-at (c/Un r/-nil r/-false) obj))
+           (if (c/overlap t r/-false-types)
+             (fo/-FS (fo/-not-filter-at r/-false-types obj)
+                     (fo/-filter-at r/-false-types obj))
              (fo/-true-filter))
            obj)))
 
