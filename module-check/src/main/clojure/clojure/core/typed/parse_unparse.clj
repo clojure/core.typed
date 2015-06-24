@@ -23,7 +23,7 @@
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb]
             #_[clojure.core.typed.debug :refer [dbg]])
-  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union Unique FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
@@ -383,10 +383,19 @@
 (defn parse-union-type [[u & types]]
   (c/make-Union (doall (map parse-type types))))
 
+(defn parse-unique-type [[u & types]]
+  (c/make-Unique (doall (map parse-type types))))
+
 (defmethod parse-type-list 'U [syn] 
   (err/deprecated-plain-op 'U)
   (parse-union-type syn))
 (defmethod parse-type-list 'clojure.core.typed/U [syn] (parse-union-type syn))
+
+(defmethod parse-type-list 'Unique [syn]
+  (err/deprecated-plain-op 'Unique)
+  (parse-unique-type syn))
+(defmethod parse-type-list 'clojure.core.typed/Unique [syn] (parse-unique-type syn))
+
 (defmethod parse-type-list 'cljs.core.typed/U [syn] (parse-union-type syn))
 
 ; don't do any simplification of the intersection because some types might
@@ -1377,6 +1386,13 @@
     (seq types) (list* (unparse-Name-symbol-in-ns `t/U)
                        (doall (map unparse-type types)))
     :else (unparse-Name-symbol-in-ns `t/Nothing)))
+
+(defmethod unparse-type* Unique
+  [{types :types :as unique}]
+  (cond
+    (seq types) (list* (unparse-var-symbol-in-ns `t/Unique)
+                       (doall (map unparse-type types)))
+    :else (unparse-var-symbol-in-ns `t/Nothing)))
 
 (defmethod unparse-type* FnIntersection
   [{types :types}]

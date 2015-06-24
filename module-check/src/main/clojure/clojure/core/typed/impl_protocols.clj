@@ -16,6 +16,9 @@
 (t/ann-protocol TCType)
 (u/defprotocol TCType)
 
+(t/ann-protocol TCUType)
+(u/defprotocol TCUType)
+
 (t/ann-protocol TCAnyType)
 (u/defprotocol TCAnyType)
 

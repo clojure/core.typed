@@ -49,7 +49,9 @@
 ; is less useful here.
   (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
                                              for doseq def remove filter defn atom ref]])
-  (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap
+  (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap ITransientMap 
+                         ITransientSet ITransientCollection ITransientAssociative
+                         ATransientMap ATransientSet ITransientVector IEditableCollection
                          ExceptionInfo Var Seqable)))
 
 ;Aliases used in unit tests
@@ -246,7 +248,7 @@
                 (Function-maker [] (make-Result -nil
                                             (-FS -bot -top)
                                             (EmptyObject-maker))
-                            nil nil nil))
+                            false nil nil nil))
               (-FS -top -bot)
               (EmptyObject-maker))))
   (is-clj (= (tc-t (fn [] 1))
@@ -254,7 +256,7 @@
                 (Function-maker [] (make-Result (-val 1)
                                               (-FS -top -bot)
                                               (EmptyObject-maker))
-                              nil nil nil))
+                              false nil nil nil))
               (-FS -top -bot)
               (EmptyObject-maker))))
   (is-clj (= (tc-t (let []))
@@ -267,7 +269,7 @@
                                     (make-Result (-val 1)
                                                  (-true-filter)
                                                  -empty)
-                                    nil nil nil))
+                                    false nil nil nil))
                   (-FS -top -bot) -empty)))
   (is-clj (= (tc-t (let [a nil] a))
              (ret -nil (-FS -top -top) -empty))))
@@ -321,7 +323,7 @@
                                             (-filter (make-HMap :mandatory {(-val :op) (-val :if)}) 0))
                                       (-not-filter (-val :if) 0 [(-kpe :op)]))
                                  -empty)
-                    nil nil nil))
+                    false nil nil nil))
               (-FS -top -bot)
               -empty))))
 
@@ -561,7 +563,7 @@
                                     (make-Result (-val 1) 
                                                  (-true-filter)
                                                  (-path [(-kpe :a)] 0))
-                                    nil nil nil))
+                                    false nil nil nil))
                   (-FS -top -bot)
                   -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
@@ -574,7 +576,7 @@
                                       ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
                                       -empty)
-                         nil nil nil))))
+                         false nil nil nil))))
   (is-clj (= (tc-t (let [{a :a} {:a 1}]
                  a))
          (ret (-val 1) 
@@ -586,7 +588,7 @@
          (ret (make-FnIntersection
                 (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
                               (make-Result -false (-false-filter) -empty)
-                              nil nil nil))
+                              false nil nil nil))
               (-FS -top -bot)
               -empty)))
   ;roughly the macroexpansion of map destructuring
@@ -643,7 +645,7 @@
                                          (make-Result (-val 1) 
                                                       (-true-filter)
                                                       (-path [(-kpe :a)] 0))
-                                         nil nil nil))
+                                         false nil nil nil))
                            (-FS -top -bot) -empty)))
   (is-with-aliases (= (tc-t (fn [tmap :- clojure.core.typed.test.util-aliases/MapName]
                                                     (let [{e :a} tmap]
@@ -652,7 +654,7 @@
                                                             (make-Result (make-HMap :mandatory {(-val :a) (-val 1)
                                                                                  (-val :c) (-val :b)})
                                                                          (-FS -top -bot) -empty)
-                                                            nil nil nil))
+                                                            false nil nil nil))
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
   (is-with-aliases (subtype? 
@@ -715,7 +717,7 @@
                                                                (-val :c) (-val :d)
                                                                (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)}))]
                                 (make-Result t (-FS -top -bot) -empty))
-                              nil nil nil))
+                              false nil nil nil))
               (-FS -top -bot) -empty))))
 
 ;(tc-t (clojure.core.typed/fn> [[a :- Number]
@@ -802,7 +804,6 @@
                       (-FS -top -bot)
                       -empty))))
          
-
 
 (deftest check-get-keyword-invoke-test
   ;truth valued key
@@ -1089,6 +1090,28 @@
 
 (deftest hmap-subtype
   (is-tc-e {} (clojure.lang.APersistentMap Any Any)))
+
+(deftest transient-collection-test
+  (is-tc-e (transient []) (clojure.lang.ITransientVector Any))
+  (is-tc-e (transient [1 2 3]) (clojure.lang.ITransientVector Number))
+  (is-tc-e (transient #{}) (clojure.lang.ITransientSet Any))
+  (is-tc-e (transient #{1 2}) (clojure.lang.ITransientSet Number))
+  (is-tc-e (transient {}) (clojure.lang.ITransientMap Any Any))
+  (is-tc-e (transient (sorted-set 4 3 1 2)) (clojure.lang.ITransientSet Number))
+  (is-tc-e (transient (hash-set 1 2 1 2)) (clojure.lang.ITransientSet Number))
+  (is-tc-e (transient {:a "a" :b "b" :c "c"}) (clojure.lang.ITransientMap Keyword String))
+  (is-tc-e (transient {1 "a" 2 "b"}) (clojure.lang.ATransientMap Number String)))
+
+(deftest assoc!-test
+  (is-tc-e (assoc! (transient {}) :a 1) (clojure.lang.ITransientMap Keyword Number))
+  (is-tc-e (assoc! (transient {"a" 1}) "b" 2) (clojure.lang.ITransientMap String Number))
+  (is-tc-e (assoc! (transient [1 2 3]) 0 10) (clojure.lang.ITransientVector Number))
+  (is-tc-err (assoc! (transient [1 2 3] 4 10)) (clojure.lang.ITransientVector Number)))
+
+(deftest dissoc!-test
+  (is-tc-e (dissoc! (transient {}) :a) (clojure.lang.ITransientMap Any Any))
+  (is-tc-e (dissoc! (transient {:a 1 :b 2}) :a) (clojure.lang.ITransientMap Keyword Number)))
+
 
 ;; `do` is special at the top level, tc-ignore should expand out to `do`
 (tc-ignore

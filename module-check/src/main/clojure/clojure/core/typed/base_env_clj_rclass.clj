@@ -5,7 +5,8 @@
                          APersistentMap IDeref ISeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef ARef Reversible
-                         ITransientCollection ITransientSet ITransientAssociative ITransientMap
+                         ITransientCollection ITransientSet ITransientAssociative 
+                         ITransientMap ATransientSet ATransientMap IEditableCollection
                          ITransientVector PersistentHashMap Reduced)
            (java.util Collection RandomAccess))
   (:require [clojure.core.typed.base-env-helper :as h]
@@ -107,51 +108,50 @@ Associative [[[a :variance :covariant]
               Seqable (Seqable Any)
               ILookup (ILookup a b)}]
 
-;ITransientCollection [[[w :variance :contravariant]
-;                       [r :variance :covariant]]]
-;
-;ITransientSet [[[w :variance :contravariant]
-;                [r :variance :covariant]]
-;               :replace
-;               {ITransientCollection (ITransientCollection w r)}]
-;
-;ITransientAssociative [[[wkey :variance :contravariant]
-;                        [wval :variance :contravariant]
-;                        [rkey :variance :covariant]
-;                        [rval :variance :covariant]]
-;                       :replace
-;                       {ILookup (ILookup rkey rval)
-;                        ITransientCollection (ITransientCollection (IMapEntry wkey wval)
-;                                                                   (IMapEntry rkey rval))}]
-;
-;ITransientMap [[[wkey :variance :contravariant]
-;                [wval :variance :contravariant]
-;                [rkey :variance :covariant]
-;                [rval :variance :covariant]]
-;               :replace
-;               {ILookup (ILookup rkey rval)
-;                ITransientAssociative (ITransientAssociative wkey wval rkey rval)
-;                ITransientCollection (ITransientCollection (IMapEntry wkey wval)
-;                                                           (IMapEntry rkey rval))}]
-;
-;ATransientMap [[[wkey :variance :contravariant]
-;                [wval :variance :contravariant]
-;                [rkey :variance :covariant]
-;                [rval :variance :covariant]]
-;               {;TODO override AFn
-;                ILookup (ILookup rkey rval)
-;                ITransientAssociative (ITransientAssociative wkey wval rkey rval)
-;                ITransientCollection (ITransientCollection (IMapEntry wkey wval)
-;                                                           (IMapEntry rkey rval))}]
-;
-;ITransientVector [[[w :variance :contravariant]
-;                   [r :variance :covariant]]
-;                  :replace
-;                  {ITransientAssociative (ITransientAssociative Number wval Number rval)
-;                   ITransientCollection (ITransientCollection w r)
-;                   Indexed (Indexed r)}]
-;
-;IEditableCollection [[c :variance :covariant]]
+ITransientCollection [[[a :variance :covariant]]]
+
+ITransientSet [[[a :variance :covariant]]
+               :replace
+               {ITransientCollection (ITransientCollection a)}]
+
+ITransientAssociative [[[akey :variance :covariant]
+                        [aval :variance :covariant]]
+                       :replace
+                       {ILookup (ILookup akey aval)
+                        ITransientCollection (ITransientCollection (IMapEntry akey aval))}]
+
+ITransientMap [[[akey :variance :covariant]
+                [aval :variance :covariant]]
+               :replace
+               {ILookup (ILookup akey aval)
+                ITransientAssociative (ITransientAssociative akey aval)
+                ITransientCollection (ITransientCollection (IMapEntry akey aval))}]
+
+ATransientMap [[[akey :variance :covariant]
+                [aval :variance :covariant]]
+               :replace
+               {ILookup (ILookup akey aval)
+                ITransientAssociative (ITransientAssociative akey aval)
+                ITransientCollection (ITransientCollection (IMapEntry akey aval))}
+               :unchecked-ancestors
+               #{(All [d]
+                      (IFn [Any -> (U nil aval)]
+                           [Any d -> (U aval d)]))}]
+
+ATransientSet [[[a :variance :covariant]]
+               :replace
+               {ITransientSet (ITransientSet a)
+                ITransientCollection (ITransientCollection a)}
+               :unchecked-ancestors
+               #{[Any -> (U a nil)]}]
+
+ITransientVector [[[a :variance :covariant]]
+                  :replace
+                  {ITransientAssociative (ITransientAssociative Number a)
+                   ITransientCollection (ITransientCollection a)
+                   Indexed (Indexed a)}]
+  
+IEditableCollection [[[c :variance :covariant]]]
 
 IPersistentStack [[[a :variance :covariant]]
                   :replace

@@ -7,9 +7,11 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(def lex-env? (con/hash-c? con/local-sym? r/Type?))
+(def lex-env? (con/hash-c? con/local-sym? (some-fn r/Type? r/Unique?)))
 (def prop-set? (con/set-c? fr/Filter?))
 (def alias-env? (con/hash-c? con/local-sym? obj/RObject?))
+
+(defonce ^:dynamic *used-locals* (atom {} :validator ((con/hash-c? symbol? con/boolean?) (some-fn delay? r/Type? r/Unique?))))
 
 (u/defrecord PropEnv [l props aliases]
   "A lexical environment l, props is a list of known propositions"
@@ -44,12 +46,19 @@
 
 (defn lookup-local [sym]
   {:pre [(con/local-sym? sym)]
-   :post [((some-fn nil? r/Type?) %)]}
-  (get-in *lexical-env* [:l sym]))
+   :post [((some-fn nil? r/Type? r/Unique?) %)]}
+  (if (and 
+        (= (get-in *used-locals* [:l sym]) true)
+        (r/Unique? (get-in *lexical-env* [:l sym])))
+    (throw (Exception. "variable used twice"))
+    (do
+      (swap! *used-locals* assoc sym true)
+      (get-in *lexical-env* [:l sym]))))
 
 (defn merge-locals [env new]
   {:pre [(PropEnv? env)]
    :post [(PropEnv? %)]}
+  ;(swap! *used-locals* assoc (get-in *used-locals* [:l]) false)
   (-> env
       (update-in [:l] merge new)))
 
@@ -62,7 +71,7 @@
 (defn extend-env [env id t o]
   {:pre [(PropEnv? env)
          (con/local-sym? id)
-         (r/Type? t)
+         ((some-fn r/Type? r/Unique?) t)
          (obj/RObject? o)]
    :post [(PropEnv? %)]}
   (cond

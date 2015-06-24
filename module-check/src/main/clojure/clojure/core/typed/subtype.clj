@@ -23,7 +23,7 @@
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.set :as set]
             [clojure.repl :as repl])
-  (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
+  (:import (clojure.core.typed.type_rep Poly TApp Union Unique Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds
                                         PrimitiveArray DataType RClass HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs
@@ -143,6 +143,11 @@
             (contains? A [s t]))
           (= s t)
           ; FIXME TypeFn's probably are not between Top/Bottom
+          (and 
+            (r/Top? t)
+            (not (r/Name? s))
+            (not (r/Record? s))
+            (not (r/TypeFn? s)))
           (r/Top? t)
           (r/Bottom? s)
           ;TCError is top and bottom

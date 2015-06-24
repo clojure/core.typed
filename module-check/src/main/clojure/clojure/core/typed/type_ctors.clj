@@ -29,7 +29,7 @@
             [clojure.repl :as repl]
             [clojure.core.cache :as cache])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
-                                        Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
+                                        Union Unique Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
                                         JSNominal Protocol HeterogeneousVector GetType HSequential
                                         HeterogeneousList HeterogeneousSeq HSet)
@@ -54,6 +54,7 @@
   (with-meta (gensym s) {:original-name s}))
 
 (declare Un make-Union fully-resolve-type fully-resolve-non-rec-type)
+(declare UUn make-Unique fully-resolve-type fully-resolve-non-rec-type)
 
 (t/ann ^:no-check make-Union [(t/U nil (t/Seqable r/Type)) -> r/Type])
 (defn make-Union
@@ -67,6 +68,18 @@
                        (concat (mapcat :types unions)
                                non-unions))))))
 
+;(t/ann ^:no-check make-Unique [(t/U nil (t/Seqable r/Type)) -> r/Unique])
+(defn make-Unique
+  "Make unique types"
+  [args]
+  (cond
+    (= 1 (count args)) (first args)
+    :else
+    (let [{unique true non-unique false} (group-by r/Unique? args)]
+      (r/Unique-maker (r/sorted-type-set
+                            (concat (mapcat :types unique)
+                                    non-unique))))))
+       
 (t/ann bottom r/Type)
 (def ^:private bottom (make-Union []))
 
@@ -1783,9 +1796,10 @@
 
 (f/add-fold-case ::abstract-many
                  Function
-                 (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
+                 (fn [{:keys [dom rng unique rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
                    (r/Function-maker (doall (map sb dom))
                                  (sb rng)
+                                 unique 
                                  (when rest (sb rest))
                                  (when drest
                                    (-> drest
@@ -1923,9 +1937,10 @@
 
 (f/add-fold-case ::instantiate-many
                Function
-               (fn [{:keys [dom rng rest drest kws]} {{:keys [count outer image sb]} :locals}]
+               (fn [{:keys [dom rng unique rest drest kws]} {{:keys [count outer image sb]} :locals}]
                  (r/Function-maker (map sb dom)
                              (sb rng)
+                             unique
                              (when rest
                                (sb rest))
                              (when drest
