@@ -42,7 +42,8 @@
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol? con/namespace?))
 
-(declare unparse-type unparse-filter unparse-filter-set unparse-flow-set)
+(declare unparse-type unparse-filter unparse-filter-set unparse-flow-set unparse-object
+         unparse-path-elem)
 
 ; Types print by unparsing them
 (do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
@@ -64,7 +65,20 @@
         :else (print-method (unparse-filter s) writer)))
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
+    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap)
+
+    (defmethod print-method clojure.core.typed.impl_protocols.IRObject [s writer]
+      (print-method (unparse-object s) writer))
+    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject java.util.Map)
+    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject clojure.lang.IPersistentMap)
+
+    (defmethod print-method clojure.core.typed.path_rep.IPathElem [s writer]
+      (print-method (unparse-path-elem s) writer))
+    (prefer-method print-method clojure.core.typed.path_rep.IPathElem clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.path_rep.IPathElem java.util.Map)
+    (prefer-method print-method clojure.core.typed.path_rep.IPathElem clojure.lang.IPersistentMap)
+    )
 
 (defmacro with-parse-ns [sym & body]
   `(binding [*parse-type-in-ns* ~sym]
@@ -1298,7 +1312,7 @@
         sym)
     sym))
 
-(declare unparse-type* unparse-object unparse-filter-set unparse-filter)
+(declare unparse-type*)
 
 (defn unparse-type [t]
   ; quick way of giving a Name that the user is familiar with
