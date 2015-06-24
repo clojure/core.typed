@@ -8,7 +8,6 @@
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as profiling]
