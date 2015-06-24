@@ -99,6 +99,16 @@
               (not (collect-only-ns? ns-form)))
          false)))
 
+(defn should-collect-ns?
+  "Returns true if the given namespace should be collected by collect-ns"
+  [nsym]
+  {:pre [(symbol? nsym)]
+   :post [(con/boolean? %)]}
+  (if-let [ns-form (ns-form-for-ns nsym)]
+    (and ns-form
+         (requires-tc? ns-form))
+    false))
+
 (defn ns-has-core-typed-metadata?
   "Returns true if the given ns form has :core.typed metadata."
   [rcode]

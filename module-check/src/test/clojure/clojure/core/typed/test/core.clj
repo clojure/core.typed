@@ -1268,7 +1268,7 @@
            (U nil (clojure.lang.IPersistentVector Number))))
 
 (deftest kw-args-test
-  (is (check-ns 'clojure.core.typed.test.kw-args)))
+  (is (check-ns 'clojure.core.typed.test.kw-args :clean true)))
 
 (deftest get-APersistentMap-test
   (is-tc-e (get (ann-form {} (clojure.lang.APersistentMap Num Num)) :a)
@@ -4814,6 +4814,10 @@
 (deftest seq-branch-test
   (is-tc-e (if (seq [1 2 3]) 1 nil)
            Num))
+
+;; not sure why this passes
+(deftest collect-only-test
+  (is (check-ns 'clojure.core.typed.test.collect-only.parent)))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
