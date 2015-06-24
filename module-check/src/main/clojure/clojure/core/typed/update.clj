@@ -19,7 +19,7 @@
             [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.set :as set]
             [clojure.core.typed.remove :as remove])
-  (:import (clojure.lang IPersistentMap)))
+  (:import (clojure.lang IPersistentMap Keyword)))
 
 ;[(Seqable Filter) Filter -> Filter]
 (defn resolve* [atoms prop]
@@ -338,6 +338,8 @@
             element-t (:type element-t-subst)
             ;_ (prn "element-t" (prs/unparse-type element-t))
             _ (assert element-t)]
+        ;; FIXME this is easy to implement, just recur update* on rstpth instead of nil.
+        ;; should also add a test.
         (assert (empty? rstpth) (str "Further path NYI keys/vals"))
         (if pos?
           (update* t
@@ -348,8 +350,41 @@
           ; can we do anything for a NotTypeFilter?
           t))
 
+      (pe/KeywordPE? (first lo))
+      ;; t is the old type, eg. (Val "my-key"). Can also be any type.
+      ;; ft is the new type, eg. (Val :my-key). Can also be in (U nil Kw).
+      ;; Approach:
+      ;;  - take the new type and un-keywordify it, then use that to update the old type.
+      (update* t
+               (cond
+                 (r/Value? ft) (let [{:keys [val]} ft]
+                                 (cond
+                                   (keyword? val) (let [kstr (str (when (namespace val)
+                                                                    (str (namespace val) "/"))
+                                                                  (name val))]
+                                                    (c/Un (r/-val kstr)
+                                                          (r/-val (symbol kstr))
+                                                          (r/-val val)))
+                                   (nil? val) r/-any
+                                   :else 
+                                   (err/int-error (str "update Keyword path Value type that is neither keyword or nil: " 
+                                                       (pr-str (prs/unparse-type ft)) " " (mapv prs/unparse-path-elem lo)))))
 
-      :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo))))))))
+                 ;; if the new type is a keyword, old type must be a (U Str Sym Kw).
+                 (sub/subtype? ft (c/RClass-of Keyword))
+                 (c/Un (c/RClass-of Keyword) 
+                       (c/RClass-of String) 
+                       (c/RClass-of clojure.lang.Symbol))
+
+                 ;; could be anything
+                 (sub/subtype? ft (c/Un r/-nil (c/RClass-of Keyword)))
+                 r/-any
+
+                 :else (err/int-error (str "update Keyword path Value type that is neither keyword or nil: " 
+                                           (pr-str (prs/unparse-type ft)) " " (mapv prs/unparse-path-elem lo))))
+               pos? (next lo))
+
+      :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (mapv prs/unparse-path-elem lo)))))))
 
 (defn update [t lo]
   {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]

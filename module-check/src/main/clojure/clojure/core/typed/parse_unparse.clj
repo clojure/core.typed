@@ -34,7 +34,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter NoFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE)
+           (clojure.core.typed.path_rep IPathElem KeyPE CountPE ClassPE KeysPE ValsPE NthPE KeywordPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -42,7 +42,8 @@
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol? con/namespace?))
 
-(declare unparse-type unparse-filter unparse-filter-set unparse-flow-set)
+(declare unparse-type unparse-filter unparse-filter-set unparse-flow-set unparse-object
+         unparse-path-elem)
 
 ; Types print by unparsing them
 (do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
@@ -64,7 +65,20 @@
         :else (print-method (unparse-filter s) writer)))
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
+    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap)
+
+    (defmethod print-method clojure.core.typed.impl_protocols.IRObject [s writer]
+      (print-method (unparse-object s) writer))
+    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject java.util.Map)
+    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject clojure.lang.IPersistentMap)
+
+    (defmethod print-method clojure.core.typed.path_rep.IPathElem [s writer]
+      (print-method (unparse-path-elem s) writer))
+    (prefer-method print-method clojure.core.typed.path_rep.IPathElem clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.path_rep.IPathElem java.util.Map)
+    (prefer-method print-method clojure.core.typed.path_rep.IPathElem clojure.lang.IPersistentMap)
+    )
 
 (defmacro with-parse-ns [sym & body]
   `(binding [*parse-type-in-ns* ~sym]
@@ -1089,6 +1103,8 @@
     (err/int-error "Wrong arguments to Nth"))
   (pthrep/NthPE-maker idx))
 
+(defmethod parse-path-elem 'Keyword [_] (pthrep/KeywordPE-maker))
+
 (defn- parse-kw-map [m]
   {:post [((con/hash-c? r/Value? r/Type?) %)]}
   (into {} (for [[k v] m]
@@ -1298,7 +1314,7 @@
         sym)
     sym))
 
-(declare unparse-type* unparse-object unparse-filter-set unparse-filter)
+(declare unparse-type*)
 
 (defn unparse-type [t]
   ; quick way of giving a Name that the user is familiar with
@@ -1701,6 +1717,7 @@
 (defmethod unparse-path-elem NthPE [t] (list 'Nth (:idx t)))
 (defmethod unparse-path-elem KeysPE [t] 'Keys)
 (defmethod unparse-path-elem ValsPE [t] 'Vals)
+(defmethod unparse-path-elem KeywordPE [t] 'Keyword)
 
 ; Filters
 

@@ -105,7 +105,7 @@
                                (subst-filter (add-extra-filter (:else fs) k t) k o polarity))
     :else (fo/-FS fl/-top fl/-top)))
 
-;[Type Number RObject Boolean -> RObject]
+;[RObject NameRef RObject Boolean -> RObject]
 (defn subst-object [t k o polarity]
   {:pre [(obj/RObject? t)
          (fl/name-ref? k)
@@ -121,7 +121,8 @@
                         ;; the result is not from an annotation, so it isn't a NoObject
                         (obj/NoObject? o) (obj/EmptyObject-maker)
                         (obj/Path? o) (let [{p* :path i* :id} o]
-                                        (obj/-path (seq (concat p p*)) i*)))
+                                        ;; p* is applied first, then p
+                                        (obj/-path (seq (concat p* p)) i*)))
                       t))))
 
 (derive ::subst-type fold/fold-rhs-default)

@@ -4820,6 +4820,43 @@
   (is-tc-err "a" '"b")
   (is-tc-e "a" (Val "a")))
 
+(deftest keyword-pe-test
+  ;; with keywords
+  (is-tc-e (do 
+             (defalias M (U '{:op ':plus
+                              :plus Int}
+                            '{:op ':minus
+                              :minus Int}))
+             (let [m :- M, {:op :plus
+                            :plus 1}]
+               (if (-> m :op #{:plus})
+                 (inc (:plus m))
+                 (dec (:minus m))))))
+  ;; with strings, via keyword
+  (is-tc-e (do 
+             (defalias M (U '{:op '"plus"
+                              :plus Int}
+                            '{:op '"minus"
+                              :minus Int}))
+             (let [m :- M, {:op "plus"
+                            :plus 1}]
+               (if (-> m :op keyword #{:plus})
+                 (inc (:plus m))
+                 (dec (:minus m))))))
+  ;; defmulti dispatch
+  (is-tc-e (do 
+             (defalias M (U '{:op '"plus"
+                              :plus Int}
+                            '{:op '"minus"
+                              :minus Int}))
+             (ann f [M -> Int])
+             (defmulti f (fn [m :- M] (-> m :op keyword)))
+             (defmethod f :plus [m] (inc (:plus m)))
+             (defmethod f :minus [m] (inc (:minus m)))))
+  ;; polymorphic setting
+  (is-tc-e (map keyword '[a b c]))
+  )
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

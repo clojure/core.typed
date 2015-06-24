@@ -8,7 +8,8 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as t]
             #_[clojure.core.typed.debug :refer [dbg]]
-            [clojure.core.typed.errors :as err]))
+            [clojure.core.typed.errors :as err])
+  (:import (clojure.lang Keyword)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -86,6 +87,16 @@
            (or (nth (:types t) idx nil)
                (:rest t)
                r/-any)
+           (next ps)))
+
+       (and (pe/KeywordPE? (first ps))
+            (r/Value? t))
+       (let [{:keys [val]} t]
+         (path-type
+           (cond
+             ;; feeding back into `keyword` gives us exactly what we want.
+             ((some-fn symbol? string? keyword? nil? number?) val) (r/-val (keyword val))
+             :else (c/Un r/-nil (c/RClass-of Keyword)))
            (next ps)))
 
        :else (err/int-error (str "Bad call to path-type: " (pr-str t) ", " (pr-str ps)))

@@ -22,7 +22,7 @@
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
-           (clojure.core.typed.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE)))
+           (clojure.core.typed.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE KeywordPE)))
 
 (alter-meta! *ns* assoc :skip-wiki true
              :core.typed {:collect-only true})
@@ -179,6 +179,7 @@
 (add-frees-method [::any-var KeyPE] [t] {})
 (add-frees-method [::any-var KeysPE] [t] {})
 (add-frees-method [::any-var ValsPE] [t] {})
+(add-frees-method [::any-var KeywordPE] [t] {})
 
 
 (add-frees-method [::frees F]

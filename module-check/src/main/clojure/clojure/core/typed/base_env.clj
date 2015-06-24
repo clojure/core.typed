@@ -648,8 +648,13 @@ clojure.core/symbol
          [(U nil String) String -> Symbol])
 
 clojure.core/keyword
-     (IFn [(U Keyword Symbol String) -> Keyword]
-         [String String -> Keyword])
+     (IFn [(U Keyword Symbol String) -> Keyword 
+           :object {:id 0 :path [Keyword]}]
+          [nil -> nil 
+           :object {:id 0 :path [Keyword]}]
+          [Any -> (U nil Keyword) 
+           :object {:id 0 :path [Keyword]}]
+          [String String -> Keyword])
 
 clojure.core/find-keyword
      (IFn [(U Keyword Symbol String) -> (Option Keyword)]
