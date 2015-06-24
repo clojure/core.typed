@@ -338,6 +338,8 @@
             element-t (:type element-t-subst)
             ;_ (prn "element-t" (prs/unparse-type element-t))
             _ (assert element-t)]
+        ;; FIXME this is easy to implement, just recur update* on rstpth instead of nil.
+        ;; should also add a test.
         (assert (empty? rstpth) (str "Further path NYI keys/vals"))
         (if pos?
           (update* t
