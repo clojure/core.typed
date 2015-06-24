@@ -7,6 +7,9 @@
 - Fix CTYP-214
 - support quoted type syntax with string literals
   - '"a" == (Val "a")
+- `clojure.core/keyword` annotation is now more permissive.
+- add `keyword` path element
+  - see `keyword-pe-test` for new idioms
 
 # 0.3.0-alpha5 - 2 June 2015
 
