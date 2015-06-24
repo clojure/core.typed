@@ -704,11 +704,11 @@
 (defmethod parse-type-list 'quote 
   [[_ syn]]
   (cond
-    ((some-fn number? keyword? symbol?) syn) (r/-val syn)
+    ((some-fn number? keyword? symbol? string?) syn) (r/-val syn)
     (vector? syn) (parse-quoted-hvec syn)
     ; quoted map is a partial map with mandatory keys
     (map? syn) (syn-to-hmap syn nil nil false)
-    :else (err/int-error (str "Invalid use of quote:" (pr-str syn)))))
+    :else (err/int-error (str "Invalid use of quote: " (pr-str syn)))))
 
 (declare parse-in-ns)
 
