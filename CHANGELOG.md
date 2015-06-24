@@ -1,4 +1,4 @@
-# 0.3.0-SNAPSHOT
+# 0.3.0-alpha6 - 25 June 2015
 
 - Breaking change:
   - all `check-ns` operations now avoid rechecking transitive dependencies.
