@@ -28,9 +28,7 @@
           </execution>
         </executions>
         <configuration>
-          <vmargs>-Xms2048m</vmargs>
-          <vmargs>-Xmx2048m</vmargs>
-          <vmargs>-XX:MaxPermSize=512M</vmargs>
+          <vmargs>-Xmx2048m -XX:MaxPermSize=512M</vmargs>
           <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
           <!--<vmargs>-verbose:class</vmargs>-->
           <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
