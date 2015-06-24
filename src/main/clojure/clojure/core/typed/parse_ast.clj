@@ -202,6 +202,7 @@
     Count {:op :CountPE}
     Keys {:op :KeysPE}
     Vals {:op :ValsPE}
+    Keyword {:op :KeywordPE}
     (let [m (when (seq? syn)
               (let [[f & args] syn]
                 (case f
