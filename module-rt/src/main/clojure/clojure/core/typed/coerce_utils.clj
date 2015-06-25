@@ -45,10 +45,14 @@
    :post [(string? %)]}
   ;copied basic approach from tools.emitter.jvm
   (let [res (munge nsym)
-        p    (str (str/replace res #"\." "/") 
-                  (impl/impl-case
-                    :clojure ".clj"
-                    :cljs ".cljs"))
+        f (str/replace res #"\." "/")
+        ex (impl/impl-case
+              :clojure ".clj"
+              :cljs ".cljs")
+        p (str f ex)
+        p (if (io/resource p)
+            p
+            (str f ".cljc"))
         p (if (.startsWith p "/") (subs p 1) p)]
     p))
 
