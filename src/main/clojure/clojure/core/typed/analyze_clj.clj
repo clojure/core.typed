@@ -371,10 +371,13 @@
         file (-> pres io/reader slurp)
         reader (readers/indexing-push-back-reader file 1 p)
         eof  (reify)
+        reader-opts (if (.endsWith p ".cljc")
+                      {:eof eof :read-cond :allow}
+                      {:eof eof})
         asts (binding [*ns* *ns*
                        *file* p]
                (loop [asts []]
-                 (let [form (tr/read reader false eof)]
+                 (let [form (tr/read reader-opts reader)]
                    (if (not= eof form)
                      (let [a (analyze1 form (taj/empty-env)
                                        {:eval-fn eval-ast})]
