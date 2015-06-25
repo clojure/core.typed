@@ -2677,8 +2677,7 @@
 
 ; just a sanity check so keyword arguments don't accidentally break
 (deftest check-ns-kw-args-test
-  (is (check-ns 'clojure.core.typed.test.interop :collect-only true))
-  (is (check-ns 'clojure.core.typed.test.interop :clean true)))
+  (is (check-ns 'clojure.core.typed.test.interop :collect-only true)))
 
 ;(sub? (clojure.core.typed/All [x] (TFn [[a :variance :covariant]] clojure.core.typed/Any))
 ;      (Rec [m] (TFn [[a :variance :covariant]] m)))
