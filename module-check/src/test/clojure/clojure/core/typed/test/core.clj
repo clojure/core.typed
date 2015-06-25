@@ -4888,6 +4888,49 @@
                  (dec (:minus m))))))
   )
 
+(deftest keyword-path-type-test
+  (is-tc-e (keyword :a))
+  (is-tc-e (keyword (ann-form :a Kw)))
+  (is-tc-e (let [k (keyword (ann-form :a Kw))]
+             (name k)))
+  (is (=
+       (-val :a)
+       (path-type (-val 'a)
+                  [(KeywordPE-maker)])))
+  (is-tc-e (fn [k :- 'a] :- Kw
+             (let [i (keyword k)]
+               i)))
+  ; need symbol literals as objects
+  ;(is-tc-e (keyword 'a) ':a)
+  (is-tc-e (fn [k]
+             (let [i (keyword k)]
+               i))
+           (IFn ['a -> ':a]
+                ['a/b -> ':a/b]
+                ['"a" -> ':a]
+                ['"a/b" -> ':a/b]
+                [':a -> ':a]
+                [':a/b -> ':a/b]
+                [Sym -> Kw]
+                [Kw -> Kw]
+                [Str -> Kw]
+                [(U Sym Kw Str) -> Kw]
+                [nil -> nil]
+                [Any -> (U nil Kw)]))
+  (is-tc-e (fn [k :- Any] :- Kw
+             (let [i (keyword k)]
+               (assert (keyword? k))
+               i)))
+  (is-tc-e (fn [k :- Any] :- (U Kw Str Sym)
+             (let [i (keyword k)]
+               (assert (keyword? i))
+               k)))
+  (is-tc-err (fn [k :- Any] :- (U Kw Str)
+               (let [i (keyword k)]
+                 (assert (keyword? i))
+                 k)))
+  )
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
