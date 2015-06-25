@@ -20,8 +20,8 @@
 - support .cljc files in `load`
 - warn if :no-check is being removed from a var
 - annotate
-- clojure.repl/print-doc
-- complete.core annotations
+  - clojure.repl/print-doc
+  - complete.core annotations
 
 # 0.3.0-alpha3 - 30 May 2015
 
