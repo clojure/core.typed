@@ -2207,8 +2207,6 @@ for checking namespaces, cf for checking individual forms."}
                      added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str).
-  - :clean           if true, reset the global type environment and re-check
-                     all transitive dependencies.
 
   Default return map
   - :delayed-errors  A sequence of delayed errors (ex-info instances)"
@@ -2227,8 +2225,9 @@ for checking namespaces, cf for checking individual forms."}
   It is intended to be used at the REPL or within a unit test.
   Suggested idiom for clojure.test: (is (check-ns 'your.ns))
 
-  check-ns preserves any type annotations collected during that checking run,
-  even if there is a type error.
+  check-ns resets annotations collected from 
+  previous check-ns calls or cf. A successful check-ns call will
+  preserve any type annotations collect during that checking run.
   
   Keyword arguments:
   - :collect-only  if true, collect type annotations but don't type check code.
@@ -2236,8 +2235,6 @@ for checking namespaces, cf for checking individual forms."}
   - :trace         if true, print some basic tracing of the type checker
   - :profile       if true, use Timbre to profile type checking. Must include
                    Timbre as a dependency.
-  - :clean         if true, reset the global type environment and re-check
-                   all transitive dependencies.
 
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
