@@ -353,10 +353,12 @@
       (pe/KeywordPE? (first lo))
       ;; t is the old type, eg. (Val "my-key"). Can also be any type.
       ;; ft is the new type, eg. (Val :my-key). Can also be in (U nil Kw).
-      ;; Approach:
-      ;;  - take the new type and un-keywordify it, then use that to update the old type.
+      ;;
+      ;; eg. (update* (Val "my-key") (Val :my-key) true [KeywordPE])
+      ;; Here we have 
       (update* t
                (cond
+                 ;; Take the new type and un-keywordify it, then use that to update the old type.
                  (r/Value? ft) (let [{:keys [val]} ft]
                                  (cond
                                    (keyword? val) (let [kstr (str (when (namespace val)
@@ -366,9 +368,8 @@
                                                           (r/-val (symbol kstr))
                                                           (r/-val val)))
                                    (nil? val) r/-any
-                                   :else 
-                                   (err/int-error (str "update Keyword path Value type that is neither keyword or nil: " 
-                                                       (pr-str (prs/unparse-type ft)) " " (mapv prs/unparse-path-elem lo)))))
+                                   ;; impossible
+                                   :else r/-nothing))
 
                  ;; if the new type is a keyword, old type must be a (U Str Sym Kw).
                  (sub/subtype? ft (c/RClass-of Keyword))
@@ -376,12 +377,12 @@
                        (c/RClass-of String) 
                        (c/RClass-of clojure.lang.Symbol))
 
-                 ;; could be anything
+                 ;; if the output of `keyword` is at best (U nil Kw), input could be anything
                  (sub/subtype? ft (c/Un r/-nil (c/RClass-of Keyword)))
                  r/-any
 
-                 :else (err/int-error (str "update Keyword path Value type that is neither keyword or nil: " 
-                                           (pr-str (prs/unparse-type ft)) " " (mapv prs/unparse-path-elem lo))))
+                 ;; impossible
+                 :else r/-nothing)
                pos? (next lo))
 
       :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (mapv prs/unparse-path-elem lo)))))))
