@@ -210,6 +210,7 @@
   ([form env] (analyze1 form env {}))
   ([form env {:keys [bindings-atom] :as opts}]
    {:pre [((some-fn nil? con/atom?) bindings-atom)]}
+   (u/trace "Analyze1 form" *file* form)
    (let [old-bindings (or (some-> bindings-atom deref) {})]
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
