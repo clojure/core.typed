@@ -120,7 +120,7 @@ goog.events.EventTarget [[]]
   (reset-protocol-env!)
   (reset-jsnominal-env!)
   (merge
-   (common/parse-cljs-ann-map common/common-var-annotations)
+   (common/parse-cljs-ann-map @common/common-var-annotations)
    (h/var-mappings
 
 ;internal vars

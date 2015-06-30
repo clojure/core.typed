@@ -3,37 +3,40 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/jvm.tools.analyzer "0.6.1"
-                  :exclusions [org.clojure/clojure
-                               org.clojure/clojurescript]]
-                 [org.clojure/tools.analyzer.jvm "0.3.0"]
-                 [org.clojure/tools.reader "0.9.2"]
-                 [org.clojure/core.contracts "0.0.4"
-                  :exclusions [org.clojure/clojure]]
-                 [org.clojure/math.combinatorics "0.1.1"
-                  :exclusions [org.clojure/clojure]]
+  :dependencies [[org.clojure/clojure "1.7.0-RC2"]
                  [org.clojure/clojurescript "0.0-2268"]
-                 [org.clojure/tools.trace "0.7.5"
-                  :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojure "1.7.0-RC2"]
-                 [org.clojure/tools.namespace "0.2.5"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.303.0-886421-alpha"]
-                 [org.clojure/core.cache "0.6.4"
-                  :exclusions [org.clojure/data.priority-map]]
-                 [org.clojure/data.priority-map "0.0.4"]
+                 [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
                  ; CLJS fireplace REPL
-                 [com.cemerick/piggieback "0.1.3"
-                  :exclusions [org.clojure/tools.reader
-                               org.clojure/clojurescript]]
+                 [com.cemerick/piggieback "0.1.3" :exclusions [org.clojure/tools.reader org.clojure/clojurescript]]
+                 ^:source-dep 
+                 [org.clojure/jvm.tools.analyzer "0.6.1" :exclusions [org.clojure/clojure org.clojure/clojurescript]]
+                 ^:source-dep 
+                 [org.clojure/tools.analyzer.jvm "0.3.0" :exclusions [org.ow2.asm/asm-all]]
+                 ^:source-dep 
+                 [org.ow2.asm/asm-all "4.2" :classifier "sources"]
+                 ^:source-dep
+                 [org.clojure/tools.reader "0.9.2"]
+                 ^:source-dep
+                 [org.clojure/core.contracts "0.0.4" :exclusions [org.clojure/clojure]]
+                 ^:source-dep
+                 [org.clojure/math.combinatorics "0.1.1" :exclusions [org.clojure/clojure]]
+                 ^:source-dep
+                 [org.clojure/tools.namespace "0.2.5"]
+                 ^:source-dep
+                 [org.clojure/core.cache "0.6.4"]
                  ]
+  ;; for tools.reader 0.9.2
+  :aot [clojure.tools.reader.impl.ExceptionInfo]
 
   ; fireplace repl middleware
   :repl-options {:nrepl-middleware [#_cemerick.piggieback/wrap-cljs-repl
                                     clojure.core.typed.repl/wrap-clj-repl]}
 
-  :plugins [[lein-typed "0.3.1"]]
+  :plugins [[lein-typed "0.3.1"]
+            [thomasa/mranderson "0.4.4-ambrosebs-SNAPSHOT"]]
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
