@@ -1,7 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.ns-deps-utils
-  (:require [clojure.tools.namespace.parse :as ns-parse]
+  (:require [clojure.core.typed.deps.clojure.tools.namespace.parse :as ns-parse]
             [clojure.core.typed.ns-deps :as ns-deps]
-            [clojure.tools.namespace.file :as ns-file]
+            [clojure.core.typed.deps.clojure.tools.namespace.file :as ns-file]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.contract-utils :as con]

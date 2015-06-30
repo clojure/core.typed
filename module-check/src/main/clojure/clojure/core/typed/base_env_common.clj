@@ -1,8 +1,8 @@
 (ns clojure.core.typed.base-env-common
   "Utilities for all implementations of the type checker"
   (:require [clojure.core.typed.parse-unparse :as prs]
-            [clojure.tools.reader :as rdr]
-            [clojure.tools.reader.reader-types :as rdrs]))
+            [clojure.core.typed.deps.clojure.tools.reader :as rdr]
+            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as rdrs]))
 
 (defmacro delay-and-cache-env [sym & body]
   (let [generator-sym (symbol (str "generator-" sym))
@@ -660,12 +660,13 @@
     clojure.core/rem [Number Number -> Number]")
 
 (def common-var-annotations
-  (let [r (rdrs/string-push-back-reader common-ann*)
-        eof (Object.)
-        os (loop [os []]
-             (let [a (rdr/read r false eof)]
-               (if (identical? eof a)
-                 os
-                 (recur (conj os a)))))
-        _ (assert (even? (count os)))]
-    (apply hash-map os)))
+  (delay
+    (let [r (rdrs/string-push-back-reader common-ann*)
+          eof (Object.)
+          os (loop [os []]
+               (let [a (rdr/read r false eof)]
+                 (if (identical? eof a)
+                   os
+                   (recur (conj os a)))))
+          _ (assert (even? (count os)))]
+      (apply hash-map os))))

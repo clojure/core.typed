@@ -5,14 +5,14 @@
             [clojure.tools.nrepl.middleware.interruptible-eval :as ev]
             [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
-            [clojure.tools.namespace.parse :as ns]
+            [clojure.core.typed.deps.clojure.tools.namespace.parse :as ns]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
             [clojure.core.typed.load :as load]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.tools.reader :as rd]
-            [clojure.tools.reader.reader-types :as readers]
+            [clojure.core.typed.deps.clojure.tools.reader :as rd]
+            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
             [clojure.main :as main])
   (:import java.io.Writer))
 

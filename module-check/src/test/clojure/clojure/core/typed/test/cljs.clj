@@ -154,7 +154,7 @@
 
 (deftest annotation-coverage
   (let [n-core-vars    (count cljs-core-vars)
-        n-common-anns  (count common/common-var-annotations)
+        n-common-anns  (count @common/common-var-annotations)
         n-cljs-anns    (count @var-env/CLJS-VAR-ANNOTATIONS)]
     (or (= n-core-vars n-cljs-anns)
         (do

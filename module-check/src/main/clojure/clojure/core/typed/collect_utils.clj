@@ -4,7 +4,7 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
-            [clojure.math.combinatorics :as comb]
+            [clojure.core.typed.deps.clojure.math.combinatorics :as comb]
             [clojure.core.typed.ns-deps-utils :as dep-u]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.util-vars :as uvar]
