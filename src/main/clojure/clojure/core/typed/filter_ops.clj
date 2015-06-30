@@ -11,7 +11,7 @@
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.debug :as dbg]
-            [clojure.math.combinatorics :as comb]
+            [clojure.core.typed.deps.clojure.math.combinatorics :as comb]
             [clojure.set :as set])
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
                                           OrFilter TypeFilter NotTypeFilter ImpFilter)))

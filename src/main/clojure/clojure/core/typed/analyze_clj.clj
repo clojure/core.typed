@@ -1,26 +1,26 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
   (:refer-clojure :exclude [macroexpand-1])
-  (:require [clojure.tools.analyzer :as ta]
-            [clojure.tools.analyzer.env :as ta-env]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.utils :as taj-utils]
-            [clojure.tools.analyzer.passes.source-info :as source-info]
-            [clojure.tools.analyzer.passes.cleanup :as cleanup]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.tools.reader :as tr]
-            [clojure.tools.reader.reader-types :as readers]
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer :as ta]
+            [clojure.core.typed.deps.clojure.tools.analyzer.env :as ta-env]
+            [clojure.core.typed.deps.clojure.tools.analyzer.jvm :as taj]
+            [clojure.core.typed.deps.clojure.tools.analyzer.utils :as taj-utils]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.source-info :as source-info]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.cleanup :as cleanup]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.deps.clojure.tools.reader :as tr]
+            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
             [clojure.java.io :as io]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as T]
-            [clojure.core.cache :as cache]
+            [clojure.core.typed.deps.clojure.core.cache :as cache]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]
             [clojure.core :as core])
-  (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
+  (:import (clojure.core.typed.deps.clojure.tools.analyzer.jvm ExceptionThrown)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

@@ -11,8 +11,8 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.java.io :as io]
-            [clojure.core.cache :as cache]
-            [clojure.jvm.tools.analyzer :as jta])
+            [clojure.core.typed.deps.clojure.core.cache :as cache]
+            [clojure.core.typed.deps.clojure.jvm.tools.analyzer :as jta])
   (:import (clojure.lang ExceptionInfo)))
 
 (defn cljs-reader [nsym]
