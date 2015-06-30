@@ -2,6 +2,10 @@ machine:
   java:
     version: oraclejdk8
 
+dependencies:
+  override:
+    - true
+
 test:
   override:
     - mvn test
