@@ -129,7 +129,7 @@ clojure.java.io/IOFactory
 (delay-and-cache-env ^:private init-var-env
   (reset-alias-env!)
   (merge
-   (common/parse-clj-ann-map common/common-var-annotations)
+   (common/parse-clj-ann-map @common/common-var-annotations)
    (h/var-mappings
      this-ns
 

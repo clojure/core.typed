@@ -660,12 +660,13 @@
     clojure.core/rem [Number Number -> Number]")
 
 (def common-var-annotations
-  (let [r (rdrs/string-push-back-reader common-ann*)
-        eof (Object.)
-        os (loop [os []]
-             (let [a (rdr/read r false eof)]
-               (if (identical? eof a)
-                 os
-                 (recur (conj os a)))))
-        _ (assert (even? (count os)))]
-    (apply hash-map os)))
+  (delay
+    (let [r (rdrs/string-push-back-reader common-ann*)
+          eof (Object.)
+          os (loop [os []]
+               (let [a (rdr/read r false eof)]
+                 (if (identical? eof a)
+                   os
+                   (recur (conj os a)))))
+          _ (assert (even? (count os)))]
+      (apply hash-map os))))
