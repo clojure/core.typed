@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/jvm.tools.analyzer "0.6.1"
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
-                 [org.clojure/tools.analyzer.jvm "0.3.0"]
+                 ^:source-dep [org.clojure/tools.analyzer.jvm "0.3.0"]
                  [org.clojure/tools.reader "0.9.2"]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
@@ -33,7 +33,8 @@
   :repl-options {:nrepl-middleware [#_cemerick.piggieback/wrap-cljs-repl
                                     clojure.core.typed.repl/wrap-clj-repl]}
 
-  :plugins [[lein-typed "0.3.1"]]
+  :plugins [[lein-typed "0.3.1"]
+            [thomasa/mranderson "0.4.4-ambrosebs-SNAPSHOT"]]
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
