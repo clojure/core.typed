@@ -34,7 +34,7 @@
                                     clojure.core.typed.repl/wrap-clj-repl]}
 
   :plugins [[lein-typed "0.3.1"]
-            [thomasa/mranderson "0.4.4-ambrosebs-SNAPSHOT"]]
+            #_[thomasa/mranderson "0.4.4-ambrosebs-SNAPSHOT"]]
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
