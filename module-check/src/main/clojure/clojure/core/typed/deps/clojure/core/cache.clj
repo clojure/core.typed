@@ -25,7 +25,7 @@
    the 2-arg case.  Retrieve the value associated with `e` if it exists,
    else `not-found` in the 3-arg case.")
   (has?    [cache e]
-   "Checks if the cache contains a value associtaed with `e`")
+   "Checks if the cache contains a value associated with `e`")
   (hit     [cache e]
    "Is meant to be called if the cache is determined to contain a value
    associated with `e`")
@@ -83,15 +83,15 @@
 
        clojure.lang.Counted
        (count [this#]
-         (clojure.core/count ~base-field))
+         (count ~base-field))
 
        clojure.lang.IPersistentCollection
-       (cons [_# elem#]
-         (clojure.core/cons ~base-field elem#))
+       (cons [this# elem#]
+         (seed this# (conj ~base-field elem#)))
        (empty [this#]
          (seed this# (empty ~base-field)))
-       (equiv [_# other#]
-         (clojure.lang.Util/equiv ~base-field other#))
+       (equiv [this# other#]
+         (= other# ~base-field))
 
        clojure.lang.Seqable
        (seq [_#]
@@ -141,23 +141,21 @@
 ;; # FIFO
 
 (defn- describe-layout [mappy limit]
-  (let [q clojure.lang.PersistentQueue/EMPTY
-        ks (keys mappy)
+  (let [ks (keys mappy)
         [dropping keeping] (split-at (- (count ks) limit) ks)]
     {:dropping dropping
      :keeping  keeping
      :queue
-     (into q (concat (repeat (- limit (count keeping)) ::free)
-                     (take limit keeping)))}))
+     (concat (repeat (- limit (count keeping)) ::free)
+             (take limit keeping))}))
 
 (defn- dissoc-keys [m ks]
   (if ks
     (recur (dissoc m (first ks)) (next ks))
     m))
 
-(defn- prune-queue [q ks]
-  (into clojure.lang.PersistentQueue/EMPTY
-        (filter (complement (set ks)) q)))
+(defn- prune-queue [q k]
+  (remove #{k} q))
 
 (defcache FIFOCache [cache q limit]
   CacheProtocol
@@ -170,24 +168,24 @@
   (hit [this item]
     this)
   (miss [_ item result]
-    (let [[kache qq] (let [k (peek q)]
+    (let [[kache qq] (let [k (first q)]
                        (if (>= (count cache) limit)
-                         [(dissoc cache k) (pop q)]
-                         [cache (pop q)]))]
+                         [(dissoc cache k) (rest q)]
+                         [cache (rest q)]))]
       (FIFOCache. (assoc kache item result)
-                  (conj qq item)
+                  (concat qq [item])
                   limit)))
   (evict [this key]
     (let [v (get cache key ::miss)]
       (if (= v ::miss)
         this
         (FIFOCache. (dissoc cache key)
-                    (prune-queue q [key])
+                    (prune-queue q key)
                     limit))))
   (seed [_ base]
     (let [{dropping :dropping
            q :queue} (describe-layout base limit)]
-      (FIFOCache. (dissoc-keys base dropping)
+      (FIFOCache. (apply dissoc base dropping)
                   q
                   limit)))
   Object
@@ -212,7 +210,9 @@
   (hit [_ item]
     (let [tick+ (inc tick)]
       (LRUCache. cache
-                 (assoc lru item tick+)
+                 (if (contains? cache item)
+                   (assoc lru item tick+)
+                   lru)
                  tick+
                  limit)))
   (miss [_ item result]
@@ -313,8 +313,8 @@
       (if (= v ::miss)
         this
         (LUCache. (dissoc cache key)
-                   (dissoc lu key)
-                   limit))))
+                  (dissoc lu key)
+                  limit))))
   (seed [_ base]
     (LUCache. base
               (build-leastness-queue base limit 0)
@@ -488,7 +488,7 @@
       (.remove rcache r)
       (recur (.poll rq)))))
 
-(defn ^{:dynamic true} make-reference [v rq]
+(defn make-reference [v rq]
   (if (nil? v)
     (SoftReference. ::nil rq)
     (SoftReference. v rq)))
@@ -511,8 +511,9 @@
   (has? [_ item]
     (let [item (or item ::nil)
           ^SoftReference cell (get cache item)]
-      (and (contains? cache item)
-           (not (nil? (.get cell))))))
+      (boolean
+        (when cell
+          (not (nil? (.get cell)))))))
   (hit [this item]
     (clear-soft-cache! cache rcache rq)
     this)

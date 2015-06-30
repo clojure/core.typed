@@ -1,6 +1,6 @@
 (ns clojure.core.typed.def-utils
   (:refer-clojure :exclude [defrecord defprotocol definterface])
-  (:require [clojure.core.contracts.constraints :as contracts]
+  (:require [clojure.core.typed.deps.clojure.core.contracts.constraints :as contracts]
             [clojure.core :as core]))
 
 (defmacro defrecord [name slots inv-description invariants & etc]

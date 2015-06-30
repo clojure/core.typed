@@ -23,7 +23,7 @@
             [clojure.core.typed.indirect-ops :as ind]
             clojure.core.typed.indirect-ann
             [clojure.core.typed :as t]
-            [clojure.math.combinatorics :as comb]
+            [clojure.core.typed.deps.clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.repl :as repl]

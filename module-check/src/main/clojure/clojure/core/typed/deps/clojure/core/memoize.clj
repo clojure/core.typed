@@ -22,24 +22,24 @@
   "
   {:author "fogus"}
 
-  (:require [clojure.core.typed.deps.clojure.core.cache :as cache]))
+  (:require [clojure.core.cache :as cache]))
 
 ;; Plugging Interface
 
 (deftype PluggableMemoization [f cache]
   cache/CacheProtocol
   (has? [_ item]
-    (clojure.core.typed.deps.clojure.core.cache/has? cache item))
+    (clojure.core.cache/has? cache item))
   (hit  [_ item]
-    (PluggableMemoization. f (clojure.core.typed.deps.clojure.core.cache/hit cache item)))
+    (PluggableMemoization. f (clojure.core.cache/hit cache item)))
   (miss [_ item result]
-    (PluggableMemoization. f (clojure.core.typed.deps.clojure.core.cache/miss cache item result)))
+    (PluggableMemoization. f (clojure.core.cache/miss cache item result)))
   (evict [_ key]
-    (PluggableMemoization. f (clojure.core.typed.deps.clojure.core.cache/evict cache key)))
+    (PluggableMemoization. f (clojure.core.cache/evict cache key)))
   (lookup [_ item]
-    (clojure.core.typed.deps.clojure.core.cache/lookup cache item))
+    (clojure.core.cache/lookup cache item))
   (seed [_ base]
-    (PluggableMemoization. f (clojure.core.typed.deps.clojure.core.cache/seed cache base)))
+    (PluggableMemoization. f (clojure.core.cache/seed cache base)))
   Object
   (toString [_] (str cache)))
 
@@ -49,7 +49,7 @@
 (defn through* [cache f item]
   "The basic hit/miss logic for the cache system based on `core.cache/through`.
   Clojure delays are used to hold the cache value."
-  (clojure.core.typed.deps.clojure.core.cache/through
+  (clojure.core.cache/through
     #(delay (%1 %2))
     #(clojure.core/apply f %)
     cache
@@ -90,10 +90,10 @@
    now."
   ([f]
      (when-let [cache (cache-id f)]
-       (swap! cache (constantly (clojure.core.typed.deps.clojure.core.cache/seed @cache {})))))
+       (swap! cache (constantly (clojure.core.cache/seed @cache {})))))
   ([f args]
      (when-let [cache (cache-id f)]
-       (swap! cache (constantly (clojure.core.typed.deps.clojure.core.cache/evict @cache args))))))
+       (swap! cache (constantly (clojure.core.cache/evict @cache args))))))
 
 (defn memo-swap!
   "Takes a core.memo-populated function and a map and replaces the memoization cache
@@ -109,7 +109,7 @@
   [f base]
   (when-let [cache (cache-id f)]
     (swap! cache
-           (constantly (clojure.core.typed.deps.clojure.core.cache/seed @cache
+           (constantly (clojure.core.cache/seed @cache
                              (into {}
                                    (for [[k v] base]
                                      [k (reify
@@ -132,7 +132,7 @@
        (with-meta
         (fn [& args]
           (let [cs  (swap! cache through* f args)
-                val (clojure.core.typed.deps.clojure.core.cache/lookup cs args)]
+                val (clojure.core.cache/lookup cs args)]
             ;; The assumption here is that if what we got
             ;; from the cache was non-nil, then we can dereference
             ;; it.  core.memo currently wraps all of its values in
