@@ -40,7 +40,9 @@
        (and (= :const op)
             (= :keyword (:type the-fn)))
        (if (<= 1 argc 2)
-         (assoc ast :op :keyword-invoke)
+         (if (not (namespace (:val the-fn)))
+           (assoc ast :op :keyword-invoke)
+           ast)
          (throw (ex-info (str "Cannot invoke keyword with " argc " arguments")
                          (merge {:form form}
                                 (source-info env)))))

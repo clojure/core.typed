@@ -7,8 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.box
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as u])
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [protocol-node? arglist-for-arity]]))
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as u]
+            [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [protocol-node? arglist-for-arity]]))
 
 (defmulti box
   "Box the AST node tag where necessary"
@@ -181,12 +181,15 @@
       ast)))
 
 (defmethod box :try
-  [ast]
-  (-> ast
-    (update-in [:body] -box)
-    (update-in [:catches] #(mapv -box %))
-    (update-in [:finally] -box)
-    (update-in [:o-tag] u/box)))
+  [{:keys [tag] :as ast}]
+  (let [ast (if (and tag (u/primitive? tag))
+              ast
+              (-> ast
+                (update-in [:catches] #(mapv -box %))
+                (update-in [:body] -box)
+                (update-in [:o-tag] u/box)))]
+    (-> ast
+      (update-in [:finally] -box))))
 
 (defmethod box :invoke
   [ast]

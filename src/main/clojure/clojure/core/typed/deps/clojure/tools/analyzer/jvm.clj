@@ -24,7 +24,7 @@
             [clojure.core.typed.deps.clojure.tools.analyzer.passes
              [source-info :refer [source-info]]
              [cleanup :refer [cleanup]]
-             [elide-meta :refer [elide-meta]]
+             [elide-meta :refer [elide-meta elides]]
              [warn-earmuff :refer [warn-earmuff]]
              [collect :refer [collect collect-closed-overs]]
              [add-binding-atom :refer [add-binding-atom]]
@@ -48,6 +48,10 @@
              [analyze-host-expr :refer [analyze-host-expr]]
              [warn-on-reflection :refer [warn-on-reflection]]
              [emit-form :refer [emit-form]]]
+
+            [clojure.java.io :as io]
+            [clojure.core.typed.deps.clojure.tools.reader :as reader]
+            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
 
             [clojure.core.typed.deps.clojure.core.memoize :refer [memo-clear!]])
   (:import clojure.lang.IObj))
@@ -209,7 +213,7 @@
   {:op       :monitor-enter
    :env      env
    :form     form
-   :target   (-analyze target (ctx env :expr/any))
+   :target   (-analyze target (ctx env :ctx/expr))
    :children [:target]})
 
 (defmethod parse 'monitor-exit
@@ -221,7 +225,7 @@
   {:op       :monitor-exit
    :env      env
    :form     form
-   :target   (-analyze target (ctx env :expr/any))
+   :target   (-analyze target (ctx env :ctx/expr))
    :children [:target]})
 
 (defmethod parse 'clojure.core/import*
@@ -337,15 +341,20 @@
 (defmethod parse 'case*
   [[_ expr shift mask default case-map switch-type test-type & [skip-check?] :as form] env]
   (let [[low high] ((juxt first last) (keys case-map)) ;;case-map is a sorted-map
-        test-expr (-analyze expr (ctx env :expr/any))
+        e (ctx env :ctx/expr)
+        test-expr (-analyze expr e)
         [tests thens] (reduce (fn [[te th] [min-hash [test then]]]
-                                (let [test-expr (ana/-analyze :const test env)
+                                (let [test-expr (ana/-analyze :const test e)
                                       then-expr (-analyze then env)]
                                   [(conj te {:op       :case-test
+                                             :form     test
+                                             :env      e
                                              :hash     min-hash
                                              :test     test-expr
                                              :children [:test]})
                                    (conj th {:op       :case-then
+                                             :form     then
+                                             :env      env
                                              :hash     min-hash
                                              :then     then-expr
                                              :children [:then]})]))
@@ -441,7 +450,7 @@
     ;; needs to be run in a separate pass to avoid collecting
     ;; constants/callsites in :loop
     (collect-closed-overs {:what  #{:closed-overs}
-                           :where #{:deftype :reify :fn :loop}
+                           :where #{:deftype :reify :fn :loop :try}
                            :top-level? false})
 
     ;; needs to be run after collect-closed-overs
@@ -470,7 +479,10 @@
                             #'ana/macroexpand-1          macroexpand-1
                             #'ana/create-var             create-var
                             #'ana/parse                  parse
-                            #'ana/var?                   var?}
+                            #'ana/var?                   var?
+                            #'elides                     (merge {:fn    #{:line :column :end-line :end-column :file :source}
+                                                                 :reify #{:line :column :end-line :end-column :file :source}}
+                                                                elides)}
                            (:bindings opts))
        (env/ensure (global-env)
          (run-passes (-analyze form env))))))
@@ -548,3 +560,29 @@ twice."
   ([form env] (analyze+eval' form env {}))
   ([form env opts]
      (prewalk (analyze+eval form env opts) cleanup)))
+
+(defn analyze-ns
+  "Analyzes a whole namespace, returns a vector of the ASTs for all the
+   top-level ASTs of that namespace.
+   Evaluates all the forms."
+  [ns]
+  (env/ensure (global-env)
+    (let [res (ns-resource ns)]
+      (assert res (str "Can't find " ns " in classpath"))
+      (let [filename (source-path res)
+            path (res-path res)]
+        (when-not (get-in *env* [::analyzed-clj path])
+          (binding [*ns* *ns*]
+            (with-open [rdr (io/reader res)]
+              (let [pbr (readers/indexing-push-back-reader
+                         (java.io.PushbackReader. rdr) 1 filename)
+                    eof (Object.)
+                    env (empty-env)]
+                (loop []
+                  (let [form (reader/read pbr nil eof)]
+                    (when-not (identical? form eof)
+                      (swap! *env* update-in [::analyzed-clj path]
+                             (fnil conj [])
+                             (analyze+eval form (assoc env :ns (ns-name *ns*))))
+                      (recur))))))))
+        (get-in @*env* [::analyzed-clj path])))))

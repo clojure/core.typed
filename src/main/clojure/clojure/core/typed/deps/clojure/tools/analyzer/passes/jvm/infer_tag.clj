@@ -50,9 +50,14 @@
   (merge (assoc ast :tag clojure.lang.Var :o-tag clojure.lang.Var)
          (select-keys (:init ast) [:return-tag :arglists])))
 
+(defmethod -infer-tag :quote
+  [ast]
+  (let [tag (-> ast :expr :tag)]
+    (assoc ast :tag tag :o-tag tag)))
+
 (defmethod -infer-tag :new
   [ast]
-  (let [t (:class ast)]
+  (let [t (-> ast :class :val)]
     (assoc ast :o-tag t :tag t)))
 
 (defmethod -infer-tag :with-meta
@@ -81,8 +86,12 @@
 
 (defmethod -infer-tag :loop
   [{:keys [body] :as ast}]
-  (merge ast (select-keys body [:return-tag :arglists :tag])
-         {:o-tag (:tag body)}))
+  (merge ast (select-keys body [:return-tag :arglists])
+         {:o-tag (:tag body)}
+         (let [tag (:tag body)]
+           (if (#{Void Void/TYPE} tag)
+             (assoc ast :tag Object)
+             (assoc ast :tag tag)))))
 
 (defn =-arglists? [a1 a2]
   (let [tag (fn [x] (-> x meta :tag u/maybe-class))]
@@ -156,13 +165,14 @@
 
 (defmethod -infer-tag :try
   [{:keys [body catches] :as ast}]
-  (let [{:keys [tag return-tag arglists]} body]
+  (let [{:keys [tag return-tag arglists]} body
+        catches (remove :ignore-tag (mapv :body catches))]
     (merge ast
-           (when (and tag (every? #(= % tag) (mapv (comp :tag :body) catches)))
+           (when (and tag (every? #(= % tag) (mapv :tag catches)))
              {:tag tag :o-tag tag})
-           (when (and return-tag (every? #(= % return-tag) (mapv (comp :return-tag :body) catches)))
+           (when (and return-tag (every? #(= % return-tag) (mapv :return-tag catches)))
              {:return-tag return-tag})
-           (when (and arglists (every? #(= % arglists) (mapv (comp :arglists :body) catches))) ;;FIX: should check meta
+           (when (and arglists (every? #(=-arglists? % arglists) (mapv :arglists catches)))
              {:arglists arglists}))))
 
 (defmethod -infer-tag :fn-method
