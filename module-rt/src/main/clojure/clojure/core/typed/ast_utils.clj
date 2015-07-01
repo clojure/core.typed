@@ -159,24 +159,13 @@
 (defn new-op-class [expr]
   {:pre [(#{:new} (:op expr))]
    :post [(class? %)]}
-  (or ; tools.analyzer 0.3.x
-      (let [cls (:class expr)]
-        (when (class? cls)
-          cls))
-      ; future tools.analyzer
-      (let [{:keys [val]} (:class expr)]
-        val)))
+  (-> expr :class :val))
 
 (defn catch-op-class [expr]
   {:pre [(#{:catch} (:op expr))]
    :post [(class? %)]}
-  (or ; tools.analyzer 0.3.x
-      (let [cls (:class expr)]
-        (when (class? cls)
-          cls))
-      ; future tools.analyzer
-      (let [{:keys [val]} (:class expr)]
-        val)))
+  ; future tools.analyzer
+  (-> expr :class :val))
 
 (def deftype-method? (fn [m]
                        (impl/impl-case

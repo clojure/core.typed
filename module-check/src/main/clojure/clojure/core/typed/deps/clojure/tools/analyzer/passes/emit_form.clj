@@ -12,9 +12,9 @@
 
 (defn ^:dynamic -emit-form*
   "Extension point for custom emit-form implementations, should be rebound
-   to a multimethod with custom emit-form :ops."
-  [{:keys [form] :as ast} ops]
-  (let [expr (-emit-form ast ops)]
+   to a multimethod with custom emit-form :opts."
+  [{:keys [form] :as ast} opts]
+  (let [expr (-emit-form ast opts)]
     (if-let [m (and (instance? clojure.lang.IObj expr)
                     (meta form))]
       (with-meta expr (merge (meta expr) m))
@@ -22,10 +22,10 @@
 
 (defn emit-form
   "Return the form represented by the given AST.
-   Ops is a set of options, valid options are:
+   Opts is a set of options, valid options are:
     * :hygienic"
   ([ast] (emit-form ast #{}))
-  ([ast ops] (-emit-form* ast ops)))
+  ([ast opts] (-emit-form* ast opts)))
 
 (defn emit-hygienic-form
   "Return an hygienic form represented by the given AST"
@@ -33,153 +33,153 @@
   (-emit-form* ast #{:hygienic}))
 
 (defmethod -emit-form :maybe-class
-  [{:keys [class]} ops]
+  [{:keys [class]} opts]
   class)
 
 (defmethod -emit-form :maybe-host-form
-  [{:keys [class field]} ops]
+  [{:keys [class field]} opts]
   (symbol (name class) (name field)))
 
 (defmethod -emit-form :host-call
-  [{:keys [target method args]} ops]
-  (list '. (-emit-form* target ops)
-        (list* method (mapv #(-emit-form* % ops) args))))
+  [{:keys [target method args]} opts]
+  (list '. (-emit-form* target opts)
+        (list* method (mapv #(-emit-form* % opts) args))))
 
 (defmethod -emit-form :host-field
-  [{:keys [target field]} ops]
+  [{:keys [target field]} opts]
   (list (symbol (str ".-" (name field)))
-        (-emit-form* target ops)))
+        (-emit-form* target opts)))
 
 (defmethod -emit-form :host-interop
-  [{:keys [target m-or-f]} ops]
-  (list '. (-emit-form* target ops) m-or-f))
+  [{:keys [target m-or-f]} opts]
+  (list '. (-emit-form* target opts) m-or-f))
 
 (defmethod -emit-form :local
-  [{:keys [name form]} ops]
-  (if (:hygienic ops) (with-meta name (meta form)) form))
+  [{:keys [name form]} opts]
+  (if (:hygienic opts) (with-meta name (meta form)) form))
 
 (defmethod -emit-form :binding
-  [{:keys [name form]} ops]
-  (if (:hygienic ops) (with-meta name (meta form)) form))
+  [{:keys [name form]} opts]
+  (if (:hygienic opts) (with-meta name (meta form)) form))
 
 (defmethod -emit-form :var
-  [{:keys [form]} ops]
+  [{:keys [form]} opts]
   form)
 
-(defn emit-bindings [bindings ops]
+(defn emit-bindings [bindings opts]
   (mapcat (fn [{:keys [name form init]}]
-            [(if (:hygienic ops) name form) (-emit-form* init ops)])
+            [(if (:hygienic opts) name form) (-emit-form* init opts)])
           bindings))
 
 (defmethod -emit-form :letfn
-  [{:keys [bindings body]} ops]
-  `(letfn* [~@(emit-bindings bindings ops)]
-           ~(-emit-form* body ops)))
+  [{:keys [bindings body]} opts]
+  `(letfn* [~@(emit-bindings bindings opts)]
+           ~(-emit-form* body opts)))
 
 (defmethod -emit-form :let
-  [{:keys [bindings body]} ops]
-  `(let* [~@(emit-bindings bindings ops)]
-           ~(-emit-form* body ops)))
+  [{:keys [bindings body]} opts]
+  `(let* [~@(emit-bindings bindings opts)]
+           ~(-emit-form* body opts)))
 
 (defmethod -emit-form :loop
-  [{:keys [bindings body]} ops]
-  `(loop* [~@(emit-bindings bindings ops)]
-           ~(-emit-form* body ops)))
+  [{:keys [bindings body]} opts]
+  `(loop* [~@(emit-bindings bindings opts)]
+           ~(-emit-form* body opts)))
 
 (defmethod -emit-form :const
   [{:keys [form]} _]
   form)
 
 (defmethod -emit-form :quote
-  [{:keys [expr]} ops]
-  (list 'quote (-emit-form* expr ops)))
+  [{:keys [expr]} opts]
+  (list 'quote (-emit-form* expr opts)))
 
 (defmethod -emit-form :vector
-  [{:keys [items]} ops]
-  (mapv #(-emit-form* % ops) items))
+  [{:keys [items]} opts]
+  (mapv #(-emit-form* % opts) items))
 
 (defmethod -emit-form :set
-  [{:keys [items]} ops]
-  (set (mapv #(-emit-form* % ops) items)))
+  [{:keys [items]} opts]
+  (set (mapv #(-emit-form* % opts) items)))
 
 (defmethod -emit-form :map
-  [{:keys [keys vals]} ops]
-  (apply hash-map (interleave (mapv #(-emit-form* % ops) keys)
-                              (mapv #(-emit-form* % ops) vals))))
+  [{:keys [keys vals]} opts]
+  (apply hash-map (interleave (mapv #(-emit-form* % opts) keys)
+                              (mapv #(-emit-form* % opts) vals))))
 
 (defmethod -emit-form :with-meta
-  [{:keys [expr meta]} ops]
-  (with-meta (-emit-form* expr ops)
-    (-emit-form* meta ops)))
+  [{:keys [expr meta]} opts]
+  (with-meta (-emit-form* expr opts)
+    (-emit-form* meta opts)))
 
 (defmethod -emit-form :do
-  [{:keys [ret statements body?]} ops]
+  [{:keys [ret statements body?]} opts]
   (if (and body? (empty? statements))
-    (-emit-form* ret ops)
-    `(do ~@(mapv #(-emit-form* % ops) statements)
-         ~(-emit-form* ret ops))))
+    (-emit-form* ret opts)
+    `(do ~@(mapv #(-emit-form* % opts) statements)
+         ~(-emit-form* ret opts))))
 
 (defmethod -emit-form :if
-  [{:keys [test then else]} ops]
-  `(if ~(-emit-form* test ops)
-     ~(-emit-form* then ops)
+  [{:keys [test then else]} opts]
+  `(if ~(-emit-form* test opts)
+     ~(-emit-form* then opts)
      ~@(when-not (nil? (:form else))
-         [(-emit-form* else ops)])))
+         [(-emit-form* else opts)])))
 
 (defmethod -emit-form :new
-  [{:keys [class args]} ops]
-  `(new ~class ~@(mapv #(-emit-form* % ops) args)))
+  [{:keys [class args]} opts]
+  `(new ~(-emit-form* class opts) ~@(mapv #(-emit-form* % opts) args)))
 
 (defmethod -emit-form :set!
-  [{:keys [target val]} ops]
-  `(set! ~(-emit-form* target ops) ~(-emit-form* val ops)))
+  [{:keys [target val]} opts]
+  `(set! ~(-emit-form* target opts) ~(-emit-form* val opts)))
 
 (defmethod -emit-form :recur
-  [{:keys [exprs]} ops]
-  `(recur ~@(mapv #(-emit-form* % ops) exprs)))
+  [{:keys [exprs]} opts]
+  `(recur ~@(mapv #(-emit-form* % opts) exprs)))
 
 (defmethod -emit-form :fn-method
-  [{:keys [variadic? params body form]} ops]
-  (let [params-form (mapv #(-emit-form* % ops) params)]
+  [{:keys [variadic? params body form]} opts]
+  (let [params-form (mapv #(-emit-form* % opts) params)]
     `(~(with-meta
          (if variadic? (into (pop params-form)
                              (conj '[&] (peek params-form)))
              params-form)
          (meta (first form)))
-      ~(-emit-form* body ops))))
+      ~(-emit-form* body opts))))
 
 (defmethod -emit-form :fn
-  [{:keys [local methods]} ops]
-  `(fn* ~@(when local [(-emit-form* local ops)])
-        ~@(mapv #(-emit-form* % ops) methods)))
+  [{:keys [local methods]} opts]
+  `(fn* ~@(when local [(-emit-form* local opts)])
+        ~@(mapv #(-emit-form* % opts) methods)))
 
 (defmethod -emit-form :def
-  [{:keys [name doc init]} ops]
+  [{:keys [name doc init]} opts]
   (let [name (if-let [arglists (:arglists (meta name))]
                (with-meta name (assoc (meta name) :arglists (list 'quote arglists)))
                name)]
-    `(def ~name ~@(when doc [doc]) ~@(when init [(-emit-form* init ops)]))))
+    `(def ~name ~@(when doc [doc]) ~@(when init [(-emit-form* init opts)]))))
 
 (defmethod -emit-form :invoke
-  [{:keys [fn args meta]} ops]
-  (let [expr `(~(-emit-form* fn ops)
-               ~@(mapv #(-emit-form* % ops) args))]
+  [{:keys [fn args meta]} opts]
+  (let [expr `(~(-emit-form* fn opts)
+               ~@(mapv #(-emit-form* % opts) args))]
     (if meta
       (with-meta expr meta)
       expr)))
 
 (defmethod -emit-form :try
-  [{:keys [body catches finally]} ops]
-  `(try ~(-emit-form* body ops)
-        ~@(mapv #(-emit-form* % ops) catches)
+  [{:keys [body catches finally]} opts]
+  `(try ~(-emit-form* body opts)
+        ~@(mapv #(-emit-form* % opts) catches)
         ~@(when finally
-            [`(finally ~(-emit-form* finally ops))])))
+            [`(finally ~(-emit-form* finally opts))])))
 
 (defmethod -emit-form :catch
-  [{:keys [class local body]} ops]
-  `(catch ~class ~(-emit-form* local ops)
-     ~(-emit-form* body ops)))
+  [{:keys [class local body]} opts]
+  `(catch ~(-emit-form* class opts) ~(-emit-form* local opts)
+     ~(-emit-form* body opts)))
 
 (defmethod -emit-form :throw
-  [{:keys [exception]} ops]
-  `(throw ~(-emit-form* exception ops)))
+  [{:keys [exception]} opts]
+  `(throw ~(-emit-form* exception opts)))

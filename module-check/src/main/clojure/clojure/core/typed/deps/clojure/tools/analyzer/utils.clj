@@ -193,10 +193,16 @@
 
 (defn const-val
   "Returns the value of a constant node (either :quote or :const)"
-  [{:keys [op val expr]}]
-  (if (= :quote op)
-    (:val expr)
-    val))
+  [{:keys [op form val expr]}]
+  (cond
+   (= :quote op)
+   (const-val expr)
+
+   val
+   val
+
+   :else
+   form))
 
 (defmacro compile-if
   [exp then & else]

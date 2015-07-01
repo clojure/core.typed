@@ -46,12 +46,6 @@
                             :form       form}
                            (source-info env))))))
 
-(defmethod -validate :catch
-  [ast]
-  (if-not (:validated? ast)
-    (assoc (validate-class ast) :validated? true)
-    ast))
-
 (defmethod -validate :set!
   [{:keys [target form env] :as ast}]
   (when (and (not (:assignable? target))
@@ -63,10 +57,10 @@
   ast)
 
 (defmethod -validate :new
-  [ast]
+  [{:keys [args] :as ast}]
   (if (:validated? ast)
     ast
-    (let [{:keys [args ^Class class] :as ast} (validate-class ast)
+    (let [^Class class (-> ast :class :val)
           c-name (symbol (.getName class))
           argc (count args)
           tags (mapv :tag args)]

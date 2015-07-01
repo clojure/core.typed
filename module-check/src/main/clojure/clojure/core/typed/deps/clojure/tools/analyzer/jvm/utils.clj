@@ -9,9 +9,12 @@
 (ns clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils
   (:require [clojure.reflect :as reflect]
             [clojure.string :as s]
-            [clojure.core.typed.deps.clojure.core.memoize :refer [lru]])
+            [clojure.core.typed.deps.clojure.core.memoize :refer [lru]]
+            [clojure.java.io :as io])
   (:import (clojure.lang RT Symbol Var)
-           (clojure.core.typed.deps.org.objectweb.asm Type)))
+           (clojure.core.typed.deps.org.objectweb.asm Type)
+           (java.io File)
+           (java.net URL)))
 
 (defn ^:private type-reflect
   [typeref & options]
@@ -351,3 +354,24 @@
                   :else
                   (conj p next)))) [] methods)
       methods)))
+
+(defn source-path [x]
+  (if (instance? File x)
+    (.getAbsolutePath ^File x)
+    (str x)))
+
+(defn ns->relpath [s]
+  (str (s/replace (munge (str s)) \. \/) ".clj"))
+
+(defn ns-resource [ns]
+  (let [f (ns->relpath ns)]
+   (cond
+    (instance? File f) f
+    (instance? URL f) f
+    (re-find #"^file://" f) (URL. f)
+    :else (io/resource f))))
+
+(defn res-path [res]
+  (if (instance? File res)
+    (.getPath ^File res)
+    (.getPath ^URL res)))

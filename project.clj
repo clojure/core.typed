@@ -16,7 +16,7 @@
                  [org.clojure/jvm.tools.analyzer "0.6.1" :exclusions [org.clojure/clojure 
                                                                       org.clojure/clojurescript]]
                  ^:source-dep 
-                 [org.clojure/tools.analyzer.jvm "0.3.0" :exclusions [org.ow2.asm/asm-all]]
+                 [org.clojure/tools.analyzer.jvm "0.4.0" :exclusions [org.ow2.asm/asm-all]]
                  ^:source-dep 
                  [org.ow2.asm/asm-all "4.2" :classifier "sources"]
                  ^:source-dep
@@ -31,7 +31,10 @@
                  [org.clojure/core.cache "0.6.4"]
                  ]
   ;; for tools.reader 0.9.2
-  :aot [clojure.core.typed.deps.clojure.tools.reader.impl.ExceptionInfo]
+  :aot [clojure.core.typed.deps.clojure.tools.reader.impl.ExceptionInfo
+        ;; for asm-all
+        #_clojure.core.typed.deps.org.objectweb.asm.Type
+        #_clojure.core.typed.deps.org.objectweb.asm.Opcodes]
 
   ; fireplace repl middleware
   :repl-options {:nrepl-middleware [#_cemerick.piggieback/wrap-cljs-repl

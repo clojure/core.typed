@@ -56,11 +56,6 @@
   [ast]
   ((get-method -annotate-tag (:type ast)) ast))
 
-(defmethod -annotate-tag :quote
-  [ast]
-  (let [tag (-> ast :expr -annotate-tag :tag)]
-    (assoc ast :tag tag :o-tag tag)))
-
 (defmethod -annotate-tag :binding
   [{:keys [form tag atom o-tag init local name variadic?] :as ast}]
   (let [o-tag (or (:tag init) ;; should defer to infer-tag?
