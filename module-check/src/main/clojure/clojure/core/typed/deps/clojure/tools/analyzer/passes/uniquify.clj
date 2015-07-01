@@ -8,7 +8,8 @@
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.uniquify
   (:require [clojure.core.typed.deps.clojure.tools.analyzer.ast :refer [update-children children]]
-            [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [update-vals]]))
+            [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [update-vals]]
+            [clojure.core.typed.deps.clojure.tools.analyzer.env :as env]))
 
 (def ^:dynamic *locals-counter*) ;; global counter, map sym -> count
 (def ^:dynamic *locals-frame*)   ;; holds the id for the locals in the current frame
@@ -24,8 +25,11 @@
 
 (defn uniquify-locals-around
   [ast]
-  (-uniquify-locals (update-in ast [:env :locals]
-                               update-vals #(update-in % [:name] normalize))))
+  (let [ast (if (-> (env/deref-env) :passes-opts :uniquify/uniquify-env)
+              (update-in ast [:env :locals]
+                         update-vals #(update-in % [:name] normalize))
+              ast)]
+   (-uniquify-locals ast)))
 
 (defn uniquify-locals* [ast]
   (update-children ast uniquify-locals-around))
@@ -80,7 +84,11 @@
 
 (defn uniquify-locals
   "Walks the AST performing alpha-conversion on the :name field
-   of :local/:binding nodes, invalidates :local map in :env field"
+   of :local/:binding nodes, invalidates :local map in :env field
+
+  Passes opts:
+  * :uniquify/uniquify-env  If true, uniquifies the :env :locals map"
+  {:pass-info {:walk :none :depends #{}}}
   [ast]
   (binding [*locals-counter* (atom {})
             *locals-frame*   (atom {})]

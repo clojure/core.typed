@@ -8,7 +8,15 @@
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.infer-tag
   (:require [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [arglist-for-arity]]
-            [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as u]))
+            [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as u]
+            [clojure.core.typed.deps.clojure.tools.analyzer.env :as env]
+            [clojure.set :refer [rename-keys]]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.trim :refer [trim]]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm
+             [annotate-tag :refer [annotate-tag]]
+             [annotate-host-info :refer [annotate-host-info]]
+             [analyze-host-expr :refer [analyze-host-expr]]
+             [fix-case-test :refer [fix-case-test]]]))
 
 (defmulti -infer-tag :op)
 (defmethod -infer-tag :default [ast] ast)
@@ -30,7 +38,7 @@
 
 (defmethod -infer-tag :var
   [{:keys [var form] :as ast}]
-  (let [{:keys [tag arglists]} (meta var)
+  (let [{:keys [tag arglists]} (:meta ast)
         arglists (if (= 'quote (first arglists))
                    (second arglists)
                    arglists)
@@ -46,9 +54,14 @@
              {:arglists arglists}))))
 
 (defmethod -infer-tag :def
-  [ast]
-  (merge (assoc ast :tag clojure.lang.Var :o-tag clojure.lang.Var)
-         (select-keys (:init ast) [:return-tag :arglists])))
+  [{:keys [var init name] :as ast}]
+  (let [info (merge (select-keys init [:return-tag :arglists :tag])
+                    (select-keys (meta name) [:tag :arglists]))]
+    (when (and (seq info)
+               (not (:dynamic (meta name)))
+               (= :global (-> (env/deref-env) :passes-opts :infer-tag/level)))
+      (alter-meta! var merge (rename-keys info {:return-tag :tag})))
+    (merge ast info {:tag clojure.lang.Var :o-tag clojure.lang.Var})))
 
 (defmethod -infer-tag :quote
   [ast]
@@ -201,7 +214,9 @@
          {:arglists (seq (mapv :arglist methods))
           :tag      clojure.lang.AFunction
           :o-tag    clojure.lang.AFunction}
-         (when-let [tag (:tag (meta (:form local)))]
+         (when-let [tag (or (:tag (meta (:form local)))
+                            (and (apply = (mapv :tag methods))
+                                 (:tag (first methods))))]
            {:return-tag tag})))
 
 (defmethod -infer-tag :invoke
@@ -212,7 +227,7 @@
           tag (or (:tag (meta arglist))
                   (:return-tag fn)
                   (and (= :var (:op fn))
-                       (:tag (meta (:var fn)))))]
+                       (:tag (:meta fn))))]
       (merge ast
              (when tag
                {:tag     tag
@@ -240,14 +255,21 @@
 (defn infer-tag
   "Performs local type inference on the AST adds, when possible,
    one or more of the following keys to the AST:
-   * :o-tag      represents the dynamic type of the node
-   * :tag        represents the static type of the node
+   * :o-tag      represents the current type of the
+                 expression represented by the node
+   * :tag        represents the type the expression represented by the
+                 node is required to have, possibly the same as :o-tag
    * :return-tag implies that the node will return a function whose
                  invocation will result in a object of this type
    * :arglists   implies that the node will return a function with
                  this arglists
    * :ignore-tag true when the node is untyped, does not imply that
-                 all untyped node will have this"
+                 all untyped node will have this
+
+  Passes opts:
+  * :infer-tag/level  If :global, infer-tag will perform Var tag
+                      inference"
+  {:pass-info {:walk :post :depends #{#'annotate-tag #'annotate-host-info #'fix-case-test #'analyze-host-expr} :after #{#'trim}}}
   [{:keys [tag form] :as ast}]
   (let [tag (or tag (:tag (meta form)))
         ast (-infer-tag ast)]
@@ -256,9 +278,3 @@
              {:tag tag})
            (when-let [o-tag (:o-tag ast)]
              {:o-tag o-tag}))))
-
-(defn ensure-tag
-  [{:keys [o-tag tag] :as ast}]
-  (assoc ast
-    :tag   (or tag Object)
-    :o-tag (or o-tag Object)))

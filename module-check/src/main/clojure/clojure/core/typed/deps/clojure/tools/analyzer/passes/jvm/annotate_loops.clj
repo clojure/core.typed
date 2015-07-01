@@ -14,7 +14,12 @@
    might be visited more than once because of a recur.
 
    The field is a set of loop-ids representing the loops that might
-   recur into that path"
+   recur into that path
+
+   Note that because (recur expr) is equivalent to (let [e expr] (recur e))
+   the node corresponting to expr will have the same :loops field
+   as the nodes in the same code path of the recur"
+  {:pass-info {:walk :pre :depends #{}}}
   :op)
 
 (defmulti check-recur :op)
@@ -88,7 +93,9 @@
     (let [loop-id (:loop-id env)
           loops-no-recur (disj loops loop-id)
           branch-recurs? (or (:recurs then) (:recurs else))
-          then (if (or (:recurs then) (not branch-recurs?))
+          then (if (or (:recurs then) ;; the recur is inside the then branch
+                       ;; the recur is in the same code path of the if expression
+                       (not branch-recurs?))
                  (assoc then :loops loops)
                  (assoc then :loops loops-no-recur))
           else (if (or (:recurs else) (not branch-recurs?))

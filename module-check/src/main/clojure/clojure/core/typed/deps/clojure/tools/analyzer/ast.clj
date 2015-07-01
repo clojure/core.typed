@@ -8,7 +8,8 @@
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.ast
   "Utilities for AST walking/updating"
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [into! rseqv]]))
+  (:refer-clojure :exclude [unreduced])
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer [into! rseqv mapv']]))
 
 (defn cycling
   "Combine the given passes in a single pass that will be applieed repeatedly
@@ -41,62 +42,77 @@
    (reduce (fn [acc [_ c]] ((if (vector? c) into! conj!) acc c))
            (transient []) (children* ast))))
 
-(defmulti -update-children   (fn [ast f] (:op ast)))
-(defmulti -update-children-r (fn [ast f] (:op ast)))
+;; return transient or reduced holding transient
+(defn ^:private -update-children
+  [ast f r?]
+  (let [fix (if r? rseqv identity)]
+    (reduce (fn [ast [k v]]
+              (let [multi (vector? v)
+                    val (if multi (mapv' f (fix v)) (f v))]
+                (if (reduced? val)
+                  (reduced (reduced (assoc! ast k (if multi (fix @val) @val))))
+                  (assoc! ast k (if multi (fix val) val)))))
+            (transient ast)
+            (fix (children* ast)))))
 
-(defmethod -update-children :default
-  [ast f]
-  (persistent!
-   (reduce (fn [ast [k v]]
-             (assoc! ast k (if (vector? v) (mapv f v) (f v))))
-           (transient ast)
-           (children* ast))))
+(defn update-children-reduced
+  "Like update-children but returns a reduced holding the AST if f short-circuited."
+  ([ast f] (update-children-reduced ast f false))
+  ([ast f reversed?]
+     (if (and (not (reduced? ast))
+              (:children ast))
+       (let [ret (-update-children ast f reversed?)]
+         (if (reduced? ret)
+           (reduced (persistent! @ret))
+           (persistent! ret)))
+       ast)))
 
-(defmethod -update-children-r :default
-  [ast f]
-  (persistent!
-   (reduce (fn [ast [k v]]
-             (assoc! ast k (if (vector? v) (rseqv (mapv f (rseq v))) (f v))))
-           (transient ast)
-           (rseq (children* ast)))))
+(defn ^:private unreduced [x]
+  (if (reduced? x)
+    @x
+    x))
 
 (defn update-children
   "Applies `f` to each AST children node, replacing it with the returned value.
    If reversed? is not-nil, `pre` and `post` will be applied starting from the last
-   children of the AST node to the first one."
+   children of the AST node to the first one.
+   Short-circuits on reduced."
   ([ast f] (update-children ast f false))
   ([ast f reversed?]
-     (if (:children ast)
-       (if reversed?
-         (-update-children-r ast f)
-         (-update-children   ast f))
-       ast)))
+     (unreduced (update-children-reduced ast f reversed?))))
 
 (defn walk
   "Walk the ast applying `pre` when entering the nodes, and `post` when exiting.
    Both functions must return a valid node since the returned value will replace
    the node in the AST which was given as input to the function.
    If reversed? is not-nil, `pre` and `post` will be applied starting from the last
-   children of the AST node to the first one."
+   children of the AST node to the first one.
+   Short-circuits on reduced."
   ([ast pre post]
      (walk ast pre post false))
   ([ast pre post reversed?]
-     (let [walk #(walk % pre post reversed?)]
-       (post (update-children (pre ast) walk reversed?)))))
+     (unreduced
+      ((fn walk [ast pre post reversed?]
+         (let [walk #(walk % pre post reversed?)]
+           (if (reduced? ast)
+             ast
+             (let [ret (update-children-reduced (pre ast) walk reversed?)]
+               (if (reduced? ret)
+                 ret
+                 (post ret))))))
+       ast pre post reversed?))))
 
 (defn prewalk
   "Shorthand for (walk ast f identity)"
   [ast f]
-  (let [walk #(prewalk % f)]
-    (update-children (f ast) walk)))
+  (walk ast f identity))
 
 (defn postwalk
   "Shorthand for (walk ast identity f reversed?)"
   ([ast f]
      (postwalk ast f false))
   ([ast f reversed?]
-     (let [walk #(postwalk % f reversed?)]
-       (f (update-children ast walk reversed?)))))
+     (walk ast identity f reversed?)))
 
 (defn nodes
   "Returns a lazy-seq of all the nodes in the given AST, in depth-first pre-order."

@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.utils
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.analyze-clj :as ana]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-deps-utils :as ns-depsu]
@@ -277,42 +278,29 @@
   (or (protocol-implementation-type datatype method-sig)
       (extend-method-expected datatype (instance-method->Function method-sig))))
 
-(defn FieldExpr->Field [{c :class field-name :field :keys [op] :as expr}]
+;; TODO integrate reflecte-validated into run-passes
+(defn FieldExpr->Field [expr]
   {:pre []
-   :post [(instance? clojure.reflect.Field %)]}
-  (when (and c 
-             (#{:static-field :instance-field} op))
-    (let [fs (->> (reflect-u/reflect c)
-                  :members
-                  (filter #(instance? clojure.reflect.Field %))
-                  (filter #(#{field-name} (:name %))))]
-      (assert (#{1} (count fs)))
-      (first fs))))
+   :post [(or (instance? clojure.reflect.Field %)
+              (nil? %))]}
+  (-> expr
+      ana/reflect-validated
+      :reflected-field)) 
 
-(defn MethodExpr->Method [{c :class method-name :method :keys [op args] :as expr}]
+(defn MethodExpr->Method [expr]
   {:pre []
    :post [(or (nil? %) (instance? clojure.reflect.Method %))]}
-  (when (and c 
-             (#{:static-call :instance-call} op))
-    (let [ms (->> (reflect-u/reflect c)
-                  :members
-                  (filter #(instance? clojure.reflect.Method %))
-                  (filter #(#{method-name} (:name %)))
-                  (filter (fn [{:keys [parameter-types]}]
-                            (#{(map (comp reflect-u/reflect-friendly-sym :tag) args)} parameter-types))))]
-      ;(prn "MethodExpr->Method" c ms (map :tag args))
-      (first ms))))
+  (-> expr
+      ana/reflect-validated
+      :reflected-method))
 
-(defn NewExpr->Ctor [{:keys [op args] :as expr}]
-  {:pre [(#{:new} op)]
+(defn NewExpr->Ctor [expr]
+  {:pre []
    :post [(or (instance? clojure.reflect.Constructor %)
               (nil? %))]}
-  (let [cs (->> (reflect-u/reflect (-> expr ast-u/new-op-class))
-                :members
-                (filter #(instance? clojure.reflect.Constructor %))
-                (filter #(#{(map (comp reflect-u/reflect-friendly-sym :tag) args)} (:parameter-types %))))]
-    ;(prn "NewExpr->Ctor" cs)
-    (first cs)))
+  (-> expr
+      ana/reflect-validated
+      :reflected-ctor))
 
 ;FIXME I think this hurts more than it helps
 ;[Type (Seqable t/Sym) -> Type]

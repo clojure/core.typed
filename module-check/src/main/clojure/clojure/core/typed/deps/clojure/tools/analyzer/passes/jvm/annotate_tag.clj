@@ -7,17 +7,13 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.annotate-tag
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :refer [unbox maybe-class]])
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :refer [unbox maybe-class]]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.constant-lifter :refer [constant-lift]])
   (:import (clojure.lang ISeq Var AFunction)))
 
 (defmulti -annotate-tag :op)
 
-(defmethod -annotate-tag :default
-  [ast]
-  (if (= :const (:op ast))
-    (let [t (class (:val ast))]
-      (assoc ast :o-tag t :tag t))
-    ast))
+(defmethod -annotate-tag :default [ast] ast)
 
 (defmethod -annotate-tag :map
   [{:keys [val form] :as ast}]
@@ -34,27 +30,27 @@
   (let [t (class (or val form))]
     (assoc ast :o-tag t :tag t)))
 
-(defmethod -annotate-tag :seq
-  [ast]
-  (assoc ast :o-tag ISeq :tag ISeq))
-
-;; char and numbers are unboxed by default
-(defmethod -annotate-tag :number
-  [ast]
-  (let [t (unbox (class (:val ast)))]
-    (assoc ast :o-tag t :tag t)))
-
-(defmethod -annotate-tag :char
-  [ast]
-  (assoc ast :o-tag Character/TYPE :tag Character/TYPE))
-
 (defmethod -annotate-tag :the-var
   [ast]
   (assoc ast :o-tag Var :tag Var))
 
 (defmethod -annotate-tag :const
   [ast]
-  ((get-method -annotate-tag (:type ast)) ast))
+  (case (:type ast)
+
+    ;; char and numbers are unboxed by default
+    :number
+    (let [t (unbox (class (:val ast)))]
+      (assoc ast :o-tag t :tag t))
+
+    :char
+    (assoc ast :o-tag Character/TYPE :tag Character/TYPE)
+
+    :seq
+    (assoc ast :o-tag ISeq :tag ISeq)
+
+    (let [t (class (:val ast))]
+      (assoc ast :o-tag t :tag t))))
 
 (defmethod -annotate-tag :binding
   [{:keys [form tag atom o-tag init local name variadic?] :as ast}]
@@ -78,9 +74,11 @@
   (let [o-tag (@atom :tag)]
     (assoc ast :o-tag o-tag :tag o-tag)))
 
+;; TODO: move binding/local logic to infer-tag
 (defn annotate-tag
   "If the AST node type is a constant object or contains :tag metadata,
    attach the appropriate :tag and :o-tag to the node."
+  {:pass-info {:walk :post :depends #{} :after #{#'constant-lift}}}
   [{:keys [op tag o-tag atom] :as ast}]
   (let [ast (if (and atom (:case-test @atom))
               (update-in ast [:form] vary-meta dissoc :tag)

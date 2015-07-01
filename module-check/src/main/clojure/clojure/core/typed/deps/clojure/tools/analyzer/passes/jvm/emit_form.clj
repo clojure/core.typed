@@ -7,7 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.emit-form
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.passes.emit-form :as default]))
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.passes
+             [emit-form :as default]
+             [uniquify :refer [uniquify-locals]]]))
 
 (defmulti -emit-form (fn [{:keys [op]} _] op))
 
@@ -16,15 +18,17 @@
   (let [expr (-emit-form ast opts)]
     (if-let [m (and (instance? clojure.lang.IObj expr)
                     (meta form))]
-      (with-meta expr (merge (meta expr) m))
+      (with-meta expr (merge m (meta expr)))
       expr)))
 
+;; TODO: use pass opts infr
 (defn emit-form
   "Return the form represented by the given AST
    Opts is a set of options, valid options are:
     * :hygienic
     * :qualified-vars (DEPRECATED, use :qualified-symbols instead)
     * :qualified-symbols"
+  {:pass-info {:walk :none :depends #{#'uniquify-locals} :compiler true}}
   ([ast] (emit-form ast #{}))
   ([ast opts]
      (binding [default/-emit-form* -emit-form*]
@@ -32,6 +36,7 @@
 
 (defn emit-hygienic-form
   "Return an hygienic form represented by the given AST"
+  {:pass-info {:walk :none :depends #{#'uniquify-locals} :compiler true}}
   [ast]
   (binding [default/-emit-form* -emit-form*]
     (-emit-form* ast #{:hygienic})))
@@ -71,8 +76,15 @@
          (meta (second form)))
       ~(-emit-form* body opts))))
 
+(defn class->str [class]
+  (if (symbol? class)
+    (name class)
+    (.getName ^Class class)))
+
 (defn class->sym [class]
-  (symbol (.getName ^Class class)))
+  (if (symbol? class)
+    class
+    (symbol (.getName ^Class class))))
 
 (defmethod -emit-form :catch
   [{:keys [class local body]} opts]
@@ -103,11 +115,11 @@
 
 (defmethod -emit-form :static-field
   [{:keys [class field]} opts]
-  (symbol (.getName ^Class class) (name field)))
+  (symbol (class->str class) (name field)))
 
 (defmethod -emit-form :static-call
   [{:keys [class method args]} opts]
-  `(~(symbol (.getName ^Class class) (name method))
+  `(~(symbol (class->str class) (name method))
     ~@(mapv #(-emit-form* % opts) args)))
 
 (defmethod -emit-form :instance-field
@@ -119,24 +131,21 @@
   `(~(symbol (str "." (name method))) ~(-emit-form* instance opts)
     ~@(mapv #(-emit-form* % opts) args)))
 
-(defmethod -emit-form :host-interop
-  [{:keys [target m-or-f]} opts]
-  `(~(symbol (str "." (name m-or-f))) ~(-emit-form* target opts)))
-
 (defmethod -emit-form :prim-invoke
   [{:keys [fn args]} opts]
   `(~(-emit-form* fn opts)
     ~@(mapv #(-emit-form* % opts) args)))
 
 (defmethod -emit-form :protocol-invoke
-  [{:keys [fn args]} opts]
-  `(~(-emit-form* fn opts)
+  [{:keys [protocol-fn target args]} opts]
+  `(~(-emit-form* protocol-fn opts)
+    ~(-emit-form* target opts)
     ~@(mapv #(-emit-form* % opts) args)))
 
 (defmethod -emit-form :keyword-invoke
-  [{:keys [fn args]} opts]
-  `(~(-emit-form* fn opts)
-    ~@(mapv #(-emit-form* % opts) args)))
+  [{:keys [target keyword]} opts]
+  (list (-emit-form* keyword opts)
+        (-emit-form* target opts)))
 
 (defmethod -emit-form :instance?
   [{:keys [class target]} opts]
@@ -149,3 +158,12 @@
     (with-meta (symbol (-> var .ns ns-name name) (-> var .sym name))
       (meta form))
     form))
+
+(defmethod -emit-form :def
+  [ast opts]
+  (let [f (default/-emit-form ast opts)]
+    (if (:qualified-symbols opts)
+      `(def ~(with-meta (symbol (-> ast :env :ns name) (str (second f)))
+               (meta (second f)))
+         ~@(nthrest f 2))
+      f)))

@@ -501,35 +501,46 @@
                                expected)))
         :else :default))))
 
-;; FIXME when updating tools.analyzer past 0.5.0, update :keyword-invoke fields
+(add-check-method :prim-invoke
+  [expr & [expected]]
+  (assoc (check (assoc expr :op :invoke))
+         :op :prim-invoke))
+
 (add-check-method :keyword-invoke
-  [{kw :fn :keys [args] :as expr} & [expected]]
+  [{kw :keyword :keys [target] :as expr} & [expected]]
   {:pre [(and (#{:const} (:op kw))
-              (keyword? (:val kw)))
-         (#{1 2} (count args))]
-   :post [(r/TCResult? (u/expr-type %))
-          (vector? (:args %))]}
+              (keyword? (:val kw)))]
+   :post [(r/TCResult? (u/expr-type %))]}
   (let [ckw (check kw)
-        cargs (mapv check args)]
+        ctarget (check target)]
     (assoc expr
-           :fn ckw
-           :args cargs
+           :keyword ckw
+           :target ctarget
            u/expr-type (invoke-kw/invoke-keyword
                          expr
                          (u/expr-type ckw)
-                         (u/expr-type (first cargs))
-                         (when (#{2} (count cargs))
-                           (u/expr-type (second cargs)))
+                         (u/expr-type ctarget)
+                         nil
                          expected))))
 
-; Will this play nicely with file mapping?
-(add-check-method :prim-invoke ; protocol methods
-  [expr & [expected]]
-  (check (assoc expr :op :invoke)))
+;; TODO refactor into own file
+(defn protocol-invoke [check-fn {:keys [protocol-fn target args] :as expr} expected]
+  (u/p :check/protocol-invoke
+  (let [cprotocol-fn (check-fn protocol-fn)
+        ctarget (check-fn target)
+        cargs (mapv check-fn args)
+        ftype (u/expr-type cprotocol-fn)
+        argtys (map u/expr-type (concat [ctarget] cargs))
+        actual (funapp/check-funapp cprotocol-fn (concat [ctarget] cargs) ftype argtys expected)]
+    (assoc expr
+           :target ctarget
+           :protocol-fn cprotocol-fn
+           :args cargs
+           u/expr-type actual))))
 
 (add-check-method :protocol-invoke ; protocol methods
   [expr & [expected]]
-  (check (assoc expr :op :invoke)))
+  (protocol-invoke check expr expected))
 
 ;binding
 ;FIXME use `check-normal-def`

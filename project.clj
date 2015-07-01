@@ -16,7 +16,7 @@
                  [org.clojure/jvm.tools.analyzer "0.6.1" :exclusions [org.clojure/clojure 
                                                                       org.clojure/clojurescript]]
                  ^:source-dep 
-                 [org.clojure/tools.analyzer.jvm "0.4.0" :exclusions [org.ow2.asm/asm-all]]
+                 [org.clojure/tools.analyzer.jvm "0.6.7" :exclusions [org.ow2.asm/asm-all]]
                  ^:source-dep 
                  [org.ow2.asm/asm-all "4.2" :classifier "sources"]
                  ^:source-dep

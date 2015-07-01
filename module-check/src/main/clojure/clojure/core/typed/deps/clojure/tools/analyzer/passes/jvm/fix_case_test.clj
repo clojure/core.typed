@@ -6,11 +6,13 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.fix-case-test)
+(ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.fix-case-test
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.passes.add-binding-atom :refer [add-binding-atom]]))
 
 (defn fix-case-test
   "If the node is a :case-test, annotates in the atom shared
    by the binding and the local node with :case-test"
+  {:pass-info {:walk :pre :depends #{#'add-binding-atom}}}
   [ast]
   (when (:case-test ast)
     (swap! (:atom ast) assoc :case-test true))
