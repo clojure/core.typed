@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.deps.clojure.tools.analyzer.passes.emit-form)
+(ns clojure.core.typed.deps.clojure.tools.analyzer.passes.emit-form
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.passes.uniquify :refer [uniquify-locals]]))
 
 (defmulti -emit-form (fn [{:keys [op]} _] op))
 
@@ -17,18 +18,20 @@
   (let [expr (-emit-form ast opts)]
     (if-let [m (and (instance? clojure.lang.IObj expr)
                     (meta form))]
-      (with-meta expr (merge (meta expr) m))
+      (with-meta expr (merge m (meta expr)))
       expr)))
 
 (defn emit-form
   "Return the form represented by the given AST.
    Opts is a set of options, valid options are:
     * :hygienic"
+  {:pass-info {:walk :none :depends #{#'uniquify-locals} :compiler true}}
   ([ast] (emit-form ast #{}))
   ([ast opts] (-emit-form* ast opts)))
 
 (defn emit-hygienic-form
   "Return an hygienic form represented by the given AST"
+  {:pass-info {:walk :none :depends #{#'uniquify-locals} :compiler true}}
   [ast]
   (-emit-form* ast #{:hygienic}))
 
@@ -47,8 +50,8 @@
 
 (defmethod -emit-form :host-field
   [{:keys [target field]} opts]
-  (list (symbol (str ".-" (name field)))
-        (-emit-form* target opts)))
+  (list '. (-emit-form* target opts)
+        (symbol (str "-" (name field)))))
 
 (defmethod -emit-form :host-interop
   [{:keys [target m-or-f]} opts]

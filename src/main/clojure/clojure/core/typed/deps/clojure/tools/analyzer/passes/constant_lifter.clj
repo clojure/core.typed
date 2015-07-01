@@ -12,6 +12,7 @@
 (defmulti constant-lift
   "If the node represents a collection with no metadata, and every item of that
    collection is a literal, transform the node to an equivalent :const node."
+  {:pass-info {:walk :post :depends #{}}}
   :op)
 
 (defmethod constant-lift :vector

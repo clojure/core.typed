@@ -1,15 +1,19 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
-  (:refer-clojure :exclude [macroexpand-1])
+  (:refer-clojure :exclude [macroexpand-1 get-method])
   (:require [clojure.core.typed.deps.clojure.tools.analyzer :as ta]
             [clojure.core.typed.deps.clojure.tools.analyzer.env :as ta-env]
             [clojure.core.typed.deps.clojure.tools.analyzer.jvm :as taj]
-            [clojure.core.typed.deps.clojure.tools.analyzer.utils :as taj-utils]
+            [clojure.core.typed.deps.clojure.tools.analyzer.utils :as ta-utils]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes :as passes]
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.cleanup :as cleanup]
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.trim :as trim]
             [clojure.core.typed.deps.clojure.tools.reader :as tr]
             [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.java.io :as io]
+            [clojure.reflect :as reflect]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
@@ -19,6 +23,7 @@
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.core :as core])
   (:import (clojure.core.typed.deps.clojure.tools.analyzer.jvm ExceptionThrown)))
 
@@ -63,51 +68,55 @@
             (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol T/Any) '~name)) nil)))))
    })
 
+;; copied from tools.analyze.jvm to insert `typed-macros`
 (defn macroexpand-1
-  "If form represents a macro form or an inlineable function,
-   returns its expansion, else returns form."
-  [form env]
-  ;(prn "macroexpand-1" form (meta form))
-    (ta-env/ensure (taj/global-env)
-    (if (seq? form)
-      (let [[op & args] form]
-        (if (taj/specials op)
-          form
-          (let [v (taj-utils/resolve-var op env)
-                m (meta v)
-                ;_ (prn "op" (meta op)  m)
-                local? (-> env :locals (get op))
-                macro? (and (not local?) (:macro m)) ;; locals shadow macros
-                inline-arities-f (:inline-arities m)
-                inline? (and (not local?)
-                             (or (not inline-arities-f)
-                                 (inline-arities-f (count args)))
-                             (:inline m))
-                t (:tag m)]
-            (cond
+  "If form represents a macro form or an inlineable function,returns its expansion,
+   else returns form."
+  ([form] (macroexpand-1 form (taj/empty-env)))
+  ([form env]
+     (ta-env/ensure (taj/global-env)
+       (cond
 
-             macro?
-             (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
-               (taj/update-ns-map!)
-               (if (taj-utils/obj? res)
-                 (vary-meta res merge (meta form))
-                 res))
+        (seq? form)
+        (let [[op & args] form]
+          (if (taj/specials op)
+            form
+            (let [v (ta-utils/resolve-sym op env)
+                  m (meta v)
+                  local? (-> env :locals (get op))
+                  macro? (and (not local?) (:macro m)) ;; locals shadow macros
+                  inline-arities-f (:inline-arities m)
+                  inline? (and (not local?)
+                               (or (not inline-arities-f)
+                                   (inline-arities-f (count args)))
+                               (:inline m))
+                  t (:tag m)]
+              (cond
 
-             inline?
-             (let [res (apply inline? args)]
-               (taj/update-ns-map!)
-               (if (taj-utils/obj? res)
-                 (vary-meta res merge
-                            (and t {:tag t})
-                            ; we want the top-most inlining op
-                            {::inline-op op
-                             ::inline-var v}
-                            (meta form))
-                 res))
+               macro?
+               (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
+                 (taj/update-ns-map!)
+                 (if (ta-utils/obj? res)
+                   (vary-meta res merge (meta form))
+                   res))
 
-             :else
-             (taj/desugar-host-expr form env)))))
-      (taj/desugar-host-expr form env))))
+               inline?
+               (let [res (apply inline? args)]
+                 (taj/update-ns-map!)
+                 (if (ta-utils/obj? res)
+                   (vary-meta res merge
+                              (and t {:tag t})
+                              (meta form))
+                   res))
+
+               :else
+               (taj/desugar-host-expr form env)))))
+
+        (symbol? form)
+        (taj/desugar-symbol form env)
+
+        :else
+        form))))
 
 ;; Syntax Expected -> ChkAST
 
@@ -164,12 +173,12 @@
            ;; handle the Gilardi scenario.
            ;; we don't track exceptional control flow on a top-level do, which
            ;; probably won't be an issue.
-           (let [[statements ret] (taj/butlast+last (rest mform))
+           (let [[statements ret] (ta-utils/butlast+last (rest mform))
                  statements-expr (mapv (fn [s] 
                                          (if (some-> stop-analysis deref)
                                            (unanalyzed-expr s)
                                            (analyze+eval s (-> env
-                                                               (taj-utils/ctx :statement)
+                                                               (ta-utils/ctx :statement)
                                                                (assoc :ns (ns-name *ns*)))
                                                          (dissoc opts :expected))))
                                        statements)
@@ -200,8 +209,108 @@
                                                    (assoc-in [:bindings #'*ns*] *ns*)))))
                   {:raw-forms raw-forms}))))))
 
+;; reflect-validated from eastwood
+;========================
+(defmulti reflect-validated 
+  {:pass-info {:walk :any :depends #{#'validate/validate}}}
+  :op)
+
+(defn arg-type-str [arg-types]
+  (str/join ", "
+            (map #(if (nil? %) "nil" (.getName ^Class %)) arg-types)))
+
+(defn get-ctor [ast]
+  (let [cls (:val (:class ast))
+        arg-type-vec (mapv :tag (:args ast))
+        arg-type-arr (into-array Class arg-type-vec)]
+;;    (println (format "dbgx: get-ctor cls=%s arg-types=%s"
+;;                     cls (arg-type-str arg-type-vec)))
+    (try
+      (.getConstructor ^Class cls arg-type-arr)
+      (catch NoSuchMethodException e
+        (try
+          (.getDeclaredConstructor ^Class cls arg-type-arr)
+          (catch NoSuchMethodException e
+            {:class cls, :arg-types arg-type-vec}))))))
+
+(defn get-field [ast]
+  (let [cls (:class ast)
+        fld-name (name (:field ast))]
+    (try
+      (.getField ^Class cls fld-name)
+      (catch NoSuchFieldException e
+        (try
+          (.getDeclaredField ^Class cls fld-name)
+          (catch NoSuchFieldException e
+            {:class cls, :field-name fld-name}))))))
+
+(defn get-method [ast]
+  (let [cls (:class ast)
+        method-name (name (:method ast))
+        arg-type-vec (mapv :tag (:args ast))
+        arg-type-arr (into-array Class arg-type-vec)]
+;;    (println (format "dbgx: get-method cls=%s method=%s arg-types=%s"
+;;                     cls method-name (arg-type-str arg-type-vec)))
+    (when (some nil? arg-type-vec)
+      (println (format "Error: Bad arg-type nil for method named %s for class %s, full arg type list (%s).  ast pprinted below for debugging tools.analyzer:"
+                       method-name
+                       (.getName ^Class cls)
+                       (arg-type-str arg-type-vec)))
+      #_(util/pprint-ast-node ast))
+    (try
+      (.getMethod ^Class cls method-name arg-type-arr)
+      (catch NoSuchMethodException e
+        (try
+          (.getDeclaredMethod ^Class cls method-name arg-type-arr)
+          (catch NoSuchMethodException e
+            {:class cls, :method-name method-name,
+             :arg-types arg-type-vec}))))))
+
+
+(defn void-method? [^java.lang.reflect.Method m]
+  (let [ret-val (.getGenericReturnType m)]
+    (= ret-val Void/TYPE)))
+
+(defmethod reflect-validated :default [ast] ast)
+
+(defmethod reflect-validated :new [ast]
+  (if (:validated? ast)
+    (assoc ast :reflected-ctor (@#'reflect/constructor->map (get-ctor ast)))
+    ast))
+
+(defmethod reflect-validated :instance-field [ast]
+  (assoc ast :reflected-field (@#'reflect/field->map (get-field ast))))
+
+(defmethod reflect-validated :instance-call [ast]
+  (if (:validated? ast)
+    (assoc ast :reflected-method (@#'reflect/method->map (get-method ast)))
+    ast))
+
+(defmethod reflect-validated :static-field [ast]
+  (assoc ast :reflected-field (@#'reflect/field->map (get-field ast))))
+
+(defmethod reflect-validated :static-call [ast]
+  (if (:validated? ast)
+    (assoc ast :reflected-method (@#'reflect/method->map (get-method ast)))
+    ast))
+;========================
+
+(def typed-passes
+  (-> taj/default-passes
+      ;(conj #'reflect-validated)
+      ;; conflicts with current approach of special typed forms implemented
+      ;; as `do` nodes with constants.
+      (disj #'trim/trim)))
+
+(def typed-schedule
+  (passes/schedule typed-passes #_{:debug? true}))
+
+(defn run-passes [ast]
+  (typed-schedule ast))
+
 (defn thread-bindings []
-  {#'ta/macroexpand-1 macroexpand-1})
+  {#'ta/macroexpand-1 macroexpand-1
+   #'taj/run-passes run-passes})
 
 ;; bindings is an atom that records any side effects during macroexpansion. Useful
 ;; for nREPL middleware.

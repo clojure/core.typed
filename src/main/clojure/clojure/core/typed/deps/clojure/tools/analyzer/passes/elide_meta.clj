@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.deps.clojure.tools.analyzer.passes.elide-meta)
+(ns clojure.core.typed.deps.clojure.tools.analyzer.passes.elide-meta
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.passes.source-info :refer [source-info]]))
 
 (def ^:dynamic elides
   "A map of op keywords to predicate IFns.
@@ -19,15 +20,12 @@
 
 (defn replace-meta [meta new-meta]
   (if (= :const (:op meta))
-    (assoc meta
-      ;:form new-meta
-      :val  new-meta)
+    (assoc meta :val  new-meta)
     (let [meta-map (mapv (fn [k v]
-                       (when-not (elides (:form k))
-                         [k v]))
-                     (:keys meta) (:vals meta))]
+                           (when-not (elides (:form k))
+                             [k v]))
+                         (:keys meta) (:vals meta))]
       (assoc meta
-        ;:form new-meta
         :keys (vec (keep first meta-map))
         :vals (vec (keep second meta-map))))))
 
@@ -51,34 +49,37 @@
         new-meta (apply dissoc form (filter (get-elides ast) (keys form)))]
     (case op
       :const
-        (if (or (not meta)
+      (if (or (not meta)
               (= new-meta (:form meta)))
-          ast
-          (if (not (empty? new-meta))
-            (assoc-in ast [:meta :val] new-meta)
-            (-> ast
-                (update-in [:val] with-meta nil)
-                ;(update-in [:form] with-meta nil)
-                (dissoc :children :meta))))
+        ast
+        (if (not (empty? new-meta))
+          (assoc-in ast [:meta :val] new-meta)
+          (-> ast
+            (update-in [:val] with-meta nil)
+            (dissoc :children :meta))))
       :with-meta
-        (if (not (empty? new-meta))
-          (if (= new-meta (:form meta))
-            ast
-            (assoc ast :meta (replace-meta meta new-meta)))
-          (-> expr
-              (assoc-in [:env :context] (:context env))
-              (update-in [:form] with-meta {})))
+      (if (not (empty? new-meta))
+        (if (= new-meta (:form meta))
+          ast
+          (assoc ast :meta (replace-meta meta new-meta)))
+        (merge (dissoc ast :meta :expr)
+               {:op         :do
+                :body?      true
+                :ret        expr
+                :statements []
+                :children   [:statements :ret]}))
       :def
-        (if (not (empty? new-meta))
-          (if (= new-meta (:form meta))
-            ast
-            (assoc ast :meta (replace-meta meta new-meta)))
-          (assoc (dissoc ast :meta) :children [:init]))
-        ast)))
+      (if (not (empty? new-meta))
+        (if (= new-meta (:form meta))
+          ast
+          (assoc ast :meta (replace-meta meta new-meta)))
+        (assoc (dissoc ast :meta) :children [:init]))
+      ast)))
 
 (defn elide-meta
   "If elides is not empty and the AST node contains metadata,
    dissoc all the keys in elides from the metadata."
+  {:pass-info {:walk :any :depends #{} :after #{#'source-info}}}
   [ast]
   (if (some #(if (seq? %) (seq %) %) (vals elides))
     (-elide-meta ast)

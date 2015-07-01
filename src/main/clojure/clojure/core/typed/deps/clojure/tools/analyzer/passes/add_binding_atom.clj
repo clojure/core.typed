@@ -7,27 +7,23 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.add-binding-atom
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.ast :refer [prewalk]]))
-
-(def ^:dynamic ^:private *bindings*)
-
-(defn ^:private -add-binding-atom
-  [ast]
-  (case (:op ast)
-    :binding
-    (let [a (atom {})]
-      (swap! *bindings* assoc (:name ast) a)
-      (assoc ast :atom a))
-    :local
-    (assoc ast :atom (or (@*bindings* (:name ast))
-                         (atom {})))
-    ast))
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.ast :refer [prewalk]]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.uniquify :refer [uniquify-locals]]))
 
 (defn add-binding-atom
-  "Walks the AST and adds an atom-backed-map to every local binding,
-   the same atom will be shared between all occurences of that local.
+  "Adds an atom-backed-map to every local binding,the same
+   atom will be shared between all occurences of that local.
 
    The atom is put in the :atom field of the node."
-  [ast]
-  (binding [*bindings* (atom {})]
-    (prewalk ast -add-binding-atom)))
+  {:pass-info {:walk :pre :depends #{#'uniquify-locals} :state (fn [] (atom {}))}}
+  ([ast] (prewalk ast (partial add-binding-atom (atom {}))))
+  ([state ast]
+     (case (:op ast)
+       :binding
+       (let [a (atom {})]
+         (swap! state assoc (:name ast) a)
+         (assoc ast :atom a))
+       :local
+       (assoc ast :atom (or (@state (:name ast))
+                            (atom {})))
+       ast)))

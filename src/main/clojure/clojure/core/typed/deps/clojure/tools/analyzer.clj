@@ -23,83 +23,75 @@
    See clojure.core.typed.deps.clojure.tools.analyzer.core-test for an example on how to setup the analyzer."
   (:refer-clojure :exclude [macroexpand-1 macroexpand var? record?])
   (:require [clojure.core.typed.deps.clojure.tools.analyzer.utils :refer :all]
-            [clojure.core.typed.deps.clojure.tools.analyzer.env :as env]))
+            [clojure.core.typed.deps.clojure.tools.analyzer.env :as env])
+  (:import (clojure.lang Symbol IPersistentVector IPersistentMap IPersistentSet ISeq IType IRecord)))
 
-;; Expression hierarchy
-;; :ctx/return
-;; :ctx/statement
-;; :ctx/expr
-
-(derive :ctx.invoke/param :ctx/expr)
-(derive :ctx.invoke/target :ctx/expr)
-
-(defmulti -analyze (fn [op form env & _] op))
-(defmulti -parse
-  "Takes a form and an env map and dispatches on the head of the form, that is
-   a special form."
-  (fn [[op & rest] env] op)
-  :default :invoke)
+(derive :ctx/return :ctx/expr)
 
 (defmulti -analyze-form (fn [form _] (class form)))
+
+(declare analyze-symbol
+         analyze-vector
+         analyze-map
+         analyze-set
+         analyze-seq
+         analyze-const)
 
 (def ^:dynamic analyze-form
   "Like analyze, but does not mark the form with :top-level true"
   -analyze-form)
 
-(defmethod -analyze-form clojure.lang.Symbol
+(defmethod -analyze-form Symbol
   [form env]
-  (-analyze :symbol form env))
+  (analyze-symbol form env))
 
-(defmethod -analyze-form clojure.lang.IPersistentVector
+(defmethod -analyze-form IPersistentVector
   [form env]
-  (-analyze :vector form env))
+  (analyze-vector form env))
 
-(defmethod -analyze-form clojure.lang.IPersistentMap
+(defmethod -analyze-form IPersistentMap
   [form env]
-  (-analyze :map form env))
+  (analyze-map form env))
 
-(defmethod -analyze-form clojure.lang.IPersistentSet
+(defmethod -analyze-form IPersistentSet
   [form env]
-  (-analyze :set form env))
+  (analyze-set form env))
 
-(defmethod -analyze-form clojure.lang.ISeq
+(defmethod -analyze-form ISeq
   [form env]
   (if-let [form (seq form)]
-    (-analyze :seq form env)
-    (-analyze :const form env)))
+    (analyze-seq form env)
+    (analyze-const form env)))
 
-(defmethod -analyze-form clojure.lang.IType
+(defmethod -analyze-form IType
   [form env]
-  (-analyze :const form env :type))
+  (analyze-const form env :type))
 
-(prefer-method -analyze-form clojure.lang.IType clojure.lang.IPersistentMap)
-(prefer-method -analyze-form clojure.lang.IType clojure.lang.IPersistentVector)
-(prefer-method -analyze-form clojure.lang.IType clojure.lang.IPersistentSet)
-(prefer-method -analyze-form clojure.lang.IType clojure.lang.ISeq)
+(prefer-method -analyze-form IType IPersistentMap)
+(prefer-method -analyze-form IType IPersistentVector)
+(prefer-method -analyze-form IType IPersistentSet)
+(prefer-method -analyze-form IType ISeq)
 
-(defmethod -analyze-form clojure.lang.IRecord
+(defmethod -analyze-form IRecord
   [form env]
-  (-analyze :const form env :record))
+  (analyze-const form env :record))
 
-(prefer-method -analyze-form clojure.lang.IRecord clojure.lang.IPersistentMap)
-(prefer-method -analyze-form clojure.lang.IRecord clojure.lang.IPersistentVector)
-(prefer-method -analyze-form clojure.lang.IRecord clojure.lang.IPersistentSet)
-(prefer-method -analyze-form clojure.lang.IRecord clojure.lang.ISeq)
+(prefer-method -analyze-form IRecord IPersistentMap)
+(prefer-method -analyze-form IRecord IPersistentVector)
+(prefer-method -analyze-form IRecord IPersistentSet)
+(prefer-method -analyze-form IRecord ISeq)
 
 (defmethod -analyze-form :default
   [form env]
-  (-analyze :const form env))
+  (analyze-const form env))
 
 (defn analyze
   "Given a form to analyze and an environment, a map containing:
    * :locals     a map from binding symbol to AST of the binding value
    * :context    a keyword describing the form's context from the :ctx/* hierarchy.
-    ** :ctx/return    the form is in return position
-    ** :ctx/statement the return value of the form is not needed
-    ** :ctx/expr      the form is an expression, it's value is used
-    Derived from :ctx/expr
-    ** :ctx.invoke/target  the form is an expression that is invoked as a function
-    ** :ctx.invoke/param   the form is an expression used as parameter in a function call
+    ** :ctx/expr      the form is an expression: its value is used
+    ** :ctx/return    the form is an expression in return position, derives :ctx/expr
+    ** :ctx/statement the value of the form is not used
    * :ns         a symbol representing the current namespace of the form to be
                  analyzed
 
@@ -170,10 +162,9 @@
        :children [:meta :expr]}
       expr)))
 
-(defmethod -analyze :const
-  [_ form env & [type]]
-  (let [type (or type (classify form))
-        m (meta form)]
+(defn analyze-const
+  [form env & [type]]
+  (let [type (or type (classify form))]
     (merge
      {:op       :const
       :env      env
@@ -181,14 +172,13 @@
       :literal? true
       :val      form
       :form     form}
-     (when (and (obj? form)
-                (seq m))
-       {:meta     (-analyze :const m (ctx env :ctx/expr) :map) ;; metadata on a constant literal will not be evaluated at
-                                                           ;; runtime, this is also true for metadata on quoted collection literals
-        :children [:meta]}))))
+     (when-let [m (and (obj? form)
+                       (not-empty (meta form)))]
+       {:meta     (analyze-const m (ctx env :ctx/expr) :map) ;; metadata on a constant literal will not be evaluated at
+        :children [:meta]}))))                               ;; runtime, this is also true for metadata on quoted collection literals
 
-(defmethod -analyze :vector
-  [_ form env]
+(defn analyze-vector
+  [form env]
   (let [items-env (ctx env :ctx/expr)
         items (mapv (analyze-in-env items-env) form)]
     (wrapping-meta
@@ -198,8 +188,8 @@
       :form     form
       :children [:items]})))
 
-(defmethod -analyze :map
-  [_ form env]
+(defn analyze-map
+  [form env]
   (let [kv-env (ctx env :ctx/expr)
         [keys vals] (reduce-kv (fn [[keys vals] k v]
                                  [(conj keys k) (conj vals v)])
@@ -214,8 +204,8 @@
       :form     form
       :children [:keys :vals]})))
 
-(defmethod -analyze :set
-  [_ form env]
+(defn analyze-set
+  [form env]
   (let [items-env (ctx env :ctx/expr)
         items (mapv (analyze-in-env items-env) form)]
     (wrapping-meta
@@ -227,8 +217,8 @@
 
 (def specials
   "Set of special forms common to every clojure variant"
-  '#{do if new quote set! try
-     catch throw finally & def .
+  '#{do if new quote set! try var
+     catch throw finally def .
      let* letfn* loop* recur fn*})
 
 (defn macroexpand
@@ -241,21 +231,22 @@
         mform
         (recur mform)))))
 
-(defmethod -analyze :symbol
-  [_ sym env]
+(defn analyze-symbol
+  [sym env]
   (let [mform (macroexpand-1 sym env)] ;; t.a.j/macroexpand-1 macroexpands Class/Field into (. Class Field)
     (if (= mform sym)
       (merge (if-let [{:keys [mutable children] :as local-binding} (-> env :locals sym)] ;; locals shadow globals
-               (merge (dissoc local-binding :init) ;; avoids useless passes later
+               (merge (dissoc local-binding :init)                                      ;; avoids useless passes later
                       {:op          :local
                        :assignable? (boolean mutable)
                        :children    (vec (remove #{:init} children))})
-               (if-let [var (let [v (resolve-var sym env)]
+               (if-let [var (let [v (resolve-sym sym env)]
                               (and (var? v) v))]
-                 {:op          :var
-                  :assignable? (dynamic? var) ;; we cannot statically determine if a Var is in a thread-local context
-                                              ;; so checking whether it's dynamic or not is the most we can do
-                  :var         var}
+                 (let [m (meta var)]
+                   {:op          :var
+                    :assignable? (dynamic? var m) ;; we cannot statically determine if a Var is in a thread-local context
+                    :var         var              ;; so checking whether it's dynamic or not is the most we can do
+                    :meta        m})
                  (if-let [maybe-class (namespace sym)] ;; e.g. js/foo.bar or Long/MAX_VALUE
                    (let [maybe-class (symbol maybe-class)]
                      {:op    :maybe-host-form
@@ -265,14 +256,11 @@
                     :class mform})))
              {:env  env
               :form mform})
-      (-> (if (obj? mform)
-           (with-meta mform (meta sym))
-           mform)
-        (analyze-form env)
+      (-> (analyze-form mform env)
         (update-in [:raw-forms] (fnil conj ()) sym)))))
 
-(defmethod -analyze :seq
-  [_ form env]
+(defn analyze-seq
+  [form env]
   (let [op (first form)]
     (when (nil? op)
       (throw (ex-info "Can't call nil"
@@ -282,9 +270,10 @@
       (if (= form mform) ;; function/special-form invocation
         (parse mform env)
         (-> (analyze-form mform env)
-          (update-in [:raw-forms] (fnil conj ()) form)))))) ;; TODO: should passes propagate this?
+          (update-in [:raw-forms] (fnil conj ())
+                     (vary-meta form assoc ::resolved-op (resolve-sym op env))))))))
 
-(defmethod -parse 'do
+(defn parse-do
   [[_ & exprs :as form] env]
   (let [statements-env (ctx env :ctx/statement)
         [statements ret] (loop [statements [] [e & exprs] exprs]
@@ -300,12 +289,13 @@
      :ret        ret
      :children   [:statements :ret]}))
 
-(defmethod -parse 'if
+(defn parse-if
   [[_ test then else :as form] env]
-  (when-not (<= 3 (count form) 4)
-    (throw (ex-info (str "Wrong number of args to if, had: " (dec (count form)))
-                    (merge {:form form}
-                           (-source-info form env)))))
+  (let [formc (count form)]
+    (when-not (or (= formc 3) (= formc 4))
+      (throw (ex-info (str "Wrong number of args to if, had: " (dec (count form)))
+                      (merge {:form form}
+                             (-source-info form env))))))
   (let [test-expr (analyze-form test (ctx env :ctx/expr))
         then-expr (analyze-form then env)
         else-expr (analyze-form else env)]
@@ -317,7 +307,7 @@
      :else     else-expr
      :children [:test :then :else]}))
 
-(defmethod -parse 'new
+(defn parse-new
   [[_ class & args :as form] env]
   (when-not (>= (count form) 2)
     (throw (ex-info (str "Wrong number of args to new, had: " (dec (count form)))
@@ -332,13 +322,13 @@
      :args        args
      :children    [:class :args]}))
 
-(defmethod -parse 'quote
+(defn parse-quote
   [[_ expr :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to quote, had: " (dec (count form)))
                     (merge {:form form}
                            (-source-info form env)))))
-  (let [const (-analyze :const expr env)]
+  (let [const (analyze-const expr env)]
     {:op       :quote
      :expr     const
      :form     form
@@ -346,7 +336,7 @@
      :literal? true
      :children [:expr]}))
 
-(defmethod -parse 'set!
+(defn parse-set!
   [[_ target val :as form] env]
   (when-not (= 3 (count form))
     (throw (ex-info (str "Wrong number of args to set!, had: " (dec (count form)))
@@ -368,15 +358,25 @@
 (defn valid-binding-symbol? [s]
   (and (symbol? s)
        (not (namespace s))
-       (not (.contains (name s) "."))))
+       (not (re-find #"\." (name s)))))
 
-(defmethod -parse 'try
+(defn ^:private split-with' [pred coll]
+  (loop [take [] drop coll]
+    (if (seq drop)
+      (let [[el & r] drop]
+        (if (pred el)
+          (recur (conj take el) r)
+          [(seq take) drop]))
+      [(seq take) ()])))
+
+(declare parse-catch)
+(defn parse-try
   [[_ & body :as form] env]
   (let [catch? (every-pred seq? #(= (first %) 'catch))
         finally? (every-pred seq? #(= (first %) 'finally))
-        [body tail'] (split-with (complement (some-fn catch? finally?)) body)
-        [cblocks tail] (split-with catch? tail')
-        [[fblock & fbs :as fblocks] tail] (split-with finally? tail)]
+        [body tail'] (split-with' (complement (some-fn catch? finally?)) body)
+        [cblocks tail] (split-with' catch? tail')
+        [[fblock & fbs :as fblocks] tail] (split-with' finally? tail)]
     (when-not (empty? tail)
       (throw (ex-info "Only catch or finally clause can follow catch in try expression"
                       (merge {:expr tail
@@ -387,36 +387,35 @@
                       (merge {:expr fblocks
                               :form form}
                              (-source-info form env)))))
-    (if (and (empty? cblocks)
-             (empty? fblocks))
-      (assoc (analyze-body body env) :form form) ;; discard the useless try
-      (let [body (analyze-body body (assoc env :no-recur true :in-try true)) ;; cannot recur across try
-            cenv (ctx env :ctx/expr)
-            cblocks (mapv #(parse % cenv) cblocks)
-            fblock (when-not (empty? fblock)
-                     (analyze-body (rest fblock) (ctx env :ctx/statement)))]
-        (merge {:op      :try
-                :env     env
-                :form    form
-                :body    body
-                :catches cblocks}
-               (when fblock
-                 {:finally fblock})
-               {:children `[:body :catches ~@(when fblock [:finally])]})))))
+    (let [env' (assoc env :in-try true)
+          body (analyze-body body env')
+          cenv (ctx env' :ctx/expr)
+          cblocks (mapv #(parse-catch % cenv) cblocks)
+          fblock (when-not (empty? fblock)
+                   (analyze-body (rest fblock) (ctx env :ctx/statement)))]
+      (merge {:op      :try
+              :env     env
+              :form    form
+              :body    body
+              :catches cblocks}
+             (when fblock
+               {:finally fblock})
+             {:children (into [:body :catches]
+                              (when fblock [:finally]))}))))
 
-(defmethod -parse 'catch
+(defn parse-catch
   [[_ etype ename & body :as form] env]
   (when-not (valid-binding-symbol? ename)
     (throw (ex-info (str "Bad binding form: " ename)
                     (merge {:sym ename
                             :form form}
                            (-source-info form env)))))
-  (let [local {:op    :binding
+  (let [env (dissoc env :in-try)
+        local {:op    :binding
                :env   env
                :form  ename
                :name  ename
-               :local :catch
-               :tag   etype}]
+               :local :catch}]
     {:op          :catch
      :class       (analyze-form etype (assoc env :locals {}))
      :local       local
@@ -425,7 +424,7 @@
      :body        (analyze-body body (assoc-in env [:locals ename] (dissoc-env local)))
      :children    [:class :local :body]}))
 
-(defmethod -parse 'throw
+(defn parse-throw
   [[_ throw :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to throw, had: " (dec (count form)))
@@ -453,12 +452,11 @@
                             :bindings bindings}
                            (-source-info form env))))))
 
-(defmethod -parse 'letfn*
+(defn parse-letfn*
   [[_ bindings & body :as form] env]
   (validate-bindings form env)
-  (let [bindings (apply hash-map bindings) ;; non-determinalistically pick only one local with the same name,
-                                           ;; if more are present.
-        fns (keys bindings)]
+  (let [bindings (apply array-map bindings) ;; pick only one local with the same name, if more are present.
+        fns      (keys bindings)]
     (when-let [[sym] (seq (remove valid-binding-symbol? fns))]
       (throw (ex-info (str "Bad binding form: " sym)
                       (merge {:form form
@@ -477,7 +475,7 @@
                              (assoc binds name
                                     (merge bind
                                            {:init     (analyze-form (bindings name)
-                                                               (ctx e :ctx/expr))
+                                                                    (ctx e :ctx/expr))
                                             :children [:init]})))
                            {} binds)
           e (update-in env [:locals] merge (update-vals binds dissoc-env))
@@ -522,33 +520,30 @@
            :bindings binds
            :children [:bindings :body]})))))
 
-(defmethod -parse 'let*
+(defn parse-let*
   [form env]
   (into {:op   :let
          :form form
          :env  env}
         (analyze-let form env)))
 
-(defmethod -parse 'loop*
+(defn parse-loop*
   [form env]
   (let [loop-id (gensym "loop_") ;; can be used to find matching recur
-        env (dissoc (assoc env :loop-id loop-id) :no-recur)]
+        env (assoc env :loop-id loop-id)]
     (into {:op      :loop
            :form    form
            :env     env
            :loop-id loop-id}
           (analyze-let form env))))
 
-(defmethod -parse 'recur
-  [[_ & exprs :as form] {:keys [context loop-locals loop-id no-recur]
+(defn parse-recur
+  [[_ & exprs :as form] {:keys [context loop-locals loop-id]
                          :as env}]
   (when-let [error-msg
              (cond
-              (not (= :ctx/return context))
+              (not (isa? context :ctx/return))
               "Can only recur from tail position"
-
-              no-recur
-              "Cannot recur across try"
 
               (not (= (count exprs) loop-locals))
               (str "Mismatched argument count to recur, expected: " loop-locals
@@ -567,6 +562,12 @@
      :children    [:exprs]}))
 
 (defn analyze-fn-method [[params & body :as form] {:keys [locals local] :as env}]
+  (when-not (vector? params)
+    (throw (ex-info "Parameter declaration should be a vector"
+                    (merge {:params params
+                            :form   form}
+                           (-source-info form env)
+                           (-source-info params env)))))
   (when (not-every? valid-binding-symbol? params)
     (throw (ex-info (str "Params must be valid binding symbols, had: "
                          (mapv class params))
@@ -574,14 +575,8 @@
                             :form   form}
                            (-source-info form env)
                            (-source-info params env))))) ;; more specific
-  (when-not (vector? params)
-    (throw (ex-info "Parameter declaration should be a vector"
-                    (merge {:params params
-                            :form   form}
-                           (-source-info form env)
-                           (-source-info params env)))))
   (let [variadic? (boolean (some '#{&} params))
-        params-names (if variadic? (vec (remove '#{&} params)) params)
+        params-names (if variadic? (conj (pop (pop params)) (peek params)) params)
         env (dissoc env :local)
         arity (count params-names)
         params-expr (mapv (fn [name id]
@@ -630,9 +625,9 @@
       :body        body
       :children    [:params :body]}
      (when local
-       {:local (dissoc local :env)}))))
+       {:local (dissoc-env local)}))))
 
-(defmethod -parse 'fn*
+(defn parse-fn*
   [[op & args :as form] env]
   (wrapping-meta
    (let [[n meths] (if (symbol? (first args))
@@ -645,7 +640,7 @@
                     :name  n}
          e (if n (assoc (assoc-in env [:locals n] (dissoc-env name-expr)) :local name-expr) env)
          once? (-> op meta :once boolean)
-         menv (assoc (dissoc e :no-recur :in-try) :once once?)
+         menv (assoc (dissoc e :in-try) :once once?)
          meths (if (vector? (first meths)) (list meths) meths) ;;turn (fn [] ...) into (fn ([]...))
          methods-exprs (mapv #(analyze-fn-method % menv) meths)
          variadic (seq (filter :variadic? methods-exprs))
@@ -677,9 +672,9 @@
              :once            once?}
             (when n
               {:local name-expr})
-            {:children `[~@(when n [:local]) :methods]}))))
+            {:children (conj (if n [:local] []) :methods)}))))
 
-(defmethod -parse 'def
+(defn parse-def
   [[_ sym & expr :as form] {:keys [ns] :as env}]
   (when (not (symbol? sym))
     (throw (ex-info (str "First argument to def must be a symbol, had: " (class sym))
@@ -723,9 +718,10 @@
         meta-expr (when meta (analyze-form meta (ctx env :ctx/expr))) ;; meta on def sym will be evaluated
 
         args (when-let [[_ init] (find args :init)]
-               (merge args {:init (analyze-form init (ctx env :ctx/expr))}))
-        children `[~@(when meta [:meta])
-                   ~@(when (:init args) [:init])]]
+               (assoc args :init (analyze-form init (ctx env :ctx/expr))))
+        init? (:init args)
+        children (into (into [] (when meta [:meta]))
+                       (when init? [:init]))]
 
     (merge {:op   :def
             :env  env
@@ -738,7 +734,7 @@
            (when-not (empty? children)
              {:children children}))))
 
-(defmethod -parse '.
+(defn parse-dot
   [[_ target & [m-or-f & args] :as form] env]
   (when-not (>= (count form) 3)
     (throw (ex-info (str "Wrong number of args to ., had: " (dec (count form)))
@@ -767,25 +763,64 @@
              :children [:target :args]}
 
             field?
-            {:op       :host-field
-             :field    (symbol (name m-or-f))
-             :children [:target]}
+            {:op          :host-field
+             :assignable? true
+             :field       (symbol (name m-or-f))
+             :children    [:target]}
 
             :else
-            {:op       :host-interop ;; either field access or no-args method call
-             :m-or-f   (symbol (name m-or-f))
-             :children [:target]}))))
+            {:op          :host-interop ;; either field access or no-args method call
+             :assignable? true
+             :m-or-f      (symbol (name m-or-f))
+             :children    [:target]}))))
 
-(defmethod -parse :invoke
+(defn parse-invoke
   [[f & args :as form] env]
-  (let [fn-expr (analyze-form f (ctx env :ctx.invoke/target))
-        args-expr (mapv (analyze-in-env (ctx env :ctx.invoke/param)) args)
+  (let [fenv (ctx env :ctx/expr)
+        fn-expr (analyze-form f fenv)
+        args-expr (mapv (analyze-in-env fenv) args)
         m (meta form)]
     (merge {:op   :invoke
             :form form
             :env  env
             :fn   fn-expr
             :args args-expr}
-           (when m
+           (when (seq m)
              {:meta m}) ;; meta on invoke form will not be evaluated
            {:children [:fn :args]})))
+
+(defn parse-var
+  [[_ var :as form] env]
+  (when-not (= 2 (count form))
+    (throw (ex-info (str "Wrong number of args to var, had: " (dec (count form)))
+                    (merge {:form form}
+                           (-source-info form env)))))
+  (if-let [var (resolve-sym var env)]
+    {:op   :the-var
+     :env  env
+     :form form
+     :var  var}
+    (throw (ex-info (str "var not found: " var) {:var var}))))
+
+(defn -parse
+  "Takes a form and an env map and dispatches on the head of the form, that is
+   a special form."
+  [form env]
+  ((case (first form)
+     do      parse-do
+     if      parse-if
+     new     parse-new
+     quote   parse-quote
+     set!    parse-set!
+     try     parse-try
+     throw   parse-throw
+     def     parse-def
+     .       parse-dot
+     let*    parse-let*
+     letfn*  parse-letfn*
+     loop*   parse-loop*
+     recur   parse-recur
+     fn*     parse-fn*
+     var     parse-var
+     #_:else parse-invoke)
+   form env))

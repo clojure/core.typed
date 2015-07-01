@@ -7,20 +7,34 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils
-  (:require [clojure.reflect :as reflect]
+  (:require [clojure.core.typed.deps.clojure.tools.analyzer.utils :as u]
+            [clojure.core.typed.deps.clojure.tools.analyzer.env :as env]
+            [clojure.reflect :as reflect]
             [clojure.string :as s]
             [clojure.core.typed.deps.clojure.core.memoize :refer [lru]]
             [clojure.java.io :as io])
   (:import (clojure.lang RT Symbol Var)
-           (clojure.core.typed.deps.org.objectweb.asm Type)
-           (java.io File)
-           (java.net URL)))
+           clojure.core.typed.deps.org.objectweb.asm.Type))
 
 (defn ^:private type-reflect
   [typeref & options]
   (apply reflect/type-reflect typeref
          :reflector (reflect/->JavaReflector (RT/baseLoader))
          options))
+
+(defn macro? [sym env]
+  (when-let [v (u/resolve-sym sym env)]
+    (and (not (-> env :locals (get sym)))
+         (u/macro? v)
+         v)))
+
+(defn inline? [sym args env]
+  (when-let [v (u/resolve-sym sym env)]
+    (let [inline-arities-f (:inline-arities (meta v))]
+      (and (not (-> env :locals (get sym)))
+           (or (not inline-arities-f)
+               (inline-arities-f (count args)))
+           (:inline (meta v))))))
 
 (defn specials [c]
   (case c
@@ -49,11 +63,9 @@
     "objects" (Class/forName "[Ljava.lang.Object;")
     nil))
 
-(defmulti ^Class -maybe-class class)
-
-(def ^Class maybe-class
+(defmulti ^Class maybe-class
   "Takes a Symbol, String or Class and tires to resolve to a matching Class"
-  (lru (fn [x] (-maybe-class x))))
+  class)
 
 (defn array-class [element-type]
   (RT/classForName
@@ -63,20 +75,23 @@
               .getDescriptor
               (.replace \/ \.)))))
 
-(defn maybe-class-from-string [s]
-  (try
-    (RT/classForName s)
-    (catch Exception _
-      (if-let [maybe-class ((ns-map *ns*) (symbol s))]
-        (when (class? maybe-class)
-          maybe-class)))))
+(def maybe-class-from-string
+  (lru (fn maybe-class-from-string [^String s]
+         (or (when-let [maybe-class (and (neg? (.indexOf s "."))
+                                         (not= \[ (first s))
+                                         (if env/*env*
+                                           (u/resolve-sym (symbol s) {:ns (ns-name *ns*)})
+                                           ((ns-map *ns*) (symbol s))))]
+               (when (class? maybe-class) maybe-class))
+             (try (RT/classForName s)
+                  (catch ClassNotFoundException _))))))
 
-(defmethod -maybe-class :default [_] nil)
-(defmethod -maybe-class Class [c] c)
-(defmethod -maybe-class String [s]
+(defmethod maybe-class :default [_] nil)
+(defmethod maybe-class Class [c] c)
+(defmethod maybe-class String [s]
   (maybe-class (symbol s)))
 
-(defmethod -maybe-class Symbol [sym]
+(defmethod maybe-class Symbol [sym]
   (when-not (namespace sym)
     (let [sname (name sym)
           snamec (count sname)]
@@ -88,14 +103,12 @@
           ret
           (maybe-class-from-string sname))))))
 
-(defmacro case-class [c & clauses]
-  (let [pairs (partition 2 clauses)
-        default (when (odd? (count clauses))
-                   [(last clauses)])]
-     `(case ~c
-       ~@(mapcat (fn [[test then]]
-                   [(eval test) then]) pairs)
-       ~@default)))
+(defn maybe-class-literal [x]
+  (cond
+   (class? x) x
+   (symbol? x) (and (not (namespace x))
+                    (maybe-class-from-string (name x)))
+   (string? x) (maybe-class-from-string x)))
 
 (def primitive?
   "Returns non-nil if the argument represents a primitive Class other than Void"
@@ -105,14 +118,14 @@
 (def ^:private convertible-primitives
   "If the argument is a primitive Class, returns a set of Classes
    to which the primitive Class can be casted"
-  {Integer/TYPE   #{Integer Long/TYPE Long Short/TYPE Byte/TYPE}
-   Float/TYPE     #{Float Double/TYPE}
-   Double/TYPE    #{Double Float/TYPE}
-   Long/TYPE      #{Long Integer/TYPE Short/TYPE Byte/TYPE}
-   Character/TYPE #{Character}
-   Short/TYPE     #{Short}
-   Byte/TYPE      #{Byte}
-   Boolean/TYPE   #{Boolean}
+  {Integer/TYPE   #{Integer Long/TYPE Long Short/TYPE Byte/TYPE Object Number}
+   Float/TYPE     #{Float Double/TYPE Object Number}
+   Double/TYPE    #{Double Float/TYPE Object Number}
+   Long/TYPE      #{Long Integer/TYPE Short/TYPE Byte/TYPE Object Number}
+   Character/TYPE #{Character Object}
+   Short/TYPE     #{Short Object Number}
+   Byte/TYPE      #{Byte Object Number}
+   Boolean/TYPE   #{Boolean Object}
    Void/TYPE      #{Void}})
 
 (defn ^Class box
@@ -172,7 +185,9 @@
        (= c1 c2)
        (.isAssignableFrom c2 c1)
        (and (primitive? c2)
-            ((convertible-primitives c2) c1))))))
+            ((convertible-primitives c2) c1))
+       (and (primitive? c1)
+            (.isAssignableFrom (box c1) c2))))))
 
 (def wider-than
   "If the argument is a numeric primitive Class, returns a set of primitive Classes
@@ -245,14 +260,15 @@
   (:members (type-reflect Object)))
 
 (def members*
-  (lru (fn ([class]
-             (into object-members
-                   (remove (fn [{:keys [flags]}]
-                             (not-any? #{:public :protected} flags))
-                           (-> (maybe-class class)
-                             box
-                             (type-reflect :ancestors true)
-                             :members)))))))
+  (lru (fn members*
+         ([class]
+            (into object-members
+                  (remove (fn [{:keys [flags]}]
+                            (not-any? #{:public :protected} flags))
+                          (-> (maybe-class class)
+                            box
+                            (type-reflect :ancestors true)
+                            :members)))))))
 
 (defn members
   ([class] (members* class))
@@ -330,48 +346,35 @@
                       prev-decl   (maybe-class (:declaring-class prev))
                       next-decl   (maybe-class (:declaring-class next))]
                   (cond
-                  (not prev)
-                  [next]
-                  (= prev-params next-params)
-                  (cond
-                   (= prev-ret next-ret)
+                   (not prev)
+                   [next]
+                   (= prev-params next-params)
                    (cond
-                    (.isAssignableFrom prev-decl next-decl)
+                    (= prev-ret next-ret)
+                    (cond
+                     (.isAssignableFrom prev-decl next-decl)
+                     [next]
+                     (.isAssignableFrom next-decl prev-decl)
+                     p
+                     :else
+                     (conj p next))
+                    (.isAssignableFrom prev-ret next-ret)
                     [next]
-                    (.isAssignableFrom next-decl prev-decl)
+                    (.isAssignableFrom next-ret prev-ret)
                     p
                     :else
                     (conj p next))
-                   (.isAssignableFrom prev-ret next-ret)
+                   (and (some true? (map subsumes? next-params prev-params))
+                        (not-any? true? (map subsumes? prev-params next-params)))
                    [next]
-                   (.isAssignableFrom next-ret prev-ret)
-                   p
                    :else
-                   (conj p next))
-                  (and (some true? (map subsumes? next-params prev-params))
-                       (not-any? true? (map subsumes? prev-params next-params)))
-                  [next]
-                  :else
-                  (conj p next)))) [] methods)
+                   (conj p next)))) [] methods)
       methods)))
-
-(defn source-path [x]
-  (if (instance? File x)
-    (.getAbsolutePath ^File x)
-    (str x)))
 
 (defn ns->relpath [s]
   (str (s/replace (munge (str s)) \. \/) ".clj"))
 
-(defn ns-resource [ns]
+(defn ns-url [ns]
   (let [f (ns->relpath ns)]
-   (cond
-    (instance? File f) f
-    (instance? URL f) f
-    (re-find #"^file://" f) (URL. f)
-    :else (io/resource f))))
-
-(defn res-path [res]
-  (if (instance? File res)
-    (.getPath ^File res)
-    (.getPath ^URL res)))
+    (or (io/resource f)
+        (io/resource (str f "c")))))

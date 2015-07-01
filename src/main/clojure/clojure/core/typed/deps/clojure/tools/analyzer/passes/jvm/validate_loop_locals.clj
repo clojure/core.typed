@@ -8,7 +8,12 @@
 
 (ns clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.validate-loop-locals
   (:require [clojure.core.typed.deps.clojure.tools.analyzer.ast :refer [postwalk children update-children]]
-            [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :refer [wider-tag maybe-class primitive?]]))
+            [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :refer [wider-tag maybe-class primitive?]]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm
+             [validate :refer [validate]]
+             [classify-invoke :refer [classify-invoke]]
+             [infer-tag :refer [infer-tag]]
+             [analyze-host-expr :refer [analyze-host-expr]]]))
 
 (def ^:dynamic ^:private validating nil)
 (def ^:dynamic ^:private mismatch?)
@@ -142,5 +147,6 @@
 (defn validate-loop-locals
   "Returns a pass that validates the loop locals, calling analyze on the loop AST when
    a mismatched loop-local is found"
-  [ast analyze]
-  (-validate-loop-locals analyze ast))
+  {:pass-info {:walk :post :depends #{#'validate} :affects #{#'analyze-host-expr #'infer-tag #'validate} :after #{#'classify-invoke}}}
+  [analyze]
+  (fn [ast] (-validate-loop-locals analyze ast)))
