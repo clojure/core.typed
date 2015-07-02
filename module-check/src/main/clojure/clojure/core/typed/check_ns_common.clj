@@ -50,7 +50,9 @@
                     vs/*checked-asts* (when (#{impl/clojure} impl)
                                         (when (== 1 (count nsym-coll))
                                           (atom {})))
-                    vs/*already-collected* (atom #{})]
+                    vs/*already-collected* (atom #{})
+                    ;; nested check-ns inside check-form switches off check-form
+                    vs/*in-check-form* false]
             (let [terminal-error (atom nil)]
               (reset-env/reset-envs!)
               ;(reset-caches)

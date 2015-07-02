@@ -8,6 +8,8 @@
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.validate :as validate]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.array-ops :as arr-ops]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.assoc-utils :as assoc-u]
@@ -464,7 +466,7 @@
         r (get/invoke-get expr expected :cargs cargs)]
     (if-not (#{cu/not-special} r)
       r
-      (method/check-invoke-method check expr expected false
+      (method/check-invoke-method check expr expected
                                   :cargs cargs))))
 
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
@@ -1032,7 +1034,7 @@
         r (nth/invoke-nth check expr expected :cargs cargs)]
     (if-not (#{cu/not-special} r)
       r
-      (method/check-invoke-method check expr expected false
+      (method/check-invoke-method check expr expected
                                   :cargs cargs))))
 
 ;nthnext
@@ -1411,19 +1413,50 @@
   (assoc expr
          u/expr-type (local-result/local-result expr sym expected)))
 
+(defn add-type-hints [expr]
+  (let [{:keys [t]} (u/expr-type expr)
+        cls (cu/Type->Class t)]
+    (if cls
+      (assoc expr 
+             :o-tag cls
+             :tag cls)
+      expr)))
+
 (add-check-method :host-interop
-  [{:keys [m-or-f target] :as expr} & [expected]]
+  [{:keys [m-or-f target args] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)]}
-  (let [ctarget (check target)]
-    (err/tc-delayed-error (str "Unresolved host interop: " m-or-f
-                             (type-hints/suggest-type-hints 
-                               m-or-f 
-                               (-> ctarget u/expr-type r/ret-t) 
-                               [])
-                             "\n\nHint: use *warn-on-reflection* to identify reflective calls"))
-    (assoc expr 
-           :target ctarget
-           u/expr-type (cu/error-ret expected))))
+  ;(prn "host-interop")
+  (let [ctarget (check target)
+        cargs (when args
+                (mapv check args))
+        give-up (fn []
+                  (do
+                    (err/tc-delayed-error (str "Unresolved host interop: " m-or-f
+                                               (type-hints/suggest-type-hints 
+                                                 m-or-f 
+                                                 (-> ctarget u/expr-type r/ret-t) 
+                                                 [])
+                                               "\n\nHint: use *warn-on-reflection* to identify reflective calls"))
+                    (assoc expr 
+                           :target ctarget
+                           u/expr-type (cu/error-ret expected))))]
+    ;; try to rewrite, otherwise error on reflection
+    (if vs/*in-check-form*
+      (let [nexpr (let [e (assoc expr :target (add-type-hints ctarget))]
+                    (if cargs
+                      (assoc e :args (mapv add-type-hints cargs))
+                      e))
+            ;_ (prn (-> nexpr :target ((juxt :o-tag :tag))))
+            rewrite (-> nexpr
+                        ana-host/analyze-host-expr
+                        validate/validate)]
+        ;(prn "rewrite" (:op rewrite))
+        (case (:op rewrite)
+          (:static-call :instance-call) (method/check-invoke-method check rewrite expected
+                                                                    :ctarget ctarget
+                                                                    :cargs cargs)
+          (give-up)))
+      (give-up))))
 
 (add-check-method :static-call
   [expr & [expected]]
@@ -1434,7 +1467,7 @@
   (let [spec (static-method-special expr expected)]
     (if (not= :default spec)
       spec
-      (method/check-invoke-method check expr expected false))))
+      (method/check-invoke-method check expr expected))))
 
 (add-check-method :instance-call
   [expr & [expected]]
@@ -1445,7 +1478,7 @@
   (let [spec (instance-method-special expr expected)]
     (if (not= :default spec)
       spec
-      (method/check-invoke-method check expr expected true))))
+      (method/check-invoke-method check expr expected))))
 
 (add-check-method :static-field
   [expr & [expected]]

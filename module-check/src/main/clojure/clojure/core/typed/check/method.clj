@@ -14,16 +14,16 @@
             [clojure.core.typed.method-override-env :as mth-override]))
 
 ;[MethodExpr Type Any -> Expr]
-(defn check-invoke-method [check-fn {c :class method-name :method :keys [args env] :as expr} expected inst?
+(defn check-invoke-method [check-fn {c :class method-name :method :keys [args env] :as expr} expected
                            & {:keys [ctarget cargs method-override]}]
   {:pre [((some-fn nil? r/TCResult?) expected)
-         ((some-fn nil? r/Type?) method-override)
-         (or (not ctarget) inst?)]
+         ((some-fn nil? r/Type?) method-override)]
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (:args %))]}
   (binding [vs/*current-env* env
             vs/*current-expr* expr]
-    (let [method (cu/MethodExpr->Method expr)
+    (let [inst? (= :instance-call (:op expr))
+          method (cu/MethodExpr->Method expr)
           msym (cu/MethodExpr->qualsym expr)
           rfin-type (or method-override
                         (when msym

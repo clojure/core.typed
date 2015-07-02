@@ -9,6 +9,7 @@
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.cleanup :as cleanup]
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.trim :as trim]
+            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-reflect]
             [clojure.core.typed.deps.clojure.tools.reader :as tr]
             [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
             [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.validate :as validate]
@@ -298,9 +299,14 @@
 (def typed-passes
   (-> taj/default-passes
       ;(conj #'reflect-validated)
-      ;; conflicts with current approach of special typed forms implemented
-      ;; as `do` nodes with constants.
-      (disj #'trim/trim)))
+      (disj 
+        ;; trim conflicts with current approach of special typed forms implemented
+        ;; as `do` nodes with constants.
+        #'trim/trim
+        ;; We either rewrite reflective calls or throw a type error.
+        ;; Reflective calls in untyped (tc-ignore'd) code will be signalled 
+        ;; by the Clojure compiler once evaluated.
+        #'warn-reflect/warn-on-reflection)))
 
 (def typed-schedule
   (passes/schedule typed-passes #_{:debug? true}))
