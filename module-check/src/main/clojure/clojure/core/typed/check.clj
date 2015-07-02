@@ -1455,7 +1455,8 @@
           (:static-call :instance-call) (method/check-invoke-method check rewrite expected
                                                                     :ctarget ctarget
                                                                     :cargs cargs)
-          (give-up)))
+          (:host-interop) (give-up)
+          (err/int-error "TODO resolve fields and constructors")))
       (give-up))))
 
 (add-check-method :static-call
