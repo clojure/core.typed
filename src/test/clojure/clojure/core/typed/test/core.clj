@@ -4331,6 +4331,17 @@
                [-> nil :filters {:then ff :else tt} :flow ff])
     (is-tc-err (fn [a] (monitor-exit 1))
                [Any -> nil :filters {:then ff :else tt} :object {:id 0}]))
+  (testing "def"
+    (is-tc-e #(def a 1) [-> (Var1 (Val 1))])
+    (is-tc-err #(def a 1) [-> (Var1 (Val 2))])
+    (is-tc-e #(def a 1) 
+             [-> (Var1 (Val 1)) :filters {:then tt :else ff}])
+    (is-tc-err #(def a 1) 
+             [-> (Var1 (Val 1)) :filters {:then ff :else tt}])
+    (is-tc-err (fn [f] (def a 1))
+               [Any -> (Var1 (Val 1)) :filters {:then tt :else ff}
+                :object {:id 0}])
+    )
 )
 
 (deftest fn-type-parse-test
