@@ -10,6 +10,8 @@
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.type-ctors :as c])
   (:import (clojure.lang Var)))
 
@@ -38,9 +40,12 @@
         (p/p :check/checked-def)
         (assoc expr
                :init cinit
-               u/expr-type (impl/impl-case
-                             :clojure (r/ret (c/RClass-of Var [t t]))
-                             :cljs cljs-ret)))
+               u/expr-type (below/maybe-check-below
+                             (impl/impl-case
+                               :clojure (r/ret (c/RClass-of Var [t t])
+                                               (fo/-true-filter))
+                               :cljs cljs-ret)
+                             expected)))
 
       ; if warn-if-unannotated?, don't try and infer this var,
       ; just skip it
@@ -53,9 +58,12 @@
           (flush)
           (p/p :check/def-not-checking-definition)
           (assoc expr
-                 u/expr-type (impl/impl-case
-                               :clojure (r/ret (c/RClass-of Var [(or t r/-nothing) (or t r/-any)]))
-                               :cljs cljs-ret)))
+                 u/expr-type (below/maybe-check-below
+                               (impl/impl-case
+                                 :clojure (r/ret (c/RClass-of Var [(or t r/-nothing) (or t r/-any)])
+                                                 (fo/-true-filter))
+                                 :cljs cljs-ret)
+                               expected)))
 
       ;otherwise try and infer a type
       :else
@@ -72,6 +80,9 @@
         (p/p :check/checked-def)
         (assoc expr
                :init cinit
-               u/expr-type (impl/impl-case
-                             :clojure (r/ret (c/RClass-of Var [inferred inferred]))
-                             :cljs cljs-ret))))))
+               u/expr-type (below/maybe-check-below
+                             (impl/impl-case
+                               :clojure (r/ret (c/RClass-of Var [inferred inferred])
+                                               (fo/-true-filter))
+                               :cljs cljs-ret)
+                             expected))))))
