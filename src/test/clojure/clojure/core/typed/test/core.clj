@@ -11,6 +11,7 @@
             [clojure.core.typed.unsafe]
             [clojure.core.typed.init]
             [clojure.core.typed.utils :as u :refer [expr-type]]
+            [clojure.core.typed.profiling :as p :refer [profile]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check :as chk]
@@ -4941,6 +4942,24 @@
                  (assert (keyword? i))
                  k)))
   )
+
+
+(deftest profile-inline-test
+  ;; should have :check/instance-call-clojure-lang-probably-inline 1
+  (is (profile :info :bar
+               (tc-e
+                 #(.getName (java.io.File. "a")))
+               true))
+  ;; should have :check/instance-call-clojure-lang-probably-inline
+  (is (profile :info :bar
+               (tc-e
+                 #(nil? nil))
+               true))
+  ;; has :check/static-call-clojure-lang-probably-inline
+  (is (profile :info :bar
+               (tc-e
+                 (zero? 0))
+               true)))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 

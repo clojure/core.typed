@@ -398,6 +398,10 @@
              ss)
       (flush))))
 
+(defmacro with-tracing [& body]
+  `(binding [uvs/*trace-checker* true]
+     ~@body))
+
 (defmacro trace [& ss]
   `(when uvs/*trace-checker*
      (println 

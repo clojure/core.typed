@@ -1253,6 +1253,7 @@
             ctarget (check target)
             cdispatch-val-expr (check dispatch-val-expr)
             dispatch-type (mm/multimethod-dispatch-type mmsym)]
+        (p/p :check/checked-MultiFn-addMethod)
         (if-not dispatch-type
           (binding [vs/*current-env* env]
             (err/tc-delayed-error (str "Multimethod requires dispatch type: " mmsym
@@ -1425,12 +1426,34 @@
            :target ctarget
            u/expr-type (cu/error-ret expected))))
 
+(defn clojure-lang-call? [^String m]
+  (or 
+    (.startsWith m "clojure.lang")
+    (= m "java.lang.Class/getClassLoader")
+    (= m "java.lang.AssertionError")
+    (= m "java.io.StringWriter")
+    (= m "java.lang.Object/getClass")))
+
+
+(defmacro profile-inlining [chk-op source]
+  {:pre [(keyword? chk-op)]}
+  `(p/when-profile 
+     (let [mstr# ~source]
+       (when (clojure-lang-call? mstr#)
+         (u/trace mstr# " is inline" ~chk-op)
+         (u/p ~(keyword (str "check/" (name chk-op) "-clojure-lang-probably-inline")))))))
+
 (add-check-method :static-call
   [expr & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)]}
   #_(prn "static-method")
   (u/trace 
-    "static Call: " (:method expr))
+    (let [inline? (-> (cu/MethodExpr->qualsym expr)
+                      str
+                      clojure-lang-call?)]
+      (str (when-not inline? "non-inlined ") "static Call: " (cu/MethodExpr->qualsym expr))))
+  (profile-inlining :static-call
+    (str (cu/MethodExpr->qualsym expr)))
   (let [spec (static-method-special expr expected)]
     (if (not= :default spec)
       spec
@@ -1442,6 +1465,13 @@
           (if (contains? % :args)
             (vector? (:args %))
             true)]}
+  (u/trace 
+    (let [inline? (-> (cu/MethodExpr->qualsym expr)
+                      str
+                      clojure-lang-call?)]
+      (str (when-not inline? "non-inlined ") "instance Call: " (cu/MethodExpr->qualsym expr))))
+  (profile-inlining :instance-call
+    (str (cu/MethodExpr->qualsym expr)))
   (let [spec (instance-method-special expr expected)]
     (if (not= :default spec)
       spec
@@ -1452,6 +1482,13 @@
   {:post [(-> % u/expr-type r/TCResult?)]}
   (binding [vs/*current-expr* expr]
     (let [field (cu/FieldExpr->Field expr)]
+      (u/trace 
+        (let [inline? (-> (:type field)
+                          str
+                          clojure-lang-call?)]
+          (str (when-not inline? "non-inlined ") "static field: " (:type field))))
+      (profile-inlining :static-field
+        (str (:type field)))
       (assert field)
       (assoc expr
              u/expr-type (below/maybe-check-below
@@ -1586,6 +1623,19 @@
   [{cls :class :keys [args env] :as expr} & [expected]]
   {:post [(vector? (:args %))
           (-> % u/expr-type r/TCResult?)]}
+  (u/trace 
+    (let [inline? (-> expr
+                      ast-u/new-op-class 
+                      coerce/Class->symbol
+                      str
+                      clojure-lang-call?)]
+      (str (when-not inline? "non-inlined ") "new Call: " (-> expr
+                                                              ast-u/new-op-class 
+                                                              coerce/Class->symbol))))
+  (profile-inlining :new
+    (str (-> expr
+             ast-u/new-op-class 
+             coerce/Class->symbol)))
   (binding [vs/*current-expr* expr
             vs/*current-env* env]
     (let [ctor (cu/NewExpr->Ctor expr)
