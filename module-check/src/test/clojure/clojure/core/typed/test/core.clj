@@ -1512,11 +1512,14 @@
   (is-tc-e (java.io.File. "a"))
   (is-tc-e (let [a (or "a" "b")]
              (java.io.File. a)))
+  (is-tc-e
+    (fn [& {:keys [path] :or {path "foo"}}]
+      (java.io.File. path))
+    [& :optional {:path String} -> java.io.File])
   (is-tc-err
     (fn [& {:keys [path] :or {path "foo"}}]
-      (print-env "a")
       (java.io.File. path))
-    [& :optional {:path String} -> java.io.File]))
+    [& :optional {:path Int} -> java.io.File]))
 
 ;(fn> [a :- (U (Extends Number :without [(IPerVec clojure.core.typed/Any)])
 ;              (Extends (IPV clojure.core.typed/Any) :without [Number])
@@ -4946,6 +4949,84 @@
                  (assert (keyword? i))
                  k)))
   )
+
+(deftest rewrite-reflecting-method-test
+  (is-tc-err (fn [a] (.getParent a)))
+  (is
+    (should-not-reflect
+      (tc-e 
+        (fn [^java.io.File a] (.getParent a))
+        [java.io.File -> Any])))
+  (is
+    (should-not-reflect
+      (tc-e 
+        (fn [a] (.getParent a))
+        [java.io.File -> Any])))
+  (is
+    (should-not-reflect
+      (tc-e 
+        (fn [a] (.getParent a))
+        [java.io.File -> (U nil Str)])))
+  (testing "the type hint can be inferred, but we only add type
+           hints to :local nodes"
+    (is (tc-err
+          (.getParent (do (if (zero? 0) (java.io.File. "a") "a"))))))
+  (testing "special form fn with inline annotations should rewrite body"
+    (is
+      (should-not-reflect
+        (tc-e 
+          (fn [a :- java.io.File]
+            (.getParent a))))))
+  (is
+    (should-not-reflect
+      (tc-e 
+        (fn [a] 
+          {:pre [(instance? java.io.File a)]}
+          (.getParent a)))))
+  (is 
+    (should-not-reflect
+      (tc-e 
+        (fn [a] (.getParent a))
+        [java.io.File -> Any]))))
+
+(deftest rewrite-reflecting-ctor-test
+  (is-tc-err (java.io.File. 1))
+  (is-tc-err (fn [a]
+               (java.io.File. a)))
+  (is
+    (should-not-reflect
+      (tc-e (fn [a]
+              (java.io.File. a))
+            [Str -> Any])))
+  (testing "special fn with inline"
+    (is
+      (should-not-reflect
+        (tc-e (fn [a :- Str]
+                (java.io.File. a))))))
+  (is
+    (should-not-reflect
+      (tc-e (let [[a] [(str "a")]]
+              (java.io.File. a)))))
+  (testing "type hint is only added via a :local node"
+    (is-tc-err (java.io.File. (first [(str "a")]))))
+  (is-tc-err (let [[a] [(long 1)]]
+               (java.io.File. a)))
+  (is-tc-e (fn [a]
+             (java.io.File. a))
+           [Str -> java.io.File]))
+
+(deftest rewrite-in-deftype-test
+  (is
+    (should-not-reflect
+      (tc-e (do
+              (defprotocol B
+                (f [m]))
+              (ann-datatype F [])
+              (deftype F []
+                B
+                (f [m]
+                  (fn [a :- Str]
+                    (java.io.File. a)))))))))
 
 
 (deftest profile-inline-test

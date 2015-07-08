@@ -502,6 +502,12 @@
                            (not (sub/subtype? v2 v1)))
                   k))))))
 
+(defn Type->Class [t]
+  {:pre [(r/Type? t)]
+   :post [((some-fn nil? class?) %)]}
+  (cond
+    (r/RClass? t) (r/RClass->Class t)))
+
 (defn should-rewrite? []
   (and vs/*in-check-form*
        vs/*can-rewrite*))
