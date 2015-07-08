@@ -1,5 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.profiling
-  (:refer-clojure :exclude [defn]))
+  (:refer-clojure :exclude [defn])
+  (:require [clojure.core :as core]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -124,6 +125,10 @@
         (cons 'fn* (add-profile fake-name new-sigs)))
       (meta &form))))
 
+;; ========================================================================
+;; From here `defn` is unusable
+;; ========================================================================
+
 ;;;;;;;;;;;;;;;;;
 ;; Timbre stuff
 ;;
@@ -138,11 +143,18 @@
     (catch Throwable e
       false)))
 
+;; cannot be a defn
+(def timbre-exists? #(find-ns 'taoensso.timbre.profiling))
+
 ; use our own version of pspy that can be type checked
 (defmacro p [name & body]
-  (if (find-ns 'taoensso.timbre.profiling)
+  (if (timbre-exists?)
     `(pspy ~name ~@body)
     `(do ~@body)))
+
+;; ========================================================================
+;; From here can safely use defn
+;; ========================================================================
 
 (defmacro fq-keyword
   "Returns namespaced keyword for given name."
@@ -166,11 +178,19 @@
            (swap! taoensso.timbre.profiling/*pdata* #(assoc % name# (conj (% name# []) elapsed#))))
          result#))))
 
+(defmacro when-profile 
+  "Conditional profiling. Returns nil."
+  [& body]
+  (when (timbre-exists?)
+    `(do
+       (when taoensso.timbre.profiling/*pdata*
+         ~@body)
+       nil)))
 
 (defmacro profile 
   "Usage: (profile :info :foo ...)"
   [a1 a2 & body]
-  (if (find-ns 'taoensso.timbre.profiling)
+  (if (timbre-exists?)
     `(taoensso.timbre.profiling/profile ~a1 ~a2 ~@body)
     `(do (prn "WARNING: Cannot profile, timbre must be added as a dependency") 
          nil
