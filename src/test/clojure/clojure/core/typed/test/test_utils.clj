@@ -175,3 +175,33 @@
   `(impl/with-clojure-impl
      (t/check-form* '~form)))
 
+;; from clojure.test-helper
+(defmacro with-err-string-writer
+  "Evaluate with err pointing to a temporary StringWriter, and
+   return err contents as a string."
+  [& body]
+  `(let [s# (java.io.StringWriter.)]
+     (binding [*err* s#]
+       ~@body
+       (str s#))))
+
+;; from clojure.test-helper
+(defmacro with-err-print-writer
+  "Evaluate with err pointing to a temporary PrintWriter, and
+   return err contents as a string."
+  [& body]
+  `(let [s# (java.io.StringWriter.)
+         p# (java.io.PrintWriter. s#)]
+     (binding [*err* p#]
+       ~@body
+       (str s#))))
+
+;; from clojure.test-helper
+(defmacro should-not-reflect
+  "Turn on all warning flags, and test that reflection does not occur
+   (as identified by messages to *err*)."
+  [form]
+  `(binding [*warn-on-reflection* true]
+     (is (nil? (re-find #"^Reflection warning" (with-err-string-writer ~form))))
+     (is (nil? (re-find #"^Reflection warning" (with-err-print-writer ~form))))))
+

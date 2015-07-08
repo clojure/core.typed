@@ -1,6 +1,7 @@
 (ns clojure.core.typed.check.type-hints
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.reflect-utils :as reflect-u]))
 
@@ -11,7 +12,7 @@
                   (c/fully-resolve-type targett))
         cls (cond
               constructor-call (coerce/symbol->Class constructor-call)
-              (r/RClass? targett) (r/RClass->Class targett))]
+              :else (cu/Type->Class targett))]
     (when cls
       (let [r (reflect-u/reflect cls)
             {methods clojure.reflect.Method
