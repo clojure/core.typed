@@ -4,15 +4,17 @@
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.typed.collect-phase :as collect-clj]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.check :as chk-clj]
             [clojure.core.typed.file-mapping :as file-map]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.ns-deps-utils :as ns-deps-u]
             [clojure.java.io :as io]
             [clojure.core.typed.deps.clojure.core.cache :as cache]
-            [clojure.core.typed.deps.clojure.jvm.tools.analyzer :as jta])
+            [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as jvm-u])
   (:import (clojure.lang ExceptionInfo)))
 
 (defn cljs-reader [nsym]
@@ -87,7 +89,19 @@
                                  "\nHint: Use :no-check metadata with ann if this is an unchecked var")
                         (flush))))
                   (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                        checked (some-> vs/*already-checked* deref)]
+                        checked (some-> vs/*already-checked* deref)
+                        _ (when (#{impl/clojure} impl)
+                            (u/trace 
+                              (binding [*print-length* nil]
+                                (let [checked (set (filter ns-deps-u/should-check-ns? checked))]
+                                  (str "Checked namespaces: " checked
+                                       ", " (apply + (for [nsym checked]
+                                                       (with-open [rdr (io/reader 
+                                                                         (impl/impl-case
+                                                                           :clojure (jvm-u/ns-url nsym)
+                                                                           :cljs    (cljs-reader nsym)))]
+                                                         (count (line-seq rdr)))))
+                                       " lines")))))]
                     (println "Checked" (count checked) "namespaces "
                              "in" ms "msecs")
                     (flush)))

@@ -36,6 +36,7 @@
             [clojure.core.typed.method-param-nilables :as param-nil]
             [clojure.core.typed.subtype :as sub]
             [clojure.repl :as repl]
+            [clojure.core.typed.profiling :as profile]
             [clojure.core.typed.deps.clojure.math.combinatorics :as comb]
             [clojure.core.typed.deps.clojure.tools.namespace.track :as track]
             [clojure.core.typed.deps.clojure.tools.namespace.dir :as dir]
@@ -258,6 +259,11 @@
                      (prs/parse-type typesyn))]
     ;var already interned via macroexpansion
     (nme-env/add-type-name qsym alias-type)
+    (profile/when-profile
+      (when (or (r/HeterogeneousMap? alias-type)
+                (and (r/Union? alias-type)
+                     (every? r/HeterogeneousMap? (:types alias-type))))
+        (profile/p :collect/defalias-is-HMap)))
     (when-let [tfn (decl/declared-kind-or-nil qsym)]
       (when-not (sub/subtype? alias-type tfn) 
         (err/int-error (str "Declared kind " (prs/unparse-type tfn)

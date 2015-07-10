@@ -178,14 +178,12 @@
            (swap! taoensso.timbre.profiling/*pdata* #(assoc % name# (conj (% name# []) elapsed#))))
          result#))))
 
-(defmacro when-profile 
-  "Conditional profiling. Returns nil."
+(defmacro when-profile
+  "Conditional profiling. Returns nil if not profiling."
   [& body]
   (when (timbre-exists?)
-    `(do
-       (when taoensso.timbre.profiling/*pdata*
-         ~@body)
-       nil)))
+    `(when taoensso.timbre.profiling/*pdata*
+       ~@body)))
 
 (defmacro profile 
   "Usage: (profile :info :foo ...)"
