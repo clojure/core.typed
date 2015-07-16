@@ -1,4 +1,4 @@
-# 0.3.{1-7}
+# 0.3.{1-7} - 10 July 2015
 
 ## Inlined all dependencies
 
