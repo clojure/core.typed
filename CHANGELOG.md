@@ -14,6 +14,18 @@ prefixed by `^:source-dep`.
 using some Clojure 1.7 features and change the base-env to annotate
 Clojure 1.7.0 core vars.
 
+## Add back AOT class files
+
+The standard `org.clojure/core.typed` jar has AOT classes for `core.typed`
+and its dependencies. 
+Beforehand, AOT files for old CLJS versions was causing havoc.
+This is hopefully less of a problem now &mdash;
+since all dependencies are in `clojure.core.typed.deps.*`, 
+it's easy to create a filer to delete these extra files.
+
+`[org.clojure/core.typed "0.3.7" :classifier "slim"]` gives you just
+the Clojure sources.
+
 ## Support quoted '"string" syntax for string singletons (Val "string")
 
 ```
