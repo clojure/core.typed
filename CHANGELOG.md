@@ -8,6 +8,12 @@ They are all copied with a flat prefix to `clojure.core.typed.deps.*`.
 The current versions of copied libraries are in `project.clj`,
 prefixed by `^:source-dep`.
 
+## Dropped Clojure 1.6 support
+
+`core.typed` should work fine with 1.6 for a while, but I might start
+using some Clojure 1.7 features and change the base-env to annotate
+Clojure 1.7.0 core vars.
+
 ## Support quoted '"string" syntax for string singletons (Val "string")
 
 ```
