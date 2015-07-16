@@ -38,7 +38,7 @@
 
   ; fireplace repl middleware
   :repl-options {:nrepl-middleware [#_cemerick.piggieback/wrap-cljs-repl
-                                    clojure.core.typed.repl/wrap-clj-repl]}
+                                    #_clojure.core.typed.repl/wrap-clj-repl]}
 
   :plugins [[lein-typed "0.3.1"]
             [thomasa/mranderson "0.4.4-ambrosebs-SNAPSHOT"]]

@@ -1,6 +1,44 @@
+# 0.3.{1-7}
+
+## Inlined all dependencies
+
+`org.clojure/core.typed` now has no external dependencies.
+They are all copied with a flat prefix to `clojure.core.typed.deps.*`.
+
+The current versions of copied libraries are in `project.clj`,
+prefixed by `^:source-dep`.
+
+## Support quoted '"string" syntax for string singletons (Val "string")
+
+```
+(ann M (U '{:op '"left" :left Int}
+          '{:op '"right" :right Bool}))
+```
+
+## `keyword` now accepts `Any` and is smarter
+
+- [Commit 1](https://github.com/clojure/core.typed/commit/39bef22f2a4955ed19d9c1314f8661245211042b)
+- [Commit 2](https://github.com/clojure/core.typed/commit/b60ebf31b9873bdddd3e1cd604a8a00dd7d1ebd3)
+
+```clojure
+(ann M (U '{:op '"left" :left Int}
+          '{:op '"right" :right Bool}))
+
+(ann f [M -> Any])
+(defmulti f (fn [m :- M] (keyword (:op m))))
+(defmethod f :left [{:keys [left]}] (inc left))
+(defmethod f :right [{:keys [right]}] (not right))
+```
+
+## Other changes
+
+- Fix: `def` expressions now check their expected types
+- Revert 0.3.0 change: `check-ns` now always eagerly checks transitive namespaces
+- Add various tracing and metrics for POPL submission
+
 # 0.3.0 - 25 June 2015
 
-- Breaking change:
+- Breaking change: (REVERTED 0.3.1)
   - all `check-ns` operations now avoid rechecking transitive dependencies.
     To explicitly recheck dependencies use the `:clean` keyword parameter.
 
