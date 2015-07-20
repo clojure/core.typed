@@ -40,3 +40,4 @@
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *analyze-ns-cache* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *checked-asts* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *lexical-env* nil)

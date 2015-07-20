@@ -64,7 +64,7 @@
                           (reduced [nenv (conj cexprs 
                                                (assoc cexpr 
                                                       u/expr-type (r/ret (r/Bottom))))])))))
-                  [lex/*lexical-env* []] (map-indexed vector exprs))
+                  [(lex/lexical-env) []] (map-indexed vector exprs))
           actual-types (map u/expr-type cexprs)
           _ (assert (lex/PropEnv? env))
           _ (assert ((every-pred vector? seq) cexprs)) ; make sure we conj'ed in the right order

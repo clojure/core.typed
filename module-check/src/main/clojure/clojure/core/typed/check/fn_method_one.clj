@@ -105,9 +105,9 @@
         ;                                       (symbol? sym)]}
         ;                                (subst-filter p sym obj/-empty true))
         ;                              oldp (map :sym required-params)))
-        ;                    (:props lex/*lexical-env*))
+        ;                    (:props (lex/lexical-env)))
 
-        props (:props lex/*lexical-env*)
+        props (:props (lex/lexical-env))
         crequired-params (map (fn [p t] (assoc p u/expr-type (r/ret t)))
                               required-params
                               (concat dom 
@@ -150,7 +150,7 @@
 
         ;_ (prn "funapp1: inferred mm-filter" mm-filter)
 
-        env (let [env (-> lex/*lexical-env*
+        env (let [env (-> (lex/lexical-env)
                           ;add mm-filter
                           (assoc-in [:props] (set (concat props (when mm-filter [mm-filter]))))
                           ;add parameters to scope

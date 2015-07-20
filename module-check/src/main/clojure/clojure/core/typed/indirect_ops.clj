@@ -9,4 +9,5 @@
                      -FS
                      -top-fn
                      -empty-fn
-                     infer)
+                     infer
+                     PropEnv?)

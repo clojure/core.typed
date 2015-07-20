@@ -1,6 +1,7 @@
 (ns clojure.core.typed.check.case
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.lex-env :as lex]
@@ -18,7 +19,7 @@
   (letfn [(check-case-then [tst-ret {:keys [then] :as case-then}]
             (let [{{fs+ :then} :fl :as rslt} (equiv/tc-equiv := [target-ret tst-ret] nil)
                   flag+ (atom true)
-                  env-thn (update/env+ lex/*lexical-env* [fs+] flag+)
+                  env-thn (update/env+ (lex/lexical-env) [fs+] flag+)
                   _ (when-not @flag+
                       ;; FIXME should we ignore this branch?
                       (u/tc-warning "Local became bottom when checking case then"))

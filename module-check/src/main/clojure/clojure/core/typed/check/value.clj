@@ -12,7 +12,7 @@
             [clojure.core.typed.type-rep :as r]))
 
 (defn flow-for-value []
-  (let [props (:props lex/*lexical-env*)
+  (let [props (:props (lex/lexical-env))
         flow (r/-flow (apply fo/-and fl/-top props))]
     flow))
 

@@ -105,7 +105,7 @@
                                               (assoc-in [:l sym] t))
                                           (conj cexprs cexpr)])
                      :else (err/int-error (str "What is this?" fl)))))
-               [lex/*lexical-env* []] (map vector bindings (or expected-bnds
+               [(lex/lexical-env) []] (map vector bindings (or expected-bnds
                                                                (repeat nil))))
 
              cbody (var-env/with-lexical-env env

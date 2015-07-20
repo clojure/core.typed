@@ -49,22 +49,22 @@
 
             ;_ (print-env)
             ;idsym (gensym)
-            env-thn (update/env+ lex/*lexical-env* [fs+] flag+)
+            env-thn (update/env+ (lex/lexical-env) [fs+] flag+)
             ;          _ (do (pr "check-if: env-thn")
             ;              (print-env* env-thn))
-            env-els (update/env+ lex/*lexical-env* [fs-] flag-)
+            env-els (update/env+ (lex/lexical-env) [fs-] flag-)
             ;          _ (do (pr "check-if: env-els")
             ;              (print-env* env-els))
             ;          new-thn-props (set
             ;                          (filter atomic-filter?
             ;                                  (set/difference
-            ;                                    (set (:props lex/*lexical-env*))
+            ;                                    (set (:props (lex/lexical-env)))
             ;                                    (set (:props env-thn)))))
             ;_ (prn idsym"env+: new-thn-props" (map unparse-filter new-thn-props))
             ;          new-els-props (set
             ;                          (filter atomic-filter?
             ;                                  (set/difference
-            ;                                    (set (:props lex/*lexical-env*))
+            ;                                    (set (:props (lex/lexical-env)))
             ;                                    (set (:props env-els)))))
             ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
             cthen

@@ -5,7 +5,7 @@
             [clojure.core.typed.parse-unparse :as prs]))
 
 (defn print-env*
-  ([] (print-env* lex/*lexical-env*))
+  ([] (print-env* (lex/lexical-env)))
   ([e]
    {:pre [(lex/PropEnv? e)]}
    ;; DO NOT REMOVE

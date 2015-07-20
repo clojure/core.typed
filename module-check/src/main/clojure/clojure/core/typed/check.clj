@@ -1849,7 +1849,7 @@
                               (free-ops/with-free-mappings 
                                 (zipmap (map (comp r/F-original-name r/make-F) nms) 
                                         (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
-                                ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
+                                ;(prn "lexical env when checking method" method-nme (lex/lexical-env))
                                 ;(prn "frees when checking method" 
                                 ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
                                 ;                [k name])))
@@ -1917,7 +1917,7 @@
                                         (fo/-not-filter-at (apply c/Un val-ts)
                                                            (r/ret-o target-ret))
                                         fl/-top))
-                         env-default (update/env+ lex/*lexical-env* [neg-tst-fl] flag+)
+                         env-default (update/env+ (lex/lexical-env) [neg-tst-fl] flag+)
                          _ (when-not @flag+
                              ;; FIXME should we ignore this branch?
                              (u/tc-warning "Local became bottom when checking case default"))]
