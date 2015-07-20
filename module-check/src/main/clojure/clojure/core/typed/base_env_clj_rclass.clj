@@ -470,6 +470,20 @@ java.util.RandomAccess [[[a :variance :covariant]]
                         :unchecked-ancestors
                         #{(Indexed a)}]
 
+java.util.Queue [[[a :variance :covariant]]
+                 :replace
+                 {Iterable (Iterable a)
+                  Collection (Collection a)}
+                 :unchecked-ancestors
+                 #{(Seqable a)}]
+
+java.util.concurrent.BlockingQueue [[[a :variance :covariant]]
+                                    :replace
+                                    {Iterable (Iterable a)
+                                     java.util.Queue (java.util.Queue a)
+                                     Collection (Collection a)}
+                                    :unchecked-ancestors
+                                    #{(Seqable a)}]
 ))
 
 (defn reset-rclass-env! []
