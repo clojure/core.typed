@@ -4961,6 +4961,22 @@
                  (zero? 0))
                true)))
 
+;; unclear what this is testing, but it's been fixed sometime after 0.2.11
+(deftest CTYP-80-test
+  (is-tc-e (do (defalias SLiteral (U Sym (Option (Seqable SLiteral))))
+
+               (ann s-check (Pred Symbol))
+               (defn s-check
+                 [x]
+                 (symbol? x))
+
+               (ann s-test [SLiteral -> SLiteral])
+               (defn s-test
+                 [sliteral]
+                 (if (s-check sliteral)
+                   'win
+                   (second sliteral))))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
