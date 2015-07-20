@@ -9,6 +9,7 @@
             [clojure.core.typed.file-mapping :as file-map]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ns-deps-utils :as ns-deps-u]
@@ -52,7 +53,8 @@
                     vs/*checked-asts* (when (#{impl/clojure} impl)
                                         (when (== 1 (count nsym-coll))
                                           (atom {})))
-                    vs/*already-collected* (atom #{})]
+                    vs/*already-collected* (atom #{})
+                    vs/*lexical-env* (lex-env/init-lexical-env)]
             (let [terminal-error (atom nil)]
               (reset-env/reset-envs!)
               ;(reset-caches)

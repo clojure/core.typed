@@ -46,7 +46,7 @@
     env))
 
 (defmacro with-lexical-env [env & body]
-  `(binding [lex/*lexical-env* ~env]
+  `(binding [vs/*lexical-env* ~env]
      ~@body))
 
 (defn var-annotations []

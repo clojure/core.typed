@@ -9,6 +9,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
@@ -78,7 +79,8 @@
               vs/*already-checked* (atom #{})
               vs/*delayed-errors* (err/-init-delayed-errors)
               vs/*analyze-ns-cache* (cache/soft-cache-factory {})
-              vs/*in-check-form* true]
+              vs/*in-check-form* true
+              vs/*lexical-env* (lex-env/init-lexical-env)]
       (let [expected (or
                        expected-ret
                        (when type-provided?
