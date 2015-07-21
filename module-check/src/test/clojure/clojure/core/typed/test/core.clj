@@ -1638,13 +1638,13 @@
        (In (make-F 'foo1) (make-F 'foo2)))))
 
 
-;CTYP-27
-;(deftest nth-inline-test
-;  (is (cf (fn [s] (clojure.lang.RT/nth s 0 nil))
-;          (clojure.core.typed/All [x] (Fn #_[nil -> nil]
-;                       #_[(I (clojure.lang.Seqable x) (ExactCount 0)) -> nil]
-;                       [(I (clojure.lang.Seqable x) (CountRange 1)) -> x]
-;                       #_[(U nil  (clojure.lang.Seqable x)) -> (U nil  x)])))))
+(deftest CTYP-27-nth-inline-test
+  (is-tc-e (fn [s] (clojure.lang.RT/nth s 0 nil))
+           [nil -> nil])
+  (is-tc-e (fn [s] (nth s 0 nil))
+           [nil -> nil])
+  (is-tc-e #(inc (first [1 2 3])))
+  (is-tc-e #(let [[x & xs] [1 2 3]] (inc x))))
 
 (deftest invoke-tfn-test
   (is-clj (inst/manual-inst (parse-type `(All [[~'x :< (TFn [[~'x :variance :covariant]] Any)]]
