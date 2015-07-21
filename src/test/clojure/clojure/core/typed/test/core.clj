@@ -5093,6 +5093,14 @@
 (deftest CTYP-234-test
   (is (check-ns 'clojure.core.typed.test.CTYP-234.core)))
 
+(deftest CTYP-203-test
+  (is-tc-e
+    (do
+      (defalias BaseValidationSchema
+        '[Boolean (HMap :complete? false)])
+
+      (ann-form [true {}] BaseValidationSchema))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
