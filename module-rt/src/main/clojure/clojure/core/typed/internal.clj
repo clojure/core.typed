@@ -124,8 +124,16 @@
   (let [[flatopt args] (parse-keyword-flat-map args)
         [name & args] args
         _ (assert (symbol? name) "defn name should be a symbol")
-        [docstring args] (take-when string? args)]
-    {:name (vary-meta name #(merge % (when docstring {:doc docstring})))
+        [docstring args] (take-when string? args)
+        [attr-map args] (take-when map? args)]
+    {:name (vary-meta name merge 
+                      {:arglists
+                       (list 'quote
+                             (if (vector? (first args)) ; arity = 1
+                               (list (first args))
+                               (map first args)))}
+                      (when docstring {:doc docstring})
+                      attr-map)
      :args (concat flatopt args)}))
 
 ;(ann parse-fn> [Any (Seqable Any) ->
