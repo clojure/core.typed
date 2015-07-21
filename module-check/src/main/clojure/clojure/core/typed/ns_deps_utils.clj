@@ -80,24 +80,34 @@
   (let [nsym (ns-form-name ns-form)]
     (boolean (-> (meta nsym) :core.typed :collect-only))))
 
+(defn should-collect-ns-form?
+  [ns-form]
+  {:post [(con/boolean? %)]}
+  (and (boolean ns-form)
+       (requires-tc? ns-form)))
+
 (defn should-check-ns-form?
   [ns-form]
   {:post [(con/boolean? %)]}
-  (and ns-form
+  (and (boolean ns-form)
        (requires-tc? ns-form)
        (not (collect-only-ns? ns-form))))
+
+(defn should-collect-ns?
+  "Returns true if the given namespace should be collected for
+  type annotations. Currently, if the namespace depends on
+  core.typed, then it should be collected."
+  [nsym]
+  {:pre [(symbol? nsym)]
+   :post [(con/boolean? %)]}
+  (should-collect-ns-form? (ns-form-for-ns nsym)))
 
 (defn should-check-ns?
   "Returns true if the given namespace should be type checked"
   [nsym]
   {:pre [(symbol? nsym)]
    :post [(con/boolean? %)]}
-  (p/p :ns-deps-utils/should-check-ns?
-       (if-let [ns-form (ns-form-for-ns nsym)]
-         (and ns-form
-              (requires-tc? ns-form)
-              (not (collect-only-ns? ns-form)))
-         false)))
+  (should-check-ns-form? (ns-form-for-ns nsym)))
 
 (defn ns-has-core-typed-metadata?
   "Returns true if the given ns form has :core.typed metadata."
@@ -112,5 +122,5 @@
   {:pre [(string? res)]
    :post [(con/boolean? %)]}
   (if-let [ns-form (ns-form-for-file res)]
-    (some-> ns-form ns-has-core-typed-metadata?)
+    (boolean (some-> ns-form ns-has-core-typed-metadata?))
     false))

@@ -100,8 +100,10 @@
   (let [prs-ns (dep-u/ns-form-name ns-form)
         deps   (dep-u/ns-form-deps ns-form)
         tdeps (set (filter dep-u/should-check-ns? deps))]
+    ;; is this line needed?
     (dep/add-ns-deps prs-ns tdeps)
-    (doseq [dep tdeps]
+    (doseq [dep deps
+            :when (dep-u/should-collect-ns? dep)]
       (if vs/*in-check-form*
         ;; to keep compatibility with 0.2.x namespaces,
         ;; collect namespaces that would have worked in 0.2.x but don't now.
