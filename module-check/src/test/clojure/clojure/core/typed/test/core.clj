@@ -5031,6 +5031,16 @@
             ^{:baz 1} nme
             {:baz 2} [a] a)))))
 
+(deftest CTYP-212-test
+  (is-tc-e
+    (do
+      (ann-record MyRecord [p :- (Promise Int)])
+
+      (defrecord MyRecord [p])
+
+      (defn foo []
+        (let [x :- (Promise Int) (promise)])))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
