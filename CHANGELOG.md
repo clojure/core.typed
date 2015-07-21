@@ -1,3 +1,44 @@
+# 0.3.8 - 21 July 2015
+
+<a href='http://dev.clojure.org/jira/browse/CTYP/fixforversion/10555'>JIRA Release notes</a>
+
+Release Notes - core.typed - Version 0.3.8
+
+This release contains mainly bug fixes. The typed `defn` now supports
+a metadata map and `:arglists` metadata (<a href='http://dev.clojure.org/jira/browse/CTYP-113'>CTYP-113</a>).
+    
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-27'>CTYP-27</a>] -         clojure.lang.RT/nth&#39;s type doesn&#39;t currently allow nil as the first argument
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-80'>CTYP-80</a>] -         Issue with filter subtyping/simplification
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-203'>CTYP-203</a>] -         Unreproducable internal error
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-212'>CTYP-212</a>] -         Can&#39;t create a promise of the same type as a record field
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-234'>CTYP-234</a>] -         Setting :collect-only attribute for a namespace does not collect type aliases
+</li>
+</ul>
+    
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-113'>CTYP-113</a>] -         Better documentation for override-method
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-168'>CTYP-168</a>] -         Support metadata map and :arglists in clojure.core.typed/defn
+</li>
+</ul>
+    
+<h2>        Task
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-248'>CTYP-248</a>] -         Move lexical environment to an easily accessible location 
+</li>
+</ul>
+
+
 # 0.3.{1-7} - 10 July 2015
 
 ## Inlined all dependencies
