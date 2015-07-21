@@ -4977,6 +4977,60 @@
                    'win
                    (second sliteral))))))
 
+(defmacro typed-defn-check-meta [meta-fn & args]
+  (let [g (gensym "v")]
+    `(do (tc/defn ~g ~@args)
+         (~meta-fn (meta (var ~g))))))
+
+(defmacro named-typed-defn-check-meta [meta-fn nme & args]
+  (let [g (with-meta (gensym "v")
+                     (meta nme))]
+    `(do (tc/defn ~g ~@args)
+         (~meta-fn (meta (var ~g))))))
+
+(deftest CTYP-168-test
+  (testing ":arglists metadata is added with typed defn"
+    (is (typed-defn-check-meta
+          #(not= '([]) (:arglists %))
+          [a] a))
+    (is (typed-defn-check-meta
+          #(= '([a]) (:arglists %))
+          [a] a))
+    (is (typed-defn-check-meta
+          #(= '([a]) (:arglists %))
+          ([a] a)))
+    (is (typed-defn-check-meta
+          #(= '([a] [b c]) (:arglists %))
+          ([a] a) ([b c] c))))
+  (testing ":doc metadata works"
+    (is (typed-defn-check-meta
+          (comp #{"blah"} :doc)
+          "blah" [a] a)))
+  (testing "typed defn supports metadata map"
+    (is (typed-defn-check-meta
+          #(not (contains? % :foo))
+          [a] a))
+    (is (typed-defn-check-meta
+          #(and (= '([a]) (:arglists %))
+                (= 1 (:foo %)))
+          {:foo 1} [a] a))
+    (testing "metadata map is always merged last"
+      (is (typed-defn-check-meta
+            #(= '([]) (:arglists %))
+            {:arglists '([])} [a] a))
+      (is (typed-defn-check-meta
+            (comp #{"b"} :doc)
+            "a"
+            {:doc "b"} [a] a))
+      (is (named-typed-defn-check-meta
+            #(= 1 (:baz %))
+            ^{:baz 1} nme
+            [a] a))
+      (is (named-typed-defn-check-meta
+            #(= 2 (:baz %))
+            ^{:baz 1} nme
+            {:baz 2} [a] a)))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

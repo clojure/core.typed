@@ -226,10 +226,8 @@
                ~@args)))
 
 (defmacro
-  ^{:forms '[(defn name docstring? [param :- type *] :- type exprs*)
-             (defn :forall poly name docstring? [param :- type *] :- type exprs*)
-             (defn poly? name docstring? ([param :- type *] :- type exprs*)+)
-             (defn :forall poly name docstring? ([param :- type *] :- type exprs*)+)]}
+  ^{:forms '[(defn kw-args? name docstring? attr-map? [param :- type *] :- type exprs*)
+             (defn kw-args? name docstring? attr-map? ([param :- type *] :- type exprs*)+)]}
   defn
   "Like defn, but expands to clojure.core.typed/fn. If a polymorphic binder is
   supplied before the var name, expands to clojure.core.typed/pfn.
