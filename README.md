@@ -117,6 +117,7 @@ Thanks to the following people for contributing to core.typed:
 * Minori Yamashita (ympbyc)
 * Kyle Kingsbury (aphyr)
 * Nathan Sorenson
+* Tobias Kortkamp (t6)
 
 ## Sponsors
 
