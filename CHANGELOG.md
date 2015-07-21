@@ -5,7 +5,7 @@
 Release Notes - core.typed - Version 0.3.8
 
 This release contains mainly bug fixes. The typed `defn` now supports
-a metadata map and `:arglists` metadata (<a href='http://dev.clojure.org/jira/browse/CTYP-113'>CTYP-113</a>).
+a metadata map and `:arglists` metadata (<a href='http://dev.clojure.org/jira/browse/CTYP-168'>CTYP-168</a>).
 
 Thanks to Tobian Kortkamp for contributing a patch.
     
