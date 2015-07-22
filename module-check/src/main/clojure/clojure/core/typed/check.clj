@@ -464,7 +464,7 @@
         r (get/invoke-get expr expected :cargs cargs)]
     (if-not (#{cu/not-special} r)
       r
-      (method/check-invoke-method check expr expected false
+      (method/check-invoke-method check expr expected
                                   :cargs cargs))))
 
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
@@ -1032,7 +1032,7 @@
         r (nth/invoke-nth check expr expected :cargs cargs)]
     (if-not (#{cu/not-special} r)
       r
-      (method/check-invoke-method check expr expected false
+      (method/check-invoke-method check expr expected
                                   :cargs cargs))))
 
 ;nthnext
@@ -1457,7 +1457,7 @@
   (let [spec (static-method-special expr expected)]
     (if (not= :default spec)
       spec
-      (method/check-invoke-method check expr expected false))))
+      (method/check-invoke-method check expr expected))))
 
 (add-check-method :instance-call
   [expr & [expected]]
@@ -1475,7 +1475,7 @@
   (let [spec (instance-method-special expr expected)]
     (if (not= :default spec)
       spec
-      (method/check-invoke-method check expr expected true))))
+      (method/check-invoke-method check expr expected))))
 
 (add-check-method :static-field
   [expr & [expected]]
