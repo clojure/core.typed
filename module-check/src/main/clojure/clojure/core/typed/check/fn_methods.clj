@@ -6,7 +6,6 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.check.fn-method :as fn-method]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.lex-env :as lex]
