@@ -152,7 +152,7 @@
       ; rewrite nth type to be more useful when we have an exact (and interesting) index.
       (nat-value? num-t)
       (method/check-invoke-method
-        check-fn expr expected false
+        check-fn expr expected
         :method-override (nth-function-type (-> num-t :val))
         :cargs cargs)
       :else cu/not-special)))
