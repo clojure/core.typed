@@ -5108,6 +5108,27 @@
 (deftest CTYP-210-test
   (is-tc-e #(long (+ 2 (int 123)))))
 
+(deftest CTYP-256-test
+  (is (= (impl/with-clojure-impl
+           (impl/impl-case
+             :clojure 1
+             :cljs 2))
+         1))
+  (is (= (impl/with-cljs-impl
+           (impl/impl-case
+             :clojure 1
+             :cljs 2))
+         2))
+  (is (= (impl/impl-case
+           :clojure 1
+           :cljs 2
+           :unknown 3)
+         3))
+  (is (thrown? AssertionError
+               (impl/impl-case
+                 :clojure 1
+                 :cljs 2))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
