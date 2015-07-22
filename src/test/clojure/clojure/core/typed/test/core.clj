@@ -5105,6 +5105,9 @@
   (is-tc-e (fn [[a b] :- (I (Vec Num) (ExactCount 2))]
              (+ a b))))
 
+(deftest CTYP-210-test
+  (is-tc-e #(long (+ 2 (int 123)))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
