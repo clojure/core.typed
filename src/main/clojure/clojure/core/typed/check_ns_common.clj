@@ -54,7 +54,9 @@
                                         (when (== 1 (count nsym-coll))
                                           (atom {})))
                     vs/*already-collected* (atom #{})
-                    vs/*lexical-env* (lex-env/init-lexical-env)]
+                    vs/*lexical-env* (lex-env/init-lexical-env)
+                    ;; nested check-ns inside check-form switches off check-form
+                    vs/*in-check-form* false]
             (let [terminal-error (atom nil)]
               (reset-env/reset-envs!)
               ;(reset-caches)

@@ -80,7 +80,8 @@
               vs/*delayed-errors* (err/-init-delayed-errors)
               vs/*analyze-ns-cache* (cache/soft-cache-factory {})
               vs/*in-check-form* true
-              vs/*lexical-env* (lex-env/init-lexical-env)]
+              vs/*lexical-env* (lex-env/init-lexical-env)
+              vs/*can-rewrite* true]
       (let [expected (or
                        expected-ret
                        (when type-provided?

@@ -501,3 +501,7 @@
                 (when (and (sub/subtype? v1 v2)
                            (not (sub/subtype? v2 v1)))
                   k))))))
+
+(defn should-rewrite? []
+  (and vs/*in-check-form*
+       vs/*can-rewrite*))
