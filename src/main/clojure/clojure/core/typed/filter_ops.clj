@@ -23,18 +23,20 @@
          (fr/name-ref? i)
          ((some-fn nil? #(every? pr/PathElem? %)) p)]
    :post [(fr/Filter? %)]}
-  (if (or (= r/-any t) (and (symbol? i) (r/is-var-mutated? i)))
-    fr/-top
-    (fr/TypeFilter-maker t (seq p) i)))
+  (cond
+    (= r/-any t) fr/-top
+    (= r/-nothing t) fr/-bot
+    :else (fr/TypeFilter-maker t (seq p) i)))
 
 (defn -not-filter [t i & [p]]
   {:pre [(r/Type? t)
          (fr/name-ref? i)
          ((some-fn nil? #(every? pr/PathElem? %)) p)]
    :post [(fr/Filter? %)]}
-  (if (or (= r/-any t) (and (symbol? i) (r/is-var-mutated? i)))
-    fr/-top
-    (fr/NotTypeFilter-maker t (seq p) i)))
+  (cond
+    (= r/-nothing t) fr/-top
+    (= r/-any t) fr/-bot
+    :else (fr/NotTypeFilter-maker t (seq p) i)))
 
 (defn -filter-at [t o]
   (if (or/Path? o)
