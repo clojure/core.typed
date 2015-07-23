@@ -389,7 +389,7 @@
 (defn make-Intersection [types]
   (let [cnt (count types)]
     (cond
-      (= 0 cnt) r/-nothing
+      (= 0 cnt) r/-any
       (= 1 cnt) (first types)
       :else (r/Intersection-maker (apply sorted-set-by u/type-comparator types)))))
 
@@ -505,9 +505,11 @@
   (p :type-ctors/In-ctor
     (let [res (let [ts (set (flatten-intersections types))]
                 (cond
-                  ; empty intersection is bottom
-                  (or (empty? ts)
-                      (contains? ts bottom)) bottom
+                  ; empty intersection is Top
+                  (empty? ts) r/-any
+
+                  ; intersection containing Bottom is Bottom
+                  (contains? ts bottom) r/-nothing
 
                   (= 1 (count ts)) (first ts)
 
