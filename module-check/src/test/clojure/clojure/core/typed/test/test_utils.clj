@@ -129,6 +129,9 @@
 (defmacro is-clj [& args]
   `(is (clj ~@args)))
 
+(defmacro cljs [& body]
+  `(impl/with-cljs-impl ~@body))
+
 (defmacro clj [& body]
   `(impl/with-clojure-impl ~@body))
 

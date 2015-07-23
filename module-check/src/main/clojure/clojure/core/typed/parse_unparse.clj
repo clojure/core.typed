@@ -1216,17 +1216,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
 
+;; Unparsing types are generally agnostic to the current implementation.
+;; Special types are unparsed under clojure.core.typed in the :unknown
+;; implementation. All other types are verbosely printed under :unknown.
+
 (defonce ^:dynamic *unparse-type-in-ns* nil)
 (set-validator! #'*unparse-type-in-ns* (some-fn nil? symbol?))
 
 (defn unparse-in-ns []
-  {:post [(symbol? %)]}
+  {:post [((some-fn nil? symbol?) %)]}
   (or (some-> *unparse-type-in-ns* ns-name)
       (impl/impl-case
         :clojure (ns-name *ns*)
         :cljs (do
                 (require '[clojure.core.typed.util-cljs])
-                ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))))
+                ((impl/v 'clojure.core.typed.util-cljs/cljs-ns)))
+        :unknown nil)))
 
 (defmacro with-unparse-ns [sym & body]
   `(binding [*unparse-type-in-ns* ~sym]
@@ -1275,43 +1280,28 @@
         (merge (ns-interns ns)
                (ns-refers ns))))
 
-(defn unparse-Class-symbol-in-ns [sym]
-  {:pre [(symbol? sym)]
-   :post [(symbol? %)]}
-  ;(prn "unparse-Class-symbol-in-ns" sym)
-  (if-let [ns (and (not vs/*verbose-types*)
-                   (some-> (unparse-in-ns) find-ns))]
-        
-    (or 
-      ; use an import name
-      (Class-symbol-intern sym ns)
-        ; core.lang classes are special
-        (core-lang-Class-sym sym)
-        ; otherwise use fully qualified name
-        sym)
-    sym))
-
 (defn unparse-Name-symbol-in-ns [sym]
   {:pre [(symbol? sym)]
    :post [(symbol? %)]}
   ;(prn "unparse-Name-symbol-in-ns" sym)
   (if-let [ns (and (not vs/*verbose-types*)
                    (some-> (unparse-in-ns) find-ns))]
-    (or ; use an import name
-        (Class-symbol-intern sym ns)
-        ; core.lang classes are special
-        (core-lang-Class-sym sym)
-        ; use unqualified name if interned
-        (when (namespace sym)
-          (var-symbol-intern sym ns)
-          ; use aliased ns if not interned, but ns is aliased
-          (impl/impl-case
-            :clojure
-            (when-let [alias (alias-in-ns (namespace sym) ns)]
-              (symbol (str alias) (name sym)))
-            :cljs nil))
-        ; otherwise use fully qualified name
-        sym)
+    (impl/impl-case
+      :clojure
+      (or ; use an import name
+          (Class-symbol-intern sym ns)
+          ; core.lang classes are special
+          (core-lang-Class-sym sym)
+          ; use unqualified name if interned
+          (when (namespace sym)
+            (or (var-symbol-intern sym ns)
+                ; use aliased ns if not interned, but ns is aliased
+                (when-let [alias (alias-in-ns (namespace sym) ns)]
+                  (symbol (str alias) (name sym)))))
+          ; otherwise use fully qualified name
+          sym)
+      :cljs sym
+      :unknown sym)
     sym))
 
 (declare unparse-type*)
@@ -1471,8 +1461,7 @@
 
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
-  (let [s (impl/impl-case :clojure (unparse-Name-symbol-in-ns the-var)
-                          :cljs the-var)]
+  (let [s (unparse-Name-symbol-in-ns the-var)]
     (if poly?
       (list* s (mapv unparse-type poly?))
       s)))
