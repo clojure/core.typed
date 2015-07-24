@@ -1,3 +1,43 @@
+# 0.3.9 - 24 July 2015
+
+<a href='http://dev.clojure.org/jira/secure/ReleaseNote.jspa?projectId=10271&version=10556'>Release Notes</a> - core.typed - Version 0.3.9
+
+This release mostly prepares for AST rewriting. Some bugs around
+types and propositions are fixed.
+    
+<h2>Defect</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-210'>CTYP-210</a>] -         (long AnyInteger) doesn&#39;t typecheck
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-257'>CTYP-257</a>] -         Empty intersection should be Top, not Bottom
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-258'>CTYP-258</a>] -         Correctly simplify negative type propositions in constructor
+</li>
+</ul>
+    
+<h2>Enhancement</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-172'>CTYP-172</a>] -         ExactCount should work with destructuring
+</li>
+</ul>
+    
+<h2>Task</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-251'>CTYP-251</a>] -         Remove dead code clojure.core.typed.check.fn-method
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-252'>CTYP-252</a>] -         Suppress tools.analyzer&#39;s warn-on-reflection
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-253'>CTYP-253</a>] -         Remove static/instance flag in check-method
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-254'>CTYP-254</a>] -         Add flag to enable AST rewriting
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-255'>CTYP-255</a>] -         Unparse should be flexible to unknown implementations
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-256'>CTYP-256</a>] -         Add :unknown implementation to impl-case
+</li>
+</ul>
+
+
 # 0.3.8 - 21 July 2015
 
 <a href='http://dev.clojure.org/jira/browse/CTYP/fixforversion/10555'>JIRA Release notes</a>
