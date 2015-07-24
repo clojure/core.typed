@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.3.9</version>
+    <version>0.3.10-SNAPSHOT</version>
   </parent>
 
   <build>
