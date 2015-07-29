@@ -21,11 +21,21 @@
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (::t/cmethods %))]}
   ;(prn "check-fn" methods)
-  (let [cmethods (fn-methods/check-fn-methods 
-                   methods
-                   (r/ret-t expected)
-                   :self-name (cu/fn-self-name fexpr))]
+  (let [cmethodss (fn-methods/check-fn-methods 
+                    methods
+                    (r/ret-t expected)
+                    :self-name (cu/fn-self-name fexpr))
+        ;; if we only check a method once, then it's clear we can just use
+        ;; the output of type checking the method as the output :method entry.
+        ;; Otherwise, it's unclear what to do, just use the original input :method.
+        cmethods (mapv (fn [m cms]
+                         (if (== 1 (count cms))
+                           (first cms)
+                           m))
+                       methods
+                       cmethodss)]
     (assoc fexpr
+           :methods cmethods
            ::t/cmethods cmethods
            u/expr-type  (r/ret (r/ret-t expected)
                                (fo/-FS fl/-top fl/-bot)))))
