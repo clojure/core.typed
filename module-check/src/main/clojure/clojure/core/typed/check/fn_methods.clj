@@ -26,6 +26,40 @@
                            (con/optional :validate-expected-fn) ifn?
                            (con/optional :self-name) (some-fn nil? symbol?)))
 
+(defn expected-for-method 
+  [{:keys [fixed-arity] :as method} f]
+  {:pre [(method? method)
+         (r/Function? f)]
+   :post [((some-fn nil? r/Function?) %)]}
+  ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
+  ;; actually distribute the types amongst the fixed and rest parameters
+  (let [variadic?   (ast-u/variadic-method? method)
+        fixed-arity (ast-u/fixed-arity method)]
+    (cond
+      (or rest drest)
+      (cond
+        (not variadic?) nil
+
+        ; extra domains flow into the rest argument
+        (<= fixed-arity ndom) f
+
+        ;otherwise method doesn't fit
+        :else nil)
+
+      ; kw and drest functions must have exact fixed domain match
+      (or kws drest)
+      (cond
+        (not variadic?) nil
+        (== ndom fixed-arity) f
+        :else nil)
+
+      ; no variable arity
+      (= nil rest drest kws)
+      (cond
+        variadic? nil
+        (== ndom fixed-arity) f
+        :else nil))))
+
 (defn check-Function
   "Check individual Function type against all methods"
   [mthods {:keys [dom rest drest kws] :as f} {:keys [recur-target-fn]}]
@@ -35,40 +69,6 @@
    :post [(methods? %)]}
   ;(prn "check-Function" f)
   (let [ndom (count dom)
-        expected-for-method
-        (fn [{:keys [fixed-arity] :as method} f]
-          {:pre [(method? method)
-                 (r/Function? f)]
-           :post [((some-fn nil? r/Function?) %)]}
-          ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
-          ;; actually distribute the types amongst the fixed and rest parameters
-          (let [variadic?   (ast-u/variadic-method? method)
-                fixed-arity (ast-u/fixed-arity method)]
-            (cond
-              (or rest drest)
-              (cond
-                (not variadic?) nil
-
-                ; extra domains flow into the rest argument
-                (<= fixed-arity ndom) f
-
-                ;otherwise method doesn't fit
-                :else nil)
-
-              ; kw and drest functions must have exact fixed domain match
-              (or kws drest)
-              (cond
-                (not variadic?) nil
-                (== ndom fixed-arity) f
-                :else nil)
-
-              ; no variable arity
-              (= nil rest drest kws)
-              (cond
-                variadic? nil
-                (== ndom fixed-arity) f
-                :else nil))))
-
         maybe-check (fn [method]
                       {:pre [(method? method)]
                        :post [((some-fn nil? method?) %)]}
