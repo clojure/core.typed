@@ -26,74 +26,41 @@
                            (con/optional :validate-expected-fn) ifn?
                            (con/optional :self-name) (some-fn nil? symbol?)))
 
-(defn check-Function
-  "Check individual Function type against all methods"
-  [mthods {:keys [dom rest drest kws] :as f} {:keys [recur-target-fn]}]
-  {:pre [((every-pred methods? seq) mthods)
-         (r/Function? f)
-         ((some-fn nil? ifn?) recur-target-fn)]
-   :post [(methods? %)]}
-  ;(prn "check-Function" f)
+(defn expected-for-method 
+  [{:keys [fixed-arity] :as method}
+   {:keys [dom rest drest kws] :as f}]
+  {:pre [(method? method)
+         (r/Function? f)]
+   :post [((some-fn nil? r/Function?) %)]}
+  ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
+  ;; actually distribute the types amongst the fixed and rest parameters
   (let [ndom (count dom)
-        expected-for-method 
-        (fn [{:keys [fixed-arity] :as method}]
-          {:pre [(method? method)]
-           :post [((some-fn nil? r/Function?) %)]}
-          ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
-          ;; actually distribute the types amongst the fixed and rest parameters
-          (let [variadic?   (ast-u/variadic-method? method)
-                fixed-arity (ast-u/fixed-arity method)]
-            (cond
-              (or rest drest)
-              (cond
-                (not variadic?) nil
+        variadic?   (ast-u/variadic-method? method)
+        fixed-arity (ast-u/fixed-arity method)]
+    (cond
+      (or rest drest)
+      (cond
+        (not variadic?) nil
 
-                ; extra domains flow into the rest argument
-                (<= fixed-arity ndom) f
+        ; extra domains flow into the rest argument
+        (<= fixed-arity ndom) f
 
-                ;otherwise method doesn't fit
-                :else nil)
+        ;otherwise method doesn't fit
+        :else nil)
 
-              ; kw and drest functions must have exact fixed domain match
-              (or kws drest)
-              (cond
-                (not variadic?) nil
-                (== ndom fixed-arity) f
-                :else nil)
+      ; kw and drest functions must have exact fixed domain match
+      (or kws drest)
+      (cond
+        (not variadic?) nil
+        (== ndom fixed-arity) f
+        :else nil)
 
-              ; no variable arity
-              (= nil rest drest kws)
-              (cond
-                variadic? nil
-                (== ndom fixed-arity) f
-                :else nil))))
-
-        maybe-check (fn [method]
-                      {:pre [(method? method)]
-                       :post [((some-fn nil? method?) %)]}
-                      (when-let [fe (expected-for-method method)]
-                        ;(prn "inner expected in check-Function" fe)
-                        (let [{:keys [cmethod]} (fn-method1/check-fn-method1
-                                                  method 
-                                                  fe
-                                                  :recur-target-fn recur-target-fn)]
-                          (assert (method? cmethod))
-                          cmethod)))
-        ms (->> mthods
-                (map maybe-check)
-                (filter identity)
-                vec)]
-    ;(prn "checked ms" (count ms))
-    (when (empty? ms)
-      (binding [vs/*current-expr* (impl/impl-case
-                                    :clojure (first mthods)
-                                    ; fn-method is not printable in cljs
-                                    :cljs vs/*current-expr*)
-                vs/*current-env* (or (:env (first mthods)) vs/*current-env*)]
-        (prs/with-unparse-ns (cu/expr-ns (first mthods))
-          (err/tc-delayed-error (str "No matching arities: " (prs/unparse-type f))))))
-    ms))
-
+      ; no variable arity
+      (= nil rest drest kws)
+      (cond
+        variadic? nil
+        (== ndom fixed-arity) f
+        :else nil))))
 
 (defn check-fni [exp mthods
                  {:keys [recur-target-fn
@@ -103,7 +70,7 @@
   {:pre [(function-type? exp)
          (methods? mthods)
          (opt-map? opt)]
-   :post [(methods? %)]}
+   :post [(every? methods? %)]}
   ;(prn "check-fni" exp)
   (let [; unwrap polymorphic expected types
         [fin inst-frees bnds poly?] (cu/unwrap-poly exp)
@@ -125,16 +92,21 @@
             (dvar-env/with-dotted-mappings (case poly?
                                              :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                              {})
-              (vec
-                (mapcat (fn [f]
-                          {:pre [(r/Function? f)]
-                           ;returns a collection of fn-method's
-                           :post [(methods? %)]}
-                          (check-Function
-                            mthods
-                            f
-                            {:recur-target-fn recur-target-fn}))
-                        (:types fin))))))]
+              (mapv (fn [m]
+                      {:pre [(method? m)]
+                       :post [(methods? %)]}
+                      (let [efs (keep #(expected-for-method m %) (:types fin))]
+                        (binding [vs/*can-rewrite* (if (== 1 (count efs))
+                                                     vs/*can-rewrite*
+                                                     nil)]
+                          (let [expected-f->cmethod (comp
+                                                      :cmethod
+                                                      #(fn-method1/check-fn-method1
+                                                         m 
+                                                         %
+                                                         :recur-target-fn recur-target-fn))]
+                            (mapv expected-f->cmethod efs)))))
+                    mthods))))]
     cmethods))
 
 (defn function-types [expected]
@@ -152,20 +124,29 @@
 ; If this is a deftype method, provide a recur-target-fn to handle recur behaviour
 ; and validate-expected-fn to prevent expected types that include a rest argument.
 ;
+; Returns a vector that contains vectors of methods. We might type check each method
+; more than once, so instead of returning (count mthods) methods, we return (count mthods)
+; number of vectors of checked methods, in the same order as the input methods.
+;
 ; (ann check-fn-methods [Expr Type & :optional {:recur-target-fn (Nilable [Function -> RecurTarget])
 ;                                               :validate-expected-fn (Nilable [FnIntersection -> Any])}
-;                        -> (Coll FnMethod)])
+;                        -> (Vec (Vec FnMethod))])
 (defn check-fn-methods [mthods expected & {:as opt}]
   {:pre [(r/Type? expected)
          ((every-pred methods? seq) mthods)
          (opt-map? opt)]
-   :post [(methods? %)]}
+   :post [(every? methods? %)]}
   ;(prn "check-fn-methods")
   (let [ts (function-types expected)]
-    (if (empty? ts)
+    (cond
+      (empty? ts)
       (prs/with-unparse-ns (cu/expr-ns (first mthods))
         (err/tc-delayed-error (str (prs/unparse-type expected) " is not a function type")
-                              :return []))
-      (vec
-        (mapcat (fn [t] (check-fni t mthods opt))
-                ts)))))
+                              :return (mapv vector mthods)))
+
+      :else
+      (binding [vs/*can-rewrite* (if (== 1 (count ts))
+                                   vs/*can-rewrite*
+                                   nil)]
+        (apply mapv (comp vec concat)
+               (map (fn [t] (check-fni t mthods opt)) ts))))))
