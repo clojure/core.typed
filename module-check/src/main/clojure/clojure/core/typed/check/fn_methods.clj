@@ -35,9 +35,10 @@
    :post [(methods? %)]}
   ;(prn "check-Function" f)
   (let [ndom (count dom)
-        expected-for-method 
-        (fn [{:keys [fixed-arity] :as method}]
-          {:pre [(method? method)]
+        expected-for-method
+        (fn [{:keys [fixed-arity] :as method} f]
+          {:pre [(method? method)
+                 (r/Function? f)]
            :post [((some-fn nil? r/Function?) %)]}
           ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
           ;; actually distribute the types amongst the fixed and rest parameters
@@ -71,7 +72,7 @@
         maybe-check (fn [method]
                       {:pre [(method? method)]
                        :post [((some-fn nil? method?) %)]}
-                      (when-let [fe (expected-for-method method)]
+                      (when-let [fe (expected-for-method method f)]
                         ;(prn "inner expected in check-Function" fe)
                         (let [{:keys [cmethod]} (fn-method1/check-fn-method1
                                                   method 
