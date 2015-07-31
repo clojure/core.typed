@@ -5,6 +5,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
@@ -20,101 +21,89 @@
                              r/FnIntersection?))
 
 (def method? (some-fn ast-u/fn-method? ast-u/deftype-method?))
-(def methods? (con/every-c? method?))
+(def methods? 
+  (fn [ms]
+    (impl/impl-case
+      :clojure ((con/vec-c? method?) ms)
+      :cljs (every? method? ms))))
 
 (def opt-map? (con/hmap-c? (con/optional :recur-target-fn) ifn?
                            (con/optional :validate-expected-fn) ifn?
                            (con/optional :self-name) (some-fn nil? symbol?)))
 
-(defn check-Function
-  "Check individual Function type against all methods"
-  [mthods {:keys [dom rest drest kws] :as f} {:keys [recur-target-fn]}]
-  {:pre [((every-pred methods? seq) mthods)
-         (r/Function? f)
-         ((some-fn nil? ifn?) recur-target-fn)]
-   :post [(methods? %)]}
-  ;(prn "check-Function" f)
+(def method-return?
+  (con/hmap-c?
+    :methods methods?
+    :cmethods methods?))
+
+(defn expected-for-method
+  "Takes a :method AST node and a single Function arity type,
+  and returns the Function if the :method node should be checked
+  against the Function, otherwise returns nil."
+  [{:keys [fixed-arity] :as method}
+   {:keys [dom rest drest kws] :as f}]
+  {:pre [(method? method)
+         (r/Function? f)]
+   :post [((some-fn nil? r/Function?) %)]}
+  ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
+  ;; actually distribute the types amongst the fixed and rest parameters
   (let [ndom (count dom)
-        expected-for-method 
-        (fn [{:keys [fixed-arity] :as method}]
-          {:pre [(method? method)]
-           :post [((some-fn nil? r/Function?) %)]}
-          ;; fn-method-u/*check-fn-method1-rest-type*, and check-fn-method1
-          ;; actually distribute the types amongst the fixed and rest parameters
-          (let [variadic?   (ast-u/variadic-method? method)
-                fixed-arity (ast-u/fixed-arity method)]
-            (cond
-              (or rest drest)
-              (cond
-                (not variadic?) nil
+        variadic?   (ast-u/variadic-method? method)
+        fixed-arity (ast-u/fixed-arity method)]
+    (cond
+      (or rest drest)
+      (cond
+        (not variadic?) nil
 
-                ; extra domains flow into the rest argument
-                (<= fixed-arity ndom) f
+        ; extra domains flow into the rest argument
+        (<= fixed-arity ndom) f
 
-                ;otherwise method doesn't fit
-                :else nil)
+        ;otherwise method doesn't fit
+        :else nil)
 
-              ; kw and drest functions must have exact fixed domain match
-              (or kws drest)
-              (cond
-                (not variadic?) nil
-                (== ndom fixed-arity) f
-                :else nil)
+      ; kw and drest functions must have exact fixed domain match
+      (or kws drest)
+      (cond
+        (not variadic?) nil
+        (== ndom fixed-arity) f
+        :else nil)
 
-              ; no variable arity
-              (= nil rest drest kws)
-              (cond
-                variadic? nil
-                (== ndom fixed-arity) f
-                :else nil))))
+      ; no variable arity
+      (= nil rest drest kws)
+      (cond
+        variadic? nil
+        (== ndom fixed-arity) f
+        :else nil))))
 
-        maybe-check (fn [method]
-                      {:pre [(method? method)]
-                       :post [((some-fn nil? method?) %)]}
-                      (when-let [fe (expected-for-method method)]
-                        ;(prn "inner expected in check-Function" fe)
-                        (let [{:keys [cmethod]} (fn-method1/check-fn-method1
-                                                  method 
-                                                  fe
-                                                  :recur-target-fn recur-target-fn)]
-                          (assert (method? cmethod))
-                          cmethod)))
-        ms (->> mthods
-                (map maybe-check)
-                (filter identity)
-                vec)]
-    ;(prn "checked ms" (count ms))
-    (when (empty? ms)
-      (binding [vs/*current-expr* (impl/impl-case
-                                    :clojure (first mthods)
-                                    ; fn-method is not printable in cljs
-                                    :cljs vs/*current-expr*)
-                vs/*current-env* (or (:env (first mthods)) vs/*current-env*)]
-        (prs/with-unparse-ns (cu/expr-ns (first mthods))
-          (err/tc-delayed-error (str "No matching arities: " (prs/unparse-type f))))))
-    ms))
-
-
-(defn check-fni [exp mthods
-                 {:keys [recur-target-fn
-                         validate-expected-fn
-                         self-name]
-                  :as opt}]
-  {:pre [(function-type? exp)
+(defn check-fni 
+  "Check a vector of :method AST nodes mthods against
+  an expected type that is a possibly-polymorphic function
+  intersection.
+  
+  Returns a vector in the same order as the passed in methods,
+  but each method replaced with a vector of type checked methods."
+  [expected mthods
+   {:keys [recur-target-fn
+           validate-expected-fn
+           self-name]
+    :as opt}]
+  {:pre [(function-type? expected)
          (methods? mthods)
          (opt-map? opt)]
-   :post [(methods? %)]}
-  ;(prn "check-fni" exp)
+   :post [(method-return? %)]}
+  ;(prn "check-fni" expected)
   (let [; unwrap polymorphic expected types
-        [fin inst-frees bnds poly?] (cu/unwrap-poly exp)
+        [fin inst-frees bnds poly?] (cu/unwrap-poly expected)
         ; this should never fail due to function-type? check
         _ (assert (r/FnIntersection? fin))
         _ (when validate-expected-fn
             (validate-expected-fn fin))
-        ;collect all inferred Functions
-        cmethods
+
+        ;; cmethodss is a vector in the same order as the passed in methods,
+        ;; but each method replaced with a vector of type checked methods."
+        cmethodss
         (lex/with-locals (when-let [name self-name] ;self calls
-                           {name exp})
+                           {name expected})
           ;scope type variables from polymorphic type in body
           (free-ops/with-free-mappings (case poly?
                                          :Poly (zipmap (map r/F-original-name inst-frees)
@@ -125,21 +114,63 @@
             (dvar-env/with-dotted-mappings (case poly?
                                              :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                              {})
-              (vec
-                (mapcat (fn [f]
-                          {:pre [(r/Function? f)]
-                           ;returns a collection of fn-method's
-                           :post [(methods? %)]}
-                          (check-Function
-                            mthods
-                            f
-                            {:recur-target-fn recur-target-fn}))
-                        (:types fin))))))]
-    cmethods))
+              (let [;; map from function type to a set of matching methods (integers).
+                    fn-matches
+                    (into {}
+                          (map (fn [t]
+                                 (let [ms (into #{}
+                                                (comp
+                                                  (map-indexed (fn [i m]
+                                                                 (when (expected-for-method m t)
+                                                                   i)))
+                                                  (keep identity))
+                                                mthods)]
+                                   ;; it is a type error if no matching methods are found.
+                                   (when (empty? ms)
+                                     (binding [vs/*current-expr* (impl/impl-case
+                                                                   :clojure (first mthods)
+                                                                   ; fn-method is not printable in cljs
+                                                                   :cljs vs/*current-expr*)
+                                               vs/*current-env* (or (:env (first mthods)) vs/*current-env*)]
+                                       (prs/with-unparse-ns (cu/expr-ns (first mthods))
+                                         (err/tc-delayed-error (str "No matching arities: " (prs/unparse-type t))))))
+                                   [t ms])))
+                          (:types fin))]
+                ;; if a method occurs more than once in the entire map, it will be
+                ;; checked twice, so we disable rewriting for that method.
+                (into []
+                      (map-indexed
+                        (fn [i m]
+                          (let [expecteds (keep 
+                                            (fn [[t es]]
+                                              (when (es i)
+                                                t))
+                                            fn-matches)]
+                            (u/rewrite-when (== 1 (count expecteds))
+                              (mapv (comp
+                                      :cmethod
+                                      #(fn-method1/check-fn-method1 m % :recur-target-fn recur-target-fn))
+                                    expecteds)))))
+                      mthods)))))]
+     ;; if a method is checked only once, then it could have
+     ;; been rewritten, so propagate it up to the rest of the
+     ;; AST.
+    {:methods (mapv 
+                (fn [cmethods m]
+                  (if (== 1 (count cmethods))
+                    (nth cmethods 0)
+                    m))
+                cmethodss
+                mthods)
+     ;; flatten out all checked methods
+     :cmethods (into []
+                     (mapcat identity)
+                     cmethodss)}))
 
 (defn function-types [expected]
   {:pre [(r/Type? expected)]
-   :post [(every? function-type? %)]}
+   :post [(and (every? function-type? %)
+               (vector? %))]}
   (let [exp (c/fully-resolve-type expected)
         ts (filterv function-type?
                     (if (r/Union? exp)
@@ -159,13 +190,24 @@
   {:pre [(r/Type? expected)
          ((every-pred methods? seq) mthods)
          (opt-map? opt)]
-   :post [(methods? %)]}
+   :post [(method-return? %)]}
   ;(prn "check-fn-methods")
   (let [ts (function-types expected)]
-    (if (empty? ts)
+    (cond
+      (empty? ts)
       (prs/with-unparse-ns (cu/expr-ns (first mthods))
         (err/tc-delayed-error (str (prs/unparse-type expected) " is not a function type")
-                              :return []))
-      (vec
-        (mapcat (fn [t] (check-fni t mthods opt))
-                ts)))))
+                              :return {:methods mthods
+                                       :cmethods []}))
+      
+      (== 1 (count ts))
+      (check-fni (nth ts 0) mthods opt)
+
+      ;; disable rewriting in case we recheck a method arity
+      :else
+      (binding [vs/*can-rewrite* nil]
+        {:methods mthods
+         :cmethods
+         (into []
+               (mapcat (fn [t] (check-fni t mthods opt)))
+               ts)}))))

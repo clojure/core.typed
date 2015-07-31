@@ -21,11 +21,13 @@
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (::t/cmethods %))]}
   ;(prn "check-fn" methods)
-  (let [cmethods (fn-methods/check-fn-methods 
-                   methods
-                   (r/ret-t expected)
-                   :self-name (cu/fn-self-name fexpr))]
+  (let [{:keys [methods cmethods]}
+        (fn-methods/check-fn-methods 
+          methods
+          (r/ret-t expected)
+          :self-name (cu/fn-self-name fexpr))]
     (assoc fexpr
+           :methods methods
            ::t/cmethods cmethods
            u/expr-type  (r/ret (r/ret-t expected)
                                (fo/-FS fl/-top fl/-bot)))))
