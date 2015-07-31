@@ -439,4 +439,9 @@
   (concat s
           (repeat (- cnt (count s)) v)))
 
+(defmacro rewrite-when [p & body]
+  `(binding [vs/*can-rewrite* (if ~p
+                                vs/*can-rewrite*
+                                nil)]
+     ~@body))
 )
