@@ -43,16 +43,24 @@
                                                    all-methods)))) methods)))
 
 
-
     :catch
-    (let [ast (if (and (= :const (:op class))
-                       (= :default (:form class)))
+    (let [the-class (cond
+
+                     (and (= :const (:op class))
+                          (= :default (:form class)))
+                     Throwable
+
+                     (= :maybe-class (:op class))
+                     (u/maybe-class-literal (:class class)))
+
+          ast (if the-class
                 (-> ast
-                  (assoc :class (assoc (ana/analyze-const Throwable env :class)
+                  (assoc :class (assoc (ana/analyze-const the-class env :class)
+                                  :form  (:form class)
                                   :tag   Class
                                   :o-tag Class)))
                 ast)]
-      (assoc-in ast [:local :tag] (-> ast :class :val)))
+      (assoc-in ast [:local :tag]  (-> ast :class :val)))
 
 
     :method
