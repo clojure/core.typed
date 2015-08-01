@@ -45,13 +45,14 @@
           methods doms rngs rests drests rngs)
 
         [fs cmethods] ((juxt #(map :ftype %)
-                             #(map :cmethod %))
+                             #(mapv :cmethod %))
                        cmethod-specs)
         _ (assert (seq fs) fs)
         _ (assert (every? r/Function? fs) fs)
         ret-type (r/ret (wrap-poly (apply r/make-FnIntersection fs) frees-with-bnds dvar)
                         (fo/-FS fl/-top fl/-bot))]
     (assoc expr
+           :methods cmethods
            ::t/cmethods cmethods
            u/expr-type ret-type)))
 
