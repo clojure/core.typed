@@ -543,12 +543,12 @@
                  (let [pbr (readers/indexing-push-back-reader
                             (java.io.PushbackReader. rdr) 1 filename)
                        eof (Object.)
-                       opts {:eof :eofthrow :features #{:clj :t.a.jvm}}
-                       opts (if (.endsWith filename "cljc")
-                              (assoc opts :read-cond :allow)
-                              opts)]
+                       read-opts {:eof eof :features #{:clj :t.a.jvm}}
+                       read-opts (if (.endsWith filename "cljc")
+                                   (assoc read-opts :read-cond :allow)
+                                   read-opts)]
                    (loop []
-                     (let [form (reader/read opts pbr)]
+                     (let [form (reader/read read-opts pbr)]
                        (when-not (identical? form eof)
                          (swap! *env* update-in [::analyzed-clj path]
                                 (fnil conj [])
