@@ -1816,12 +1816,13 @@
         (let [check-method? (fn [inst-method]
                               (not (and (r/Record? dt)
                                         (cu/record-implicits (symbol (:name inst-method))))))
-              _ (binding [fn-method-u/*check-fn-method1-checkfn* check
-                          fn-method-u/*check-fn-method1-rest-type* 
-                          (fn [& args] 
-                            (err/int-error "deftype method cannot have rest parameter"))]
-                  (doseq [{:keys [env] :as inst-method} methods
-                          :when (check-method? inst-method)]
+              maybe-check-method
+              (fn [{:keys [env] :as inst-method}]
+                ;; returns a vector of checked methods
+                {:post [(vector? %)]}
+                (if-not (check-method? inst-method)
+                  [inst-method]
+                  (do
                     (assert (#{:method} (:op inst-method)))
                     (when vs/*trace-checker*
                       (println "Checking deftype* method: " (:name inst-method))
@@ -1841,7 +1842,8 @@
                                                        (#{(munge method-nme)} name)))
                                                 (:methods inst-method)))]
                         (if-not method-sig
-                            (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme))
+                          (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme)
+                                                :return [inst-method])
                           (let [expected-ifn (cu/datatype-method-expected dt method-sig)]
                             ;(prn "method expected type" expected-ifn)
                             ;(prn "names" nms)
@@ -1856,22 +1858,33 @@
                                 ;(prn "bnds when checking method" 
                                 ;     clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
                                 ;(prn "expected-ifn" expected-ifn)
-                                (fn-methods/check-fn-methods
-                                  [inst-method]
-                                  expected-ifn
-                                  :recur-target-fn
-                                  (fn [{:keys [dom] :as f}]
-                                    {:pre [(r/Function? f)]
-                                     :post [(recur-u/RecurTarget? %)]}
-                                    (recur-u/->RecurTarget (rest dom) nil nil nil))
-                                  :validate-expected-fn
-                                  (fn [fin]
-                                    {:pre [(r/FnIntersection? fin)]}
-                                    (when (some #{:rest :drest :kws} (:types fin))
-                                      (err/int-error
-                                        (str "Cannot provide rest arguments to deftype method: "
-                                             (prs/unparse-type fin))))))))))))))]
-          ret-expr)))))
+                                (:methods
+                                  (fn-methods/check-fn-methods
+                                    [inst-method]
+                                    expected-ifn
+                                    :recur-target-fn
+                                    (fn [{:keys [dom] :as f}]
+                                      {:pre [(r/Function? f)]
+                                       :post [(recur-u/RecurTarget? %)]}
+                                      (recur-u/->RecurTarget (rest dom) nil nil nil))
+                                    :validate-expected-fn
+                                    (fn [fin]
+                                      {:pre [(r/FnIntersection? fin)]}
+                                      (when (some #{:rest :drest :kws} (:types fin))
+                                        (err/int-error
+                                          (str "Cannot provide rest arguments to deftype method: "
+                                               (prs/unparse-type fin))))))))))))))))
+
+              methods 
+              (binding [fn-method-u/*check-fn-method1-checkfn* check
+                        fn-method-u/*check-fn-method1-rest-type* 
+                        (fn [& args] 
+                          (err/int-error "deftype method cannot have rest parameter"))]
+                (into []
+                      (mapcat maybe-check-method)
+                      methods))]
+          (assoc ret-expr
+                 :methods methods))))))
 
 (add-check-method :import
   [expr & [expected]]
