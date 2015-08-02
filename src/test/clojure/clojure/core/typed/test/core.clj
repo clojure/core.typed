@@ -5129,6 +5129,16 @@
                  :clojure 1
                  :cljs 2))))
 
+(deftest tc-e-perf-test
+  (is (profile :info :bar
+        (tc-e nil)))
+  (is (profile :info :bar
+        (cf nil)))
+  (is (binding [*ns* *ns*]
+        (profile :info :bar
+          (cf (ns foo (:require [clojure.core.typed :as t]))))))
+  (is (tc-e (ns foo) nil)))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
