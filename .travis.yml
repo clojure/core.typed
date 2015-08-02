@@ -1,2 +1,4 @@
-language: clojure
-script: lein test
+language: java
+jdk:
+  - oraclejdk8
+sudo: false
