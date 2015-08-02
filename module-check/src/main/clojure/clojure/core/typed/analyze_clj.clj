@@ -58,15 +58,18 @@
           ::T/special-collect
           ::core/ns
           {:form '~&form}
-          (clojure.core/in-ns '~name)
-          (with-loading-context
-            ~@(when gen-class-call (list gen-class-call))
-            ~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
-                `((clojure.core/refer '~'clojure.core)))
-            ~@(map process-reference references))
-          (if (.equals '~name 'clojure.core) 
-            nil
-            (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol T/Any) '~name)) nil)))))
+          (T/tc-ignore
+            (clojure.core/in-ns '~name)
+            (with-loading-context
+              ~@(when gen-class-call (list gen-class-call))
+              ~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
+                  `((clojure.core/refer '~'clojure.core)))
+              ~@(map process-reference references))
+            (if (.equals '~name 'clojure.core) 
+              nil
+              (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol T/Any) '~name)) nil)))
+          ;; so core.typed knows `ns` always returns nil
+          nil)))
    })
 
 ;; copied from tools.analyze.jvm to insert `typed-macros`
