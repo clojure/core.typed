@@ -25,7 +25,11 @@ and arguments at the site of the interop is used to avoid reflection.
 ```
 
 For now, only very simple types that are easily converted to type hints are used
-as type hints (like `File` or `String`). Please report how effective this is.
+as type hints (like `File` or `String`). 
+Furthermore, only methods and constructors are rewritten, and only local bindings
+can propagate type information.
+
+Please report how effective this is in practice.
     
 <ul>
 <li>[<a href='http://dev.clojure.org/jira/browse/CTYP-250'>CTYP-250</a>] -         Resolve Java interoperability based on static type information
