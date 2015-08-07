@@ -1,3 +1,60 @@
+# 0.3.10 - 3 August 2015
+
+<a href='http://dev.clojure.org/jira/secure/ReleaseNote.jspa?projectId=10271&version=10650'>Release Notes</a> - core.typed - Version 0.3.10
+
+<h2>Use static types to resolve simple Java interoperability</h2>
+
+In situations where it is appropriate to rewrite a function, like in the typed
+REPL or when a function body is checked only once, we can use static types to
+resolve Java interoperability.
+
+For example, the following code is non-reflective.
+
+```clojure
+(fn [a :- java.io.File]
+  (.getParent a))
+```
+
+The same rules apply as usual with occurrence typing. The static type of the target
+and arguments at the site of the interop is used to avoid reflection.
+
+```clojure
+(fn [a] 
+  {:pre [(instance? java.io.File a)]}
+  (.getParent a))
+```
+
+For now, only very simple types that are easily converted to type hints are used
+as type hints (like `File` or `String`). Please report how effective this is.
+    
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-250'>CTYP-250</a>] -         Resolve Java interoperability based on static type information
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-259'>CTYP-259</a>] -         Rewrite function bodies if they are only checked once
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-247'>CTYP-247</a>] -         Function bodies should rewrite themselves if possible
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-264'>CTYP-264</a>] -         deftype should rewrite method bodies
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-265'>CTYP-265</a>] -         Anonymous functions should rewrite body
+</li>
+</ul>
+
+<h2>Elide checking on output of ns form</h2>
+
+This change shaved 2-3 minutes from running the test suite and should save 500ms on
+each `check-ns` call.
+
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-266'>CTYP-266</a>] -         Elide checking of ns macro output for performance
+</li>
+</ul>
+
+<h2>Defect</h2>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-263'>CTYP-263</a>] -         Unnecessary type hint required in catch expression
+</li>
+</ul>
+
 # 0.3.9 - 24 July 2015
 
 <a href='http://dev.clojure.org/jira/secure/ReleaseNote.jspa?projectId=10271&version=10556'>Release Notes</a> - core.typed - Version 0.3.9
