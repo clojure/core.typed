@@ -32,7 +32,7 @@
                           (gen-inner (update-in t [:rator] ops/resolve-Name) arg)
                           ;polymorphic class
                           (#{:Class} (:op rator))
-                            (let [{:keys [args pred] :as rcls} (@impl/rclass-env (:name rator))
+                            (let [{:keys [args pred] :as rcls} (get (impl/rclass-env) (:name rator))
                                   _ (when-not rcls
                                       (err/int-error (str "Class does not take arguments: "
                                                           (:name rator))))

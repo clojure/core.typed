@@ -6,7 +6,7 @@
 
 (defn resolve-Name [{:keys [name] :as expr}]
   {:pre [(#{:Name} (:op expr))]}
-  (let [e (force (@impl/alias-env name))
+  (let [e (force (get (impl/alias-env) name))
         _ (when-not e
             (err/int-error (str "No alias found for " name)))]
     e))

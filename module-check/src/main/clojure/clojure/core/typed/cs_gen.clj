@@ -41,7 +41,6 @@
 (t/ann ^:no-check clojure.core.typed.subtype/subtype? [r/AnyType r/AnyType -> Boolean])
 (t/ann ^:no-check clojure.set/union (t/All [x] [(t/Set x) * -> (t/Set x)]))
 (t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> t/Any])
-(t/ann ^:no-check clojure.core.typed.current-impl/any-impl t/Any)
 (t/ann ^:no-check clojure.core.typed.current-impl/checking-clojure? [-> t/Any])
 
 (t/ann subtype? [r/AnyType r/AnyType -> Boolean])

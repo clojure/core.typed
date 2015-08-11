@@ -13,7 +13,7 @@
 (t/ann *parse-type-in-ns* (t/U nil t/Sym))
 (defonce ^:dynamic *parse-type-in-ns* nil)
 
-(t/ann ^:no-check clojure.core.typed.current-impl/*current-impl* (t/U nil t/Kw))
+;(t/ann ^:no-check clojure.core.typed.current-impl/*current-impl* (t/U nil t/Kw))
 (t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> t/Kw])
 
 (t/ann parse-in-ns [-> t/Sym])
@@ -1042,10 +1042,10 @@
                                    (resolve-type-clj sym))]
                          (cond 
                            (class? res) (let [csym (coerce/Class->symbol res)
-                                              dt? (contains? @impl/datatype-env csym)]
+                                              dt? (contains? (impl/datatype-env) csym)]
                                           {:op (if dt? :DataType :Class) :name csym})
                            (var? res) (let [vsym (coerce/var->symbol res)]
-                                        (if (contains? @impl/alias-env vsym)
+                                        (if (contains? (impl/alias-env) vsym)
                                           {:op :Name :name vsym}
                                           {:op :Protocol :name vsym}))
                            (symbol? sym)
@@ -1053,7 +1053,7 @@
                            ; assume it's in the current namespace
                                     ; do we want to munge the sym also?
                            (let [qname (symbol (str (namespace-munge *ns*) "." sym))]
-                             (when (contains? @impl/datatype-env qname)
+                             (when (contains? (impl/datatype-env) qname)
                                {:op :DataType :name qname}))
                            ))
               :cljs (assert nil)

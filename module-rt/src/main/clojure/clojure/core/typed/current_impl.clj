@@ -1,14 +1,38 @@
 ; untyped, clojure.core.typed depends on this namespace
 (ns clojure.core.typed.current-impl
   (:require [clojure.core.typed.profiling :as p]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [clojure.core.typed.env :as env]))
 
-(defonce var-env (atom {}))
-(defonce alias-env (atom {}))
-(defonce protocol-env (atom {}))
-(defonce rclass-env (atom {}))
-(defonce datatype-env (atom {}))
-(defonce jsnominal-env (atom {}))
+(defmacro create-env
+  "For name n, creates defs for {n}, {n}-kw, add-{n},
+  and reset-{n}!"
+  [n]
+  {:pre [(symbol? n)
+         (not (namespace n))]}
+  (let [kw-def (symbol (str n "-kw"))
+        add-def (symbol (str "add-" n))
+        reset-def (symbol (str "reset-" n "!"))]
+    `(do (def ~kw-def ~(keyword (str (ns-name *ns*)) (str n)))
+         (defn ~n []
+           {:post [(map? ~'%)]}
+           (get (env/deref-checker) ~kw-def {}))
+         (defn ~add-def [sym# t#]
+           {:pre [(symbol? sym#)]
+            :post [(nil? ~'%)]}
+           (env/swap-checker! assoc-in [~kw-def sym#] t#)
+           nil)
+         (defn ~reset-def [m#]
+           (env/swap-checker! assoc ~kw-def m#)
+           nil)
+         nil)))
+
+(create-env var-env)
+(create-env alias-env)
+(create-env protocol-env)
+(create-env rclass-env)
+(create-env datatype-env)
+(create-env jsnominal-env)
 
 (defn v [vsym]
   {:pre [(symbol? vsym)
@@ -32,123 +56,100 @@
 (def clojure ::clojure)
 (def clojurescript ::clojurescript)
 
-(def any-impl ::any-impl)
+(def unknown ::unknown)
 
-(derive clojure any-impl)
-(derive clojurescript any-impl)
+(derive clojure unknown)
+(derive clojurescript unknown)
 
-(defonce ^:dynamic *current-impl* :unknown)
-(set-validator! #'*current-impl* keyword?)
+(def current-impl-kw ::current-impl)
+
+(defn current-impl []
+  {:post [(keyword? %)]}
+  (get (some-> (env/checker-or-nil) deref)
+       current-impl-kw unknown))
+
+(declare bindings-for-impl)
 
 (defmacro with-impl [impl & body]
-  `(do (assert ((set [~impl :unknown]) *current-impl*)
-               (str "Cannot overlay different core.typed implementations: " (pr-str *current-impl*)
-                    ", expected " (pr-str ~impl)))
-     (binding [*current-impl* ~impl]
-       ~@body)))
+  `(with-bindings (get (bindings-for-impl) ~impl {})
+     ~@body))
+
+(defonce clj-checker-atom 
+  (doto (env/init-checker)
+    (swap! assoc current-impl-kw clojure)))
+
+(defn clj-checker []
+  clj-checker-atom)
 
 (defn clj-bindings []
-  {(the-var 'clojure.core.typed.name-env/*current-name-env*)
-   (v 'clojure.core.typed.name-env/CLJ-TYPE-NAME-ENV)
-   (the-var 'clojure.core.typed.protocol-env/*current-protocol-env*)
-   (v 'clojure.core.typed.protocol-env/CLJ-PROTOCOL-ENV)
-   (the-var 'clojure.core.typed.ns-deps/*current-deps*)
-   (v 'clojure.core.typed.ns-deps/CLJ-TYPED-DEPS)
-   ; var env
-   (the-var 'clojure.core.typed.var-env/*current-var-annotations*)
-   (v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)
-   (the-var 'clojure.core.typed.var-env/*current-nocheck-var?*)
-   (v 'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)
-   (the-var 'clojure.core.typed.var-env/*current-used-vars*)
-   (v 'clojure.core.typed.var-env/CLJ-USED-VARS)
-   (the-var 'clojure.core.typed.var-env/*current-checked-var-defs*)
-   (v 'clojure.core.typed.var-env/CLJ-CHECKED-VAR-DEFS) 
-
-   (the-var 'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
-   (v 'clojure.core.typed.declared-kind-env/CLJ-DECLARED-KIND-ENV) 
-   (the-var 'clojure.core.typed.datatype-env/*current-datatype-env*)
-   (v 'clojure.core.typed.datatype-env/CLJ-DATATYPE-ENV) 
-   (the-var 'clojure.core.typed.datatype-ancestor-env/*current-dt-ancestors*)
-   (v 'clojure.core.typed.datatype-ancestor-env/CLJ-DT-ANCESTOR-ENV)})
+  {#'env/*checker* (clj-checker)})
 
 (defmacro with-clojure-impl [& body]
   `(with-impl clojure
-     (with-bindings (clj-bindings)
-       ~@body)))
+     ~@body))
+
+(defonce cljs-checker-atom 
+  (doto (env/init-checker)
+    (swap! assoc current-impl-kw clojurescript)))
+
+(defn cljs-checker []
+  {:post [(instance? clojure.lang.IAtom %)]}
+  cljs-checker-atom)
 
 (defn cljs-bindings []
-  {(the-var 'clojure.core.typed.name-env/*current-name-env*)
-   (v 'clojure.core.typed.name-env/CLJS-TYPE-NAME-ENV)
-   (the-var 'clojure.core.typed.protocol-env/*current-protocol-env*)
-   (v 'clojure.core.typed.protocol-env/CLJS-PROTOCOL-ENV)
-   (the-var 'clojure.core.typed.ns-deps/*current-deps*)
-   (v 'clojure.core.typed.ns-deps/CLJS-TYPED-DEPS)
-   ; var env
-   (the-var 'clojure.core.typed.var-env/*current-var-annotations*)
-   (v 'clojure.core.typed.var-env/CLJS-VAR-ANNOTATIONS)
-   (the-var 'clojure.core.typed.var-env/*current-nocheck-var?*)
-   (v 'clojure.core.typed.var-env/CLJS-NOCHECK-VAR?)
-   (the-var 'clojure.core.typed.var-env/*current-used-vars*)
-   (v 'clojure.core.typed.var-env/CLJS-USED-VARS)
-   (the-var 'clojure.core.typed.var-env/*current-checked-var-defs*)
-   (v 'clojure.core.typed.var-env/CLJS-CHECKED-VAR-DEFS) 
-
-   (the-var 'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
-   (v 'clojure.core.typed.declared-kind-env/CLJS-DECLARED-KIND-ENV) 
-   (the-var 'clojure.core.typed.datatype-env/*current-datatype-env*)
-   (v 'clojure.core.typed.datatype-env/CLJS-DATATYPE-ENV)
-   (the-var 'clojure.core.typed.jsnominal-env/*current-jsnominal-env*)
-   (v 'clojure.core.typed.jsnominal-env/JSNOMINAL-ENV)})
+  {#'env/*checker* (cljs-checker)})
 
 (defmacro with-cljs-impl [& body]
   `(with-impl clojurescript
-     (with-bindings (cljs-bindings)
-       ~@body)))
+     ~@body))
+
+(defn impl-for []
+  {:clojure (cljs-checker)
+   :cljs (clj-checker)})
+
+(defn bindings-for-impl []
+  {clojure (clj-bindings)
+   clojurescript (cljs-bindings)})
 
 (defmacro with-full-impl [impl & body]
   `(with-impl ~impl
-     (with-bindings (impl-case
-                      :clojure (clj-bindings)
-                      :cljs (cljs-bindings))
-       ~@body)))
-
+     ~@body))
 
 (defn implementation-specified? []
-  ((complement #{:unknown}) *current-impl*))
+  ((complement #{unknown}) (current-impl)))
 
 (defn ensure-impl-specified []
   (assert (implementation-specified?) "No implementation specified"))
 
-(defn current-impl []
-  (ensure-impl-specified)
-  *current-impl*)
-
 (defn checking-clojure? []
   (ensure-impl-specified)
-  (= clojure *current-impl*))
+  (= clojure (current-impl)))
 
 (defn checking-clojurescript? []
   (ensure-impl-specified)
-  (= clojurescript *current-impl*))
+  (= clojurescript (current-impl)))
 
 (defn assert-clojure 
   ([] (assert-clojure nil))
-  ([msg] (assert (= clojure *current-impl*) (str "Clojure implementation only"
+  ([msg] (assert (= clojure (current-impl)) (str "Clojure implementation only"
                                                  (when (seq msg)
                                                    (str ": " msg))))))
 
 (defn assert-cljs []
-  (assert (= clojurescript *current-impl*) "Clojurescript implementation only"))
+  (assert (= clojurescript (current-impl)) "Clojurescript implementation only"))
 
+;; :clojure = ::clojure
+;; :cljs = ::clojurescript
+;; :unknown = ::unknown
 (defmacro impl-case [& {clj-case :clojure cljs-case :cljs unknown :unknown :as opts}]
   (assert (empty? (set/difference (set (keys opts)) #{:clojure :cljs :unknown}))
           "Incorrect cases to impl-case")
-  `(case *current-impl*
+  `(case (current-impl)
      ~clojure ~clj-case
      ~clojurescript ~cljs-case
      ~(if (contains? opts :unknown)
         unknown
-        `(assert nil (str "No case matched for impl-case " *current-impl*)))))
+        `(assert nil (str "No case matched for impl-case " (current-impl))))))
 
 (defn var->symbol [^clojure.lang.Var var]
   {:pre [(var? var)]

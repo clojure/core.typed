@@ -10,7 +10,8 @@
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.declared-kind-env :as kinds]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed :as t]))
+            [clojure.core.typed :as t]
+            [clojure.core.typed.env :as env]))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -40,55 +41,27 @@
   (derive k temp-binding))
   )
 
-(defmacro with-clj-name-env [& body]
-  `(binding [*current-name-env* CLJ-TYPE-NAME-ENV]
-     ~@body))
-
-(defmacro with-cljs-name-env [& body]
-  `(binding [*current-name-env* CLJS-TYPE-NAME-ENV]
-     ~@body))
-
 (t/ann ^:no-check name-env? [t/Any -> t/Any])
 (def name-env? (con/hash-c? (every-pred (some-fn namespace 
                                                  #(some #{\.} (str %)))
                                         symbol?)
                             (some-fn r/Type? #(isa? % temp-binding))))
 
+(def current-name-env-kw ::current-name-env)
 
-(t/ann *current-name-env* (t/U nil (t/Atom1 NameEnv)))
-(defonce ^:dynamic *current-name-env* nil)
-
-(t/ann current-name-env [-> (t/Atom1 NameEnv)])
-(defn current-name-env []
-  (let [env *current-name-env*]
-    (assert env "No name environment bound")
-    env))
-
-(t/ann name-env [-> NameEnv])
+(t/ann ^:no-check name-env [-> NameEnv])
 (defn name-env []
-  @(current-name-env))
+  (get (env/deref-checker) current-name-env-kw {}))
 
-(t/tc-ignore
-(set-validator! #'*current-name-env* (some-fn nil? #(instance? clojure.lang.Atom %)))
-)
-
-(t/ann ^:no-check CLJ-TYPE-NAME-ENV (t/Atom1 NameEnv))
-(defonce CLJ-TYPE-NAME-ENV (atom {} :validator name-env?))
-
-(t/ann ^:no-check CLJS-TYPE-NAME-ENV (t/Atom1 NameEnv))
-(defonce CLJS-TYPE-NAME-ENV (atom {} :validator name-env?))
-
-(t/ann update-name-env! [NameEnv -> nil])
+(t/ann ^:no-check update-name-env! [NameEnv -> nil])
 (defn update-name-env! [nme-env]
-  (let [e (current-name-env)]
-    (swap! e (t/fn [n :- NameEnv]
-               (merge n nme-env))))
+  (env/swap-checker! update current-name-env-kw
+                     (fnil merge {}) nme-env)
   nil)
 
-(t/ann reset-name-env! [NameEnv -> nil])
+(t/ann ^:no-check reset-name-env! [NameEnv -> nil])
 (defn reset-name-env! [nme-env]
-  (let [e (current-name-env)]
-    (reset! e nme-env))
+  (env/swap-checker! assoc current-name-env-kw nme-env)
   nil)
 
 (t/ann get-type-name [t/Any -> (t/U nil t/Kw r/Type)])
@@ -96,17 +69,15 @@
   "Return the name with var symbol sym.
   Returns nil if not found."
   [sym]
-  (let [e (current-name-env)]
-    (@e sym)))
+  (get (name-env) sym))
 
 (t/ann ^:no-check add-type-name [t/Sym (t/U t/Kw r/Type) -> nil])
 (defn add-type-name [sym ty]
-  (let [e (current-name-env)]
-    (swap! e
-           (t/fn [e :- NameEnv]
-            (assoc e sym (if (r/Type? ty)
-                           (vary-meta ty assoc :from-name sym)
-                           ty)))))
+  (env/swap-checker! assoc-in
+                     [current-name-env-kw sym]
+                     (if (r/Type? ty)
+                       (vary-meta ty assoc :from-name sym)
+                       ty))
   nil)
 
 (t/ann declare-name* [t/Sym -> nil])

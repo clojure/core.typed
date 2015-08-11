@@ -174,8 +174,8 @@
 (defmethod invoke-special-collect 'cljs.core.typed/ann-jsnominal*
   [{:keys [args env] :as expr}]
   (let [[sym jsnom] (map :form args)]
-    (swap! impl/jsnominal-env
-      assoc sym
+    (impl/add-jsnominal-env
+      sym
       (second (beh-cljs/jsnominal-entry [sym jsnom])))))
 
 (defmethod invoke-special-collect 'cljs.core.typed/ann-protocol*

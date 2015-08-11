@@ -4,7 +4,8 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as t]
-            [clojure.core.typed.current-impl :as impl])
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.env :as env])
   (:import (clojure.core.typed.type_rep Scope)))
 
 (t/tc-ignore
@@ -26,22 +27,21 @@
   "A map of symbols of JSNomainalEntry's"
   (t/Map t/Sym JSNominalEntry))
 
-(t/ann *current-protocol-env* (t/U nil (t/Atom1 JSNominalEnv)))
-(defonce ^:dynamic *current-jsnominal-env* nil)
+(defn jsnominal-env []
+  {:post [(map? %)]}
+  (impl/jsnominal-env))
 
-(t/ann JSNOMINAL-ENV (t/Atom1 JSNominalEnv))
-(defonce JSNOMINAL-ENV 
-  (atom {} 
-        #_:validator
-        #_(con/hash-c? symbol? 
-                     (con/hmap-c? :jsnominal  r/Type?
-                                  :fields (con/hash-c? symbol? (some-fn r/Scope? r/Type?))
-                                  :methods (con/hash-c? symbol? (some-fn r/Scope? r/Type?))
-                                  :ctor (some-fn nil? r/Scope? r/Type?)
-                                  :ancestors (con/set-c? (some-fn r/Scope? r/Type?))))))
+(def jsnominal-env?
+  (con/hash-c? symbol?
+               (con/hmap-c? :jsnominal  r/Type?
+                            :fields (con/hash-c? symbol? (some-fn r/Scope? r/Type?))
+                            :methods (con/hash-c? symbol? (some-fn r/Scope? r/Type?))
+                            :ctor (some-fn nil? r/Scope? r/Type?)
+                            :ancestors (con/set-c? (some-fn r/Scope? r/Type?)))))
 
 (t/ann init-jsnominal-entry [r/Type -> JSNominalEntry])
 (defn init-jsnominal-entry [nom]
+  {:post [(jsnominal-env? %)]}
   {:jsnominal nom
    :fields {}
    :methods {}
@@ -54,7 +54,7 @@
   Returns nil if not found."
   [csym]
   {:post [((some-fn nil? r/Type?) %)]}
-  (-> (@impl/jsnominal-env csym) :jsnominal))
+  (-> (get (impl/jsnominal-env) csym) :jsnominal))
 
 (t/ann contains-jsnominal? [t/Any -> boolean])
 (defn contains-jsnominal?
@@ -95,7 +95,7 @@
          (symbol? method-sym)]
    :post [((some-fn nil? r/Type?) %)]}
   (println (str "Searching " csym "#" method-sym))
-  (if-let [tscope (get-in @impl/jsnominal-env [csym :methods method-sym])]
+  (if-let [tscope (get-in (impl/jsnominal-env) [csym :methods method-sym])]
     (c/inst-and-subst tscope args)
     (get-inherited-property get-method csym args method-sym)))
 
@@ -106,8 +106,8 @@
    method: (get-inherited-property get-method csym args method-sym)
    field:  (get-inherited-property get-field csym args field-sym)"
   [f csym args method-sym]
-  ;(println (->> (get-in @impl/jsnominal-env [csym :ancestors]) (map :id)))
-  (->> (get-in @impl/jsnominal-env [csym :ancestors])
+  ;(println (->> (get-in (impl/jsnominal-env) [csym :ancestors]) (map :id)))
+  (->> (get-in (impl/jsnominal-env) [csym :ancestors])
        (map #(f (:id %) args method-sym))
        (filter identity)
        first))
@@ -120,7 +120,7 @@
          (every? r/Type? args)
          (symbol? field-sym)]
    :post [((some-fn nil? r/Type?) %)]}
-  (if-let [tscope (get-in @impl/jsnominal-env [csym :fields field-sym])]
+  (if-let [tscope (get-in (impl/jsnominal-env) [csym :fields field-sym])]
     (c/inst-and-subst tscope args)
     (get-inherited-property get-method csym args field-sym)))
 
@@ -131,10 +131,12 @@
   {:pre [(symbol? csym)
          (every? r/Type? args)]
    :post [((some-fn nil? r/Type?) %)]}
-  (when-let [tscope (get-in impl/jsnominal-env [csym :ctor])]
+  (when-let [tscope (get-in (impl/jsnominal-env) [csym :ctor])]
     (c/inst-and-subst tscope args)))
 
 (t/ann ^:no-check reset-jsnominal! [JSNominalEnv -> nil])
 (defn reset-jsnominal! [m]
-  (reset! impl/jsnominal-env m)
+  {:pre [(jsnominal-env? m)]
+   :post [(nil? %)]}
+  (impl/reset-jsnominal-env! m)
   nil)
