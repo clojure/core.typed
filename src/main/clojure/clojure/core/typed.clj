@@ -1214,10 +1214,11 @@ for checking namespaces, cf for checking individual forms."}
          (app-outer-context# parse-clj# t#)))))
 
 (defn ^:skip-wiki add-to-alias-env [form qsym t]
-  (swap! impl/alias-env assoc qsym 
-         (impl/with-impl impl/clojure
-           (with-current-location form
-             (delay-parse t))))
+  (impl/with-impl impl/clojure
+    (impl/add-alias-env
+      qsym
+      (with-current-location form
+        (delay-parse t))))
   nil)
 
 (defmacro
@@ -1498,7 +1499,8 @@ for checking namespaces, cf for checking individual forms."}
 (init-aliases)
 
 (defn ^:private rclass-pred [rcls opts]
-  (swap! impl/rclass-env assoc (impl/Class->symbol rcls) opts))
+  (impl/with-clojure-impl
+    (impl/add-rclass-env (impl/Class->symbol rcls) opts)))
 
 (defmacro ^:private rclass-preds [& args]
   `(do
@@ -1735,7 +1737,8 @@ for checking namespaces, cf for checking individual forms."}
                         (:nocheck opts)))
         ast (with-current-location &form
               (delay-parse typesyn))]
-    (swap! impl/var-env assoc qsym ast)
+    (impl/with-impl impl/clojure
+      (impl/add-var-env qsym ast))
     `(ann* '~qsym '~typesyn '~check?)))
 
 (defmacro ann-many
@@ -1810,13 +1813,13 @@ for checking namespaces, cf for checking individual forms."}
     (let [qname (if (some #{\.} (str dname))
                   dname
                   (symbol (str (namespace-munge *ns*) "." dname)))]
-      (swap! impl/datatype-env 
-             assoc 
-             qname
-             {:record? false
-              :name qname
-              :fields fields
-              :bnd vbnd}))
+      (impl/with-clojure-impl
+        (impl/add-datatype-env 
+          qname
+          {:record? false
+           :name qname
+           :fields fields
+           :bnd vbnd})))
     `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
 
 (defn ^:skip-wiki
@@ -1895,13 +1898,13 @@ for checking namespaces, cf for checking individual forms."}
     (let [qname (if (some #{\.} (str dname))
                   dname
                   (symbol (str (namespace-munge *ns*) "." dname)))]
-      (swap! impl/datatype-env 
-             assoc 
-             qname
-             {:record? true
-              :name qname
-              :fields fields
-              :bnd vbnd}))
+      (impl/with-clojure-impl
+        (impl/add-datatype-env 
+          qname
+          {:record? true
+           :name qname
+           :fields fields
+           :bnd vbnd})))
     `(ann-record* '~vbnd '~dname '~fields '~opt)))
 
 
@@ -1971,11 +1974,12 @@ for checking namespaces, cf for checking individual forms."}
         qualsym (if (namespace varsym)
                   varsym
                   (symbol (str (ns-name *ns*)) (name varsym)))]
-    (swap! impl/protocol-env
-           assoc qualsym
-           {:name qualsym
-            :methods mth
-            :bnds vbnd})
+    (impl/with-clojure-impl
+      (impl/add-protocol-env
+        qualsym
+        {:name qualsym
+         :methods mth
+         :bnds vbnd}))
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki
