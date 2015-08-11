@@ -32,11 +32,9 @@
               (conj stats
                     [nsym
                      {:vars {:all-vars (all-defs-in-ns ns)
-                             :no-checks (let [; deref the atom
-                                              all-no-checks @var-env/CLJ-NOCHECK-VAR?]
+                             :no-checks (let [all-no-checks (var-env/clj-nocheck-var?)]
                                           (filter (fn [s] (= (namespace s) nsym)) all-no-checks))
-                             :var-annotations (let [; deref the atom
-                                                    annots @var-env/CLJ-VAR-ANNOTATIONS]
+                             :var-annotations (let [annots (var-env/clj-var-annotations)]
                                                 (->> annots
                                                      (filter (fn [[k v]] (= (namespace k) (str nsym))))
                                                      (map (fn [[k v]] [k (binding [vs/*verbose-types* true]

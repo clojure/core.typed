@@ -137,7 +137,7 @@ clojure.core.typed/check-ns (IFn [Symbol -> Any]
                                 [-> Any])
 ;; Internal annotations
 
-clojure.core.typed.current-impl/*current-impl* Any
+;clojure.core.typed.current-impl/*current-impl* Any
 clojure.core.typed.current-impl/clojure Any
 clojure.core.typed.current-impl/clojurescript Any
 clojure.core.typed/ann* [Any Any Any -> Any]
