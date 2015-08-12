@@ -13,10 +13,7 @@
 (def current-nocheck-var?-kw ::current-nocheck-var?)
 (def current-used-vars-kw ::current-used-vars)
 (def current-checked-var-defs-kw ::current-checked-var-defs)
-
-(defonce ^:dynamic *current-nocheck-var?* nil)
-(defonce ^:dynamic *current-used-vars* nil)
-(defonce ^:dynamic *current-checked-var-defs* nil)
+(def cljs-jsvar-annotations-kw ::cljs-jsvar-annotations)
 
 (defn clj-var-annotations []
   (get @(impl/clj-checker) current-var-annotations-kw {}))
@@ -31,23 +28,7 @@
 (def nocheck-var-con (con/set-c? (every-pred symbol? namespace)))
 (def used-vars-con (con/set-c? (every-pred symbol? namespace)))
 (def checked-var-defs-con (con/set-c? (every-pred symbol? namespace)))
-
-;(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) (some-fn delay? r/Type?))))
-;(defonce CLJ-NOCHECK-VAR? (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
-;(defonce CLJ-USED-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
-;(defonce CLJ-CHECKED-VAR-DEFS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
-
-(defonce CLJS-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) r/Type?)))
-;(defonce CLJS-NOCHECK-VAR? (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
-;(defonce CLJS-USED-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
-;(defonce CLJS-CHECKED-VAR-DEFS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
-
-(defonce CLJS-JSVAR-ANNOTATIONS (atom {} :validator (con/hash-c? symbol? r/Type?)))
-
-(defn current-checked-var-defs []
-  (let [env *current-checked-var-defs*]
-    (assert env "No checked var env bound")
-    env))
+(def cljs-jsvar-annotations-con (con/hash-c? symbol? r/Type?))
 
 (defmacro with-lexical-env [env & body]
   `(binding [vs/*lexical-env* ~env]
@@ -131,12 +112,14 @@
   nil)
 
 (defn reset-jsvar-type-env! [m]
-  (reset! CLJS-JSVAR-ANNOTATIONS m)
+  {:pre [(cljs-jsvar-annotations-con m)]
+   :post [(nil? %)]}
+  (env/swap-checker! assoc cljs-jsvar-annotations-kw m)
   nil)
 
 (defn jsvar-annotations []
-  {:post [%]}
-  @CLJS-JSVAR-ANNOTATIONS)
+  {:post [(map? %)]}
+  (get (env/deref-checker) cljs-jsvar-annotations-kw {}))
 
 (defn lookup-Var-nofail [nsym]
   {:post [((some-fn nil? r/Type?) %)]}

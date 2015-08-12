@@ -5,6 +5,7 @@
             [clojure.core.typed.subtype :as sub]
             [cljs.core.typed :as t]
             [clojure.core.typed.util-cljs :as ucljs]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.parse-unparse :as prs]
 
@@ -153,23 +154,24 @@
 (declare cljs-core-vars)
 
 (deftest annotation-coverage
-  (let [n-core-vars    (count cljs-core-vars)
-        n-common-anns  (count @common/common-var-annotations)
-        n-cljs-anns    (count @var-env/CLJS-VAR-ANNOTATIONS)]
-    (or (= n-core-vars n-cljs-anns)
-        (do
-          (println (str "number of vars in cljs.core:       " n-core-vars))
-          (println (str "number of vars in base-env-common: " n-common-anns))
-          (println (str "number of specific cljs vars:      " (- n-cljs-anns
-                                                                 n-common-anns)))
-          (println (str "Coverage: "
-                        (* 100 (float (/ n-cljs-anns  n-core-vars)))
-                        "% ("
-                        (- n-core-vars n-cljs-anns)
-                        " vars are missing its annotations)"))
-          (println (clojure.set/difference (set (map name cljs-core-vars))
-                                           (set (map name (keys @var-env/CLJS-VAR-ANNOTATIONS)))))
-          false))))
+  (impl/with-cljs-impl
+    (let [n-core-vars    (count cljs-core-vars)
+          n-common-anns  (count @common/common-var-annotations)
+          n-cljs-anns    (count (var-env/var-annotations))]
+      (or (= n-core-vars n-cljs-anns)
+          (do
+            (println (str "number of vars in cljs.core:       " n-core-vars))
+            (println (str "number of vars in base-env-common: " n-common-anns))
+            (println (str "number of specific cljs vars:      " (- n-cljs-anns
+                                                                   n-common-anns)))
+            (println (str "Coverage: "
+                          (* 100 (float (/ n-cljs-anns  n-core-vars)))
+                          "% ("
+                          (- n-core-vars n-cljs-anns)
+                          " vars are missing its annotations)"))
+            (println (clojure.set/difference (set (map name cljs-core-vars))
+                                             (set (map name (keys (var-env/var-annotations))))))
+            false)))))
 
 
 (comment
