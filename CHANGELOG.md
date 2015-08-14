@@ -1,3 +1,14 @@
+# 0.3.11 - 14 August 2015
+
+<a href='http://dev.clojure.org/jira/browse/CTYP/fixforversion/10652'>Release Notes - core.typed - Version 0.3.11</a>
+
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-269'>CTYP-269</a>] -         Combine mutable environments into one atom
+</li>
+</ul>
+
 # 0.3.10 - 3 August 2015
 
 <a href='http://dev.clojure.org/jira/secure/ReleaseNote.jspa?projectId=10271&version=10650'>Release Notes</a> - core.typed - Version 0.3.10
