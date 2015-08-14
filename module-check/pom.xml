@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.3.11</version>
+    <version>0.3.12-SNAPSHOT</version>
   </parent>
 
   <build>
@@ -120,7 +120,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.rt</artifactId>
-      <version>0.3.11</version>
+      <version>0.3.12-SNAPSHOT</version>
     </dependency>
     <!-- included as nested dependencies in clojure.core.typed.deps -->
     <!--<dependency>
