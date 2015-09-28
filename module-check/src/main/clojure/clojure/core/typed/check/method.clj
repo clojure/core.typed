@@ -37,13 +37,13 @@
           cargs (or cargs (mapv check-fn args))]
       (if-not rfin-type
         (err/tc-delayed-error (str "Unresolved " (if inst? "instance" "static") 
-                                 " method invocation " 
+                                 " method invocation " method-name "." 
                                  (type-hints/suggest-type-hints 
                                    method-name 
                                    (when ctarget
                                      (-> ctarget u/expr-type r/ret-t))
                                    (map (comp r/ret-t u/expr-type) cargs))
-                                 ".\n\nHint: use *warn-on-reflection* to identify reflective calls")
+                                 "\n\nHint: use *warn-on-reflection* to identify reflective calls")
                             :form (ast-u/emit-form-fn expr)
                             :return (merge
                                       (assoc expr 
