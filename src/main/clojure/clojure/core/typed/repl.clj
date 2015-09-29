@@ -27,9 +27,15 @@
        (ns-utils/ns-has-core-typed-metadata? rcode)))
 
 (defn ns-has-core-typed-meta? [nsym]
-  ;(prn nsym)
-  (boolean
-    (some-> (the-ns nsym) meta :core.typed)))
+  {:pre [(or (symbol? nsym)
+             (instance? clojure.lang.Namespace nsym))]}
+  (let [ns (find-ns (if (symbol? nsym)
+                      ;; don't call ns-name
+                      ;; in case this namespace doesn't exist yet
+                      nsym
+                      (ns-name nsym)))]
+    (boolean
+      (some-> ns meta :core.typed))))
 
 (defn typed-in-ns-form? [current-ns rcode]
   ;(prn "typed-in-ns-form?" rcode)
