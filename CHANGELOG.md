@@ -1,3 +1,14 @@
+# 0.3.12 - 19 October 2015
+
+Release Notes - core.typed - Version 0.3.12
+
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-239'>CTYP-239</a>] -         Search for .cljc files when checking a namespace 
+</li>
+</ul>
+
 # 0.3.11 - 14 August 2015
 
 <a href='http://dev.clojure.org/jira/browse/CTYP/fixforversion/10652'>Release Notes - core.typed - Version 0.3.11</a>
