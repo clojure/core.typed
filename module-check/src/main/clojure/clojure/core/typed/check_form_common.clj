@@ -87,7 +87,6 @@
                        (when type-provided?
                          (r/ret (prs/parse-type expected))))
             stop-analysis (atom nil)
-            stop! (fn [] (reset! stop-analysis true))
             delayed-errors-fn (fn [] (seq @vs/*delayed-errors*))
             file-mapping-atom (atom [])
             eval-ast (fn [{:keys [expected] :as opt} ast]
