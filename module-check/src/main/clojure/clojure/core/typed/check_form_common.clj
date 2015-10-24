@@ -90,30 +90,35 @@
             delayed-errors-fn (fn [] (seq @vs/*delayed-errors*))
             file-mapping-atom (atom [])
             eval-ast (fn [{:keys [expected] :as opt} ast]
-                       (do (collect-expr ast)
+                       (do (p/p :check-form/collect
+                             (collect-expr ast))
                            (let [c-ast (do 
                                          (reset-caches/reset-caches)
-                                         (check-expr ast expected))
+                                         (p/p :check-form/check-expr
+                                           (check-expr ast expected)))
                                  eval-cexp (or (when-not no-eval
                                                  eval-out-ast)
                                                identity)
                                  _ (when file-mapping
-                                     (swap! file-mapping-atom
-                                            (fn [v]
-                                              (reduce 
-                                                conj v
-                                                (file-map/ast->file-mapping c-ast)))))]
+                                     (p/p :check-form/file-mapping
+                                       (swap! file-mapping-atom
+                                              (fn [v]
+                                                (reduce 
+                                                  conj v
+                                                  (file-map/ast->file-mapping c-ast))))))]
                              (or (some-> (seq (delayed-errors-fn)) 
                                          err/print-errors!)
-                                 (eval-cexp c-ast)))))
+                                 (p/p :check-form/eval-ast
+                                   (eval-cexp c-ast))))))
             terminal-error (atom nil)
             c-ast (try
-                    (ast-for-form form
-                                  {:bindings-atom bindings-atom
-                                   :eval-fn eval-ast
-                                   :expected expected
-                                   :stop-analysis stop-analysis
-                                   :env env})
+                    (p/p :check-form/ast-for-form
+                      (ast-for-form form
+                                    {:bindings-atom bindings-atom
+                                     :eval-fn eval-ast
+                                     :expected expected
+                                     :stop-analysis stop-analysis
+                                     :env env}))
                     (catch Throwable e
                       (let [e (if (some-> e ex-data err/tc-error?)
                                 (try
