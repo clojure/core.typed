@@ -16,9 +16,6 @@
             [clojure.main :as main])
   (:import java.io.Writer))
 
-(def install-typed-load
-  (delay (alter-var-root #'load (constantly load/typed-load))))
-
 (defn typed-ns-form? [current-ns rcode]
   (and (seq? rcode) 
        (= (first rcode) 'ns)
@@ -190,7 +187,7 @@
       :else (handler msg))))
 
 (defn wrap-clj-repl [handler]
-  @install-typed-load
+  (load/monkeypatch-typed-load)
   (fn [{:keys [op] :as msg}]
     ;(prn "wrap-clj-repl" op)
     (cond 
