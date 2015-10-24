@@ -45,6 +45,13 @@
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
+;  :injections [;; ExceptionInfo must be AOT compiled at this point
+;               ;; If not, run `lein repl` with the follow two lines
+;               ;; commented out, then don't `lein clean` after they are
+;               ;; readded.
+;               (require 'clojure.core.typed.load)
+;               (clojure.core.typed.load/monkeypatch-typed-load)]
+
   :global-vars {*warn-on-reflection* true}
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
