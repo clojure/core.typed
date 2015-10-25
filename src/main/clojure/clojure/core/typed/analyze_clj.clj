@@ -371,7 +371,7 @@
         file (-> pres io/reader slurp)
         reader (readers/indexing-push-back-reader file 1 p)
         eof  (reify)
-        reader-opts (if (.endsWith p ".cljc")
+        reader-opts (if (.endsWith ^String p ".cljc")
                       {:eof eof :read-cond :allow}
                       {:eof eof})
         asts (binding [*ns* *ns*
