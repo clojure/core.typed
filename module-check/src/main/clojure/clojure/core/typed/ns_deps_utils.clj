@@ -72,13 +72,17 @@
       (vary-meta nsym merge metamap)
       nsym)))
 
+(defn ns-meta
+  "Returns the metadata map for this namespace"
+  [ns-form]
+  (meta (ns-form-name ns-form)))
+
 (defn collect-only-ns?
   "Returns true if the ns-form has collect-only metadata."
   [ns-form]
   {:pre [ns-form]
    :post [(con/boolean? %)]}
-  (let [nsym (ns-form-name ns-form)]
-    (boolean (-> (meta nsym) :core.typed :collect-only))))
+  (boolean (-> (ns-meta ns-form) :core.typed :collect-only)))
 
 (defn should-collect-ns-form?
   [ns-form]
@@ -113,8 +117,16 @@
   "Returns true if the given ns form has :core.typed metadata."
   [rcode]
   {:post [(con/boolean? %)]}
-  (-> (second rcode)
-      meta :core.typed boolean))
+  (boolean (-> (ns-meta rcode) :core.typed)))
+
+(defn should-use-typed-load?
+  "Returns true if typed load should be triggered for this namespace."
+  [ns-form]
+  {:post [(con/boolean? %)]}
+  (let [m (ns-meta ns-form)]
+    (boolean
+      (and (:core.typed m)
+           (not (-> m :core.typed :no-typed-load))))))
 
 (defn file-has-core-typed-metadata?
   "Returns true if the given file has :core.typed metadata."
@@ -123,4 +135,13 @@
    :post [(con/boolean? %)]}
   (if-let [ns-form (ns-form-for-file res)]
     (boolean (some-> ns-form ns-has-core-typed-metadata?))
+    false))
+
+(defn file-should-use-typed-load?
+  "Returns true if the given file should be loaded with typed load."
+  [res]
+  {:pre [(string? res)]
+   :post [(con/boolean? %)]}
+  (if-let [ns-form (ns-form-for-file res)]
+    (boolean (some-> ns-form should-use-typed-load?))
     false))

@@ -94,8 +94,8 @@ directory for the current namespace otherwise."
               ;      (clojure.lang.Compiler/load base-resource-path
               ;                                  (last (re-find #"([^/]+$)" cljx-path)))))
               (cond
-                (or (ns-utils/file-has-core-typed-metadata? (str base-resource-path ".clj"))
-                    (ns-utils/file-has-core-typed-metadata? (str base-resource-path ".cljc")))
+                (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
+                    (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc")))
                 (do
                   (when @#'clojure.core/*loading-verbosely*
                     (printf "Loading typed file\n" base-resource-path))
