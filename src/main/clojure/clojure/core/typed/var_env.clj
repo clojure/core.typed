@@ -14,6 +14,7 @@
 (def current-used-vars-kw ::current-used-vars)
 (def current-checked-var-defs-kw ::current-checked-var-defs)
 (def cljs-jsvar-annotations-kw ::cljs-jsvar-annotations)
+(def untyped-var-annotations-kw ::untyped-var-annotations)
 
 (defn clj-var-annotations []
   (get @(impl/clj-checker) current-var-annotations-kw {}))
@@ -50,12 +51,24 @@
   {:post [(set? %)]}
   (get (env/deref-checker) current-checked-var-defs-kw #{}))
 
+(defn untyped-var-annotations []
+  {:post [(map? %)]}
+  (get (env/deref-checker) untyped-var-annotations-kw {}))
+
 (defn add-var-type [sym type]
   (when-let [old-t ((var-annotations) sym)]
     (when (not= old-t type)
       (println "WARNING: Duplicate var annotation: " sym)
       (flush)))
   (env/swap-checker! assoc-in [current-var-annotations-kw sym] type)
+  nil)
+
+(defn add-untyped-var [nsym sym t]
+  {:pre [(symbol? nsym)
+         (symbol? sym)
+         (r/Type? t)]
+   :post [(nil? %)]}
+  (env/swap-checker! assoc-in [untyped-var-annotations-kw nsym sym] t)
   nil)
 
 (defn check-var? [sym]
@@ -153,3 +166,12 @@
                         "Reference to untyped binding: " sym
                         "\nHint: Add the annotation for " sym
                         " via check-ns or cf"))))
+
+(defn get-untyped-var [nsym sym]
+  {:pre [(symbol? nsym)
+         (symbol? sym)]
+   :post [(or (nil? %)
+              (r/Type? %))]}
+  (some-> (untyped-var-annotations)
+          (get nsym)
+          (get sym)))
