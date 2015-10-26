@@ -227,6 +227,18 @@
     (doseq [sym syms]
       (nme-env/declare-name* (symbol (str nsym) (str sym))))))
 
+(add-invoke-special-collect-method 'clojure.core.typed/untyped-var*
+  [{:keys [args env] :as expr}]
+  (clt-u/assert-expr-args expr #{2})
+  (let [prs-ns (chk-u/expr-ns expr)
+        [vsym typesyn] (ast-u/constant-exprs args)
+        qsym (coerce/var->symbol (resolve vsym))
+        expected-type (binding [vs/*current-env* env
+                                prs/*parse-type-in-ns* prs-ns]
+                        (prs/parse-type typesyn))]
+    (var-env/add-untyped-var prs-ns qsym expected-type)
+    nil))
+
 (add-invoke-special-collect-method 'clojure.core.typed/ann*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{3})
