@@ -1699,6 +1699,20 @@ for checking namespaces, cf for checking individual forms."}
   nil)
 
 (defn ^:skip-wiki
+  untyped-var* 
+  "Internal use only. Use untyped-var."
+  [varsym typesyn]
+  nil)
+
+(defmacro untyped-var
+  "Check a given var has the specified type at runtime."
+  [varsym typesyn]
+  (let [qsym (if (namespace varsym)
+               varsym
+               (symbol (-> *ns* ns-name str) (str varsym)))]
+    `(untyped-var* '~qsym '~typesyn)))
+
+(defn ^:skip-wiki
   ann* 
   "Internal use only. Use ann."
   [varsym typesyn check?]
