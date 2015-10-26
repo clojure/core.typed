@@ -183,6 +183,36 @@
           (vector? (:items %))]}
   (vec/check-vector check expr expected))
 
+(defn throw-on-false [pred e]
+  (if pred
+    e
+    (throw (Exception. "Failure"))))
+
+(defn add-cast
+  "Given an AST node and a type, return a new AST that
+  casts the original expression to the given type"
+  [{:keys [env] :as expr} t]
+  {:pre [(map? expr)
+         (r/Type? t)]
+   :post [(map? %)]}
+  (impl/assert-clojure)
+  (let [pred-form `(t/pred ~(prs/unparse-type t))
+        pred-expr (ana-clj/analyze1 ;; FIXME support CLJS
+                    pred-form
+                    env
+                    {:eval-fn (fn [opts ast] ast)})]
+    (ast-u/dummy-invoke-expr
+      (ast-u/dummy-var-expr
+        `throw-on-false
+        env)
+      [(ast-u/dummy-invoke-expr
+         pred-expr
+         [expr]
+         env)
+       expr]
+      env)))
+
+
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
   {:pre [(var? var)]}
@@ -191,13 +221,29 @@
     (let [id (coerce/var->symbol var)
           _ (when-not (var-env/used-var? id)
               (var-env/add-used-var id))
-          t (var-env/lookup-Var-nofail (coerce/var->symbol var))]
+          vsym (coerce/var->symbol var)
+          ut (var-env/get-untyped-var (cu/expr-ns expr) vsym)
+          t (var-env/lookup-Var-nofail vsym)]
       ;(prn " annotation" t)
-      (if t
+      ;(prn " untyped annotation" ut)
+      (cond
+        ut
+        (if (cu/should-rewrite?)
+          (assoc (add-cast expr ut)
+                 u/expr-type (below/maybe-check-below
+                               (r/ret ut)
+                               expected))
+          (err/tc-delayed-error
+            (str "Untyped var " id " found, but unable to rewrite to add contract"
+            :return (assoc expr
+                           u/expr-type (cu/error-ret expected)))))
+
+        t
         (assoc expr
                u/expr-type (below/maybe-check-below
                              (r/ret t)
                              expected))
+        :else
         (err/tc-delayed-error
           (str "Unannotated var " id
                "\nHint: Add the annotation for " id

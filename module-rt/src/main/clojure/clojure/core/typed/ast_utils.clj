@@ -54,9 +54,18 @@
     (:val expr)
     (:val q)))
 
+(defn dummy-if-expr [test then else env]
+  {:op :if
+   :test test
+   :then then
+   :else else
+   :children [:test :then :else]
+   :env env})
+
 (defn dummy-invoke-expr [fexpr args env]
   {:op :invoke
    :env env
+   :children [:fn :args]
    :fn fexpr
    :args args})
 
@@ -64,6 +73,7 @@
   (let [params (vec (concat required-params (when rest-param [rest-param])))]
     {:op :fn-method
      :env env
+     :children [:body]
      :body body
      :params params
      :fixed-arity (count params)
@@ -72,6 +82,7 @@
 (defn dummy-fn-expr [methods variadic-method env]
   {:op :fn
    :env env
+   :children [:methods]
    :methods (vec (concat methods (when variadic-method [variadic-method])))
    :variadic? (boolean variadic-method)})
 
@@ -85,7 +96,8 @@
     (assert (var? v))
     {:op :var
      :env env
-     :var v}))
+     :var v
+     :form vsym}))
 
 (defn dummy-do-expr [statements ret env]
   {:op :do
