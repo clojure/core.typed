@@ -1,3 +1,16 @@
+# 0.3.13 - 26 October 2015
+
+Release Notes - core.typed - Version 0.3.13
+        
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-246'>CTYP-246</a>] -         Gradually typed namespaces should import untyped vars with a contract
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-281'>CTYP-281</a>] -         Separate `load` monkey-patch and typed REPL
+</li>
+</ul>
+
 # 0.3.12 - 19 October 2015
 
 Release Notes - core.typed - Version 0.3.12
