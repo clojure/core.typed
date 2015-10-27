@@ -7,6 +7,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.internal :as internal]
             [clojure.java.io :as io]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -64,10 +65,12 @@
   metadata attached."
   [ns-form]
   {:post [(symbol? %)]}
-  (let [nsym (second ns-form)
+  (let [ns-form (next ns-form)
+        [nsym ns-form] (internal/take-when symbol? ns-form)
         _ (when-not (symbol? nsym)
             (err/int-error "Malformed ns form"))
-        metamap (nth ns-form 2 nil)]
+        [docstr ns-form]  (internal/take-when string? ns-form)
+        [metamap ns-form] (internal/take-when map? ns-form)]
     (if (map? metamap)
       (vary-meta nsym merge metamap)
       nsym)))
