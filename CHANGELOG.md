@@ -1,6 +1,6 @@
-# 0.3.13 - 26 October 2015
+# 0.3.14 - 26 October 2015 (0.3.13 was a bad release)
 
-Release Notes - core.typed - Version 0.3.13
+Release Notes - core.typed - Version 0.3.14
         
 <h2>        Enhancement
 </h2>
