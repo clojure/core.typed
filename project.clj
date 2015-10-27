@@ -1,4 +1,4 @@
-(defproject org.clojure/core.typed "0.2.90-SNAPSHOT"
+(defproject org.clojure/core.typed "0.2.90-SNAPSHOT" ;; ignore this version, see pom.xml
   :description "Gradual typing for Clojure"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -50,7 +50,9 @@
 ;               ;; commented out, then don't `lein clean` after they are
 ;               ;; readded.
 ;               (require 'clojure.core.typed.load)
-;               (clojure.core.typed.load/monkeypatch-typed-load)]
+;               (require 'clojure.core.typed.lang)
+;               (clojure.core.typed.load/install-typed-load)
+;               (clojure.core.typed.lang/monkey-patch-extensible-load)]
 
   :global-vars {*warn-on-reflection* true}
 

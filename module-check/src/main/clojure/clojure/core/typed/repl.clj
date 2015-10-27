@@ -187,7 +187,7 @@
       :else (handler msg))))
 
 (defn wrap-clj-repl [handler]
-  (load/monkeypatch-typed-load)
+  ;(load/monkeypatch-typed-load)
   (fn [{:keys [op] :as msg}]
     ;(prn "wrap-clj-repl" op)
     (cond 

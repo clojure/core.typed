@@ -124,9 +124,8 @@
   [ns-form]
   {:post [(con/boolean? %)]}
   (let [m (ns-meta ns-form)]
-    (boolean
-      (and (:core.typed m)
-           (not (-> m :core.typed :no-typed-load))))))
+    (and (= :core.typed (:impl m))
+         (not (-> m :core.typed :no-typed-load)))))
 
 (defn file-has-core-typed-metadata?
   "Returns true if the given file has :core.typed metadata."
