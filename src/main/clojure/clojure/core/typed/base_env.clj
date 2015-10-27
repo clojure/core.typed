@@ -148,8 +148,7 @@ clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/warn-on-unannotated-vars* [-> Any]
 clojure.core.typed/ann-datatype* [Any Any Any Any -> Any]
 clojure.core.typed/ann-protocol* [Any Any Any -> Any]
-      ; REMOVED
-clojure.core.typed/ann-pprotocol* [Any Any Any -> Any]
+clojure.core.typed/ann-pprotocol* [Any Any Any -> Any] ; REMOVED
 clojure.core.typed/ann-record* [Any Any Any Any -> Any]
 clojure.core.typed/ann-pdatatype* [Any Any Any Any -> Any]
 clojure.core.typed/ann-precord* [Any Any Any Any -> Any]
