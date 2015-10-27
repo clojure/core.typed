@@ -1,4 +1,5 @@
 (ns clojure.core.typed.test.gradual.import-untyped
+  "Docstring"
   {:lang :core.typed}
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.test.gradual.untyped :as u]))
