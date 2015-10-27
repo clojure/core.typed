@@ -11,11 +11,12 @@
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.check-form-clj :as chk-frm-clj]
             [clojure.core.typed.check-form-common :as chk-frm]
+            [clojure.core.typed.lang :as lang]
             [clojure.core.typed.deps.clojure.tools.analyzer.jvm :as taj])
   (:import java.net.URL))
 
 ;; copied from cljx
-(defn- find-resource
+#_(defn- find-resource
   [name]
   (if-let [cl (clojure.lang.RT/baseLoader)]
     (.getResource cl name)
@@ -30,6 +31,8 @@
   ([filename] (load-typed-file filename (taj/empty-env) {}))
   ([filename env] (load-typed-file filename env {}))
   ([filename env opts]
+   {:pre [(string? filename)]
+    :post [(nil? %)]}
     (t/load-if-needed)
     (ta-env/ensure (p/p :typed-load/global-env
                         (taj/global-env))
@@ -64,53 +67,26 @@
                      ;(ana-clj/analyze+eval form (assoc env :ns (ns-name *ns*)) opts)
                      (recur))))))))))))
 
-;; modified from cljx
-(defn typed-load
-  "Loads Clojure code from resources in classpath. A path is interpreted as
-classpath-relative if it begins with a slash or relative to the root
-directory for the current namespace otherwise."
-  {:added "1.0"}
-  [& paths]
-  (doseq [^String path paths]
-    (let [^String path (if (.startsWith path "/")
-                          path
-                          (str (#'clojure.core/root-directory (ns-name *ns*)) \/ path))]
+(defn typed-load1 [base-resource-path]
+  {:pre [(string? base-resource-path)]
+   :post [(nil? %)]}
+  ;(prn "typed load" base-resource-path)
+  (cond
+    (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
+        (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc")))
+    (do
       (when @#'clojure.core/*loading-verbosely*
-        (printf "(clojure.core/load \"%s\")\n" path)
-        (flush))
-      (#'clojure.core/check-cyclic-dependency path)
-      (when-not (= path (first @#'clojure.core/*pending-paths*))
-        (with-bindings {#'clojure.core/*pending-paths* (conj @#'clojure.core/*pending-paths* path)}
-          (let [base-resource-path (.substring path 1)
-                cljx-path (str base-resource-path ".cljx")]
-            (if-let [cljx (find-resource cljx-path)]
-              (assert nil (str "TODO: cljx compatibility"))
-              ;(do
-              ;  (when @#'clojure.core/*loading-verbosely*
-              ;    (printf "Transforming cljx => clj from %s.cljx\n" base-resource-path))
-              ;  (-> (slurp cljx)
-              ;      (cljx/transform (:clj @cljx-load-rules))
-              ;      java.io.StringReader.
-              ;      (clojure.lang.Compiler/load base-resource-path
-              ;                                  (last (re-find #"([^/]+$)" cljx-path)))))
-              (cond
-                (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
-                    (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc")))
-                (do
-                  (when @#'clojure.core/*loading-verbosely*
-                    (printf "Loading typed file\n" base-resource-path))
-                  (load-typed-file base-resource-path))
+        (printf "Loading typed file\n" base-resource-path))
+      (load-typed-file base-resource-path))
 
-                :else (clojure.lang.RT/load base-resource-path)))))))))
+    :else (clojure.lang.RT/load base-resource-path)))
 
-; [-> nil]
-(def monkeypatch-typed-load
-  "A no-argument function that installs the core.typed `load` function
-  over clojure.core/load."
-  (let [l (delay (alter-var-root #'load (constantly #'typed-load)))]
-    (fn []
-      @l
-      nil)))
+(defn install-typed-load
+  []
+  {:post [(nil? %)]}
+  (alter-var-root #'lang/lang-dispatch
+                  assoc :core.typed #'typed-load1)
+  nil)
 
 (comment (find-resource "clojure/core/typed/test/load_file.clj")
          (typed-load "/clojure/core/typed/test/load_file.clj")

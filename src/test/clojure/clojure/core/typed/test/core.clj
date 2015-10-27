@@ -43,6 +43,7 @@
             [clojure.core.typed.test.person]
             [clojure.core.typed.internal]
             [clojure.core.typed.path-type :refer :all]
+            [clojure.core.typed.load :as load]
             [clojure.core.typed.ns-deps-utils :refer [should-collect-ns-form?
                                                       should-check-ns-form?
                                                       should-collect-ns?
@@ -53,7 +54,8 @@
 ; The :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
   (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
-                                             for doseq def remove filter defn atom ref]])
+                                             for doseq def remove filter defn atom ref
+                                             cast]])
   (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap
                          ExceptionInfo Var Seqable)))
 
@@ -5219,6 +5221,11 @@
         (profile :info :bar
           (cf (ns foo (:require [clojure.core.typed :as t]))))))
   (is (tc-e (ns foo) nil)))
+
+(deftest gradual-untyped-import-test
+  (is (thrown-with-msg? Exception #"Failure"
+        (do (load/load-typed-file "clojure/core/typed/test/gradual/import_untyped")
+            ((impl/v 'clojure.core.typed.test.gradual.import-untyped/bad))))))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
