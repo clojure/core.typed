@@ -3,6 +3,8 @@
   (:require [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.test :as test :refer [is]]
+            [clojure.core.typed.lang :as lang]
+            [clojure.core.typed.load :as load]
             [clojure.core.typed.test.common-utils :as common-test]))
 
 (t/load-if-needed)
@@ -205,3 +207,8 @@
      (is (nil? (re-find #"^Reflection warning" (with-err-string-writer ~form))))
      (is (nil? (re-find #"^Reflection warning" (with-err-print-writer ~form))))))
 
+(defmacro with-typed-load [& body]
+  `(do
+     (load/install-typed-load)
+     (with-redefs [load #'lang/extensible-load]
+     ~@body)))

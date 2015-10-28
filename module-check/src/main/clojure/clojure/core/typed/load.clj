@@ -12,7 +12,8 @@
             [clojure.core.typed.check-form-clj :as chk-frm-clj]
             [clojure.core.typed.check-form-common :as chk-frm]
             [clojure.core.typed.lang :as lang]
-            [clojure.tools.analyzer.jvm :as taj])
+            [clojure.tools.analyzer.jvm :as taj]
+            [clojure.core.typed.util-vars :as vs])
   (:import java.net.URL))
 
 ;; copied from cljx
@@ -45,7 +46,8 @@
                    [r f])))]
        (assert file-url (str "Cannot find file " filename))
        (binding [*ns*   *ns*
-                 *file* filename]
+                 *file* filename
+                 vs/*in-typed-load* true]
          (with-open [rdr (io/reader file-url)]
            (let [pbr (readers/indexing-push-back-reader
                        (java.io.PushbackReader. rdr) 1 filename)
