@@ -103,17 +103,23 @@
         tdeps (set (filter dep-u/should-check-ns? deps))]
     ;; is this line needed?
     (dep/add-ns-deps prs-ns tdeps)
-    (doseq [dep deps
-            :when (dep-u/should-collect-ns? dep)]
-      (if vs/*in-check-form*
-        ;; to keep compatibility with 0.2.x namespaces,
-        ;; collect namespaces that would have worked in 0.2.x but don't now.
-        (when-not (some-> dep
-                          dep-u/ns-form-for-ns
-                          dep-u/ns-has-core-typed-metadata?)
-          (err/warn (str dep " does not have :core.typed metadata, only collecting annotations for core.typed 0.2.x compatibility"))
-          (collect-ns dep))
-        (collect-ns dep)))))
+    ;; Assumption: if typed load is being called, then `clojure.core/load` is
+    ;; monkey-patched via clojure.core.typed.lang, with the :core.typed extension
+    ;; in clojure.core.typed.load.
+    ;; This means the dependencies will be checked as needed once the `ns`
+    ;; form is evaluated.
+    (when-not vs/*in-typed-load*
+      (doseq [dep deps
+              :when (dep-u/should-collect-ns? dep)]
+        (if vs/*in-check-form*
+          ;; to keep compatibility with 0.2.x namespaces,
+          ;; collect namespaces that would have worked in 0.2.x but don't now.
+          (when-not (some-> dep
+                            dep-u/ns-form-for-ns
+                            dep-u/ns-has-core-typed-metadata?)
+            (err/warn (str dep " does not have :core.typed metadata, only collecting annotations for core.typed 0.2.x compatibility"))
+            (collect-ns dep))
+          (collect-ns dep))))))
 
 (defmulti collect (fn [expr] (:op expr)))
 (u/add-defmethod-generator collect)
