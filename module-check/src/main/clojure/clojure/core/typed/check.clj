@@ -9,8 +9,8 @@
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.analyze-host-expr :as ana-host]
+            [clojure.tools.analyzer.passes.jvm.validate :as validate]
+            [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.array-ops :as arr-ops]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.assoc-utils :as assoc-u]
@@ -155,10 +155,10 @@
       (check expr expected))))
 
 (add-check-method :const [expr & [expected]] 
-  (value/check-value expr expected))
+  (value/check-value expr expected false))
 
 (add-check-method :quote [{:keys [expr] :as quote-expr} & [expected]] 
-  (let [cexpr (check expr expected)]
+  (let [cexpr (value/check-value expr expected true)]
     (assoc quote-expr
            :expr cexpr
            u/expr-type (u/expr-type cexpr))))
@@ -667,7 +667,7 @@
      (ast-u/dummy-const-expr ::t/ann-form env)
      (ast-u/dummy-const-expr 
        {:type (binding [vs/*verbose-types* true]
-                (prs/unparse-type t))}
+                `'~(prs/unparse-type t))}
        env)]
     expr
     env))

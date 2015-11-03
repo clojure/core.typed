@@ -1,5 +1,5 @@
 (ns clojure.core.typed.check.tag
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as ana-u]
+  (:require [clojure.tools.analyzer.jvm.utils :as ana-u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]))

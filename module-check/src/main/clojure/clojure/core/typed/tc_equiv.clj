@@ -5,7 +5,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.deps.clojure.math.combinatorics :as comb]))
+            [clojure.math.combinatorics :as comb]))
 
 (defn equivable? [t]
   {:pre [(r/Type? t)]

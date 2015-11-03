@@ -5,6 +5,7 @@
     [clojure.core.typed.test.test-utils :refer :all]
             [clojure.test :refer :all]
             [clojure.core.typed.analyze-clj :as ana]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
@@ -4747,6 +4748,23 @@
 
 (deftest CTYP-189-test
   (is-tc-e (for [x :- Int []] :- Int x)))
+
+(comment
+  (tc-e (let [x 1] (loop [x x] x)))
+  (tc-e (loop [x 1] x))
+(-> (ana/ast-for-form '(clojure.core.typed/for [x :- Int []] :- Int x))
+    emit-form/emit-form
+    pprint)
+(-> (ana/ast-for-form '(let [x 1] (loop [x x] x)))
+    :body
+    :ret
+    :body
+    :ret
+
+    #_emit-form/emit-form
+    #_pprint)
+)
+
 
 (deftest CTYP-215-zero?-test
   ; inlinings

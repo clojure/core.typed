@@ -3,16 +3,16 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.deps.clojure.tools.analyzer.env :as ta-env]
+            [clojure.tools.analyzer.env :as ta-env]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
-            [clojure.core.typed.deps.clojure.tools.reader :as reader]
+            [clojure.tools.reader.reader-types :as readers]
+            [clojure.tools.reader :as reader]
             [clojure.java.io :as io]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.check-form-clj :as chk-frm-clj]
             [clojure.core.typed.check-form-common :as chk-frm]
             [clojure.core.typed.lang :as lang]
-            [clojure.core.typed.deps.clojure.tools.analyzer.jvm :as taj])
+            [clojure.tools.analyzer.jvm :as taj])
   (:import java.net.URL))
 
 ;; copied from cljx
@@ -22,7 +22,7 @@
     (.getResource cl name)
     (ClassLoader/getSystemResourceAsStream name)))
 
-;; based on clojure.core.typed.deps.clojure.tools.analyzer.jvm/analyze-ns
+;; based on clojure.tools.analyzer.jvm/analyze-ns
 ;; (IFn [String -> nil]
 ;;      [String ToolsAnalyzerEnv -> nil]
 ;;      [String ToolsAnalyzerEnv ToolsReaderOpts -> nil])
