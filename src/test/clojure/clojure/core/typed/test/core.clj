@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.core
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update cast])
   (:require 
     ; this loads the type system, must go first
     [clojure.core.typed.test.test-utils :refer :all]
@@ -55,8 +55,7 @@
 ; The :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
   (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
-                                             for doseq def remove filter defn atom ref
-                                             cast]])
+                                             for doseq def remove filter defn atom ref]])
   (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap
                          ExceptionInfo Var Seqable)))
 
@@ -3095,9 +3094,9 @@
 ; test cast CTYP-118
 (deftest cast-test
   (is (check-ns 'clojure.core.typed.test.CTYP-118-cast))
-  (is-tc-err (fn [] (cast "a" "a")))
-  (is-tc-err (fn [] (cast String "a" 1)))
-  (is-tc-err (fn [] (cast #('ok) 2))))
+  (is-tc-err (fn [] (core/cast "a" "a")))
+  (is-tc-err (fn [] (core/cast String "a" 1)))
+  (is-tc-err (fn [] (core/cast #('ok) 2))))
 
 (deftest optional-record-keys-test
   (is (check-ns 'clojure.core.typed.test.record-optional-key))
@@ -4233,29 +4232,29 @@
                   (-flow -bot)))
     )
   (testing "cast"
-    (is-tc-e (cast Number 1))
-    (is-tc-e (cast Number 1)
+    (is-tc-e (core/cast Number 1))
+    (is-tc-e (core/cast Number 1)
              Num)
-    (is-tc-err (cast Number 1)
+    (is-tc-err (core/cast Number 1)
              :expected-ret
              (ret (parse-clj `Num)
                   (-true-filter)))
-    (is-tc-err (cast Number 1)
+    (is-tc-err (core/cast Number 1)
              :expected-ret
              (ret (parse-clj `Num)
                   (-false-filter)))
-    (is-tc-err (cast Number 1)
+    (is-tc-err (core/cast Number 1)
              :expected-ret
              (ret (parse-clj `Num)
                   (-FS -top -top)
                   (-path nil 'a)))
-    (is-tc-err (cast Number 1)
+    (is-tc-err (core/cast Number 1)
              :expected-ret
              (ret (parse-clj `Num)
                   (-FS -top -top)
                   -empty
                   (-flow -bot)))
-    (is-tc-err (do (cast Number 1))
+    (is-tc-err (do (core/cast Number 1))
              :expected-ret
              (ret (parse-clj `Num)
                   (-FS -top -top)
