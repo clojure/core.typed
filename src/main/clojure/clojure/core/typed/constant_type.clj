@@ -2,12 +2,11 @@
   (:require [clojure.core.typed.type-rep :as r :refer [ret]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.hset-utils :as hset])
-  (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
-                         ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
+  (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable ISeq
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
-                         IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
-                         LazySeq APersistentMap Indexed)))
+                         IRef ARef IDeref IReference PersistentHashSet Sorted
+                         LazySeq Indexed)))
 
 (defprotocol ConstantType 
   (constant-ret [this]))

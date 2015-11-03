@@ -18,6 +18,7 @@
             [clojure.core.typed.check.fn-method-one :as fn-method-one]
             [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]))
 
 (declare wrap-poly)
@@ -165,12 +166,25 @@
          (#{:fn} (:op fexpr))]}
   ;(prn "check-special-fn")
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-    (let [fn-anns (ast-u/map-expr-at fn-ann-expr :ann)
-          poly    (ast-u/map-expr-at fn-ann-expr :poly)
+    (let [fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
+          poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)
           ;_ (prn "poly" poly)
+          _ (impl/impl-case
+              :clojure (do (assert (and (seq? fn-anns-quoted)
+                                    ('#{quote} (first fn-anns-quoted))))
+                           (assert (and (seq? poly-quoted)
+                                        ('#{quote} (first poly-quoted)))))
+              :cljs nil)
+          fn-anns (impl/impl-case
+                    :clojure (second fn-anns-quoted)
+                    :cljs fn-anns-quoted)
+          poly (impl/impl-case
+                 :clojure (second poly-quoted)
+                 :cljs poly-quoted)
           _ (assert (vector? fn-anns))
           self-name (cu/fn-self-name fexpr)
-          _ (assert ((some-fn nil? symbol?) self-name))
+          _ (assert ((some-fn nil? symbol?) self-name)
+                    self-name)
           ;_ (prn "self-name" self-name)
           [frees-with-bnds dvar] (parse-poly poly)
           new-bnded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
