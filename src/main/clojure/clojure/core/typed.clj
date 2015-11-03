@@ -4,7 +4,7 @@ and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                            defn atom ref
+                            defn atom ref cast
                             #_def #_filter #_remove])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
@@ -20,6 +20,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.import-macros :as import-m]
             [clojure.core.typed.macros :as macros]
+            [clojure.core.typed.contract :as con]
             [clojure.java.io :as io])
   (:import (clojure.lang Compiler)))
 
@@ -1190,7 +1191,7 @@ for checking namespaces, cf for checking individual forms."}
   [sym type]
   nil)
 
-(defmacro ^:private with-current-location
+(defmacro ^:skip-wiki with-current-location
   [form & body]
   `(let [form# ~form]
      (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
@@ -2345,6 +2346,66 @@ for checking namespaces, cf for checking individual forms."}
     `(pred* '~t
             '~(ns-name *ns*)
             ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t))))
+
+(defmacro cast
+  "Cast a value to a type. Returns a new value that conforms
+  to the given type, otherwise throws an error with blame.
+
+  eg. (cast Int 1)
+      ;=> 1
+
+      (cast Int nil)
+      ; Fail, <blame positive ...>
+
+      ((cast [Int -> Int] identity)
+       1)
+      ;=> 1
+
+      ((cast [Int -> Int] identity)
+       nil)
+      ; Fail, <blame negative ...>
+
+      (cast [Int -> Int] nil)
+      ; Fail, <blame positive ...>
+
+  (defalias Options
+    (HMap :optional {:positive (U Sym Str),
+                     :negative (U Sym Str)
+                     :file (U Str nil)
+                     :line (U Int nil)
+                     :column (U Int nil)}))
+
+  (IFn [Contract Any -> Any]
+       [Contract Any Options -> Any]
+
+  Options:
+  - :positive   positive blame, (U Sym Str)
+  - :negative   negative blame, (U Sym Str)
+  - :file       file name where contract is checked, (U Str nil)
+  - :line       line number where contract is checked, (U Int nil)
+  - :column     column number where contract is checked, (U Int nil)"
+  ([t x] `(cast ~t ~x {}))
+  ([t x opt]
+   (require '[clojure.core.typed.type-contract])
+   `(let [opt# ~opt]
+      (con/contract (with-current-location '~&form
+                      ;; this compiles code so needs to be in same phase
+                      (binding [*ns* ~*ns*]
+                        ((impl/v '~'clojure.core.typed.type-contract/type-syntax->contract) '~t)))
+                    ~x
+                    (con/make-blame
+                      :positive (or (:positive opt#)
+                                    '~(ns-name *ns*))
+                      :negative (or (:negative opt#)
+                                    (str "Not " '~(ns-name *ns*)))
+                      :file (or (:file opt#)
+                                ~*file*)
+                      :line (or (:line opt#)
+                                ~(or (-> &form meta :line)
+                                     @Compiler/LINE))
+                      :column (or (:column opt#)
+                                  ~(or (-> &form meta :column)
+                                       @Compiler/COLUMN)))))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)
