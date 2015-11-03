@@ -69,3 +69,35 @@
         (eval '(cljs.core.typed/check-ns))))
   (is (catch-compiler-exception
         (eval '(cljs.core.typed/check-ns foo)))))
+
+(defmacro thrown-blame? [& e]
+  `(try (try (do ~@e)
+             false
+             (catch clojure.lang.Compiler$CompilerException e#
+               (throw (.source e#))))
+        (catch clojure.lang.ExceptionInfo e#
+          (boolean (-> e# ex-data :blame)))))
+
+(deftest cast-test
+  (is (= 1 (t/cast t/Int 1)))
+  (is (= nil (t/cast nil nil)))
+  (is (= 1 (t/cast t/Int 1)))
+  ;; unions
+  (is (thrown-blame? (t/cast t/Int nil 
+                             {:positive '+ve 
+                              :negative '-ve
+                              :file "my/file.clj"
+                              :line 20
+                              :column 30})))
+  (is (= 1 (t/cast (t/U t/Int) 1)))
+  (is (thrown-blame? (t/cast (t/U t/Int) nil)))
+  (is (= 1 (t/cast (t/U (t/U t/Int)) 1)))
+  (is (thrown-blame? (t/cast (t/U (t/U t/Int)) nil)))
+  ;; intersections
+  (is (= 1 (t/cast (t/I t/Int) 1)))
+  (is (thrown-blame? (t/cast (t/I t/Int) nil)))
+  (is (= 1 (t/cast (t/I (t/I t/Int)) 1)))
+  (is (thrown-blame? (t/cast (t/I (t/I t/Int)) nil)))
+
+  (is (thrown-blame? (t/cast (t/I (t/I t/Int)) nil)))
+  )

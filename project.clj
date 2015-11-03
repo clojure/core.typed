@@ -58,8 +58,8 @@
                  #_"../clojurescript/src/cljs"]
   :test-paths ["module-check/src/test/clojure"
                "module-check/src/test/cljs"
-               "module-rt/src/test/clojure"
-               "module-rt/src/test/cljs"]
+               "module-rt/test/clojure"
+               "module-rt/test/cljs"]
 
   :profiles {:dev {:repl-options {:port 64499}}}
 
