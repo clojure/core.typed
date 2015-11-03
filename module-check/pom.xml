@@ -37,9 +37,6 @@
           <!-- Don't put AOT files in jar -->
           <temporaryOutputDirectory>false</temporaryOutputDirectory>
           <namespaces>
-            <!-- for tools.reader 0.9.2 -->
-            <namespace>clojure.core.typed.deps.clojure.tools.reader.impl.ExceptionInfo</namespace>
-
             <!-- depends on core.async -->
             <namespace>!cljs.core.typed.async</namespace>
             <namespace>!clojure.core.typed.async</namespace>
@@ -122,8 +119,7 @@
       <artifactId>core.typed.rt</artifactId>
       <version>0.3.15-SNAPSHOT</version>
     </dependency>
-    <!-- included as nested dependencies in clojure.core.typed.deps -->
-    <!--<dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
       <version>0.6.1</version>
@@ -133,28 +129,28 @@
           <artifactId>clojurescript</artifactId>
         </exclusion>
       </exclusions>
-    </dependency>-->
-    <!--<dependency>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
-      <version>0.3.0</version>
-    </dependency>-->
-    <!--<dependency>
+      <version>0.6.8</version>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.reader</artifactId>
       <version>0.9.2</version>
-    </dependency>-->
-    <!--<dependency>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.cache</artifactId>
       <version>0.6.4</version>
-    </dependency>-->
-    <!--<dependency>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
       <version>0.2.5</version>
-    </dependency>-->
-    <!--<dependency>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.contracts</artifactId>
       <version>0.0.4</version>
@@ -164,8 +160,8 @@
           <artifactId>clojure</artifactId>
         </exclusion>
       </exclusions>
-    </dependency>-->
-    <!--<dependency>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>math.combinatorics</artifactId>
       <version>0.1.1</version>
@@ -175,7 +171,7 @@
           <artifactId>clojure</artifactId>
         </exclusion>
       </exclusions>
-    </dependency>-->
+    </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.nrepl</artifactId>

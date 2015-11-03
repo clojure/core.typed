@@ -14,8 +14,8 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ns-deps-utils :as ns-deps-u]
             [clojure.java.io :as io]
-            [clojure.core.typed.deps.clojure.core.cache :as cache]
-            [clojure.core.typed.deps.clojure.tools.analyzer.jvm.utils :as jvm-u])
+            [clojure.core.cache :as cache]
+            [clojure.tools.analyzer.jvm.utils :as jvm-u])
   (:import (clojure.lang ExceptionInfo)))
 
 (defn cljs-reader [nsym]

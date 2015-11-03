@@ -1,18 +1,18 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
   (:refer-clojure :exclude [macroexpand-1 get-method])
-  (:require [clojure.core.typed.deps.clojure.tools.analyzer :as ta]
-            [clojure.core.typed.deps.clojure.tools.analyzer.env :as ta-env]
-            [clojure.core.typed.deps.clojure.tools.analyzer.jvm :as taj]
-            [clojure.core.typed.deps.clojure.tools.analyzer.utils :as ta-utils]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes :as passes]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.source-info :as source-info]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.cleanup :as cleanup]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.trim :as trim]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-reflect]
-            [clojure.core.typed.deps.clojure.tools.reader :as tr]
-            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as readers]
-            [clojure.core.typed.deps.clojure.tools.analyzer.passes.jvm.validate :as validate]
+  (:require [clojure.tools.analyzer :as ta]
+            [clojure.tools.analyzer.env :as ta-env]
+            [clojure.tools.analyzer.jvm :as taj]
+            [clojure.tools.analyzer.utils :as ta-utils]
+            [clojure.tools.analyzer.passes :as passes]
+            [clojure.tools.analyzer.passes.source-info :as source-info]
+            [clojure.tools.analyzer.passes.cleanup :as cleanup]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.tools.analyzer.passes.trim :as trim]
+            [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-reflect]
+            [clojure.tools.reader :as tr]
+            [clojure.tools.reader.reader-types :as readers]
+            [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.java.io :as io]
             [clojure.reflect :as reflect]
             [clojure.core.typed.utils :as u]
@@ -20,13 +20,13 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as T]
-            [clojure.core.typed.deps.clojure.core.cache :as cache]
+            [clojure.core.cache :as cache]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core :as core])
-  (:import (clojure.core.typed.deps.clojure.tools.analyzer.jvm ExceptionThrown)))
+  (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

@@ -35,7 +35,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
-      <version>0.1.303.0-886421-alpha</version>
+      <version>0.2.371</version>
       <optional>true</optional>
     </dependency>
     <dependency>
