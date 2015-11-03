@@ -135,6 +135,9 @@
 ;; We don't package timbre as a dependency in maven, so it's
 ;; only available with lein (development time). Needs a few helpers
 ;; to achieve this.
+;; 
+;; WARNING: This trick doesn't work using an AOT compiled core.typed JAR.
+;; Use `:classifier "slim"` in project.clj to workaround.
 
 (def loaded-timbre?
   (try 
