@@ -22,6 +22,7 @@
             [clojure.core.typed :as T]
             [clojure.core.cache :as cache]
             [clojure.core.typed.special-form :as spec]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -211,10 +212,12 @@
                     (unanalyzed-expr mform)
                     ;; rebinds *ns* during analysis
                     ;; FIXME unclear which map needs to have *ns*, especially post TAJ 0.3.0
-                    (eval-fn opts (taj/analyze mform (assoc env :ns (ns-name *ns*))
-                                               (-> opts 
-                                                   (dissoc :bindings-atom)
-                                                   (assoc-in [:bindings #'*ns*] *ns*)))))
+                    (eval-fn opts 
+                             (p/p :analyze-clj/analyze-no-eval
+                               (taj/analyze mform (assoc env :ns (ns-name *ns*))
+                                            (-> opts 
+                                                (dissoc :bindings-atom)
+                                                (assoc-in [:bindings #'*ns*] *ns*))))))
                   {:raw-forms raw-forms}))))))
 
 ;; reflect-validated from eastwood
