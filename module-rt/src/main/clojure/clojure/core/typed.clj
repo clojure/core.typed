@@ -2175,7 +2175,7 @@ for checking namespaces, cf for checking individual forms."}
                      type-provided? option must be true to utilise the type.
   - :type-provided?  If true, use the expected type to check the form.
   - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency.
+                     added as a dependency. Must use the \"slim\" JAR.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str).
   - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
@@ -2240,7 +2240,7 @@ for checking namespaces, cf for checking individual forms."}
                      top level type annotations like ann, ann-record.
   - :type-provided?  If true, use the expected type to check the form
   - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency.
+                     added as a dependency. Must use the \"slim\" JAR.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str).
 
@@ -2269,8 +2269,8 @@ for checking namespaces, cf for checking individual forms."}
   - :collect-only  if true, collect type annotations but don't type check code.
                    Useful for debugging purposes.
   - :trace         if true, print some basic tracing of the type checker
-  - :profile       if true, use Timbre to profile type checking. Must include
-                   Timbre as a dependency.
+  - :profile       Use Timbre to profile the type checker. Timbre must be
+                   added as a dependency. Must use the \"slim\" JAR.
 
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
