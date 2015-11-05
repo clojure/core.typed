@@ -1,3 +1,28 @@
+# 0.3.15 - 5 November 2015 
+
+Release Notes - core.typed - Version 0.3.15
+
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-283'>CTYP-283</a>] - Directly-linking in Clojure 1.8.0 interferes with load monkey-patching 
+</li>
+</ul>
+
+<h2>        Task
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-286'>CTYP-286</a>] - Convert inlined dependencies back to regular jars
+</li>
+</ul>
+
+<h2>        Misc
+</h2>
+<ul>
+<li>Bump tools.reader, tools.analyzer.jvm versions
+</li>
+</ul>
+
 # 0.3.14 - 26 October 2015 (0.3.13 was a bad release)
 
 Release Notes - core.typed - Version 0.3.14
