@@ -21,7 +21,7 @@
             [clojure.core.typed.hset-utils :as hset]
             [clojure.core.typed :as t]
             [clojure.set :as set]
-            [clojure.core.typed.deps.clojure.math.combinatorics :as comb]
+            [clojure.math.combinatorics :as comb]
             #_[clojure.core.typed.debug :refer [dbg]])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp

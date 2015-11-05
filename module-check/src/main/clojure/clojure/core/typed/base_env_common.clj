@@ -1,8 +1,8 @@
 (ns clojure.core.typed.base-env-common
   "Utilities for all implementations of the type checker"
   (:require [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.deps.clojure.tools.reader :as rdr]
-            [clojure.core.typed.deps.clojure.tools.reader.reader-types :as rdrs]))
+            [clojure.tools.reader :as rdr]
+            [clojure.tools.reader.reader-types :as rdrs]))
 
 (defmacro delay-and-cache-env [sym & body]
   (let [generator-sym (symbol (str "generator-" sym))

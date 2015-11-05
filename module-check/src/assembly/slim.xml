@@ -13,18 +13,5 @@
       <directory>src/main/cljs</directory>
       <outputDirectory>/</outputDirectory>
     </fileSet>
-    <!-- tools.reader's ExceptionInfo -->
-    <fileSet>
-      <directory>target/classes/</directory>
-      <includes>
-        <include>clojure/core/typed/deps/clojure/tools/reader/impl/ExceptionInfo*.class</include>
-      </includes>
-      <outputDirectory>/</outputDirectory>
-    </fileSet>
-    <!-- ASM's Type.java and Opcodes.java -->
-    <fileSet>
-      <directory>target/classes/clojure/core/typed/deps/org/objectweb/asm</directory>
-      <outputDirectory>/clojure/core/typed/deps/org/objectweb/asm</outputDirectory>
-    </fileSet>
   </fileSets>
 </assembly>

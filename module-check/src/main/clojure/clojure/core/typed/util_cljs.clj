@@ -1,7 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.util-cljs
   (:require [clojure.core.typed.current-impl :as impl]
             [cljs.analyzer :as ana]
-            [clojure.core.typed.deps.cljs.jvm.tools.analyzer.emit-form :as emit-form]
+            [cljs.jvm.tools.analyzer.emit-form :as emit-form]
             [cljs.compiler :as comp]
             [cljs.env :as env]))
 

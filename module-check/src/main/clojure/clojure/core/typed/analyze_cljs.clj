@@ -2,8 +2,8 @@
   (:refer-clojure :exclude [extenders])
   (:require [clojure.core.typed.current-impl :as impl]
             [cljs.analyzer :as ana]
-            [clojure.core.typed.deps.cljs.jvm.tools.analyzer :as jana]
-            [clojure.core.typed.deps.cljs.jvm.tools.analyzer.hygienic :as hyg]))
+            [cljs.jvm.tools.analyzer :as jana]
+            [cljs.jvm.tools.analyzer.hygienic :as hyg]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

@@ -74,7 +74,7 @@
                  '[clojure.core.typed.check-form-clj]
                  '[clojure.core.typed.statistics]
                  ; used by check-ns-info
-                 '[clojure.core.typed.deps.clojure.jvm.tools.analyzer]
+                 '[clojure.jvm.tools.analyzer]
 
                  '[clojure.core.typed.parse-ast]
                  '[clojure.core.typed.file-mapping]

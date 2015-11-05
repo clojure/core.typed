@@ -5,9 +5,9 @@
             [clojure.core.typed.impl-protocols :as ps]
             [clojure.core.typed.ast-utils :as au]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.deps.clojure.core.contracts.constraints :as contracts]
+            [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
-            [clojure.core.typed.deps.clojure.core.contracts]
+            [clojure.core.contracts]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as profiling]
@@ -57,7 +57,7 @@
 ;        positional-factory-name (symbol (str "->" name))
 ;        map-arrow-factory-name (symbol (str "map->" name))
 ;        pred-arg (gensym)
-;        chk `(clojure.core.typed.deps.clojure.core.contracts/contract
+;        chk `(clojure.core.contracts/contract
 ;                ~(symbol (str "chk-" name))
 ;                ~inv-description
 ;                [{:keys ~fields :as m#}]
@@ -67,9 +67,9 @@
 ;       (defn ~(symbol (str name \?)) [~pred-arg]
 ;         (instance? ~name ~pred-arg))
 ;
-;       ~(@#'clojure.core.typed.deps.clojure.core.contracts.constraints/build-positional-factory name classname fields invariants chk)
+;       ~(@#'clojure.core.contracts.constraints/build-positional-factory name classname fields invariants chk)
 ;
-;       (clojure.core.typed.deps.clojure.core.contracts.constraints/defconstrainedfn ~map-arrow-factory-name
+;       (clojure.core.contracts.constraints/defconstrainedfn ~map-arrow-factory-name
 ;         ([{:keys ~fields :as m#}]
 ;            ~invariants
 ;            (with-meta

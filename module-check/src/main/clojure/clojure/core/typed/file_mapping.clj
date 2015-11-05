@@ -2,7 +2,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.deps.clojure.tools.analyzer.ast :as ast-ops]
+            [clojure.tools.analyzer.ast :as ast-ops]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]))
 
