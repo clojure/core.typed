@@ -52,6 +52,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.value :as value]
             [clojure.core.typed.check.special.ann-form :as ann-form]
+            [clojure.core.typed.check.special.cast :as cast]
             [clojure.core.typed.check.special.fn :as special-fn]
             [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
             [clojure.core.typed.check.special.loop :as special-loop]
@@ -1433,6 +1434,10 @@
 (defmethod internal-special-form ::t/ann-form
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   (ann-form/check-ann-form check expr expected))
+
+(defmethod internal-special-form ::t/cast
+  [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  (cast/check-cast check expr expected))
 
 (defmethod internal-special-form ::t/loop
   [{[_ _ {{tsyns :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
