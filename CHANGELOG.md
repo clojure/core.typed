@@ -1,3 +1,12 @@
+# 0.3.16 - 8 November 2015 
+
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-287'>CTYP-287</a>] -         Add contract system and `cast` expression
+</li>
+</ul>
+    
 # 0.3.15 - 5 November 2015 
 
 Release Notes - core.typed - Version 0.3.15
