@@ -2387,25 +2387,31 @@ for checking namespaces, cf for checking individual forms."}
   ([t x] `(cast ~t ~x {}))
   ([t x opt]
    (require '[clojure.core.typed.type-contract])
-   `(let [opt# ~opt]
-      (con/contract (with-current-location '~&form
-                      ;; this compiles code so needs to be in same phase
-                      (binding [*ns* ~*ns*]
-                        ((impl/v '~'clojure.core.typed.type-contract/type-syntax->contract) '~t)))
-                    ~x
-                    (con/make-blame
-                      :positive (or (:positive opt#)
-                                    '~(ns-name *ns*))
-                      :negative (or (:negative opt#)
-                                    (str "Not " '~(ns-name *ns*)))
-                      :file (or (:file opt#)
-                                ~*file*)
-                      :line (or (:line opt#)
-                                ~(or (-> &form meta :line)
-                                     @Compiler/LINE))
-                      :column (or (:column opt#)
-                                  ~(or (-> &form meta :column)
-                                       @Compiler/COLUMN)))))))
+   `(do ~spec/special-form
+        ::cast
+        {:type '~t}
+        ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
+        ((fn [x#]
+           (con/contract (with-current-location '~&form
+                           ;; this compiles code so needs to be in same phase
+                           (binding [*ns* ~*ns*]
+                             ((impl/v '~'clojure.core.typed.type-contract/type-syntax->contract) '~t)))
+                         x#
+                         (let [opt# ~opt]
+                           (con/make-blame
+                             :positive (or (:positive opt#)
+                                           '~(ns-name *ns*))
+                             :negative (or (:negative opt#)
+                                           (str "Not " '~(ns-name *ns*)))
+                             :file (or (:file opt#)
+                                       ~*file*)
+                             :line (or (:line opt#)
+                                       ~(or (-> &form meta :line)
+                                            @Compiler/LINE))
+                             :column (or (:column opt#)
+                                         ~(or (-> &form meta :column)
+                                              @Compiler/COLUMN))))))
+         ~x))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

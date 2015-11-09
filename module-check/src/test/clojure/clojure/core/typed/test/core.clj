@@ -5244,6 +5244,12 @@
         (do (load/load-typed-file "clojure/core/typed/test/gradual/import_untyped")
             ((impl/v 'clojure.core.typed.test.gradual.import-untyped/bad))))))
 
+(deftest typed-cast-test
+  (is-tc-e (cast Int 1) Int)
+  (is-tc-err #(cast Int (inc 'a)))
+  (is-tc-e (cast [Int -> Int] identity) [Int -> Int])
+  )
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
