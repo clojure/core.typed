@@ -1,3 +1,12 @@
+# 0.3.17 - 11 November 2015 
+
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-291'>CTYP-291</a>] -         ClassNotFoundException clojure.core.cache.CacheProtocol
+</li>
+</ul>
+
 # 0.3.16 - 8 November 2015 
 
 <h2>        Enhancement
