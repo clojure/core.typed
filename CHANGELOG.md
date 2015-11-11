@@ -7,7 +7,7 @@
 </li>
 </ul>
 
-# 0.3.16 - 8 November 2015 
+# 0.3.16 - 8 November 2015 (broken, see [<a href='http://dev.clojure.org/jira/browse/CTYP-291'>CTYP-291</a>])
 
 <h2>        Enhancement
 </h2>
@@ -16,7 +16,7 @@
 </li>
 </ul>
     
-# 0.3.15 - 5 November 2015 
+# 0.3.15 - 5 November 2015 (broken, see [<a href='http://dev.clojure.org/jira/browse/CTYP-291'>CTYP-291</a>])
 
 Release Notes - core.typed - Version 0.3.15
 
