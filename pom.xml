@@ -35,7 +35,7 @@
           <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
           <testDeclareNamespacesOnly>true</testDeclareNamespacesOnly>
           <!-- Don't put AOT files in jar -->
-          <temporaryOutputDirectory>false</temporaryOutputDirectory>
+          <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <namespaces>
             <!-- depends on core.async -->
             <namespace>!cljs.core.typed.async</namespace>
