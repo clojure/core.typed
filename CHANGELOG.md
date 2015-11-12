@@ -1,3 +1,12 @@
+# 0.3.18 - 12 November 2015 
+
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-288'>CTYP-288</a>] -         Type checker should understand clojure.core.typed/cast
+</li>
+</ul>
+
 # 0.3.17 - 11 November 2015 
 
 <h2>        Defect
