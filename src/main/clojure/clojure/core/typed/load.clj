@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.load
+(ns clojure.core.typed.load
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
@@ -27,7 +27,7 @@
 ;;      [String ToolsAnalyzerEnv -> nil]
 ;;      [String ToolsAnalyzerEnv ToolsReaderOpts -> nil])
 (defn load-typed-file
-  "Loads a whole typed namespace, returns nil."
+  "Loads a whole typed namespace, returns nil. Assumes the file is typed."
   ([filename] (load-typed-file filename (taj/empty-env) {}))
   ([filename env] (load-typed-file filename env {}))
   ([filename env opts]
@@ -67,7 +67,10 @@
                      ;(ana-clj/analyze+eval form (assoc env :ns (ns-name *ns*)) opts)
                      (recur))))))))))))
 
-(defn typed-load1 [base-resource-path]
+(defn typed-load1
+  "Checks if the given file is typed, and loads it with core.typed if so,
+  otherwise with clojure.core/load"
+  [base-resource-path]
   {:pre [(string? base-resource-path)]
    :post [(nil? %)]}
   ;(prn "typed load" base-resource-path)
@@ -82,10 +85,19 @@
     :else (clojure.lang.RT/load base-resource-path)))
 
 (defn install-typed-load
+  "Extend the :lang dispatch table with the :core.typed language"
   []
   {:post [(nil? %)]}
   (alter-var-root #'lang/lang-dispatch
                   assoc :core.typed #'typed-load1)
+  nil)
+
+(defn monkey-patch-typed-load
+  "Install the :core.typed :lang, and monkey patch `load`"
+  []
+  {:post [(nil? %)]}
+  (install-typed-load)
+  (lang/monkey-patch-extensible-load)
   nil)
 
 (comment (find-resource "clojure/core/typed/test/load_file.clj")
