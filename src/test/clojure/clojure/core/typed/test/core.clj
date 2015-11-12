@@ -5240,9 +5240,20 @@
   (is (tc-e (ns foo) nil)))
 
 (deftest gradual-untyped-import-test
-  (is (thrown-with-msg? Exception #"Failure"
+  (is (try
         (do (load/load-typed-file "clojure/core/typed/test/gradual/import_untyped")
-            ((impl/v 'clojure.core.typed.test.gradual.import-untyped/bad))))))
+            ((impl/v 'clojure.core.typed.test.gradual.import-untyped/bad)))
+        false
+        (catch ExceptionInfo e
+          ;(prn (ex-data e))
+          (and (-> (ex-data e) :blame)
+               (= (select-keys (-> (ex-data e) :blame)
+                               [:file :line :column :positive :negative])
+                  {:line 16
+                   :column 3
+                   :file "clojure/core/typed/test/gradual/import_untyped.clj"
+                   :negative "clojure.core.typed.test.gradual.import-untyped"
+                   :positive "Annotation for clojure.core.typed.test.gradual.untyped/b"}))))))
 
 (deftest typed-cast-test
   (is-tc-e (cast Int 1) Int)

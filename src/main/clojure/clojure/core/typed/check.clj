@@ -192,26 +192,33 @@
 (defn add-cast
   "Given an AST node and a type, return a new AST that
   casts the original expression to the given type"
-  [{:keys [env] :as expr} t]
-  {:pre [(map? expr)
+  [vsym {:keys [env] :as expr} t]
+  {:pre [(symbol? vsym)
+         (map? expr)
          (r/Type? t)]
    :post [(map? %)]}
   (impl/assert-clojure)
-  (let [pred-form `(t/pred ~(prs/unparse-type t))
+  (let [placeholder nil
+        pred-form `(t/cast ~(prs/unparse-type t) ~placeholder 
+                           {:positive ~(str "Annotation for " vsym)
+                            :negative ~(str (cu/expr-ns expr))
+                            :line ~(:line env)
+                            :column ~(:column env)})
         pred-expr (ana-clj/analyze1 ;; FIXME support CLJS
                     pred-form
                     env
                     {:eval-fn (fn [opts ast] ast)})]
-    (ast-u/dummy-invoke-expr
-      (ast-u/dummy-var-expr
-        `throw-on-false
-        env)
-      [(ast-u/dummy-invoke-expr
-         pred-expr
-         [expr]
-         env)
-       expr]
-      env)))
+    (assert (= :do (:op pred-expr))
+            (:op pred-expr))
+    (assert (= :invoke (-> pred-expr :ret :op))
+            (-> pred-expr :ret :op))
+    (assert (== 1 (-> pred-expr :ret :args count))
+            (-> pred-expr :ret :args count))
+    (assert (= :const (-> pred-expr :ret :args first :op))
+            (-> pred-expr :ret :args first :op))
+    (update-in pred-expr
+               [:ret :args 0]
+               (constantly expr))))
 
 
 (add-check-method :var
@@ -230,7 +237,7 @@
       (cond
         ut
         (if (cu/should-rewrite?)
-          (assoc (add-cast expr ut)
+          (assoc (add-cast vsym expr ut)
                  u/expr-type (below/maybe-check-below
                                (r/ret ut)
                                expected))
