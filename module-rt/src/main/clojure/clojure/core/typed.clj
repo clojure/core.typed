@@ -2391,6 +2391,8 @@ for checking namespaces, cf for checking individual forms."}
         ::cast
         {:type '~t}
         ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
+        ;; - clojure.core.typed.check.add-cast
+        ;; - clojure.core.typed.check.special.cast
         ((fn [x#]
            (con/contract (with-current-location '~&form
                            ;; this compiles code so needs to be in same phase
@@ -2400,9 +2402,9 @@ for checking namespaces, cf for checking individual forms."}
                          (let [opt# ~opt]
                            (con/make-blame
                              :positive (or (:positive opt#)
-                                           '~(ns-name *ns*))
+                                           "cast")
                              :negative (or (:negative opt#)
-                                           (str "Not " '~(ns-name *ns*)))
+                                           "cast")
                              :file (or (:file opt#)
                                        ~*file*)
                              :line (or (:line opt#)
