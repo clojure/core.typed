@@ -36,14 +36,8 @@
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
-;  :injections [;; ExceptionInfo must be AOT compiled at this point
-;               ;; If not, run `lein repl` with the follow two lines
-;               ;; commented out, then don't `lein clean` after they are
-;               ;; readded.
-;               (require 'clojure.core.typed.load)
-;               (require 'clojure.core.typed.lang)
-;               (clojure.core.typed.load/install-typed-load)
-;               (clojure.core.typed.lang/monkey-patch-extensible-load)]
+  :injections [(require 'clojure.core.typed.load)
+               (clojure.core.typed.load/monkey-patch-typed-load)]
 
   :global-vars {*warn-on-reflection* true}
 
