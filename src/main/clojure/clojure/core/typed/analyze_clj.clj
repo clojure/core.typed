@@ -30,6 +30,8 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
+; Updated for Clojure 1.8
+;  https://github.com/clojure/clojure/commit/7f79ac9ee85fe305e4d9cbb76badf3a8bad24ea0
 (def typed-macros
   {#'clojure.core/ns 
    (fn [&form &env name & references]
@@ -53,13 +55,15 @@
              (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
            references (remove #(= :gen-class (first %)) references)
            ;ns-effect (clojure.core/in-ns name)
-           ]
+           name-metadata (meta name)]
        `(do
           ::T/special-collect
           ::core/ns
           {:form '~&form}
           (T/tc-ignore
             (clojure.core/in-ns '~name)
+            ~@(when name-metadata
+                `((.resetMeta (clojure.lang.Namespace/find '~name) ~name-metadata)))
             (with-loading-context
               ~@(when gen-class-call (list gen-class-call))
               ~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
