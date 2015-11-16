@@ -5322,6 +5322,12 @@
                [m :- (OptMap Integer)] :- (t/Option Integer)
                (:z m)))))
 
+(deftest ctyp-294-infer-unannotated-vars
+  (is (do (check-ns 'clojure.core.typed.test.ctyp-294.typed)
+          (= 2
+             (count
+               (tc/infer-unannotated-vars 'clojure.core.typed.test.ctyp-294.typed))))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

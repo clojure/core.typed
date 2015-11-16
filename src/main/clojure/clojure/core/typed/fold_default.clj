@@ -11,7 +11,7 @@
                                         DottedPretype Function RClass JSNominal App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
-                                        CountRange Name Value Top TopFunction B F Result
+                                        CountRange Name Value Top Unchecked TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
                                         NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
                                         BooleanCLJS AssocType GetType KwArgsSeq HSequential HSet)
@@ -250,6 +250,7 @@
 (add-default-fold-case Name ret-first)
 (add-default-fold-case Value ret-first)
 (add-default-fold-case Top ret-first)
+(add-default-fold-case Unchecked ret-first)
 (add-default-fold-case TCError ret-first)
 (add-default-fold-case TopFunction ret-first)
 (add-default-fold-case B ret-first)

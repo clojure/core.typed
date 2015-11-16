@@ -59,6 +59,18 @@
 (t/ann -any Type)
 (def -any (Top-maker))
 
+(u/ann-record Unchecked [vsym :- (U nil t/Sym)])
+(u/def-type Unchecked [vsym]
+  "The unchecked type, like bottom and only introduced 
+  per-namespace with the :unchecked-imports feature."
+  []
+  :methods
+  [p/TCType])
+
+(t/ann -unchecked [(U nil t/Sym) :-> Type])
+(defn -unchecked [vsym]
+  {:pre [((some-fn nil? symbol?) vsym)]}
+  (Unchecked-maker vsym))
 
 (u/ann-record Union [types :- (t/SortedSet Type)])
 (u/def-type Union [types]

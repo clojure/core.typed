@@ -69,6 +69,7 @@
                  '[clojure.core.typed.subtype]
                  '[clojure.core.typed.array-ops]
                  '[clojure.core.typed.check]
+                 '[clojure.core.typed.infer-vars]
                  '[clojure.core.typed.reset-caches]
                  '[clojure.core.typed.check-ns-common]
                  '[clojure.core.typed.check-ns-clj]

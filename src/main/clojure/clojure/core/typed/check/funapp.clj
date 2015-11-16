@@ -16,11 +16,13 @@
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.filter-ops :as fops]
+            [clojure.core.typed.env :as env]
             [clojure.set :as set]
             [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.infer-vars :as infer-vars]
             [clojure.core.typed.hset-utils :as hset]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -121,6 +123,23 @@
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
       (r/ret r/Err)
+
+      ; Unchecked function is upcast to anything so we don't check arguments,
+      ; but return Unchecked or expected.
+      (r/Unchecked? fexpr-type)
+      (let [{:keys [vsym]} fexpr-type]
+        (when vsym
+          (infer-vars/add-inferred-type
+            (or prs/*unparse-type-in-ns*
+                (when fexpr
+                  (cu/expr-ns fexpr)))
+            vsym
+            (r/make-FnIntersection
+              (r/make-Function
+                (repeat (count args) r/-any)
+                r/-any))))
+        (or expected
+            (r/ret (r/-unchecked nil))))
 
       (r/HSet? fexpr-type)
       (let [fixed (:fixed fexpr-type)]

@@ -145,6 +145,9 @@
           ; FIXME TypeFn's probably are not between Top/Bottom
           (r/Top? t)
           (r/Bottom? s)
+          ;; Unchecked is both bottom and top
+          (r/Unchecked? s)
+          (r/Unchecked? t)
           ;TCError is top and bottom
           (some r/TCError? [s t]))
     A

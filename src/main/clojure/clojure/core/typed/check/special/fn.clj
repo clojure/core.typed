@@ -85,15 +85,28 @@
            u/expr-type ret-type)))
 
 (defn gen-defaults [{:keys [methods] :as expr}]
-  (apply merge-with (comp vec concat)
-              (for [method methods]
-                (let [fixed-arity (ast-u/fixed-arity method)
-                      variadic? (ast-u/variadic-method? method)]
-                  {:doms [(vec (repeat fixed-arity r/-any))]
-                   :rngs [nil]
-                   :rests [(when variadic?
-                             r/-any)]
-                   :drests [nil]}))))
+  (let [;; :infer-locals are enabled for this namespace, this
+        ;; var dereference is the dynamic type
+        infer-locals?
+        (-> (cu/expr-ns expr)
+            find-ns
+            meta
+            :core.typed
+            :experimental
+            (contains? :infer-locals))]
+    (apply merge-with (comp vec concat)
+           (for [method methods]
+             (let [fixed-arity (ast-u/fixed-arity method)
+                   variadic? (ast-u/variadic-method? method)]
+               {:doms [(vec (repeat fixed-arity (if infer-locals? 
+                                                  (r/-unchecked nil)
+                                                  r/-any)))]
+                :rngs [nil]
+                :rests [(when variadic?
+                          (if infer-locals? 
+                            (r/-unchecked nil)
+                            r/-any))]
+                :drests [nil]})))))
 
 (defn all-defaults? [fn-anns poly]
   (let [defaults (concat

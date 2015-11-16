@@ -440,6 +440,12 @@
         hit)
       (let [_ (p :intersect-cache-miss)
             t (cond
+                ; Unchecked is "sticky" even though it's a subtype/supertype
+                ; of everything
+                (or (and (r/Unchecked? t1) (not (r/Unchecked? t2)))
+                    (and (not (r/Unchecked? t1)) (r/Unchecked? t2)))
+                (make-Intersection [t1 t2])
+
                 (and (r/HeterogeneousMap? t1)
                      (r/HeterogeneousMap? t2))
                   (intersect-HMap t1 t2)
