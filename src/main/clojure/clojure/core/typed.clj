@@ -2504,6 +2504,35 @@ for checking namespaces, cf for checking individual forms."}
                                               @Compiler/COLUMN))))))
          ~x))))
 
+(defn infer-unannotated-vars
+  "EXPERIMENTAL
+
+  Return a vector of potential var annotations in the given
+  namespace, or the current namespace.
+
+  To enable for the current namespace, add the :infer-vars
+  :experimental feature to the ns metadata like so:
+
+    (ns infer-me
+      {:lang :core.typed
+       :core.typed {:experimental #{:infer-vars
+                                    :infer-locals}}}
+      ...)
+
+  Then run check-ns like usual, and infer-unannotated-vars
+  will return the inferred vars without annotations.
+
+  (t/infer-untyped-vars)
+  => [(t/ann u/bar t/Int)
+      (t/ann u/foo (t/U [t/Any -> t/Any] Int))]
+                                "
+
+  ([] (infer-unannotated-vars (ns-name *ns*)))
+  ([nsym-or-ns]
+   (load-if-needed)
+   (impl/with-clojure-impl
+     ((impl/v 'clojure.core.typed.infer-vars/infer-unannotated-vars) (ns-name nsym-or-ns)))))
+
 (comment 
   (check-ns 'clojure.core.typed.test.example)
 
