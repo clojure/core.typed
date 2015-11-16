@@ -7,12 +7,23 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.debug :as dbg]))
+            [clojure.core.typed.debug :as dbg]
+            [clojure.core.typed.infer-vars :as infer-vars]))
 
 (defn simple-filter-better? [f1 f2]
   (or (fl/NoFilter? f2)
       (sub/subtype-filter? f1 f2)))
+
+(defn subtype? [t1 t2]
+  (let [s (sub/subtype? t1 t2)]
+    (when (r/Unchecked? t1)
+      (infer-vars/add-inferred-type
+        (cu/expr-ns vs/*current-expr*)
+        (:vsym t1)
+        t2))
+    s))
 
 ;; apply f1 to the current environment, and if the type filter
 ;; is boring enough it will reflect in the updated type environment
@@ -95,7 +106,7 @@
       (let [{t1 :t f1 :fl o1 :o flow1 :flow} tr1
             {t2 :t f2 :fl o2 :o flow2 :flow} expected]
         (cond
-          (not (sub/subtype? t1 t2)) (cu/expected-error t1 t2)
+          (not (subtype? t1 t2)) (cu/expected-error t1 t2)
 
           :else
           (let [better-fs? (filter-better? f1 f2)
@@ -125,7 +136,7 @@
            (r/Type? expected))
       (let [{t1 :t f :fl o :o} tr1
             t2 expected]
-        (when-not (sub/subtype? t1 t2)
+        (when-not (subtype? t1 t2)
           (cu/expected-error t1 t2))
         (r/ret t2 f o))
 
@@ -142,7 +153,7 @@
            (r/TCResult? expected))
       (let [t1 tr1
             {t2 :t f :fl o :o} expected]
-        (if (sub/subtype? t1 t2)
+        (if (subtype? t1 t2)
           (err/tc-delayed-error (str "Expected result with filter " (pr-str f) " and object " (pr-str o) ", got trivial filter and empty object."))
           (cu/expected-error t1 t2))
         t1)
@@ -151,7 +162,7 @@
            (r/Type? expected))
       (let [t1 tr1
             t2 expected]
-        (when-not (sub/subtype? t1 t2)
+        (when-not (subtype? t1 t2)
           (cu/expected-error t1 t2))
         expected)
 

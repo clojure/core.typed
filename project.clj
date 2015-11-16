@@ -35,7 +35,8 @@
              }
 
   :injections [(require 'clojure.core.typed)
-               (clojure.core.typed/install)]
+               (clojure.core.typed/install
+                 #{:load})]
 
   :global-vars {*warn-on-reflection* true}
 

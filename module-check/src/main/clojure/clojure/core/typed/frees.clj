@@ -17,7 +17,7 @@
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
-                                        CountRange Name Value Top TopFunction B F Result AnyValue
+                                        CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
                                         HeterogeneousSeq Scope TCError Extends AssocType HSequential HSet)
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
@@ -194,6 +194,7 @@
 (add-frees-method [::any-var Value] [t] {})
 (add-frees-method [::any-var AnyValue] [t] {})
 (add-frees-method [::any-var Top] [t] {})
+(add-frees-method [::any-var Unchecked] [t] {})
 (add-frees-method [::any-var Name] [t] {})
 
 (add-frees-method [::any-var DataType]

@@ -27,7 +27,7 @@
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
-                                        CountRange Name Value Top TopFunction B F Result AnyValue
+                                        CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
                                         IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
                                         GetType HSequential HSet)
@@ -1317,6 +1317,7 @@
 (defn unp [t] (prn (unparse-type t)))
 
 (defmethod unparse-type* Top [_] (unparse-Name-symbol-in-ns `t/Any))
+(defmethod unparse-type* Unchecked [_] 'Unchecked)
 (defmethod unparse-type* TCError [_] 'Error)
 (defmethod unparse-type* Name [{:keys [id]}] (unparse-Name-symbol-in-ns id))
 (defmethod unparse-type* AnyValue [_] (unparse-Name-symbol-in-ns `t/AnyValue))

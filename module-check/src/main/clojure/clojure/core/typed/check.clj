@@ -202,6 +202,7 @@
       ;(prn " annotation" t)
       ;(prn " untyped annotation" ut)
       (cond
+        ;; we have an untyped annotation
         ut
         (if (cu/should-rewrite?)
           (assoc (cu/add-cast expr ut
@@ -215,11 +216,27 @@
             :return (assoc expr
                            u/expr-type (cu/error-ret expected)))))
 
+        ;; we have a typed annotation
         t
         (assoc expr
                u/expr-type (below/maybe-check-below
                              (r/ret t)
                              expected))
+
+        ;; :infer-vars are enabled for this namespace, this
+        ;; var dereference is the dynamic type
+        (-> (cu/expr-ns expr)
+            find-ns
+            meta
+            :core.typed
+            :experimental
+            (contains? :infer-vars))
+        (assoc expr
+               u/expr-type (below/maybe-check-below
+                             (r/ret (r/-unchecked vsym))
+                             expected))
+
+
         :else
         (err/tc-delayed-error
           (str "Unannotated var " id
