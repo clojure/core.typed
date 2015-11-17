@@ -5552,6 +5552,17 @@
 (deftest ann-namespace-alias-test
   (is (check-ns 'clojure.core.typed.test.ann-qualify.child)))
 
+(deftest multimethod-no-expected-test
+  (is-tc-e (do (ann f [Any :-> Any])
+               (defmulti f identity)
+               (defmethod f :foo [a]
+                 1)))
+  (is-tc-e (defmulti f identity))
+  (is-tc-e (do (defmulti f identity)
+               ;(ann-form f Nothing)
+               (defmethod f :foo [a]
+                 1))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

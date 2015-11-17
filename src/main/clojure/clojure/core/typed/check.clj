@@ -1707,8 +1707,6 @@
 
 (add-new-special-method 'clojure.lang.MultiFn
   [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
-  (when-not expected
-    (err/int-error "clojure.lang.MultiFn constructor requires an expected type"))
   (when-not (== 4 (count args))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
   (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
@@ -1719,21 +1717,21 @@
         _ (when-not (string? mm-name)
             (err/int-error "MultiFn name must be a literal string"))
         mm-qual (symbol (str (cu/expr-ns expr)) mm-name)
-        ;_ (prn "mm-qual" mm-qual)
-        ;_ (prn "expected r/ret-t" (prs/unparse-type (r/ret-t expected)))
-        ;_ (prn "expected r/ret-t class" (class (r/ret-t expected)))
-        expected-mm-disp (multi/expected-dispatch-type (r/ret-t expected))
         cdisp (check dispatch-expr)
+        expected-mm-disp (multi/expected-dispatch-type (or (when expected
+                                                             (r/ret-t expected))
+                                                           (r/ret-t (u/expr-type cdisp))))
+        ;; use the dispatch expected type when expected not available,
+        ;; this way the type of the entire multimethod must correspond
+        ;; to the inputs accepted by the dispatch function.
+        expected-t (or (when expected
+                         (r/ret-t expected))
+                       expected-mm-disp)
+        _ (assert (r/Type? expected-t))
         _ (when-not (sub/subtype? (-> cdisp u/expr-type r/ret-t) expected-mm-disp)
             (binding [vs/*current-expr* cdisp
                       vs/*current-env* (:env cdisp)]
               (cu/expected-error (-> cdisp u/expr-type r/ret-t) expected-mm-disp)))
-        ; jamming this here to make sure filters/objects are consistent.
-        ; FIXME This entire function uses expected in strange ways, should probably rethink.
-        _ (binding [vs/*current-expr* expr]
-            (below/maybe-check-below
-              (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected)))
-              expected))
         cargs [(check nme-expr)
                cdisp
                (check default-expr)
@@ -1743,7 +1741,8 @@
     (assoc expr
            :args cargs
            u/expr-type (below/maybe-check-below
-                         (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected)))
+                         (r/ret (c/In #_(c/RClass-of clojure.lang.MultiFn) 
+                                      expected-t))
                          expected))))
 
 (defmethod new-special :default [expr & [expected]] cu/not-special)
