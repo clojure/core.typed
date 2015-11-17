@@ -17,6 +17,7 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.profiling :as p :refer [defn]]
+            [clojure.core.typed.debug :refer [dbg]]
             [clojure.set :as set]
             [clojure.core.typed.remove :as remove])
   (:import (clojure.lang IPersistentMap Keyword)))
@@ -105,14 +106,14 @@
             (and (fl/TypeFilter? p)
                  (= (c/Un) (:type p)))
             (do 
-              ;(prn "Variable set to bottom:" (unparse-filter p))
+              ;(prn "Variable set to bottom:" p)
               (reset! flag false)
               [derived-props derived-atoms])
             (fl/TypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
             (and (fl/NotTypeFilter? p)
                  (= r/-any (:type p)))
             (do 
-              ;(prn "Variable set to bottom:" (unparse-filter p))
+              ;(prn "Variable set to bottom:" p)
               (reset! flag false)
               [derived-props derived-atoms])
             (fl/NotTypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
@@ -408,18 +409,21 @@
               {:pre [(lex/PropEnv? env)
                      (fl/Filter? f)]}
               (cond
-                (fl/BotFilter? f) (do (reset! flag false)
+                (fl/BotFilter? f) (do ;(prn "Bot filter found in env+")
+                                      (reset! flag false)
                                       (update-in env [:l] (fn [l] 
                                                             (zipmap (keys l)
                                                                     (repeat r/-nothing)))))
                 ((some-fn fl/TypeFilter? fl/NotTypeFilter?) f)
-                (let [new-env (update-in env [:l (:id f)]
+                (let [;_ (prn "Update filter" f)
+                      new-env (update-in env [:l (:id f)]
                                          (fn [t]
                                            (when-not t
                                              (err/int-error (str "Updating local not in scope: " (:id f))))
                                            (update t f)))]
                   ; update flag if a variable is now bottom
-                  (when-let [bs (some #{(c/Un)} (vals (:l new-env)))]
+                  (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
+                    ;(prn "Variables now bottom:" (keys bs))
                     (reset! flag false))
                   new-env)
 
@@ -436,7 +440,8 @@
                                                   (map (fn [f] (update t f)) 
                                                        (:fs f)))))]
                   ; update flag if a variable is now bottom
-                  (when-let [bs (some #{(c/Un)} (vals (:l new-env)))]
+                  (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
+                    ;(prn "Variables now bottom:" (keys bs))
                     (reset! flag false))
                   new-env)
                 :else env))

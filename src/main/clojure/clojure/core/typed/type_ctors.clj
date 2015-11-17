@@ -27,6 +27,7 @@
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.repl :as repl]
+            [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.cache :as cache])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
@@ -1572,6 +1573,12 @@
       (cond 
         eq eq
 
+        (or (r/F? t1)
+            (r/F? t2)
+            (r/B? t1)
+            (r/B? t2))
+        true
+
         (and (r/Value? t1)
              (r/Value? t2))
         eq
@@ -1643,8 +1650,9 @@
             (and (some (fn [pos] (overlap pos other-type)) (.extends the-extends))
                  (not-any? (fn [neg] (overlap neg other-type)) (.without the-extends)))))
 
+        ;; already rules out free variables, so this is safe.
         (or (r/Value? t1)
-            (r/Value? t2)) 
+            (r/Value? t2))
         (or (subtype? t1 t2)
             (subtype? t2 t1))
 
