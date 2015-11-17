@@ -136,3 +136,11 @@
 (deftest hvec-complex-overlap
   (is-clj (overlap-prs `(HVec [Int Num])
                        `(HVec [Num Int]))))
+
+(deftest overlap-free-test
+  (is-clj (overlap (make-F 'a)
+                   (-val 'a)))
+  (is-clj (overlap (-val 'a)
+                   (make-F 'a)))
+  (is-clj (overlap (make-F 'b)
+                   (make-F 'a))))
