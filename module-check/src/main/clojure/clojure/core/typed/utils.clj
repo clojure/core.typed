@@ -444,4 +444,21 @@
                                 vs/*can-rewrite*
                                 nil)]
      ~@body))
+
+(defn core-typed-ns-meta 
+  "Returns the :core.typed entry in the given namespace's
+  metadata"
+  [ns]
+  {:pre [(instance? clojure.lang.Namespace ns)]}
+  (-> ns meta :core.typed))
+
+(defn ns-has-feature? [ns k]
+  (-> (core-typed-ns-meta ns)
+      :features
+      (contains? k)))
+
+(defn should-runtime-check-ns?
+  [ns]
+  (ns-has-feature? ns :runtime-check))
+
 )

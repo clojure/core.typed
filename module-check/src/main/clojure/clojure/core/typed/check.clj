@@ -189,38 +189,6 @@
     e
     (throw (Exception. "Failure"))))
 
-(defn add-cast
-  "Given an AST node and a type, return a new AST that
-  casts the original expression to the given type"
-  [vsym {:keys [env] :as expr} t]
-  {:pre [(symbol? vsym)
-         (map? expr)
-         (r/Type? t)]
-   :post [(map? %)]}
-  (impl/assert-clojure)
-  (let [placeholder nil
-        pred-form `(t/cast ~(prs/unparse-type t) ~placeholder 
-                           {:positive ~(str "Annotation for " vsym)
-                            :negative ~(str (cu/expr-ns expr))
-                            :line ~(:line env)
-                            :column ~(:column env)})
-        pred-expr (ana-clj/analyze1 ;; FIXME support CLJS
-                    pred-form
-                    env
-                    {:eval-fn (fn [opts ast] ast)})]
-    (assert (= :do (:op pred-expr))
-            (:op pred-expr))
-    (assert (= :invoke (-> pred-expr :ret :op))
-            (-> pred-expr :ret :op))
-    (assert (== 1 (-> pred-expr :ret :args count))
-            (-> pred-expr :ret :args count))
-    (assert (= :const (-> pred-expr :ret :args first :op))
-            (-> pred-expr :ret :args first :op))
-    (update-in pred-expr
-               [:ret :args 0]
-               (constantly expr))))
-
-
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
   {:pre [(var? var)]}
@@ -237,7 +205,9 @@
       (cond
         ut
         (if (cu/should-rewrite?)
-          (assoc (add-cast vsym expr ut)
+          (assoc (cu/add-cast expr ut
+                              {:positive (str "Annotation for " vsym)
+                               :negative (str (cu/expr-ns expr))})
                  u/expr-type (below/maybe-check-below
                                (r/ret ut)
                                expected))
@@ -1420,7 +1390,7 @@
   [expr expected]
   (tc-ignore/check-tc-ignore check expr expected))
 
-(defmethod internal-special-form ::t/tag
+#_(defmethod internal-special-form ::t/tag
   [{[_ _ {{tag :tag} :val} :as statements] :statements :keys [ret] :as expr} expected]
   {:pre [(#{3} (count statements))]
    :post [(-> % u/expr-type r/TCResult?)]}
@@ -1884,22 +1854,8 @@
 ;; Multimethods
 
 (add-check-method :def
-  [{:keys [var init init-provided env] :as expr} & [expected]]
-  ;(prn " Checking def" var)
-  (let [init-provided (contains? expr :init)]
-    (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
-              vs/*current-expr* expr]
-      (cond 
-        ;ignore macro definitions and declare
-        (or (.isMacro ^Var var)
-            (not init-provided))
-        (p/p :check/ignored-typed-defmacro
-          (assoc expr
-                 u/expr-type (below/maybe-check-below
-                               (r/ret (c/RClass-of Var [(r/Bottom) r/-any]))
-                               expected)))
-
-        :else (def/check-normal-def check expr expected)))))
+  [expr & [expected]]
+  (def/check-def check expr expected))
 
 (add-check-method :deftype
   [{expired-class :class-name :keys [fields methods env] :as expr} & [expected]]

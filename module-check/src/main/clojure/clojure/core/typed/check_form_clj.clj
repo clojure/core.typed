@@ -4,6 +4,7 @@
             [clojure.core.typed.check :as chk-clj]
             [clojure.core.typed.collect-phase :as collect-clj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.runtime-check :as rt-chk]
             [clojure.core.typed.current-impl :as impl]))
 
 (defn config-map []
@@ -12,6 +13,7 @@
    :unparse-ns *ns*
    :collect-expr collect-clj/collect-ast
    :check-expr chk-clj/check-expr
+   :runtime-check-expr rt-chk/runtime-check-expr
    :eval-out-ast (partial ana-clj/eval-ast {})
    :emit-form emit-form/emit-form})
 

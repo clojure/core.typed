@@ -38,6 +38,8 @@
 ;;                  if no type errors occur.
 ;; - :unparse-ns    namespace in which to pretty-print type.  (FIXME Currently unused)
 ;; - :emit-form     function from AST to equivalent form, returned in :out-form entry.
+;; - :runtime-check-expr    function taking AST and expected type and returns an AST with inserted
+;;                          runtime checks.
 ;;
 ;;  (From here, copied from clojure.core.typed/check-form-info)
 ;; Keyword arguments
@@ -68,7 +70,8 @@
 (defn check-form-info
   [{:keys [ast-for-form unparse-ns
            check-expr collect-expr eval-out-ast
-           emit-form eval-out-ast env]}
+           emit-form eval-out-ast env
+           runtime-check-expr]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast no-eval bindings-atom]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)]}
@@ -89,6 +92,16 @@
             stop-analysis (atom nil)
             delayed-errors-fn (fn [] (seq @vs/*delayed-errors*))
             file-mapping-atom (atom [])
+            should-runtime-check? (and runtime-check-expr
+                                       (u/should-runtime-check-ns? *ns*))
+            ;_ (prn "should-runtime-check?" should-runtime-check?)
+            check-expr (or (when should-runtime-check?
+                             runtime-check-expr)
+                           check-expr)
+            ;; disable file mapping for runtime-checking
+            file-mapping (if should-runtime-check?
+                           nil
+                           file-mapping)
             eval-ast (fn [{:keys [expected] :as opt} ast]
                        (do (p/p :check-form/collect
                              (collect-expr ast))
