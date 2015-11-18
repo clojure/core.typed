@@ -511,6 +511,24 @@ namespace.
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.def" style="margin-top: 3px;">clojure.core.typed.check.def</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.def/add-checks-normal-def">add-checks-normal-def</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.def/check-def">check-def</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.def/check-defmacro-or-declare">check-defmacro-or-declare</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.def/check-normal-def">check-normal-def</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.def/defmacro-or-declare?">defmacro-or-declare?</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.check.fn-methods" style="margin-top: 3px;">clojure.core.typed.check.fn-methods</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.fn-methods/check-fni">check-fni</a>
@@ -523,6 +541,21 @@ namespace.
     <a href="#clojure.core.typed.check.monitor" style="margin-top: 3px;">clojure.core.typed.check.monitor</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.monitor/check-monitor">check-monitor</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.special.ann-form" style="margin-top: 3px;">clojure.core.typed.check.special.ann-form</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.special.ann-form/add-checks-ann-form">add-checks-ann-form</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.special.ann-form/ann-form-annotation">ann-form-annotation</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.special.ann-form/check-ann-form">check-ann-form</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.special.ann-form/parse-annotation">parse-annotation</a>
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
@@ -724,6 +757,12 @@ namespace.
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.macros/when-let-fail">when-let-fail</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.runtime-check" style="margin-top: 3px;">clojure.core.typed.runtime-check</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.runtime-check/check">check</a>
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
@@ -3137,6 +3176,75 @@ Options
   </div>
 </div>
 <br />
+<h2 id="clojure.core.typed.check.def">clojure.core.typed.check.def</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.def/add-checks-normal-def">add-checks-normal-def</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (add-checks-normal-def check-fn expr expected)
+</pre>
+    <pre id="var-docstr">Add runtime checks to a def with an initial value.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L123" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.def/check-def">check-def</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-def check-fn {:keys [var init env], :as expr} expected)
+</pre>
+    <pre id="var-docstr">Check a def. If it is a declare or a defmacro, don't try and check it.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L111" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.def/check-defmacro-or-declare">check-defmacro-or-declare</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-defmacro-or-declare expr expected)
+</pre>
+    <pre id="var-docstr">To check a defmacro or declare, just assign it the most general
+Var type and ignore the body.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L101" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.def/check-normal-def">check-normal-def</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-normal-def check-fn {:keys [init env], :as expr} &amp; [expected])
+</pre>
+    <pre id="var-docstr">Checks a def that isn't a macro definition.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L22" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.def/defmacro-or-declare?">defmacro-or-declare?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (defmacro-or-declare? {:keys [var], :as expr})
+</pre>
+    <pre id="var-docstr">Returns true if this :def AST originally a defmacro or declare.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L95" id="var-source">Source</a>
+  </div>
+</div>
+<br />
 <h2 id="clojure.core.typed.check.fn-methods">clojure.core.typed.check.fn-methods</h2>
 <pre id="namespace-docstr"></pre>
 
@@ -3200,6 +3308,65 @@ against the Function, otherwise returns nil.</pre>
     
     
     <a href="https://github.com/clojure/core.typed/blob/81a3bc793db822eaeee5d59f1498fbaa24639cdd/module-check/src/main/clojure/clojure/core/typed/check/monitor.clj#L11" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.check.special.ann-form">clojure.core.typed.check.special.ann-form</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.special.ann-form/add-checks-ann-form">add-checks-ann-form</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (add-checks-ann-form check {:keys [statements env], frm :ret, :as expr} expected)
+</pre>
+    <pre id="var-docstr">Add runtime checks to an ann-form expression. Propagates its annotation
+inwards to the inner expression.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L61" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.special.ann-form/ann-form-annotation">ann-form-annotation</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ann-form-annotation {:keys [statements], :as expr})
+</pre>
+    <pre id="var-docstr">Return the raw type annotation from the ann-form expression.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L15" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.special.ann-form/check-ann-form">check-ann-form</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-ann-form check {:keys [statements env], frm :ret, :as expr} expected)
+</pre>
+    <pre id="var-docstr">Type check an ann-form expression. Propagates its annotation
+inwards to the inner expression.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L38" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.special.ann-form/parse-annotation">parse-annotation</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (parse-annotation tsyn {:keys [env], :as expr})
+</pre>
+    <pre id="var-docstr">Parse the raw type annotation tsyn in the context of expr</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L30" id="var-source">Source</a>
   </div>
 </div>
 <br />
@@ -4252,6 +4419,38 @@ eg. (ref 1) : (Ref1 (Value 1))
     
     
     <a href="https://github.com/clojure/core.typed/blob/73d6be1f8024bf40b61015e65de0f94fb8e0597e/module-rt/src/main/clojure/clojure/core/typed/macros.clj#L191" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.runtime-check">clojure.core.typed.runtime-check</h2>
+<pre id="namespace-docstr">Adds runtime checks where annotations are instead of type checking</pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.runtime-check/check">check</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check expr)
+       (check expr expected)
+</pre>
+    <pre id="var-docstr">Add runtime checks to the output AST, propagating just enough types
+for immediate ann-form expressions to propagate to fn expected types.
+
+Static checking is disabled, outside ill-formed types.
+
+Unsafe contracts can be generated, and contract generation cannot fail.
+
+Assumes collect-expr is already called on this AST.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/runtime_check.clj#L9" id="var-source">Source</a>
   </div>
 </div>
 <br />

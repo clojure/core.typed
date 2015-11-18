@@ -30,6 +30,12 @@
    :name "clojure.core.typed.check-ns-clj",
    :doc nil}
   {:source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.def-api.html",
+   :name "clojure.core.typed.check.def",
+   :doc nil}
+  {:source-url
    "https://github.com/clojure/core.typed/blob/488c9279bd44cee8eacd5167b1dc4773943a8666/module-check/src/main/clojure/clojure/core/typed/check/fn_methods.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check.fn-methods-api.html",
@@ -40,6 +46,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check.monitor-api.html",
    :name "clojure.core.typed.check.monitor",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.special.ann-form-api.html",
+   :name "clojure.core.typed.check.special.ann-form",
    :doc nil}
   {:source-url
    "https://github.com/clojure/core.typed/blob/afed234808448bcdd851c2b15e8baf6eb8853b36/module-check/src/main/clojure/clojure/core/typed/check/value.clj",
@@ -89,6 +101,13 @@
    "http://clojure.github.com/core.typed/clojure.core.typed.macros-api.html",
    :name "clojure.core.typed.macros",
    :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/runtime_check.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.runtime-check-api.html",
+   :name "clojure.core.typed.runtime-check",
+   :doc
+   "Adds runtime checks where annotations are instead of type checking"}
   {:source-url
    "https://github.com/clojure/core.typed/blob/0947387913babb0e8db52b560a3c0e42b45cb40b/module-check/src/main/clojure/clojure/core/typed/statistics.clj",
    :wiki-url
@@ -2208,6 +2227,79 @@
    :line 6,
    :file
    "module-check/src/main/clojure/clojure/core/typed/check_ns_clj.clj"}
+  {:arglists ([check-fn expr expected]),
+   :name "add-checks-normal-def",
+   :namespace "clojure.core.typed.check.def",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L123",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.def/add-checks-normal-def",
+   :doc "Add runtime checks to a def with an initial value.",
+   :var-type "function",
+   :line 123,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/def.clj"}
+  {:arglists ([check-fn {:keys [var init env], :as expr} expected]),
+   :name "check-def",
+   :namespace "clojure.core.typed.check.def",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L111",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.def/check-def",
+   :doc
+   "Check a def. If it is a declare or a defmacro, don't try and check it.",
+   :var-type "function",
+   :line 111,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/def.clj"}
+  {:arglists ([expr expected]),
+   :name "check-defmacro-or-declare",
+   :namespace "clojure.core.typed.check.def",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L101",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.def/check-defmacro-or-declare",
+   :doc
+   "To check a defmacro or declare, just assign it the most general\nVar type and ignore the body.",
+   :var-type "function",
+   :line 101,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/def.clj"}
+  {:arglists ([check-fn {:keys [init env], :as expr} & [expected]]),
+   :name "check-normal-def",
+   :namespace "clojure.core.typed.check.def",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L22",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.def/check-normal-def",
+   :doc "Checks a def that isn't a macro definition.",
+   :var-type "function",
+   :line 22,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/def.clj"}
+  {:arglists ([{:keys [var], :as expr}]),
+   :name "defmacro-or-declare?",
+   :namespace "clojure.core.typed.check.def",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj#L95",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/def.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.def/defmacro-or-declare?",
+   :doc
+   "Returns true if this :def AST originally a defmacro or declare.",
+   :var-type "function",
+   :line 95,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/def.clj"}
   {:arglists
    ([expected
      mthods
@@ -2259,6 +2351,66 @@
    :line 11,
    :file
    "module-check/src/main/clojure/clojure/core/typed/check/monitor.clj"}
+  {:arglists
+   ([check {:keys [statements env], frm :ret, :as expr} expected]),
+   :name "add-checks-ann-form",
+   :namespace "clojure.core.typed.check.special.ann-form",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L61",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.special.ann-form/add-checks-ann-form",
+   :doc
+   "Add runtime checks to an ann-form expression. Propagates its annotation\ninwards to the inner expression.",
+   :var-type "function",
+   :line 61,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj"}
+  {:arglists ([{:keys [statements], :as expr}]),
+   :name "ann-form-annotation",
+   :namespace "clojure.core.typed.check.special.ann-form",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L15",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.special.ann-form/ann-form-annotation",
+   :doc "Return the raw type annotation from the ann-form expression.",
+   :var-type "function",
+   :line 15,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj"}
+  {:arglists
+   ([check {:keys [statements env], frm :ret, :as expr} expected]),
+   :name "check-ann-form",
+   :namespace "clojure.core.typed.check.special.ann-form",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L38",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.special.ann-form/check-ann-form",
+   :doc
+   "Type check an ann-form expression. Propagates its annotation\ninwards to the inner expression.",
+   :var-type "function",
+   :line 38,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj"}
+  {:arglists ([tsyn {:keys [env], :as expr}]),
+   :name "parse-annotation",
+   :namespace "clojure.core.typed.check.special.ann-form",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj#L30",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.special.ann-form/parse-annotation",
+   :doc "Parse the raw type annotation tsyn in the context of expr",
+   :var-type "function",
+   :line 30,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/check/special/ann_form.clj"}
   {:arglists ([{:keys [val], :as expr} expected quoted?]),
    :name "check-value",
    :namespace "clojure.core.typed.check.value",
@@ -3074,6 +3226,21 @@
    :var-type "macro",
    :line 191,
    :file "module-rt/src/main/clojure/clojure/core/typed/macros.clj"}
+  {:arglists ([expr] [expr expected]),
+   :name "check",
+   :namespace "clojure.core.typed.runtime-check",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/runtime_check.clj#L9",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/868a4ff39a2ce57658126c6facd4d558fc3df246/module-check/src/main/clojure/clojure/core/typed/runtime_check.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.runtime-check/check",
+   :doc
+   "Add runtime checks to the output AST, propagating just enough types\nfor immediate ann-form expressions to propagate to fn expected types.\n\nStatic checking is disabled, outside ill-formed types.\n\nUnsafe contracts can be generated, and contract generation cannot fail.\n\nAssumes collect-expr is already called on this AST.",
+   :var-type "function",
+   :line 9,
+   :file
+   "module-check/src/main/clojure/clojure/core/typed/runtime_check.clj"}
   {:arglists ([nsyms]),
    :name "statistics",
    :namespace "clojure.core.typed.statistics",
