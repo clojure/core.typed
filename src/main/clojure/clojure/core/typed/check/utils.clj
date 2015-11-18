@@ -511,3 +511,35 @@
 (defn should-rewrite? []
   (and vs/*in-check-form*
        vs/*can-rewrite*))
+
+(defn add-cast
+  "Given an AST node and a type, return a new AST that
+  casts the original expression to the given type"
+  [{:keys [env] :as expr} t {:keys [positive negative line column] :as opt}]
+  {:pre [(map? expr)
+         (r/Type? t)]
+   :post [(map? %)]}
+  (impl/assert-clojure)
+  (let [placeholder nil
+        pred-form `(t/cast ~(prs/unparse-type t) ~placeholder 
+                           {:positive ~(or (str positive)
+                                           "cast")
+                            :negative ~(or (str negative)
+                                           "cast")
+                            :line ~(or line (:line env))
+                            :column ~(or column (:column env))})
+        pred-expr (ana/analyze1 ;; FIXME support CLJS
+                    pred-form
+                    env
+                    {:eval-fn (fn [opts ast] ast)})]
+    (assert (= :do (:op pred-expr))
+            (:op pred-expr))
+    (assert (= :invoke (-> pred-expr :ret :op))
+            (-> pred-expr :ret :op))
+    (assert (== 1 (-> pred-expr :ret :args count))
+            (-> pred-expr :ret :args count))
+    (assert (= :const (-> pred-expr :ret :args first :op))
+            (-> pred-expr :ret :args first :op))
+    (update-in pred-expr
+               [:ret :args 0]
+               (constantly expr))))

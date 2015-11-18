@@ -12,9 +12,9 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.filter-rep :as fl]))
 
-(defn check-ann-form
-  [check {:keys [statements env] frm :ret :as expr} expected]
-  {:pre [(#{3} (count statements))]}
+(defn ann-form-annotation
+  "Return the raw type annotation from the ann-form expression."
+  [{:keys [statements] :as expr}]
   (let [[_ _ texpr] statements
         tsyn-quoted (ast-u/map-expr-at texpr :type)
         _ (impl/impl-case
@@ -24,11 +24,24 @@
             :cljs nil)
         tsyn (impl/impl-case
                :clojure (second tsyn-quoted)
-               :cljs tsyn-quoted)
-        parsed-t (binding [vs/*current-env* env
+               :cljs tsyn-quoted)]
+    tsyn))
+
+(defn parse-annotation
+  "Parse the raw type annotation tsyn in the context of expr"
+  [tsyn {:keys [env] :as expr}]
+  (let [parsed-t (binding [vs/*current-env* env
                            prs/*parse-type-in-ns* (cu/expr-ns expr)]
-                   ;; unwrap quoted syntax with second
-                   (prs/parse-type tsyn))
+                   (prs/parse-type tsyn))]
+    parsed-t))
+
+(defn check-ann-form
+  "Type check an ann-form expression. Propagates its annotation
+  inwards to the inner expression."
+  [check {:keys [statements env] frm :ret :as expr} expected]
+  {:pre [(#{3} (count statements))]}
+  (let [tsyn (ann-form-annotation expr)
+        parsed-t (parse-annotation tsyn expr)
         cret (check frm 
                     (or (when expected
                           (assoc expected :t parsed-t))
@@ -44,3 +57,15 @@
                          (below/maybe-check-below
                            (u/expr-type cret)
                            expected)))))
+
+(defn add-checks-ann-form
+  "Add runtime checks to an ann-form expression. Propagates its annotation
+  inwards to the inner expression."
+  [check {:keys [statements env] frm :ret :as expr} expected]
+  {:pre [(#{3} (count statements))]}
+  (let [tsyn (ann-form-annotation expr)
+        parsed-t (parse-annotation tsyn expr)
+        cret (check frm (r/ret parsed-t))]
+    ;; don't think we need to propagate types back up
+    (assoc expr
+           :ret cret)))
