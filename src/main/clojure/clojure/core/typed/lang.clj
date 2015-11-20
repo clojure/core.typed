@@ -19,7 +19,7 @@
           {:lang :new-impl})
       will use `my-load` to load the file.
   "
-  (:refer-clojure :exclude [require use])
+  (:refer-clojure :exclude [require use compile])
   (:require [clojure.core.typed.ns-deps-utils :as ns-utils]
             [clojure.core :as core]))
 
@@ -257,6 +257,19 @@
   {:added "1.0"}
   [& args] (apply load-libs :require :use args))
 
+
+(defn compile
+  "Compiles the namespace named by the symbol lib into a set of
+  classfiles. The source for the lib must be in a proper
+  classpath-relative directory. The output files will go into the
+  directory specified by *compile-path*, and that directory too must
+  be in the classpath."
+  {:added "1.0"}
+  [lib]
+  (binding [*compile-files* true]
+    (load-one lib true true))
+  lib)
+
 ;; End clojure.core copy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -267,7 +280,8 @@
   (let [l (delay
             (alter-var-root #'load (constantly #'extensible-load))
             (alter-var-root #'core/require (constantly #'require))
-            (alter-var-root #'core/use (constantly #'use)))]
+            (alter-var-root #'core/use (constantly #'use))
+            (alter-var-root #'core/compile (constantly #'compile)))]
     (fn []
       @l
       nil)))
