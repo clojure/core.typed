@@ -687,6 +687,9 @@ namespace.
   </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.lang" style="margin-top: 3px;">clojure.core.typed.lang</a>
     <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.lang/compile">compile</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.lang/default-load1">default-load1</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -3970,6 +3973,21 @@ eg. A file with a `ns` form
   <div id="var-entry">
     <br />
     <hr />
+    <h2 id="clojure.core.typed.lang/compile">compile</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (compile lib)
+</pre>
+    <pre id="var-docstr">Compiles the namespace named by the symbol lib into a set of
+classfiles. The source for the lib must be in a proper
+classpath-relative directory. The output files will go into the
+directory specified by *compile-path*, and that directory too must
+be in the classpath.</pre>
+    <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
+    
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L261" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
     <h2 id="clojure.core.typed.lang/default-load1">default-load1</h2>
     <span id="var-type">function</span><br />
     <pre id="var-usage">Usage: (default-load1 base-resource-path)
@@ -3977,7 +3995,7 @@ eg. A file with a `ns` form
     <pre id="var-docstr">Roughly equivalent to clojure.core/load.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L32" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L32" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3990,7 +4008,7 @@ classpath-relative if it begins with a slash or relative to the root
 directory for the current namespace otherwise.</pre>
     <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L47" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L47" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4001,7 +4019,7 @@ directory for the current namespace otherwise.</pre>
     <pre id="var-docstr">Returns the :lang entry in ns form in the given namespace.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L38" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L38" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4011,7 +4029,7 @@ directory for the current namespace otherwise.</pre>
     <pre id="var-docstr">A map from :lang entries to their corresponding `load` alternatives.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L27" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L27" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4022,7 +4040,7 @@ directory for the current namespace otherwise.</pre>
 over clojure.core/load.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L264" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L277" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4090,7 +4108,7 @@ abbreviated as 's'.
 (require '(clojure zip [set :as s]))</pre>
     <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L185" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L185" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4107,7 +4125,7 @@ The arguments and semantics for :exclude, :only, and :rename are the same
 as those documented for clojure.core/refer.</pre>
     <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
     
-    <a href="https://github.com/clojure/core.typed/blob/610773bb78104267e01df5ed2be4520b6d333fb1/module-check/src/main/clojure/clojure/core/typed/lang.clj#L249" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L249" id="var-source">Source</a>
   </div>
 </div>
 <br />
