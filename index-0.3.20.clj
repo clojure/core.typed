@@ -2460,67 +2460,67 @@
    :name "->Blame",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L43",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L44",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/->Blame",
    :doc
    "Positional factory function for class clojure.core.typed.contract.Blame.",
    :var-type "function",
-   :line 43,
+   :line 44,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([s c b]),
    :name "->CheckedISeq",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L243",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L279",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/->CheckedISeq",
    :doc
    "Positional factory function for class clojure.core.typed.contract.CheckedISeq.",
    :var-type "function",
-   :line 243,
+   :line 279,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([name first-order projection flat?]),
    :name "->Contract",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L28",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L29",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/->Contract",
    :doc
    "Positional factory function for class clojure.core.typed.contract.Contract.",
    :var-type "function",
-   :line 28,
+   :line 29,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([& cs]),
    :name "and-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L342",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L381",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/and-c",
    :doc
    "Returns a contract that ensures a value passes each contract `cs`.\n\nAt most *one* higher-order contract may be passed to `and-c`, and\nany number of flat contracts.\n\n[Contract * -> Contract]\n\neg. (and-c (instance-c Boolean) true-c)  ;; (I Boolean true)",
    :var-type "function",
-   :line 342,
+   :line 381,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L160",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L189",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/any-c",
    :namespace "clojure.core.typed.contract",
-   :line 160,
+   :line 189,
    :var-type "var",
    :doc "Contract that allows any value.",
    :name "any-c"}
@@ -2528,53 +2528,53 @@
    :name "contract",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L104",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L123",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/contract",
    :doc
    "Check a contract against a value, with an optional Blame object.\n\n(IFn [Contract Any -> Any]\n     [Contract Any Blame -> Any])",
    :var-type "macro",
-   :line 104,
+   :line 123,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([lower] [lower upper]),
    :name "count-range-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L164",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L196",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/count-range-c",
    :doc
    "Returns a flat contract that allows values with `count`\ngreater-or-equal-to lower, and less-or-equal-to upper.\nUpper can be nil for positive infinity.\n\n(IFn [Int -> Contract]\n     [Int (U nil Int) -> Contract])\n\neg. (count-range-c 0 10)\n    (count-range-c 0 nil)",
    :var-type "function",
-   :line 164,
+   :line 196,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([y]),
    :name "equiv-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L184",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L217",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/equiv-c",
    :doc
    "Returns a flat contract that returns true if a value is `=`\nto y.\n\n[Any -> Contract]",
    :var-type "function",
-   :line 184,
+   :line 217,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L156",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L184",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/false-c",
    :namespace "clojure.core.typed.contract",
-   :line 156,
+   :line 184,
    :var-type "var",
    :doc "Contract that checks for `false`.",
    :name "false-c"}
@@ -2582,65 +2582,83 @@
    :name "flat-val-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L145",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L169",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/flat-val-c",
    :doc "Contract generation for flat predicates.",
    :var-type "function",
-   :line 145,
+   :line 169,
+   :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
+  {:arglists
+   ([&
+     {:keys [mandatory optional absent-keys complete?],
+      :or
+      {absent-keys #{}, mandatory {}, optional {}, complete? false}}]),
+   :name "hmap-c",
+   :namespace "clojure.core.typed.contract",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L422",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/hmap-c",
+   :doc
+   "Takes a map of mandatory and optional entry contracts,\na set of absent keys, and :complete? true if this is a fully\nspecified map. Intended to work with keyword keys, but should\nwork with any keys looked up via =.",
+   :var-type "function",
+   :line 422,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([y]),
    :name "identical-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L194",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L228",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/identical-c",
    :doc
    "Returns a flat contract that returns true if a value is `identical?`\nto y.\n\n[Any -> Contract]",
    :var-type "function",
-   :line 194,
+   :line 228,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([cs c2]),
    :name "ifn-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L205",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L240",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/ifn-c",
    :doc
    "Returns a function contract that checks a function has\nfixed domain that passes contracts `cs` and return value\nthat passes contact `c2`.\n\n[(Vec Contract) Contract -> Contract]\n\neg. (ifn-c [int-c] int-c)  ;; [Int -> Int] contract",
    :var-type "function",
-   :line 205,
+   :line 240,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([c]),
    :name "instance-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L138",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L159",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/instance-c",
    :doc "Flat contracts for instance? checks on Class's.",
    :var-type "macro",
-   :line 138,
+   :line 159,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L133",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L154",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/int-c",
    :namespace "clojure.core.typed.contract",
-   :line 133,
+   :line 154,
    :var-type "var",
    :doc "Flat contract for values that pass `integer?`.",
    :name "int-c"}
@@ -2648,15 +2666,15 @@
    :name "make-blame",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L92",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L110",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/make-blame",
    :doc
-   "Make a new blame object.\n\nKeyword arguments:\n- :positive   Positive blame party, (U String Symbol)\n- :negative   Negative blame party, (U String Symbol)\n- :file       File that contains contract, (U Int nil)\n- :line       Line where contract occurs, (U Int nil)\n- :column     Column where contract occurs, (U Int nil)",
+   "Make a new blame object.\n\nKeyword arguments:\n- :message    A string message, String\n- :positive   Positive blame party, (U String Symbol)\n- :negative   Negative blame party, (U String Symbol)\n- :file       File that contains contract, (U Str nil)\n- :line       Line where contract occurs, (U Int nil)\n- :column     Column where contract occurs, (U Int nil)",
    :var-type "function",
-   :line 92,
+   :line 110,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists
    ([&
@@ -2664,67 +2682,67 @@
    :name "make-contract",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L59",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L69",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/make-contract",
    :doc
    "Make a new contract.\n\nKeyword arguments: (see Contract datatype for more details)\n- :name         Name of the contract, (U Symbol String)\n- :first-order  First-order predicate for this contract, [Any -> Any]\n- :projection   Curried function taking blame and the value to check,\n                and returns a new checked value, or throws blame.\n                [Blame -> [Any -> Any]]\n- :flat?        True if this is a flat contract, Boolean",
    :var-type "function",
-   :line 59,
+   :line 69,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([& args]),
    :name "make-flat-contract",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L87",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L98",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/make-flat-contract",
    :doc
    "Calls `make-contract` but also passes `:flat? true` as the first arguments.",
    :var-type "function",
-   :line 87,
+   :line 98,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([m__6289__auto__]),
    :name "map->Blame",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L43",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L44",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/map->Blame",
    :doc
    "Factory function for class clojure.core.typed.contract.Blame, taking a map of keywords to field values.",
    :var-type "function",
-   :line 43,
+   :line 44,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([m__6289__auto__]),
    :name "map->Contract",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L28",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L29",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/map->Contract",
    :doc
    "Factory function for class clojure.core.typed.contract.Contract, taking a map of keywords to field values.",
    :var-type "function",
-   :line 28,
+   :line 29,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L150",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L178",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/nil-c",
    :namespace "clojure.core.typed.contract",
-   :line 150,
+   :line 178,
    :var-type "var",
    :doc "Contract that checks for `nil`.",
    :name "nil-c"}
@@ -2732,65 +2750,66 @@
    :name "or-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L289",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L327",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/or-c",
    :doc
    "Returns a contract that checks a value passes at least\none of the contracts `cs`.\n\nAny number of flat contracts may be passed to or-c. However,\nif more than one higher-order contract is provided, each time\nthis contract is used, at most *one* may pass its first-order\npredicate.\n\nFor example, (or-c (ifn-c [int-c] int-c) (ifn-c [] int-c))\ncannot be checked against `clojure.core/+` because\nthe first-order check for both contracts (`ifn?`) passes.\n\n[Contract * -> Contract]\n\neg. (or-c int-c nil-c) ;; (U Int nil)\n    (or-c int-c (ifn-c [int-c] int-c)) ;; (U Int [Int -> Int])\n",
    :var-type "function",
-   :line 289,
+   :line 327,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([c]),
    :name "seqable-c",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L270",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L307",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/seqable-c",
    :doc
    "Alpha - subject to change.\n\nReturns a contract that checks Seqable things.\n\n[Contract -> Contract]",
    :var-type "function",
-   :line 270,
+   :line 307,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:arglists ([x]),
    :name "swap-blame",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L122",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L142",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/swap-blame",
    :doc "Swap a blame object's blame parties.\n\n[Blame -> Blame]",
    :var-type "function",
-   :line 122,
+   :line 142,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
-  {:arglists ([{:keys [positive negative file line column], :as b}]),
+  {:arglists
+   ([{:keys [message positive negative file line column], :as b}]),
    :name "throw-blame",
    :namespace "clojure.core.typed.contract",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L45",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L47",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/throw-blame",
    :doc "Throw a blame object\n\n[Blame -> Nothing]",
    :var-type "function",
-   :line 45,
+   :line 47,
    :file "module-rt/src/main/clojure/clojure/core/typed/contract.clj"}
   {:file "module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
+   "https://github.com/clojure/core.typed/raw/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L153",
+   "https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L181",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.contract/true-c",
    :namespace "clojure.core.typed.contract",
-   :line 153,
+   :line 181,
    :var-type "var",
    :doc "Contract that checks for `true`.",
    :name "true-c"}

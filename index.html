@@ -615,6 +615,9 @@ namespace.
       <a class="toc-entry-anchor" href="#clojure.core.typed.contract/flat-val-c">flat-val-c</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.contract/hmap-c">hmap-c</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.contract/identical-c">identical-c</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -3491,7 +3494,7 @@ Main entry point is the `contract` macro.</pre>
     <pre id="var-docstr">Positional factory function for class clojure.core.typed.contract.Blame.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L43" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L44" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3502,7 +3505,7 @@ Main entry point is the `contract` macro.</pre>
     <pre id="var-docstr">Positional factory function for class clojure.core.typed.contract.CheckedISeq.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L243" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L279" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3513,7 +3516,7 @@ Main entry point is the `contract` macro.</pre>
     <pre id="var-docstr">Positional factory function for class clojure.core.typed.contract.Contract.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L28" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L29" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3531,7 +3534,7 @@ any number of flat contracts.
 eg. (and-c (instance-c Boolean) true-c)  ;; (I Boolean true)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L342" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L381" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3541,7 +3544,7 @@ eg. (and-c (instance-c Boolean) true-c)  ;; (I Boolean true)</pre>
     <pre id="var-docstr">Contract that allows any value.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L160" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L189" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3556,7 +3559,7 @@ eg. (and-c (instance-c Boolean) true-c)  ;; (I Boolean true)</pre>
      [Contract Any Blame -&gt; Any])</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L104" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L123" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3576,7 +3579,7 @@ eg. (count-range-c 0 10)
     (count-range-c 0 nil)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L164" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L196" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3590,7 +3593,7 @@ to y.
 [Any -&gt; Contract]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L184" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L217" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3600,7 +3603,7 @@ to y.
     <pre id="var-docstr">Contract that checks for `false`.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L156" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L184" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3611,7 +3614,21 @@ to y.
     <pre id="var-docstr">Contract generation for flat predicates.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L145" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L169" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.contract/hmap-c">hmap-c</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (hmap-c &amp; {:keys [mandatory optional absent-keys complete?], :or {absent-keys #{}, mandatory {}, optional {}, complete? false}})
+</pre>
+    <pre id="var-docstr">Takes a map of mandatory and optional entry contracts,
+a set of absent keys, and :complete? true if this is a fully
+specified map. Intended to work with keyword keys, but should
+work with any keys looked up via =.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L422" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3625,7 +3642,7 @@ to y.
 [Any -&gt; Contract]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L194" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L228" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3642,7 +3659,7 @@ that passes contact `c2`.
 eg. (ifn-c [int-c] int-c)  ;; [Int -&gt; Int] contract</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L205" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L240" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3653,7 +3670,7 @@ eg. (ifn-c [int-c] int-c)  ;; [Int -&gt; Int] contract</pre>
     <pre id="var-docstr">Flat contracts for instance? checks on Class's.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L138" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L159" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3663,7 +3680,7 @@ eg. (ifn-c [int-c] int-c)  ;; [Int -&gt; Int] contract</pre>
     <pre id="var-docstr">Flat contract for values that pass `integer?`.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L133" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L154" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3674,14 +3691,15 @@ eg. (ifn-c [int-c] int-c)  ;; [Int -&gt; Int] contract</pre>
     <pre id="var-docstr">Make a new blame object.
 
 Keyword arguments:
+- :message    A string message, String
 - :positive   Positive blame party, (U String Symbol)
 - :negative   Negative blame party, (U String Symbol)
-- :file       File that contains contract, (U Int nil)
+- :file       File that contains contract, (U Str nil)
 - :line       Line where contract occurs, (U Int nil)
 - :column     Column where contract occurs, (U Int nil)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L92" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L110" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3700,7 +3718,7 @@ Keyword arguments: (see Contract datatype for more details)
 - :flat?        True if this is a flat contract, Boolean</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L59" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L69" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3711,7 +3729,7 @@ Keyword arguments: (see Contract datatype for more details)
     <pre id="var-docstr">Calls `make-contract` but also passes `:flat? true` as the first arguments.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L87" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L98" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3722,7 +3740,7 @@ Keyword arguments: (see Contract datatype for more details)
     <pre id="var-docstr">Factory function for class clojure.core.typed.contract.Blame, taking a map of keywords to field values.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L43" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L44" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3733,7 +3751,7 @@ Keyword arguments: (see Contract datatype for more details)
     <pre id="var-docstr">Factory function for class clojure.core.typed.contract.Contract, taking a map of keywords to field values.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L28" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L29" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3743,7 +3761,7 @@ Keyword arguments: (see Contract datatype for more details)
     <pre id="var-docstr">Contract that checks for `nil`.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L150" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L178" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3770,7 +3788,7 @@ eg. (or-c int-c nil-c) ;; (U Int nil)
 </pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L289" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L327" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3785,7 +3803,7 @@ Returns a contract that checks Seqable things.
 [Contract -&gt; Contract]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L270" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L307" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3798,20 +3816,20 @@ Returns a contract that checks Seqable things.
 [Blame -&gt; Blame]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L122" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L142" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
     <h2 id="clojure.core.typed.contract/throw-blame">throw-blame</h2>
     <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (throw-blame {:keys [positive negative file line column], :as b})
+    <pre id="var-usage">Usage: (throw-blame {:keys [message positive negative file line column], :as b})
 </pre>
     <pre id="var-docstr">Throw a blame object
 
 [Blame -&gt; Nothing]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L45" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L47" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -3821,7 +3839,7 @@ Returns a contract that checks Seqable things.
     <pre id="var-docstr">Contract that checks for `true`.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/7250d32dee90a69613ba418f57fe15407757b6bc/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L153" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/a34bcd127ebe2db79748f87e30c67551ccdc4242/module-rt/src/main/clojure/clojure/core/typed/contract.clj#L181" id="var-source">Source</a>
   </div>
 </div>
 <br />
