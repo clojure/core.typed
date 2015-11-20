@@ -2,7 +2,8 @@
   "A contract system a la racket/contract.
 
   Main entry point is the `contract` macro."
-  (:require [clojure.test :refer :all]))
+  (:require [clojure.test :refer :all]
+            [clojure.set :as set]))
 
 ;; A contract, the first argument to the `contract` macro
 ;; - name : Symbol
@@ -42,20 +43,29 @@
 ;;     Line/column positions to blame.
 (defrecord Blame [positive negative name contract file line column])
 
+#_ (ann throw-blame [Blame -> Nothing])
 (defn throw-blame 
   "Throw a blame object
 
   [Blame -> Nothing]"
-  [{:keys [positive negative file line column] :as b}]
+  [{:keys [message positive negative file line column] :as b}]
   (throw
     (ex-info
-      (str "Positive blame: " positive "\n"
+      (str message "\n"
+           "Positive blame: " positive "\n"
            "Negative blame: " negative "\n"
            "File: " file "\n"
            "Line: " line "\n"
            "Column: " column "\n")
       {:blame b})))
 
+#_(ann-many [& :optional {:name (U Symbol String)
+                                   :first-order [Any :-> Any]
+                                   :projection [Blame :-> [Any :-> Any]]
+                                   :flat? Boolean}
+                      :-> Contract]
+            make-contract
+            make-flat-contract)
 (defn make-contract 
   "Make a new contract.
 
@@ -84,18 +94,27 @@
        :projection projection
        :flat? flat?})))
 
+
 (defn make-flat-contract 
   "Calls `make-contract` but also passes `:flat? true` as the first arguments."
   [& args]
   (apply make-contract :flat? true args))
 
+#_(ann make-blame [& :optional {:message String
+                                :positive (U String Symbol)
+                                :negative (U String Symbol)
+                                :file (U Str nil)
+                                :line (U Int nil)
+                                :column (U Int nil)}
+                   :-> Blame])
 (defn make-blame 
   "Make a new blame object.
 
   Keyword arguments:
+  - :message    A string message, String
   - :positive   Positive blame party, (U String Symbol)
   - :negative   Negative blame party, (U String Symbol)
-  - :file       File that contains contract, (U Int nil)
+  - :file       File that contains contract, (U Str nil)
   - :line       Line where contract occurs, (U Int nil)
   - :column     Column where contract occurs, (U Int nil)"
   [& {:as bls}]
@@ -119,6 +138,7 @@
                                    @Compiler/COLUMN))))
      ~x)))
 
+#_(ann swap-blame [Blame :-> Blame])
 (defn swap-blame 
   "Swap a blame object's blame parties.
   
@@ -130,6 +150,7 @@
       (assoc :positive (:negative x))
       (assoc :negative (:positive x))))
 
+#_(ann int-c Contract)
 (def int-c 
   "Flat contract for values that pass `integer?`."
   (make-flat-contract :name 'int-c :first-order integer?))
@@ -141,12 +162,19 @@
   `(make-flat-contract :name (str ~c)
                        :first-order #(instance? ~c %)))
 
+#_(ann Object-c Contract)
 (def Object-c (instance-c Object))
+
+#_(ann flat-val-c [Sym [Any -> Any] :-> Contract])
 (defn flat-val-c
   "Contract generation for flat predicates."
   [name pred]
   (make-flat-contract :name name :first-order pred))
 
+#_(ann-many Contract
+            nil-c
+            true-c
+            false-c)
 (def nil-c 
   "Contract that checks for `nil`."
   (flat-val-c 'nil-c nil?))
@@ -157,10 +185,14 @@
   "Contract that checks for `false`."
   (flat-val-c 'false-c false?))
 
+#_(ann any-c Contract)
 (def any-c 
   "Contract that allows any value."
   (make-flat-contract :name any-c))
 
+#_(ann count-range-c
+       (IFn [Int -> Contract]
+            [Int (U nil Int) -> Contract]))
 (defn count-range-c 
   "Returns a flat contract that allows values with `count`
   greater-or-equal-to lower, and less-or-equal-to upper.
@@ -181,6 +213,7 @@
                                              (<= lower (count x) upper)
                                              (<= lower (count x))))))))
 
+#_(ann equiv-c [Any -> Contract])
 (defn equiv-c
   "Returns a flat contract that returns true if a value is `=`
   to y.
@@ -191,6 +224,7 @@
                       :first-order (fn [x]
                                      (= x y))))
 
+#_(ann identical-c [Any -> Contract])
 (defn identical-c
   "Returns a flat contract that returns true if a value is `identical?`
   to y.
@@ -202,6 +236,7 @@
                                      (identical? x y))))
 
 
+#_(ann ifn-c [(Vec Contract) Contract -> Contract])
 (defn ifn-c 
   "Returns a function contract that checks a function has
   fixed domain that passes contracts `cs` and return value
@@ -220,8 +255,9 @@
     :projection (fn [b]
                   (fn [f]
                     ; returning a contracted function
-                    (contract (make-contract :name 'ifn?
-                                             :first-order ifn?)
+                    (contract (make-flat-contract
+                                :name 'ifn?
+                                :first-order ifn?)
                               f
                               b)
                     (with-meta
@@ -267,6 +303,7 @@
           (not ms))))))
 
 
+#_(ann seqable-c [Contract :-> Contract])
 (defn seqable-c
   "Alpha - subject to change.
 
@@ -286,6 +323,7 @@
                       (seq [this]
                         (->CheckedISeq s c b)))))))
 
+#_(ann or-c [Contract * :-> Contract])
 (defn or-c
   "Returns a contract that checks a value passes at least
   one of the contracts `cs`.
@@ -339,6 +377,7 @@
                         x
                         (choose-hoc x b)))))))
 
+#_(ann and-c [Contract * :-> Contract])
 (defn and-c
   "Returns a contract that ensures a value passes each contract `cs`.
 
@@ -374,3 +413,108 @@
       (throw (ex-info 
                "Cannot create and-c contract with more than one higher-order contract"
                {:hoc (map :name hoc)})))))
+
+#_(ann hmap-c [& :optional {:mandatory (Map Keyword Contract)
+                            :optional (Map Keyword Contract)
+                            :absent-keys (Set Keyword)
+                            :complete? Boolean}
+               :-> Contract])
+(defn hmap-c
+  "Takes a map of mandatory and optional entry contracts,
+  a set of absent keys, and :complete? true if this is a fully
+  specified map. Intended to work with keyword keys, but should
+  work with any keys looked up via =."
+  [& {:keys [mandatory optional absent-keys complete?]
+      :or {absent-keys #{}
+           mandatory {}
+           optional {}
+           complete? false}}]
+  (let [flat? (every? (comp :flat? val) (concat mandatory optional))
+        ;_ (prn "flat?" flat?)
+        mkeys (set (keys mandatory))
+        okeys (set (keys optional))
+        check-absent?
+        (if complete?
+          (fn [m] 
+            {:pre [(map? m)]}
+            true)
+          (fn [m] 
+            {:pre [(map? m)]}
+            (empty? (set/intersection (set (keys m)) absent-keys))))
+        check-completeness?
+        (if complete?
+          (fn [m]
+            {:pre [(map? m)]}
+            ;; only the mandatory or optional entries are allowed
+            (empty? (set/difference (set (keys m))
+                                    mkeys
+                                    okeys)))
+          (fn [m] 
+            {:pre [(map? m)]}
+            true))]
+    (make-contract :name 'hmap-c
+                   :flat? flat?
+                   :first-order (fn [m]
+                                  (and
+                                    (map? m)
+                                    (check-completeness? m)
+                                    (check-absent? m)
+                                    (every? (fn [[k {:keys [first-order]}]]
+                                              (and (contains? m k)
+                                                   (first-order (get m k))))
+                                            mandatory)
+                                    (every? (fn [[k {:keys [first-order]}]]
+                                              (or (not (contains? m k))
+                                                  (first-order (get m k))))
+                                            optional)))
+                   :projection (fn [b]
+                                 (fn [m]
+                                   (contract (make-flat-contract
+                                               :name 'map?
+                                               :first-order map?)
+                                             m
+                                             b)
+                                   (contract (make-flat-contract
+                                               :name 'hmap-completeness-check
+                                               :first-order check-completeness?)
+                                             m
+                                             b)
+                                   (contract (make-flat-contract
+                                               :name 'hmap-absent-check 
+                                               :first-order check-absent?)
+                                             m
+                                             b)
+                                   (as-> 
+                                     m ;; the expression
+                                     m ;; the name to thread through
+
+                                     ;; apply mandatory checks
+                                     (reduce-kv (fn [m k c]
+                                                  {:pre [(map? m)]
+                                                   :post [(map? m)]}
+                                                  (if (not (contains? m k))
+                                                    (throw-blame 
+                                                      (assoc b
+                                                             :message (str k " key is missing")))
+                                                    (if (:flat? c)
+                                                      (do (contract c (get m k) b) ;; could be done asynchronously
+                                                          m)
+                                                      (update m k #(contract c % b)))))
+                                                m ;; the current map
+                                                mandatory)
+
+                                     ;; apply optional checks
+                                     (reduce-kv (fn [m k c]
+                                                  {:pre [(map? m)]
+                                                   :post [(map? m)]}
+                                                  (if (not (contains? m k))
+                                                    m
+                                                    (if (:flat? c)
+                                                      (do (contract c (get m k) b)
+                                                          m)
+                                                      (update m k #(contract c % b)))))
+                                                m ;; the current map
+                                                optional)
+
+                                     ;; return the accumulated map
+                                     m))))))
