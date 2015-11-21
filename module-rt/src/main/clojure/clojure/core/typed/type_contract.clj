@@ -235,21 +235,18 @@
 
                                :else (err/int-error 
                                        (str "Cannot generate predicate for value type: " v))))
-              ;(:HMap) (let [mandatory (apply hash-map (:mandatory t))
-              ;              optional (apply hash-map (:optional t))
-              ;              absent-keys (:absent-keys t)
-              ;              valgen (fn [tmap]
-              ;                       (zipmap (map :val (keys tmap))
-              ;                               (mapv (fn [tsyn gi]
-              ;                                       `(fn [~gi]
-              ;                                          ~(gen-inner tsyn gi)))
-              ;                                     (vals tmap)
-              ;                                     (repeatedly (count tmap) gensym))))]
-              ;          `((impl/hmap-c? :mandatory ~(valgen mandatory)
-              ;                          :optional ~(valgen optional)
-              ;                          :absent-keys ~(set (map :val absent-keys))
-              ;                          :complete? ~(:complete? t))
-              ;            ~arg))
+
+              (:HMap) (let [mandatory (apply hash-map (:mandatory t))
+                            optional (apply hash-map (:optional t))
+                            absent-keys (:absent-keys t)
+                            congen (fn [tmap]
+                                     (zipmap (map :val (keys tmap))
+                                             (map #(gen-inner % arg) (vals tmap))))]
+                        (con/hmap-c :mandatory (congen mandatory)
+                                    :optional (congen optional)
+                                    :absent-keys (set (map :val absent-keys))
+                                    :complete? (:complete? t)))
+
               ;(:Rec) (cond
               ;         ;we're already inside this rec
               ;         (contains? *inside-rec* (:unwrap-id t))
