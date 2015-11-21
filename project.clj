@@ -18,7 +18,7 @@
                  [org.clojure/tools.reader "0.9.2"]
                  [org.clojure/core.contracts "0.0.4" :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.1.1" :exclusions [org.clojure/clojure]]
-                 [org.clojure/tools.namespace "0.2.5"]
+                 [org.clojure/tools.namespace "0.2.11"]
                  [org.clojure/core.cache "0.6.4"]
                  ]
   ;; for tools.reader 0.9.2
