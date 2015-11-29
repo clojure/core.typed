@@ -82,7 +82,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 ## ClojureScript Checker
 
-The ClojureScript checker has followed the last year of upstream changes, so it does not work.
+The ClojureScript checker has not followed the last year of upstream changes, so it does not work.
 If you would like to help update the checker, please post on the mailing list.
 
 ## Developer Information
