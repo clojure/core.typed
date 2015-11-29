@@ -80,6 +80,11 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 [core.async Rock-paper-scissors](https://github.com/clojure/core.typed/blob/master/module-check/src/test/clojure/clojure/core/typed/test/rps_async.clj)
 
+## ClojureScript Checker
+
+The ClojureScript checker has followed the last year of upstream changes, so it does not work.
+If you would like to help update the checker, please post on the mailing list.
+
 ## Developer Information
 
 - [Typed Clojure Contributor Code of Conduct](CODE_OF_CONDUCT.md)
