@@ -89,7 +89,7 @@
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.lang-api.html",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj"}
+   "https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj"}
   {:doc nil,
    :name "clojure.core.typed.load",
    :wiki-url
@@ -2993,27 +2993,12 @@
    :raw-source-url nil,
    :file nil}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
-   :added "1.0",
-   :name "compile",
-   :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L261",
-   :line 261,
-   :var-type "function",
-   :arglists ([lib]),
-   :doc
-   "Compiles the namespace named by the symbol lib into a set of\nclassfiles. The source for the lib must be in a proper\nclasspath-relative directory. The output files will go into the\ndirectory specified by *compile-path*, and that directory too must\nbe in the classpath.",
-   :namespace "clojure.core.typed.lang",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/compile"}
-  {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "default-load1",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L32",
-   :line 32,
+   "https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L30",
+   :line 30,
    :var-type "function",
    :arglists ([base-resource-path]),
    :doc "Roughly equivalent to clojure.core/load.",
@@ -3021,13 +3006,13 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/default-load1"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :added "1.0",
    :name "extensible-load",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L47",
-   :line 47,
+   "https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L45",
+   :line 45,
    :var-type "function",
    :arglists ([& paths]),
    :doc
@@ -3036,12 +3021,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/extensible-load"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "file-lang",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L38",
-   :line 38,
+   "https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L36",
+   :line 36,
    :var-type "function",
    :arglists ([res]),
    :doc "Returns the :lang entry in ns form in the given namespace.",
@@ -3049,12 +3034,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/file-lang"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "lang-dispatch",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L27",
-   :line 27,
+   "https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L25",
+   :line 25,
    :var-type "var",
    :arglists nil,
    :doc
@@ -3063,12 +3048,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/lang-dispatch"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "monkey-patch-extensible-load",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L277",
-   :line 277,
+   "https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L68",
+   :line 68,
    :var-type "var",
    :arglists nil,
    :doc
@@ -3076,36 +3061,6 @@
    :namespace "clojure.core.typed.lang",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/monkey-patch-extensible-load"}
-  {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
-   :added "1.0",
-   :name "require",
-   :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L185",
-   :line 185,
-   :var-type "function",
-   :arglists ([& args]),
-   :doc
-   "Loads libs, skipping any that are already loaded. Each argument is\neither a libspec that identifies a lib, a prefix list that identifies\nmultiple libs whose names share a common prefix, or a flag that modifies\nhow all the identified libs are loaded. Use :require in the ns macro\nin preference to calling this directly.\n\nLibs\n\nA 'lib' is a named set of resources in classpath whose contents define a\nlibrary of Clojure code. Lib names are symbols and each lib is associated\nwith a Clojure namespace and a Java package that share its name. A lib's\nname also locates its root directory within classpath using Java's\npackage name to classpath-relative path mapping. All resources in a lib\nshould be contained in the directory structure under its root directory.\nAll definitions a lib makes should be in its associated namespace.\n\n'require loads a lib by loading its root resource. The root resource path\nis derived from the lib name in the following manner:\nConsider a lib named by the symbol 'x.y.z; it has the root directory\n<classpath>/x/y/, and its root resource is <classpath>/x/y/z.clj. The root\nresource should contain code to create the lib's namespace (usually by using\nthe ns macro) and load any additional lib resources.\n\nLibspecs\n\nA libspec is a lib name or a vector containing a lib name followed by\noptions expressed as sequential keywords and arguments.\n\nRecognized options:\n:as takes a symbol as its argument and makes that symbol an alias to the\n  lib's namespace in the current namespace.\n:refer takes a list of symbols to refer from the namespace or the :all\n  keyword to bring in all public vars.\n\nPrefix Lists\n\nIt's common for Clojure code to depend on several libs whose names have\nthe same prefix. When specifying libs, prefix lists can be used to reduce\nrepetition. A prefix list contains the shared prefix followed by libspecs\nwith the shared prefix removed from the lib names. After removing the\nprefix, the names that remain must not contain any periods.\n\nFlags\n\nA flag is a keyword.\nRecognized flags: :reload, :reload-all, :verbose\n:reload forces loading of all the identified libs even if they are\n  already loaded\n:reload-all implies :reload and also forces loading of all libs that the\n  identified libs directly or indirectly load via require or use\n:verbose triggers printing information about each load, alias, and refer\n\nExample:\n\nThe following would load the libraries clojure.zip and clojure.set\nabbreviated as 's'.\n\n(require '(clojure zip [set :as s]))",
-   :namespace "clojure.core.typed.lang",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/require"}
-  {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj",
-   :added "1.0",
-   :name "use",
-   :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L249",
-   :line 249,
-   :var-type "function",
-   :arglists ([& args]),
-   :doc
-   "Like 'require, but also refers to each lib's namespace using\nclojure.core/refer. Use :use in the ns macro in preference to calling\nthis directly.\n\n'use accepts additional options in libspecs: :exclude, :only, :rename.\nThe arguments and semantics for :exclude, :only, and :rename are the same\nas those documented for clojure.core/refer.",
-   :namespace "clojure.core.typed.lang",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/use"}
   {:raw-source-url
    "https://github.com/clojure/core.typed/raw/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj",
    :name "install-typed-load",

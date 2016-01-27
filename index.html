@@ -687,9 +687,6 @@ namespace.
   </div><div class="toc-section" style="margin-left: 1em;">
     <a style="margin-top: 3px;" href="#clojure.core.typed.lang">clojure.core.typed.lang</a>
     <div class="toc-entry" style="margin-left: 1em;">
-      <a href="#clojure.core.typed.lang/compile" class="toc-entry-anchor">compile</a>
-      
-    </div><div class="toc-entry" style="margin-left: 1em;">
       <a href="#clojure.core.typed.lang/default-load1" class="toc-entry-anchor">default-load1</a>
       
     </div><div class="toc-entry" style="margin-left: 1em;">
@@ -703,12 +700,6 @@ namespace.
       
     </div><div class="toc-entry" style="margin-left: 1em;">
       <a href="#clojure.core.typed.lang/monkey-patch-extensible-load" class="toc-entry-anchor">monkey-patch-extensible-load</a>
-      
-    </div><div class="toc-entry" style="margin-left: 1em;">
-      <a href="#clojure.core.typed.lang/require" class="toc-entry-anchor">require</a>
-      
-    </div><div class="toc-entry" style="margin-left: 1em;">
-      <a href="#clojure.core.typed.lang/use" class="toc-entry-anchor">use</a>
       
     </div>
   </div><div class="toc-section" style="margin-left: 1em;">
@@ -3973,21 +3964,6 @@ eg. A file with a `ns` form
   <div id="var-entry">
     <br />
     <hr />
-    <h2 id="clojure.core.typed.lang/compile">compile</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (compile lib)
-</pre>
-    <pre id="var-docstr">Compiles the namespace named by the symbol lib into a set of
-classfiles. The source for the lib must be in a proper
-classpath-relative directory. The output files will go into the
-directory specified by *compile-path*, and that directory too must
-be in the classpath.</pre>
-    <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
-    
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L261">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
     <h2 id="clojure.core.typed.lang/default-load1">default-load1</h2>
     <span id="var-type">function</span><br />
     <pre id="var-usage">Usage: (default-load1 base-resource-path)
@@ -3995,7 +3971,7 @@ be in the classpath.</pre>
     <pre id="var-docstr">Roughly equivalent to clojure.core/load.</pre>
     
     
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L32">Source</a>
+    <a id="var-source" href="https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L30">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4008,7 +3984,7 @@ classpath-relative if it begins with a slash or relative to the root
 directory for the current namespace otherwise.</pre>
     <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
     
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L47">Source</a>
+    <a id="var-source" href="https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L45">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4019,7 +3995,7 @@ directory for the current namespace otherwise.</pre>
     <pre id="var-docstr">Returns the :lang entry in ns form in the given namespace.</pre>
     
     
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L38">Source</a>
+    <a id="var-source" href="https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L36">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4029,7 +4005,7 @@ directory for the current namespace otherwise.</pre>
     <pre id="var-docstr">A map from :lang entries to their corresponding `load` alternatives.</pre>
     
     
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L27">Source</a>
+    <a id="var-source" href="https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L25">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -4040,92 +4016,7 @@ directory for the current namespace otherwise.</pre>
 over clojure.core/load.</pre>
     
     
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L277">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.lang/require">require</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (require &amp; args)
-</pre>
-    <pre id="var-docstr">Loads libs, skipping any that are already loaded. Each argument is
-either a libspec that identifies a lib, a prefix list that identifies
-multiple libs whose names share a common prefix, or a flag that modifies
-how all the identified libs are loaded. Use :require in the ns macro
-in preference to calling this directly.
-
-Libs
-
-A 'lib' is a named set of resources in classpath whose contents define a
-library of Clojure code. Lib names are symbols and each lib is associated
-with a Clojure namespace and a Java package that share its name. A lib's
-name also locates its root directory within classpath using Java's
-package name to classpath-relative path mapping. All resources in a lib
-should be contained in the directory structure under its root directory.
-All definitions a lib makes should be in its associated namespace.
-
-'require loads a lib by loading its root resource. The root resource path
-is derived from the lib name in the following manner:
-Consider a lib named by the symbol 'x.y.z; it has the root directory
-&lt;classpath&gt;/x/y/, and its root resource is &lt;classpath&gt;/x/y/z.clj. The root
-resource should contain code to create the lib's namespace (usually by using
-the ns macro) and load any additional lib resources.
-
-Libspecs
-
-A libspec is a lib name or a vector containing a lib name followed by
-options expressed as sequential keywords and arguments.
-
-Recognized options:
-:as takes a symbol as its argument and makes that symbol an alias to the
-  lib's namespace in the current namespace.
-:refer takes a list of symbols to refer from the namespace or the :all
-  keyword to bring in all public vars.
-
-Prefix Lists
-
-It's common for Clojure code to depend on several libs whose names have
-the same prefix. When specifying libs, prefix lists can be used to reduce
-repetition. A prefix list contains the shared prefix followed by libspecs
-with the shared prefix removed from the lib names. After removing the
-prefix, the names that remain must not contain any periods.
-
-Flags
-
-A flag is a keyword.
-Recognized flags: :reload, :reload-all, :verbose
-:reload forces loading of all the identified libs even if they are
-  already loaded
-:reload-all implies :reload and also forces loading of all libs that the
-  identified libs directly or indirectly load via require or use
-:verbose triggers printing information about each load, alias, and refer
-
-Example:
-
-The following would load the libraries clojure.zip and clojure.set
-abbreviated as 's'.
-
-(require '(clojure zip [set :as s]))</pre>
-    <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
-    
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L185">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.lang/use">use</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (use &amp; args)
-</pre>
-    <pre id="var-docstr">Like 'require, but also refers to each lib's namespace using
-clojure.core/refer. Use :use in the ns macro in preference to calling
-this directly.
-
-'use accepts additional options in libspecs: :exclude, :only, :rename.
-The arguments and semantics for :exclude, :only, and :rename are the same
-as those documented for clojure.core/refer.</pre>
-    <span class="var-added"><span id="content">Added in Gradual Typing version 1.0</span><br /></span>
-    
-    <a id="var-source" href="https://github.com/clojure/core.typed/blob/9cd4f7206daf767979b73e61a4918c1dc69286ae/module-check/src/main/clojure/clojure/core/typed/lang.clj#L249">Source</a>
+    <a id="var-source" href="https://github.com/clojure/core.typed/blob/6b92bb2c35d504d336561e6fdfd5809fdf262b8c/module-check/src/main/clojure/clojure/core/typed/lang.clj#L68">Source</a>
   </div>
 </div>
 <br />
