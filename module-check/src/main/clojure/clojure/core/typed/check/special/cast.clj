@@ -34,7 +34,7 @@
         _ (assert (= :invoke (:op frm)))
         _ (assert (== 1 (count (:args frm))))
         ;; allows silly down casts, might want to change that.
-        cret (check (-> frm :args first))]
+        expr (-> expr
+                 (update-in [:ret :args 0] check))]
     (assoc expr
-           :ret cret
            u/expr-type (r/ret parsed-t))))

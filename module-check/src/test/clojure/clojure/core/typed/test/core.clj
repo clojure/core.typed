@@ -5260,12 +5260,14 @@
   (is-tc-err #(cast Int (inc 'a)))
   (is-tc-e (cast [Int -> Int] identity) [Int -> Int])
   (is-tc-e (cast '{:a Int} {:a 1}) '{:a Int})
-  (is-tc-e (cast Int nil) '{:a Int})
+  (is-tc-e #(cast Int nil) [:-> Int])
+  ;; runtime errors
   (is (thrown? Exception
-               (cast '{:a Int} {:a nil})))
+               (tc-e (cast '{:a Int} {:a nil}))))
   (is (thrown? Exception
-               ((:a (cast '{:a [Int :-> Int]} {:a str}))
-                1)))
+               (tc-e
+                 ((:a (cast '{:a [Int :-> Int]} {:a str}))
+                  1))))
   )
 
 ;    (is-tc-e 
