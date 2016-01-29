@@ -6,12 +6,12 @@ Optional typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.3.18.
+Latest stable release is 0.3.19.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.3.18"]
+[org.clojure/core.typed "0.3.19"]
 
 ...
 ; for very recent releases
@@ -26,7 +26,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.3.18</version>
+  <version>0.3.19</version>
   <!-- slim jar -->
   <!-- <classifier>slim</classifier> -->
 </dependency>
@@ -38,6 +38,38 @@ using the slim jar in production.
 ## Compatibility
 
 `core.typed` supports Clojure 1.7.0 and JDK 1.7+.
+
+## Getting started
+
+With the core.typed JAR in your classpath, run the following code to enable automatic type checking.
+This is how to start with Leiningen.
+
+```
+:injections [(require 'clojure.core.typed.load)
+             (clojure.core.typed.load/monkey-patch-typed-load)])
+```
+
+Next add the following `ns` metadata to the file you are working with.
+
+```
+(ns test.core
+  {:lang :core.typed})
+```
+
+Save the file and run `(require 'test.core :reload)`. This should type check the file automatically.
+
+It's useful to also import `clojure.core.typed` to annotate expressions.
+
+```
+(ns test.core
+  {:lang :core.typed}
+  (:require [clojure.core.typed :as t]))
+
+(t/ann f [t/Any :-> t/Int])
+(defn f [x]
+  (t/cast t/Int x))
+```
+
 
 ## [Talk] Clojure Conj 2012
 
