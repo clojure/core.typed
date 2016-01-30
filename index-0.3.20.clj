@@ -95,7 +95,7 @@
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.load-api.html",
    :source-url
-   "https://github.com/clojure/core.typed/blob/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj"}
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj"}
   {:doc nil,
    :name "clojure.core.typed.macros",
    :wiki-url
@@ -3062,12 +3062,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/monkey-patch-extensible-load"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj",
    :name "install-typed-load",
    :file "module-check/src/main/clojure/clojure/core/typed/load.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj#L87",
-   :line 87,
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj#L89",
+   :line 89,
    :var-type "function",
    :arglists ([]),
    :doc
@@ -3076,12 +3076,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.load/install-typed-load"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj",
    :name "load-typed-file",
    :file "module-check/src/main/clojure/clojure/core/typed/load.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj#L29",
-   :line 29,
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj#L30",
+   :line 30,
    :var-type "function",
    :arglists ([filename] [filename env] [filename env opts]),
    :doc
@@ -3090,12 +3090,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.load/load-typed-file"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj",
    :name "monkey-patch-typed-load",
    :file "module-check/src/main/clojure/clojure/core/typed/load.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj#L95",
-   :line 95,
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj#L97",
+   :line 97,
    :var-type "function",
    :arglists ([]),
    :doc "Install the :core.typed :lang, and monkey patch `load`",
@@ -3103,12 +3103,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.load/monkey-patch-typed-load"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj",
    :name "typed-load1",
    :file "module-check/src/main/clojure/clojure/core/typed/load.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/261cc6bec6ae84767f7b64c848f61ec3a4f94ee3/module-check/src/main/clojure/clojure/core/typed/load.clj#L70",
-   :line 70,
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-check/src/main/clojure/clojure/core/typed/load.clj#L72",
+   :line 72,
    :var-type "function",
    :arglists ([base-resource-path]),
    :doc
@@ -3338,11 +3338,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.statistics/statistics"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9e7b73eaa332f5d3fe20a0f4b4940cce29e563ce/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :name "*trace-checker*",
    :file "module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9e7b73eaa332f5d3fe20a0f4b4940cce29e563ce/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L32",
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L32",
    :dynamic true,
    :line 32,
    :var-type "var",
@@ -3352,11 +3352,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-vars/*trace-checker*"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9e7b73eaa332f5d3fe20a0f4b4940cce29e563ce/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :name "*verbose-forms*",
    :file "module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9e7b73eaa332f5d3fe20a0f4b4940cce29e563ce/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L20",
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L20",
    :dynamic true,
    :line 20,
    :var-type "var",
@@ -3367,11 +3367,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-vars/*verbose-forms*"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/9e7b73eaa332f5d3fe20a0f4b4940cce29e563ce/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
+   "https://github.com/clojure/core.typed/raw/e7ec013923bcb740c52baa9c61e312df0decab20/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :name "*verbose-types*",
    :file "module-rt/src/main/clojure/clojure/core/typed/util_vars.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/9e7b73eaa332f5d3fe20a0f4b4940cce29e563ce/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L7",
+   "https://github.com/clojure/core.typed/blob/e7ec013923bcb740c52baa9c61e312df0decab20/module-rt/src/main/clojure/clojure/core/typed/util_vars.clj#L7",
    :dynamic true,
    :line 7,
    :var-type "var",
