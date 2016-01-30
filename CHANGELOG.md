@@ -1,3 +1,47 @@
+# 0.3.20 - 30 January 2016 
+    
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-283'>CTYP-283</a>] -         Directly-linking in Clojure 1.8.0 interferes with load monkey-patching 
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-285'>CTYP-285</a>] -         Cljc reader conditionals in ns form cause core.typed to skip checking namespace
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-305'>CTYP-305</a>] -         t/cast does not run under rewriting type checking
+</li>
+</ul>
+    
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-284'>CTYP-284</a>] -         Remove redundant checking in typed load
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-300'>CTYP-300</a>] -         Support HMap contract generation
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-304'>CTYP-304</a>] -         Upgrade to Clojure 1.8.0
+</li>
+</ul>
+    
+
+# 0.3.19 - 18 November 2015 
+    
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-296'>CTYP-296</a>] -         Overlap of free variables and other types should not be empty
+</li>
+</ul>
+    
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-295'>CTYP-295</a>] -         Update ns wrapper macro with Clojure 1.8 changes
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-299'>CTYP-299</a>] -         Add per-namespace flag to check annotations at runtime
+</li>
+</ul>
+    
+
 # 0.3.18 - 12 November 2015 
 
 <h2>        Enhancement
