@@ -44,14 +44,14 @@ using the slim jar in production.
 With the core.typed JAR in your classpath, run the following code to enable automatic type checking.
 This is how to start with Leiningen.
 
-```
+```clojure
 :injections [(require 'clojure.core.typed.load)
              (clojure.core.typed.load/monkey-patch-typed-load)])
 ```
 
 Next add the following `ns` metadata to the file you are working with.
 
-```
+```clojure
 (ns test.core
   {:lang :core.typed})
 ```
@@ -60,7 +60,7 @@ Save the file and run `(require 'test.core :reload)`. This should type check the
 
 It's useful to also import `clojure.core.typed` to annotate expressions.
 
-```
+```clojure
 (ns test.core
   {:lang :core.typed}
   (:require [clojure.core.typed :as t]))
