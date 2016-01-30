@@ -20,6 +20,8 @@
 </li>
 <li>[<a href='http://dev.clojure.org/jira/browse/CTYP-304'>CTYP-304</a>] -         Upgrade to Clojure 1.8.0
 </li>
+<li>[<a href='https://github.com/clojure/core.typed#getting-started'>New Getting Started tutorial</a>]
+</li>
 </ul>
     
 
