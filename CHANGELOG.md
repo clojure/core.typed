@@ -1,3 +1,23 @@
+# 0.3.21 - 31 January 2016 
+
+We now monkey-patch `eval` via the
+<a href='http://clojure.github.io/core.typed/#clojure.core.typed/install'>clojure.core.typed/install</a>
+function. See the docstring for how it works.
+
+The new (Leiningen) bootstrapping code is now:
+
+```clojure
+:injections [(require 'clojure.core.typed)
+             (clojure.core.typed/install)]
+```
+
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-307'>CTYP-307</a>] -         Override `eval` to type check code in typed namespaces
+</li>
+</ul>
+
 # 0.3.20 - 30 January 2016 
     
 <h2>        Defect
