@@ -21,9 +21,10 @@
   "
   (:require [clojure.core.typed.ns-deps-utils :as ns-utils]))
 
-; (Map Kw [Str -> nil])
+; (Map Kw (HMap :optional {:eval [Any -> Any], 
+;                          :load [Str -> nil]}))
 (def lang-dispatch 
-  "A map from :lang entries to their corresponding `load` alternatives."
+  "A map from :lang entries to their corresponding `load` and `eval` alternatives."
   {})
 
 ; [String -> nil]
@@ -31,6 +32,12 @@
   "Roughly equivalent to clojure.core/load."
   [^String base-resource-path]
   (clojure.lang.RT/load base-resource-path))
+
+; [Any -> Any]
+(defn default-eval 
+  "Roughly equivalent to clojure.core/eval."
+  [form]
+  (. clojure.lang.Compiler (eval form)))
 
 ; [Str -> Any]
 (defn file-lang
@@ -40,6 +47,12 @@
           ns-utils/ns-form-for-file 
           ns-utils/ns-meta 
           :lang))
+
+; [Namespace -> Any]
+(defn ns-lang
+  "Returns the :lang value in the give Namespace's metadata."
+  [ns]
+  (-> (meta ns) :lang))
 
 ; [Str * -> nil]
 (defn extensible-load
@@ -61,14 +74,46 @@
           (let [base-resource-path (.substring path 1)
                 lang (or (file-lang (str base-resource-path ".clj"))
                          (file-lang (str base-resource-path ".cljc")))
-                disp (get lang-dispatch lang default-load1)]
+                disp (get-in lang-dispatch [lang :load] default-load1)]
             (disp base-resource-path)))))))
+
+(defn extensible-eval
+  "Evaluates the form data structure (not text!) and returns the result."
+  [form]
+  (let [lang (ns-lang *ns*)
+        disp (get-in lang-dispatch [lang :eval] default-eval)]
+    (disp form)))
+
 
 ; [-> nil]
 (def monkey-patch-extensible-load
-  "A no-argument function that installs the core.typed `load` function
+  "A no-argument function that installs the extensible `load` function
   over clojure.core/load."
   (let [l (delay (alter-var-root #'load (constantly #'extensible-load)))]
     (fn []
       @l
       nil)))
+
+; [-> nil]
+(def monkey-patch-extensible-eval
+  "A no-argument function that installs the extensible `eval` function
+  over clojure.core/eval."
+  (let [l (delay (alter-var-root #'eval (constantly #'extensible-eval)))]
+    (fn []
+      @l
+      nil)))
+
+(defn install 
+  "A no-argument function that installs extensible `eval` and `load`
+  alternatives that respect :lang ns metadata"
+  ([] (install :all))
+  ([features]
+   (when (or (= features :all)
+             (:load features))
+     (prn "installing lang load")
+     (monkey-patch-extensible-load))
+   (when (or (= features :all)
+             (:eval features))
+     (prn "installing lang eval")
+     (monkey-patch-extensible-eval))
+   nil))

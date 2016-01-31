@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
-  (:refer-clojure :exclude [macroexpand-1 get-method])
+  (:refer-clojure :exclude [macroexpand-1 get-method eval])
   (:require [clojure.tools.analyzer :as ta]
             [clojure.tools.analyzer.env :as ta-env]
             [clojure.tools.analyzer.jvm :as taj]
@@ -419,6 +419,10 @@
            (cache/miss cache nsym asts))
          asts)))))
 
+; eval might already be monkey-patched, eval' avoids infinite looping
+(defn eval' [frm]
+  (. clojure.lang.Compiler (eval frm)))
+
 (defn eval-ast [opts ast]
   ;; based on jvm/analyze+eval
   ;(let [frm (emit-form/emit-form ast)
@@ -428,6 +432,6 @@
   ;  (merge ast {:result result})))
   (let [frm (emit-form/emit-form ast)
         ;_ (prn "form" frm)
-        result (eval frm)]  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
+        result (eval' frm)]  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
     (merge ast {:result result})))
 
