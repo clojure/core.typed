@@ -110,10 +110,8 @@
   ([features]
    (when (or (= features :all)
              (:load features))
-     (prn "installing lang load")
      (monkey-patch-extensible-load))
    (when (or (= features :all)
              (:eval features))
-     (prn "installing lang eval")
      (monkey-patch-extensible-eval))
    nil))
