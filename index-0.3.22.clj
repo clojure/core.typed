@@ -89,7 +89,7 @@
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.lang-api.html",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj"}
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj"}
   {:doc
    "Front end for actual implementation in clojure.core.typed.load1.\n\nIndirection is necessary to delay loading core.typed as long as possible.",
    :name "clojure.core.typed.load",
@@ -3013,11 +3013,11 @@
    :raw-source-url nil,
    :file nil}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "default-eval",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L37",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L37",
    :line 37,
    :var-type "function",
    :arglists ([form]),
@@ -3026,11 +3026,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/default-eval"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "default-load1",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L31",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L31",
    :line 31,
    :var-type "function",
    :arglists ([base-resource-path]),
@@ -3039,11 +3039,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/default-load1"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "extensible-eval",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L80",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L80",
    :line 80,
    :var-type "function",
    :arglists ([form]),
@@ -3053,12 +3053,12 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/extensible-eval"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :added "1.0",
    :name "extensible-load",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L58",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L58",
    :line 58,
    :var-type "function",
    :arglists ([& paths]),
@@ -3068,11 +3068,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/extensible-load"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "file-lang",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L43",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L43",
    :line 43,
    :var-type "function",
    :arglists ([res]),
@@ -3081,11 +3081,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/file-lang"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "install",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L106",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L106",
    :line 106,
    :var-type "function",
    :arglists ([] [features]),
@@ -3095,11 +3095,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/install"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "lang-dispatch",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L26",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L26",
    :line 26,
    :var-type "var",
    :arglists nil,
@@ -3109,11 +3109,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/lang-dispatch"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "monkey-patch-extensible-eval",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L98",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L98",
    :line 98,
    :var-type "var",
    :arglists nil,
@@ -3123,11 +3123,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/monkey-patch-extensible-eval"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "monkey-patch-extensible-load",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L89",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L89",
    :line 89,
    :var-type "var",
    :arglists nil,
@@ -3137,11 +3137,11 @@
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.lang/monkey-patch-extensible-load"}
   {:raw-source-url
-   "https://github.com/clojure/core.typed/raw/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj",
+   "https://github.com/clojure/core.typed/raw/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :name "ns-lang",
    :file "module-check/src/main/clojure/clojure/core/typed/lang.clj",
    :source-url
-   "https://github.com/clojure/core.typed/blob/0e71ef860aeec4554ea3292741658f48000a303b/module-check/src/main/clojure/clojure/core/typed/lang.clj#L52",
+   "https://github.com/clojure/core.typed/blob/c2c16bc1f8bc6b629d7371fb74f60ffe0118ac99/module-check/src/main/clojure/clojure/core/typed/lang.clj#L52",
    :line 52,
    :var-type "function",
    :arglists ([ns]),
