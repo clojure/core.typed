@@ -1,4 +1,6 @@
-# 0.3.21 - 31 January 2016 
+# 0.3.{21,22} - 31 January 2016 
+
+Prefer 0.3.22, which removes some debugging statements.
 
 We now monkey-patch `eval` via the
 <a href='http://clojure.github.io/core.typed/#clojure.core.typed/install'>clojure.core.typed/install</a>
