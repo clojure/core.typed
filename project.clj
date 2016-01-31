@@ -36,8 +36,8 @@
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
-  :injections [(require 'clojure.core.typed.load)
-               (clojure.core.typed.load/monkey-patch-typed-load)]
+  :injections [(require 'clojure.core.typed)
+               (clojure.core.typed/install)]
 
   :global-vars {*warn-on-reflection* true}
 

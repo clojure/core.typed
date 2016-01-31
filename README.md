@@ -45,8 +45,8 @@ With the core.typed JAR in your classpath, run the following code to enable auto
 This is how to start with Leiningen.
 
 ```clojure
-:injections [(require 'clojure.core.typed.load)
-             (clojure.core.typed.load/monkey-patch-typed-load)])
+:injections [(require 'clojure.core.typed)
+             (clojure.core.typed/install)])
 ```
 
 Next add the following `ns` metadata to the file you are working with.
@@ -70,6 +70,8 @@ It's useful to also import `clojure.core.typed` to annotate expressions.
   (t/cast t/Int x))
 ```
 
+Expression evaluated via `eval` will also be type checked if the following is true at runtime:
+`(= :core.typed (:lang (meta *ns*)))`.
 
 ## [Talk] Clojure Conj 2012
 

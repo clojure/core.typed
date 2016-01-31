@@ -21,6 +21,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.import-macros :as import-m]
             [clojure.core.typed.macros :as macros]
             [clojure.core.typed.contract :as con]
+            [clojure.core.typed.load :as typed-load]
             [clojure.java.io :as io])
   (:import (clojure.lang Compiler)))
 
@@ -83,6 +84,28 @@ for checking namespaces, cf for checking individual forms."}
                  (Method->Type m)))
       (flush))))
 
+(defn install
+  "Install the :core.typed :lang. Takes an optional set of features
+  to install, defaults to `:all`, which is equivalent to the set of
+  all features.
+
+  Features:
+    - :load    Installs typed `load` over `clojure.core/load`, which type checks files
+               on the presence of a {:lang :core.typed} metadata entry in the `ns` form.
+               The metadata must be inserted in the actual `ns` form saved to disk,
+               as it is read directly from the file instead of the current Namespace
+               metadata.
+    - :eval    Installs typed `eval` over `clojure.core/eval`.
+               If `(= :core.typed (:lang (meta *ns*)))` is true, the form will be implicitly
+               type checked. The syntax save to disk is ignored however.
+
+  eg. (install)            ; installs `load` and `eval`
+  eg. (install :all)       ; installs `load` and `eval`
+  eg. (install #{:eval})   ; installs `eval`
+  eg. (install #{:load})   ; installs `load`"
+  ([] (install :all))
+  ([features]
+   (typed-load/install features)))
 
 ;=============================================================
 ; Special functions

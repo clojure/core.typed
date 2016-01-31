@@ -1,4 +1,5 @@
-(ns clojure.core.typed.load
+(ns clojure.core.typed.load1
+  "Implementation of clojure.core.typed.load."
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
@@ -15,13 +16,6 @@
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.core.typed.util-vars :as vs])
   (:import java.net.URL))
-
-;; copied from cljx
-#_(defn- find-resource
-  [name]
-  (if-let [cl (clojure.lang.RT/baseLoader)]
-    (.getResource cl name)
-    (ClassLoader/getSystemResourceAsStream name)))
 
 ;; based on clojure.tools.analyzer.jvm/analyze-ns
 ;; (IFn [String -> nil]
@@ -86,12 +80,21 @@
 
     :else (clojure.lang.RT/load base-resource-path)))
 
+(defn typed-eval [form]
+  (let [{:keys [ex result]} (t/check-form-info form)]
+    (if ex
+      (throw ex)
+      result)))
+
 (defn install-typed-load
   "Extend the :lang dispatch table with the :core.typed language"
   []
   {:post [(nil? %)]}
   (alter-var-root #'lang/lang-dispatch
-                  assoc :core.typed #'typed-load1)
+                  (fn [m]
+                    (-> m 
+                        (assoc-in [:core.typed :load] #'typed-load1)
+                        (assoc-in [:core.typed :eval] #'typed-eval))))
   nil)
 
 (defn monkey-patch-typed-load
@@ -101,6 +104,38 @@
   (install-typed-load)
   (lang/monkey-patch-extensible-load)
   nil)
+
+(defn monkey-patch-typed-eval
+  "Install the :core.typed :lang, and monkey patch `eval`"
+  []
+  {:post [(nil? %)]}
+  (install-typed-load)
+  (lang/monkey-patch-extensible-eval)
+  nil)
+
+(defn install 
+  "Install the :core.typed :lang. Takes an optional set of features
+  to install, defaults to #{:load :eval}.
+
+  Features:
+    - :load    Installs typed `load` over `clojure.core/load`
+    - :eval    Installs typed `eval` over `clojure.core/eval`
+
+  eg. (install)            ; installs `load` and `eval`
+  eg. (install #{:eval})   ; installs `eval`
+  eg. (install #{:eval})   ; installs `load`"
+  ([] (install :all))
+  ([features]
+   {:pre [((some-fn set? #{:all}) features)]
+    :post [(nil? %)]}
+   (lang/install features)
+   (when (or (= features :all)
+             (:load features))
+     (monkey-patch-typed-load))
+   (when (or (= features :all)
+             (:eval features))
+     (monkey-patch-typed-eval))
+   nil))
 
 (comment (find-resource "clojure/core/typed/test/load_file.clj")
          (typed-load "/clojure/core/typed/test/load_file.clj")
