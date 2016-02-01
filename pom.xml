@@ -81,13 +81,13 @@
             <goals>
               <goal>jar</goal>
             </goals>
-            <configuration>
+            <!--<configuration>
               <includes>
                 <include>**/*.clj</include>
                 <include>clojure/core/typed/**</include>
                 <include>cljs/core/typed/**</include>
               </includes>
-            </configuration>
+            </configuration>-->
           </execution>
         </executions>
       </plugin>
