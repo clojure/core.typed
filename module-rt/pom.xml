@@ -11,16 +11,13 @@
     <version>0.3.23-SNAPSHOT</version>
   </parent>
 
+
   <build>
     <resources>
-      <resource>
-        <directory>src/main/clojure</directory>
-      </resource>
       <resource>
         <directory>src/main/cljs</directory>
       </resource>
     </resources>
-
     <plugins>
       <plugin>
         <groupId>com.theoryinpractise</groupId>
@@ -28,13 +25,20 @@
         <version>1.3.13</version>
         <executions>
           <execution>
+            <id>clojure-compile</id>
+            <phase>compile</phase>
+          </execution>
+          <execution>
             <id>clojure-test</id>
             <phase>test</phase>
           </execution>
         </executions>
         <configuration>
+          <!-- Don't put AOT files in jar -->
+          <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <sourceDirectories>
-            <sourceDirectory>target/classes</sourceDirectory>
+            <!--<sourceDirectory>target/classes</sourceDirectory>-->
+            <sourceDirectory>src/main/clojure</sourceDirectory>
           </sourceDirectories>
           <testSourceDirectories>
             <testSourceDirectory>test/clojure</testSourceDirectory>
