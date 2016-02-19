@@ -41,6 +41,8 @@ using the slim jar in production.
 
 ## Getting started
 
+Tldr; [here](https://github.com/typedclojure/esop16/blob/master/project.clj) is a complete project using core.typed.
+
 With the core.typed JAR in your classpath, run the following code to enable automatic type checking.
 This is how to start with Leiningen.
 
