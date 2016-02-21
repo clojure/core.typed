@@ -72,7 +72,7 @@ It's useful to also import `clojure.core.typed` to annotate expressions.
   (t/cast t/Int x))
 ```
 
-Expression evaluated via `eval` will also be type checked if the following is true at runtime:
+Expressions evaluated via `eval` will also be type checked if the following is true at runtime:
 `(= :core.typed (:lang (meta *ns*)))`.
 
 ## [Talk] Clojure Conj 2012
