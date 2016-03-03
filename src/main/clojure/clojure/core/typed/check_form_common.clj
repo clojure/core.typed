@@ -40,6 +40,8 @@
 ;; - :emit-form     function from AST to equivalent form, returned in :out-form entry.
 ;; - :runtime-check-expr    function taking AST and expected type and returns an AST with inserted
 ;;                          runtime checks.
+;; - :runtime-infer-expr    function taking AST and expected type and returns an AST with inserted
+;;                          runtime instrumentation.
 ;;
 ;;  (From here, copied from clojure.core.typed/check-form-info)
 ;; Keyword arguments
@@ -71,7 +73,8 @@
   [{:keys [ast-for-form unparse-ns
            check-expr collect-expr eval-out-ast
            emit-form eval-out-ast env
-           runtime-check-expr]}
+           runtime-check-expr
+           runtime-infer-expr]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast no-eval bindings-atom]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)]}
@@ -94,12 +97,19 @@
             file-mapping-atom (atom [])
             should-runtime-check? (and runtime-check-expr
                                        (u/should-runtime-check-ns? *ns*))
+            should-runtime-infer? (and runtime-infer-expr
+                                       (u/should-runtime-infer-ns? *ns*))
             ;_ (prn "should-runtime-check?" should-runtime-check?)
-            check-expr (or (when should-runtime-check?
+            ;_ (prn "should-runtime-infer?" should-runtime-infer?)
+            ;_ (prn "ns" *ns*)
+            check-expr (or (when should-runtime-infer?
+                             runtime-infer-expr)
+                           (when should-runtime-check?
                              runtime-check-expr)
                            check-expr)
             ;; disable file mapping for runtime-checking
-            file-mapping (if should-runtime-check?
+            file-mapping (if (or should-runtime-check?
+                                 should-runtime-infer?)
                            nil
                            file-mapping)
             eval-ast (fn [{:keys [expected] :as opt} ast]

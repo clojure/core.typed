@@ -461,4 +461,8 @@
   [ns]
   (ns-has-feature? ns :runtime-check))
 
+(defn should-runtime-infer-ns?
+  [ns]
+  (ns-has-feature? ns :runtime-infer))
+
 )
