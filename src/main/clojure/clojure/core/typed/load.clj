@@ -75,7 +75,7 @@
 
   eg. (install)            ; installs `load` and `eval`
   eg. (install #{:eval})   ; installs `eval`
-  eg. (install #{:eval})   ; installs `load`"
+  eg. (install #{:load})   ; installs `load`"
   ([] (install :all))
   ([features]
    {:pre [((some-fn set? #{:all}) features)]
