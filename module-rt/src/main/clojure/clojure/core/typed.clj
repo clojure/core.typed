@@ -2352,6 +2352,35 @@ for checking namespaces, cf for checking individual forms."}
                                           (when (var? v)
                                             (-> v meta ::special-type))))))}))
 
+(defn runtime-infer 
+  "Infer and insert annotations for a given namespace.
+
+  To instrument your namespace, use the :runtime-infer
+  feature in your namespace metadata. Note: core.typed
+  must be installed via `clojure.core.typed/install`.
+
+  eg. (ns my-ns
+        {:lang :core.typed
+         :core.typed {:features #{:runtime-infer}}}
+        (:require [clojure.core.typed :as t]))
+
+  After your namespace is instrumented, run your tests
+  and/or exercise the functions in your namespace.
+
+  Then call `runtime-infer` to populate the namespace's
+  corresponding file with these generated annotations.
+
+  eg. (runtime-infer) ; infer for *ns*
+
+      (runtime-infer 'my-ns) ; infer for my-ns
+  "
+  ([] (runtime-infer *ns*))
+  ([ns]
+   (load-if-needed)
+   (require '[clojure.core.typed.runtime-infer])
+   ((impl/v 'clojure.core.typed.runtime-infer/runtime-infer)
+    {:ns ns})))
+
 (defn pred* [tsyn nsym pred]
   pred)
 

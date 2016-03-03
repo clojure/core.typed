@@ -491,9 +491,9 @@
     (if (empty? work)
       result
       (let [resolved (doall (map fully-resolve-non-rec-type work))
-            {intersections true non-intersections false} (group-by r/Union? resolved)]
-        (recur (doall (mapcat :types intersections))
-               (doall (concat result non-intersections)))))))
+            {unions true non-unions false} (group-by r/Union? resolved)]
+        (recur (doall (mapcat :types unions))
+               (doall (concat result non-unions)))))))
 
 (t/ann ^:no-check In [r/Type * -> r/Type])
 (defn In [& types]

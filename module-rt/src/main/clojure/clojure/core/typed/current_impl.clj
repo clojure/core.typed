@@ -162,6 +162,9 @@
    :post [(symbol? %)]}
   (symbol (.getName cls)))
 
+(defn bounded-length [s len]
+  (clojure.lang.RT/boundedLength s len))
+
 ; for type-contract
 (defn hmap-c? [& {:keys [mandatory optional absent-keys complete?]}]
   (every-pred map?
