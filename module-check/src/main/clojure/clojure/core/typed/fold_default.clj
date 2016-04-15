@@ -210,7 +210,8 @@
 (add-default-fold-case HeterogeneousMap
                        (fn [ty _]
                          (-> ty 
-                           (update-in [:types] visit-type-map type-rec))))
+                           (update-in [:types] visit-type-map type-rec)
+                           (update-in [:optional] visit-type-map type-rec))))
 
 (add-default-fold-case KwArgsSeq
                        (fn [ty _]
