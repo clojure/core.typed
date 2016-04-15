@@ -133,7 +133,8 @@
 (promote-demote HeterogeneousMap
   [T V]
   (-> T
-    (update-in [:types] handle-kw-map promote V)))
+    (update-in [:types] handle-kw-map promote V)
+    (update-in [:optional] handle-kw-map promote V)))
 
 (promote-demote HSequential
   [T V]

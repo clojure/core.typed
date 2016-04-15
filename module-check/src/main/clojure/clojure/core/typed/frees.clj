@@ -271,8 +271,9 @@
                                           (:name drest))]))))
 
 (add-frees-method [::any-var HeterogeneousMap]
-  [{:keys [types]}] 
-  (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
+  [{:keys [types optional]}]
+  (apply combine-frees (mapv frees (concat (keys types) (vals types)
+                                           (keys optional) (vals optional)))))
 
 (add-frees-method [::any-var HeterogeneousVector]
   [{:keys [types fs objects rest drest]}] 

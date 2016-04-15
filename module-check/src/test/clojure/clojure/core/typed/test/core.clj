@@ -5270,6 +5270,15 @@
                   1))))
   )
 
+(deftest CTYP-313-substitution-in-optional-hmap
+  (is-tc-e (do
+             (t/defalias OptMap
+               (t/TFn [[z :variance :covariant :< Number]] (t/HMap :optional {:z z})))
+
+             (t/defn z-getter
+               [m :- (OptMap Integer)] :- (t/Option Integer)
+               (:z m)))))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
