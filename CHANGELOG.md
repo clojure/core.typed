@@ -1,3 +1,21 @@
+# 0.3.23 - 16 April 2016 
+
+Release Notes - core.typed - Version 0.3.23
+
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-313'>CTYP-313</a>] -         subtyping optional keywords in HMaps
+</li>
+</ul>
+
+<h2>        Task
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-308'>CTYP-308</a>] -         Enable sanity-checking compilation of core.typed-rt project
+</li>
+</ul>
+
 # 0.3.{21,22} - 31 January 2016 
 
 Prefer 0.3.22, which removes some debugging statements.
