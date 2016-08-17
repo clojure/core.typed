@@ -2352,6 +2352,14 @@ for checking namespaces, cf for checking individual forms."}
                                           (when (var? v)
                                             (-> v meta ::special-type))))))}))
 
+(defn refresh-runtime-infer 
+  "Clean the current state of runtime inference.
+  Will forget the results of any tests on instrumented code."
+  []
+  (load-if-needed)
+  (require '[clojure.core.typed.runtime-infer])
+  ((impl/v 'clojure.core.typed.runtime-infer/refresh-runtime-infer)))
+
 (defn runtime-infer 
   "Infer and insert annotations for a given namespace.
 
@@ -2379,6 +2387,35 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    (require '[clojure.core.typed.runtime-infer])
    ((impl/v 'clojure.core.typed.runtime-infer/runtime-infer)
+    {:ns ns})))
+
+(defn spec-infer 
+  "Infer and insert specs for a given namespace.
+
+  To instrument your namespace, use the :runtime-infer
+  feature in your namespace metadata. Note: core.typed
+  must be installed via `clojure.core.typed/install`.
+
+  eg. (ns my-ns
+        {:lang :core.typed
+         :core.typed {:features #{:runtime-infer}}}
+        (:require [clojure.core.typed :as t]))
+
+  After your namespace is instrumented, run your tests
+  and/or exercise the functions in your namespace.
+
+  Then call `spec-infer` to populate the namespace's
+  corresponding file with these generated specs.
+
+  eg. (spec-infer) ; infer for *ns*
+
+      (spec-infer 'my-ns) ; infer for my-ns
+  "
+  ([] (spec-infer *ns*))
+  ([ns]
+   (load-if-needed)
+   (require '[clojure.core.typed.runtime-infer])
+   ((impl/v 'clojure.core.typed.runtime-infer/spec-infer)
     {:ns ns})))
 
 (defn pred* [tsyn nsym pred]

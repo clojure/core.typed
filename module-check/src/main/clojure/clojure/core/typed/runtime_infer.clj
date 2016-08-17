@@ -1,5 +1,5 @@
 (ns clojure.core.typed.runtime-infer
-  (:require [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :as pp]
             [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -451,24 +451,46 @@
 
 (defn current-ns [] (ns-name (*ann-for-ns*)))
 
-(defn qualify-symbol-in [ns s]
-  {:pre [(symbol? s)
+(defn qualify-symbol-in [nsym s]
+  {:pre [(symbol? nsym)
+         (symbol? s)
          (not (namespace s))]
    :post [(symbol? %)]}
-  (let [talias (some
+  (let [ns (find-ns nsym)
+        talias (some
                  (fn [[k v]]
                    (when (= ns v)
                      k))
-                 (ns-aliases (the-ns (current-ns))))]
-    (symbol (or (when talias
-                  (str talias))
-                (str (ns-name ns)))
+                 (ns-aliases (the-ns (current-ns))))
+        already-referred? (let [actual (let [v (ns-resolve (the-ns (current-ns)) s)]
+                                         (when (var? v)
+                                           (coerce/var->symbol v)))
+                                desired (symbol (name nsym)
+                                                (name s))]
+                            ;(prn actual desired)
+                            (= actual desired))]
+    (symbol (when-not already-referred?
+              (or (when talias
+                    (str talias))
+                  (when ns
+                    (str (ns-name ns)))
+                  (name nsym)))
             (str s))))
+
+(defn qualify-spec-symbol [s]
+  {:pre [(symbol? s)]
+   :post [(symbol? %)]}
+  (qualify-symbol-in 'clojure.spec s))
 
 (defn qualify-typed-symbol [s]
   {:pre [(symbol? s)]
    :post [(symbol? %)]}
-  (qualify-symbol-in (the-ns 'clojure.core.typed) s))
+  (qualify-symbol-in 'clojure.core.typed s))
+
+(defn qualify-core-symbol [s]
+  {:pre [(symbol? s)]
+   :post [(symbol? %)]}
+  (qualify-symbol-in 'clojure.core s))
 
 (defn resolve-class [^Class c]
   {:pre [(class? c)]
@@ -479,75 +501,306 @@
       (.getSimpleName c)
       (.getName c))))
 
+(def ^:dynamic *unparse-spec* nil)
+
+(defn unparse-spec [m]
+  (binding [*unparse-spec* true]
+    (unparse-type m)))
+
+(defn alias->spec-kw [k]
+  {:pre [(symbol? k)]
+   :post [(keyword? %)]}
+  (keyword (name (current-ns)) (name k)))
+
+(defn simplify-spec-alias [a]
+  {:pre [(type? a)]
+   :post [(type? %)]}
+  (if (alias? a)
+    (let [a-res (resolve-alias @*envs* a)]
+      (if (#{:class} (:op a-res))
+        a-res
+        a))
+    a))
+
+(defn alt-spec [alts]
+  {:pre [(every? type? alts)]}
+  (let [specs (into {} 
+                    (map (fn [alt]
+                           [(unparse-spec alt) alt]))
+                    (set alts))]
+    (if (= 1 (count specs))
+      (unparse-spec (simplify-spec-alias (val (first specs))))
+      (list* (qualify-spec-symbol 'alt)
+             (mapcat (fn [[s alt]]
+                       (let [alt (if (alias? alt)
+                                   (simplify-spec-alias alt)
+                                   alt)]
+                         [(or (when (symbol? s)
+                                (keyword (name s)))
+                              (when (and (set? s)
+                                         (every? keyword? s))
+                                (keyword (str
+                                           "literal-"
+                                           (apply str
+                                                  (interpose
+                                                    "-"
+                                                    (map (fn [k]
+                                                           (if (namespace k)
+                                                             (str (namespace k)
+                                                                  "_"
+                                                                  (name k))
+                                                             (name k)))
+                                                         s))))))
+                              (keyword (name (gensym))))
+                          s]))
+                     specs)))))
+
+(def ^:dynamic *spec-aliases* nil)
+(def ^:dynamic *used-aliases* nil)
+
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
   (assert (type? m) m)
   (case (:op m)
-    :alias (if *unparse-abbrev-alias*
-             (-> (:name m) name symbol)
-             (if (= (some-> (namespace (:name m)) symbol)
-                    (current-ns))
-               (symbol (name (:name m)))
-               (:name m)))
+    :alias (do
+             (when-let [used-aliases *used-aliases*]
+               (swap! used-aliases conj (:name m)))
+             (cond
+               *unparse-spec* (alias->spec-kw (:name m))
+               :else
+               (if *unparse-abbrev-alias*
+                 (-> (:name m) name symbol)
+                 (if (= (some-> (namespace (:name m)) symbol)
+                        (current-ns))
+                   (symbol (name (:name m)))
+                   (:name m)))))
     :val (let [t (:val m)]
            (cond
-             ((some-fn nil? false?) t) t
-             (keyword? t) `'~t
-             :else (qualify-typed-symbol 'Any)))
-    :union (if (empty? (:types m))
-             (qualify-typed-symbol 'Nothing)
-             (list* (qualify-typed-symbol 'U) (set (map unparse-type (:types m)))))
-    :HVec `'~(mapv unparse-type (:vec m))
-    :HMap `'~(into {}
-                   (map (fn [[k v]]
-                          [k (unparse-type v)]))
-                   (:map m))
-    :IFn (let [as (map
-                    (fn [{:keys [dom rng]}]
-                      {:pre [dom rng]}
-                      (conj (mapv unparse-type dom)
-                            :->
-                            (unparse-type rng)))
-                    (:arities m))]
-           (if (== 1 (count as))
-             (first as)
-             (list* (qualify-typed-symbol 'IFn) as)))
-    :class (letfn [(unparse-class [^Class c args]
-                     {:pre [(class? c)]}
-                     (cond
-                       (.isArray c) (list 'Array (unparse-class (.getComponentType c) args))
-                       :else
-                       (let [cls (condp = c
-                                   clojure.lang.IPersistentMap (qualify-typed-symbol 'Map)
-                                   clojure.lang.IPersistentVector (qualify-typed-symbol 'Vec)
-                                   clojure.lang.IPersistentSet (qualify-typed-symbol 'Set)
-                                   clojure.lang.Symbol (qualify-typed-symbol 'Sym)
-                                   clojure.lang.Keyword (qualify-typed-symbol 'Kw)
-                                   clojure.lang.IAtom (qualify-typed-symbol 'Atom1)
-                                   clojure.lang.ISeq (qualify-typed-symbol 'Seqable)
-                                   clojure.lang.IPersistentList (qualify-typed-symbol 'Seqable)
-                                   clojure.lang.IFn 'AnyFunction
-                                   java.lang.String (qualify-typed-symbol 'Str)
-                                   (resolve-class c))
-                             _ (assert (symbol? cls))]
-                         (if (seq args)
-                           (list* cls (map unparse-type args))
-                           cls))))]
-             (unparse-class (:class m) (:args m)))
-    :Top (qualify-typed-symbol 'Any)
+             *unparse-spec* (cond
+                              (nil? t) (qualify-core-symbol 'nil?)
+                              (false? t) (qualify-core-symbol 'false?)
+                              (keyword? t) (if (:HMap-entry m)
+                                             #{t}
+                                             (qualify-core-symbol 'keyword?))
+                              (string? t) (if (:HMap-entry m)
+                                            #{t}
+                                            (qualify-core-symbol 'string?))
+                              :else (qualify-core-symbol 'any?))
+             :else
+             (cond
+               ((some-fn nil? false?) t) t
+               (keyword? t) `'~t
+               :else (qualify-typed-symbol 'Any))))
+    :union (cond
+             *unparse-spec* (alt-spec (:types m))
+             :else
+             (if (empty? (:types m))
+               (qualify-typed-symbol 'Nothing)
+               (list* (qualify-typed-symbol 'U) (set (map unparse-type (:types m))))))
+    :HVec (cond
+            *unparse-spec* (list* (qualify-spec-symbol 'tuple)
+                                  (mapv unparse-type (:vec m)))
+            :else `'~(mapv unparse-type (:vec m)))
+    :HMap (cond
+            *unparse-spec* (list* (qualify-spec-symbol 'keys)
+                                  [:req-un (into []
+                                                 (let [kns (name (gensym "keys"))]
+                                                   (map (fn [[k v]]
+                                                          ;; must be aliases
+                                                          (let [maybe-kw
+                                                                (when-not (alias? v)
+                                                                  ;; generate aliases just in time
+                                                                  (when-let [atm *spec-aliases*]
+                                                                    ;(prn "spec-aliases" atm)
+                                                                    (let [kw (keyword kns
+                                                                                      (name k))
+                                                                          _ (swap! atm assoc kw v)]
+                                                                      kw)))]
+                                                            (if maybe-kw
+                                                              maybe-kw
+                                                              (unparse-spec (assoc v
+                                                                                   :HMap-entry true)))))))
+                                                 (:map m))])
+            :else
+            `'~(into {}
+                     (map (fn [[k v]]
+                            [k (unparse-type v)]))
+                     (:map m)))
+    :IFn1 (let [{:keys [dom rng]} m]
+            (assert (every? identity [dom rng]))
+            (conj (mapv unparse-type dom)
+                  :->
+                  (unparse-type rng)))
+    :IFn (cond
+           *unparse-spec* 
+           (let [{:keys [arities top-level-def]} m
+                 top-level-var (some-> top-level-def find-var)
+                 arglists (some-> top-level-var
+                                   meta
+                                   :arglists)
+                 macro? (some-> top-level-var
+                                meta
+                                :macro)
+                 {fixed-arglists :fixed [rest-arglist] :rest}
+                 (group-by (fn [v]
+                             (if (and (<= 2 (count v))
+                                      (#{'&} (get v (dec (count v)))))
+                               :rest
+                               :fixed))
+                           arglists)
+                 fixed-name-lookup (into {}
+                                         (map (fn [v]
+                                                [(count v) (map (comp keyword str) v)]))
+                                         fixed-arglists)
+                 ;; if we have a macro, ignore the first two arguments
+                 ;; in each arity (&env and &form)
+                 arities (if macro?
+                           (map (fn [a]
+                                  (update a :dom (fn [dom]
+                                                   (if (<= 2 (count dom))
+                                                     (subvec dom 2)
+                                                     dom))))
+                                arities)
+                           arities)
+                 doms (cond
+                        macro?
+                        [(list* (qualify-spec-symbol 'cat)
+                                (concat
+                                  ;; macros are very likely to having binding
+                                  ;; forms as the first argument if it's always
+                                  ;; a vector.
+                                  (when (every? (fn [{:keys [dom]}]
+                                                  ;; every first argument is a vector
+                                                  (let [[d] dom]
+                                                    (when d
+                                                      (and
+                                                        (#{:class} (:op d))
+                                                        (= clojure.lang.IPersistentVector
+                                                           (:class d))))))
+                                                arities)
+                                    [:bindings :clojure.core.specs/bindings])
+                                  ;; if there is more than one arity,
+                                  ;; default to a rest argument.
+                                    [:body
+                                     (if (<= 2 (count arities))
+                                       (list (qualify-spec-symbol '*)
+                                             (qualify-core-symbol 'any?))
+                                       (qualify-core-symbol 'any?))]))]
+                        :else
+                        (map
+                          (fn [{:keys [dom]}]
+                            {:pre [dom]}
+                            ;(prn "doms" (count dom) (get fixed-name-lookup (count dom)))
+                            (list* (qualify-spec-symbol 'cat)
+                                   (mapcat (fn [n k d]
+                                             (let [spec 
+                                                   (cond
+                                                     (and (zero? n)
+                                                          macro?
+                                                          (#{:class} (:op d))
+                                                          (= clojure.lang.IPersistentVector
+                                                             (:class d)))
+                                                     :clojure.core.specs/bindings
+
+                                                     :else
+                                                     (unparse-spec d))
+                                                   k (or (when (keyword? spec)
+                                                           (keyword (str (name spec) "-" n)))
+                                                         k)]
+                                               [k spec]))
+                                           (range)
+                                           (or
+                                             (get fixed-name-lookup (count dom))
+                                             ;; TODO use rest-arglist here
+                                             (repeatedly #(keyword (name (gensym)))))
+                                           dom)))
+                          arities))
+                 rngs (if macro?
+                        (qualify-core-symbol 'any?)
+                        (alt-spec (let [u (make-Union (map :rng arities))]
+                                    (if (union? u)
+                                      (:types u)
+                                      [u]))))
+                 dom-specs (if (= 1 (count doms))
+                             (first doms)
+                             (list* (qualify-spec-symbol 'alt)
+                                    (mapcat (fn [alt]
+                                              (let [kw (keyword (str (/ (dec (count alt)) 2)
+                                                                     "-args"))]
+                                                [kw alt]))
+                                            doms)))]
+             (list* (qualify-spec-symbol 'fspec)
+                    [:args dom-specs
+                     :ret rngs]))
+           :else
+           (let [as (map unparse-type (:arities m))]
+             (if (== 1 (count as))
+               (first as)
+               (list* (qualify-typed-symbol 'IFn) as))))
+    :class (cond
+             *unparse-spec* (let [^Class cls (:class m)]
+                              (cond
+                                (#{Long Integer BigInteger} cls) (qualify-core-symbol 'int?)
+                                (.isAssignableFrom Number cls) (qualify-core-symbol 'number?)
+                                (#{clojure.lang.Symbol} cls) (qualify-core-symbol 'symbol?)
+                                (#{clojure.lang.Keyword} cls) (qualify-core-symbol 'keyword?)
+                                (#{String} cls) (qualify-core-symbol 'string?)
+                                (#{clojure.lang.ISeq} cls) (list (qualify-spec-symbol 'spec)
+                                                                 (list (qualify-spec-symbol '*)
+                                                                       (unparse-spec
+                                                                         (first (:args m)))))
+                                (#{clojure.lang.IPersistentVector} cls) 
+                                (list (qualify-spec-symbol 'spec)
+                                      (list (qualify-spec-symbol 'coll-of)
+                                            (unparse-spec
+                                              (first (:args m)))))
+
+                                :else (list (qualify-core-symbol 'partial)
+                                            (qualify-core-symbol 'instance?)
+                                            (symbol (.getName cls)))))
+             :else
+             (letfn [(unparse-class [^Class c args]
+                       {:pre [(class? c)]}
+                       (cond
+                         (.isArray c) (list 'Array (unparse-class (.getComponentType c) args))
+                         :else
+                         (let [cls (condp = c
+                                     clojure.lang.IPersistentMap (qualify-typed-symbol 'Map)
+                                     clojure.lang.IPersistentVector (qualify-typed-symbol 'Vec)
+                                     clojure.lang.IPersistentSet (qualify-typed-symbol 'Set)
+                                     clojure.lang.Symbol (qualify-typed-symbol 'Sym)
+                                     clojure.lang.Keyword (qualify-typed-symbol 'Kw)
+                                     clojure.lang.IAtom (qualify-typed-symbol 'Atom1)
+                                     clojure.lang.ISeq (qualify-typed-symbol 'Seqable)
+                                     clojure.lang.IPersistentList (qualify-typed-symbol 'Seqable)
+                                     clojure.lang.IFn 'AnyFunction
+                                     java.lang.String (qualify-typed-symbol 'Str)
+                                     (resolve-class c))
+                               _ (assert (symbol? cls))]
+                           (if (seq args)
+                             (list* cls (map unparse-type args))
+                             cls))))]
+               (unparse-class (:class m) (:args m))))
+    :Top (cond 
+           *unparse-spec* (qualify-core-symbol 'any?)
+           :else (qualify-typed-symbol 'Any))
     :unknown '?
-    :free (:name m)
-    :poly (list 'All (into (mapv (fn [[ps {:keys [weight name types]}]]
-                                   {:pre [(= 2 (count ps))]}
-                                   [name 
-                                    types
-                                    weight :of 
-                                    [(get-in @results-atom [:path-occ (first ps)] 0)
-                                     (get-in @results-atom [:path-occ (second ps)] 0)]
-                                    '<- (mapv unparse-path ps)])
-                                 (:params m))
-                           (:known-params m))
-                (unparse-type (:type m)))
+    :free (cond
+            *unparse-spec* (alias->spec-kw (:name m))
+            :else (:name m))
+    :poly (cond
+            *unparse-spec* (throw (Exception. "TODO"))
+            :else (list 'All (into (mapv (fn [[ps {:keys [weight name types]}]]
+                                           {:pre [(= 2 (count ps))]}
+                                           [name 
+                                            types
+                                            weight :of 
+                                            [(get-in @results-atom [:path-occ (first ps)] 0)
+                                             (get-in @results-atom [:path-occ (second ps)] 0)]
+                                            '<- (mapv unparse-path ps)])
+                                         (:params m))
+                                   (:known-params m))
+                        (unparse-type (:type m))))
     (assert nil (str "No unparse-type case: " m))))
 
 (defn unp [t]
@@ -989,8 +1242,7 @@
 (defn resolve-alias [env {:keys [name] :as a}]
   {:pre [(map? env)
          (alias? a)
-         (symbol? name)
-         (type? a)]
+         (symbol? name)]
    :post [(type? %)]}
   ;(prn "resolve-alias" name (keys (alias-env env)))
   (get (alias-env env) name))
@@ -1111,6 +1363,31 @@
                                    (resolve-alias @env-atom t)
                                    t))
                                (:types t)))
+
+                        ;; if we are generating specs, we also want aliases
+                        ;; for each HMap entry.
+                        #_#_:HMap (if (:spec? config)
+                                (update t :map
+                                        (fn [m]
+                                          (into {}
+                                                (map (fn [[k v]]
+                                                       [k 
+                                                        (if (alias? v)
+                                                          v
+                                                          (let [sym-atom (atom nil)
+                                                                _ (swap! env-atom
+                                                                         (fn [env]
+                                                                           (let [[sym env]
+                                                                                 (register-unique-alias env config 
+                                                                                                        (-> k name symbol)
+                                                                                                        v)]
+                                                                             (reset! sym-atom sym)
+                                                                             env)))
+                                                                sym @sym-atom
+                                                                _ (assert (symbol? sym))]
+                                                            (-alias sym)))]))
+                                                m)))
+                                t)
                         t)
                     n (symbol (-> (current-ns) str) "alias")
                     a-atom (atom nil)
@@ -1257,7 +1534,10 @@
             :else (subst-alias t (-alias f) 
                                ;; if the new alias is simple, just inline.
                                (if (and (:simplify? config)
-                                        (simple-alias? env config real))
+                                        (simple-alias? env config real)
+                                        ;; don't inline specs, saves us from
+                                        ;; registering them later.
+                                        #_(not (:spec? config)))
                                  real-res
                                  real))))))
     t
@@ -1355,6 +1635,38 @@
   (update-alias-env env merge (zipmap as (repeat nil))))
 
 (declare generate-tenv)
+
+(defmulti wrap-dispatch
+  "A wrapper for code dispatch that prints local keywords with ::"
+  {:arglists '[[object]]}
+  class)
+
+(defmethod wrap-dispatch :default
+  [o]
+  (pp/code-dispatch o))
+
+(defmethod wrap-dispatch clojure.lang.Keyword
+  [kw]
+  (let [aliases (ns-aliases (current-ns))
+        some-alias (delay
+                     (some (fn [[k v]]
+                             (when (= (namespace kw)
+                                      (str (ns-name v)))
+                               k))
+                           aliases))]
+    (cond
+      (= (name (current-ns)) (namespace kw))
+      (print (str "::" (name kw)))
+
+      @some-alias 
+      (print (str "::" @some-alias "/" (name kw)))
+
+      :else
+      (print kw))))
+
+(defn pprint [& args]
+  (pp/with-pprint-dispatch wrap-dispatch
+    (apply pp/pprint args)))
 
 ; ppenv : Env -> nil
 (defn ppenv [env]
@@ -1554,6 +1866,7 @@
 ; ns-exclusions : (Set Sym)
 (def ns-exclusions
   '#{clojure.core
+     clojure.spec
      clojure.core.typed
      clojure.test
      clojure.string})
@@ -1868,7 +2181,7 @@
               ksets)]
     env))
 
-(defn populate-envs [env config]
+(defn populate-envs [env {:keys [spec?] :as config}]
   #_(prn "populating")
   (let [;; create recursive types
         env (reduce
@@ -1906,8 +2219,88 @@
 ;                   as)]
 ;    ))
 
+(defn envs-to-specs [env config]
+  ;(prn "envs-to-specs")
+  (binding [*envs* (atom env)]
+    (let [tenv (type-env env)
+          ;_ (prn (keys tenv))
+          aliases-generated (atom #{})
+          prep-alias-map (fn [a-needed a-used]
+                           {:pre [(map? a-needed)
+                                  (set? a-used)]
+                            :post [(map? %)]}
+                           (into a-needed
+                                 (map (fn [a]
+                                        {:pre [(symbol? a)]}
+                                        [a (resolve-alias @*envs* (-alias a))]))
+                                 a-used))
+          gen-aliases (fn gen-aliases [as]
+                        {:pre [(map? as)]}
+                        (into []
+                          (mapcat (fn [[a v]]
+                                    {:pre [((some-fn symbol? keyword?) a)]}
+                                    (when-not (@aliases-generated a)
+                                      (let [aliases-needed (atom {})
+                                            used-aliases (atom #{})
+                                            unparse-spec (fn [s]
+                                                           (binding [*spec-aliases* aliases-needed
+                                                                     *used-aliases* used-aliases]
+                                                             (unparse-spec s)))
+                                            ;; side effects bindings
+                                            s (unparse-spec v)
+                                            current-spec (list (qualify-spec-symbol 'def)
+                                                               (if (keyword? a)
+                                                                 a
+                                                                 (alias->spec-kw a))
+                                                               s)]
+                                        (conj (vec
+                                                (gen-aliases
+                                                  (prep-alias-map @aliases-needed @used-aliases)))
+                                              current-spec)))))
+                          as))
+          top-level-types
+          (into []
+            (mapcat (fn [[k v]]
+                      (let [aliases-needed (atom {})
+                            used-aliases (atom #{})
+                            unparse-spec (fn [s]
+                                           (binding [*spec-aliases* aliases-needed
+                                                     *used-aliases* used-aliases]
+                                             (unparse-spec s)))
+                            s (unparse-spec (assoc v :top-level-def k))
+                            sym (if (= (namespace k)
+                                       (str (ns-name (current-ns))))
+                                  ;; defs
+                                  (symbol (name k))
+                                  ;; imports
+                                  k)
+                            def-spec
+                            (if (and (seq? s)
+                                     (= (first s) (qualify-spec-symbol 'fspec)))
+                              (list* (qualify-spec-symbol 'fdef)
+                                     sym
+                                     (next s))
+                              (list (qualify-spec-symbol 'def)
+                                    sym
+                                    (unparse-spec v)))]
+                        (conj (gen-aliases
+                                (prep-alias-map
+                                  @aliases-needed
+                                  @used-aliases))
+                              def-spec))))
+            tenv)
+          ]
+      top-level-types)))
+
 (defn envs-to-annotations [env config]
-  (let [tenv (type-env env)
+  (let [;; don't annotate macros
+        tenv (into {}
+                   (remove (fn [[k v]]
+                             {:pre [(symbol? k)]}
+                             (some-> (find-var (symbol (str (current-ns)) (str k)))
+                                     meta
+                                     :macro)))
+                   (type-env env))
         tfvs (into #{}
                    (mapcat
                      (fn [t]
@@ -1916,27 +2309,28 @@
         as (into {}
                  (filter (comp tfvs key))
                  (alias-env env))]
-    (into
-      (into [(list* (if (= (ns-resolve (current-ns) 'declare)
-                           #'clojure.core/declare)
-                      'declare
-                      'clojure.core/declare)
-                    (map (comp symbol name key) as))]
-            (map (fn [[k v]]
-                   (list (qualify-typed-symbol 'defalias)
-                         (symbol (name k))
-                         (unparse-type v)))
-                 as))
-      (map (fn [[k v]]
-             (list (qualify-typed-symbol 'ann)
-                   (if (= (namespace k)
-                          (str (ns-name (current-ns))))
-                     ;; defs
-                     (symbol (name k))
-                     ;; imports
-                     k)
-                   (unparse-type v))))
-      tenv)))
+    (binding [*envs* (atom env)]
+      (into
+        (into [(list* (if (= (ns-resolve (current-ns) 'declare)
+                             #'clojure.core/declare)
+                        'declare
+                        'clojure.core/declare)
+                      (map (comp symbol name key) as))]
+              (map (fn [[k v]]
+                     (list (qualify-typed-symbol 'defalias)
+                           (symbol (name k))
+                           (unparse-type v)))
+                   as))
+        (map (fn [[k v]]
+               (list (qualify-typed-symbol 'ann)
+                     (if (= (namespace k)
+                            (str (ns-name (current-ns))))
+                       ;; defs
+                       (symbol (name k))
+                       ;; imports
+                       k)
+                     (unparse-type v))))
+        tenv))))
 
 
 (defn gen-current3 
@@ -2182,6 +2576,7 @@
   {:pre [(string? old)
          (string? ann-str)]
    :post [(string? %)]}
+  ;(prn "insert" ann-str)
   (let [insert-after (ns-end-line old)]
     (with-open [pbr (java.io.BufferedReader.
                       (java.io.StringReader. old))]
@@ -2191,7 +2586,7 @@
         (if (= current-line insert-after)
           (str/join "\n" (concat out 
                                  [(first ls)
-                                  ""
+                                  ;""
                                   ann-str]
                                  (rest ls)))
           (if (seq ls)
@@ -2219,7 +2614,7 @@
         (println generate-ann-start)
         (doseq [a as]
           (pprint a))
-        (println generate-ann-end)))))
+        (print generate-ann-end)))))
 
 (defn insert-generated-annotations [ns config]
   (impl/with-clojure-impl
@@ -2239,20 +2634,34 @@
                          config))))))
 
 (defn infer-anns 
-  ([ns {:keys [output] :as config}]
+  ([ns {:keys [output spec?] :as config}]
    {:pre [(or (instance? clojure.lang.Namespace ns)
               (symbol? ns))]}
    (binding [*ann-for-ns* #(or (some-> ns the-ns) *ns*)]
-     (-> (init-env)
-         (generate-tenv config @results-atom)
-         (populate-envs config)
-         (envs-to-annotations config)))))
+     (let [out (if spec? 
+                 envs-to-specs
+                 envs-to-annotations)]
+       (-> (init-env)
+           (generate-tenv config @results-atom)
+           (populate-envs config)
+           (out config))))))
 
 (defn runtime-infer
   ([{:keys [ns output]}]
    (replace-generated-annotations ns 
                                   (assoc (init-config)
                                          :output output))))
+
+(defn spec-infer
+  ([{:keys [ns output]}]
+   (replace-generated-annotations ns 
+                                  (assoc (init-config)
+                                         :spec? true
+                                         :output output))))
+
+(defn refresh-runtime-infer []
+  (reset! results-atom (initial-results))
+  nil)
 
 ;; TESTS
 
