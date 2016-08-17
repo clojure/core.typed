@@ -63,3 +63,9 @@
            %)]}
   (let [p (ns->file nsym)]
     (io/resource p)))
+
+(defn sym->kw [sym]
+  {:pre [(symbol? sym)]
+   :post [(keyword? %)]}
+  (keyword (namespace sym)
+           (name sym)))
