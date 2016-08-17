@@ -5,7 +5,6 @@
             [com.gfredericks.test.chuck.generators :as gen']
             [clojure.test.check.generators :as gen]
             [clojure.core.typed :as t]
-            [clojure.pprint :refer [pprint]]
             [clojure.core.typed.runtime-infer :refer :all]))
 
 (defmacro with-tmp-aliases [env as & body]
