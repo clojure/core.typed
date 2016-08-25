@@ -13,7 +13,7 @@
                                                                       org.clojure/clojurescript]]
                  [org.clojure/tools.analyzer.jvm "0.6.8"]
                  [org.clojure/tools.reader "1.0.0-alpha2"]
-                 [org.clojure/core.contracts "0.0.4" :exclusions [org.clojure/clojure]]
+                 [org.clojure/core.contracts "0.0.6" :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.1.1" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.namespace "0.3.0-alpha3"]
                  [org.clojure/core.cache "0.6.4"]
