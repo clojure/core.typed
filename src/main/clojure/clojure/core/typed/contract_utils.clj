@@ -1,6 +1,7 @@
 (ns clojure.core.typed.contract-utils
   {:skip-wiki true
    :core.typed {:collect-only true}}
+  (:refer-clojure :exclude [boolean?])
   (:require [clojure.set :as set]))
 
 (alter-meta! *ns* assoc :skip-wiki true
