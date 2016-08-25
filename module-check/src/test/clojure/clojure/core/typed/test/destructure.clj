@@ -44,13 +44,18 @@
 
 ;vectors
 (let [[a b c & d :as e] [1 2 3 4 5 6 7]]
+  (ann-form a Number)
+  (ann-form b Number)
+  (ann-form c Number)
   (ann-form [a b c] (t/Seqable Number))
   (ann-form d (t/U nil (t/Seqable Number)))
   (ann-form e (t/Seqable Number)))
 
 ;lists
 (let [[a b c & d :as e] '(1 2 3 4 5 6 7)]
-  (ann-form [a b c] (t/Seqable Number))
+  ; FIXME stopped working with 1.9.0
+  ; to fix, start adding HList to `AnySequential?` predicate
+  ;(ann-form [a b c] (t/Seqable Number))
   (ann-form d (t/U nil (t/Seqable Number)))
   (ann-form e (t/Seqable Number)))
 

@@ -43,40 +43,77 @@
 
 (deftest KeywordExpr-test
   (is (= (ast :abc)
-         (taj :abc))))
+         (taj :abc)))
+  (is (= (ast ':abc)
+         (taj ':abc)))
+  (is (= #{:tag :o-tag}
+         (leaf-diff
+           (ast '':abc)
+           (taj '':abc)))))
 
 (deftest NumberExpr-test
   (is (= (ast 1.2)
          (taj 1.2)))
   (is (= (ast 1)
          (taj 1)))
+  (is (= (ast '1)
+         (taj '1)))
+  (is (= #{:tag :o-tag}
+         (leaf-diff
+           (ast ''1)
+           (taj ''1))))
   )
 
 (deftest StringExpr-test
   (is (= (ast "abc")
-         (taj "abc"))))
+         (taj "abc")))
+  (is (= (ast '"abc")
+         (taj '"abc")))
+  (is (= 
+        #{:tag :o-tag}
+        (leaf-diff
+          (ast ''"abc")
+          (taj ''"abc")))))
 
 (deftest NilExpr-test
   (is (= (ast nil)
-         (taj nil))))
+         (taj nil)))
+  (is (= (ast 'nil)
+         (taj 'nil)))
+  (is (= #{:tag :o-tag}
+         (leaf-diff
+           (ast ''nil)
+           (taj ''nil))))
+  )
 
 (deftest BooleanExpr-test
-  (is (= #{:tag :o-tag}
-         (leaf-diff
-           (ast true)
-           (taj true))))
-  (is (= #{:tag :o-tag}
-         (leaf-diff
-           (ast false)
-           (taj false)))))
+  (is (= 
+        #{:tag :o-tag}
+        (leaf-diff
+          (ast true)
+          (taj true))))
+  (is (= 
+        #{:tag :o-tag}
+        (leaf-diff
+          (ast false)
+          (taj false))))
+  (is (= 
+        #{:tag :o-tag}
+        (leaf-diff
+          (ast 'false)
+          (taj 'false))))
+  (is (= 
+        #{:o-tag :tag}
+        (leaf-diff
+          (ast ''false)
+          (taj ''false))))
+  )
 
 
 (deftest ConstantExpr-test
-  ;; these don't match
-  (is (and (= (emit-form (ast 'nil))
-              'nil)
-           (= (emit-form (taj 'nil))
-              '(quote nil))))
+  (is
+    (= (ast 'nil)
+       (taj 'nil)))
   ;; but they evaluate to the same thing anyway
   (is (= (:result (ast 'nil))
          (eval (emit-form (ast 'nil)))
@@ -92,11 +129,24 @@
         (= #{:val :form :result}
            (leaf-keys l))))
   (is (=
-       (ast '{:a 1})
-       (taj '{:a 1})))
+       #{:o-tag :tag}
+       (leaf-diff
+         (ast '{:a 1})
+         (taj '{:a 1}))))
+  (is (= (ast 'refer)
+         (taj 'refer)))
   (is (= (:result (ast 'refer))
          (eval (emit-form (ast 'refer)))
          (eval (emit-form (taj 'refer)))))
+  (is (= 
+        #{:o-tag :tag}
+        (leaf-diff
+          (ast ''{})
+          (taj ''{}))))
+  (is (= 
+        (leaf-diff
+          (ast '{})
+          (taj '{}))))
   (is (= (:result (ast '{}))
          (eval (emit-form (ast '{})))
          (eval (emit-form (taj '{})))))
@@ -119,11 +169,6 @@
   (is (= (:result (ast {:a ''1}))
          (eval (emit-form (ast {:a ''1})))
          (eval (emit-form (taj {:a ''1})))))
-  ;; subtle difference
-  (is (and (= (emit-form (ast {:a ''1}))
-              '(quote {:a (quote 1)}))
-           (= (emit-form (taj {:a ''1}))
-              '{:a (quote (quote 1))})))
   (is (= (:result (ast {:a ''1}))
          (eval (emit-form (ast {:a ''1})))
          (eval (emit-form (taj {:a ''1})))))
@@ -142,32 +187,37 @@
   (is (=
        (ast ':refer)
        (taj ':refer)))
-  (is (and
-        (= (:op (ast {:a 'refer}))
-           :quote)
-        (= (:op (taj {:a 'refer}))
-           :const)))
-  ;; these are identical for some reason
-  (is (= (emit-form (ast '{:a 1}))
-         (emit-form (ast {:a 1}))
-         (emit-form (taj '{:a 1}))))
+  (is (= 
+        ;FIXME :val differs
+        #{:tag :o-tag :a}
+        (leaf-diff
+          (ast {:a 'refer})
+          (taj {:a 'refer}))))
+  (is (= 
+        #{:tag :o-tag}
+        (leaf-diff
+          (ast '{:a 1})
+          (taj '{:a 1}))))
   (is (= :quote
          (:op (ast ''{:a 1}))))
-  (is (and (= (emit-form (ast {:a '(ns fooblah)}))
-              '(quote {:a (ns fooblah)}))
-           (= (emit-form (taj {:a '(ns fooblah)}))
-              '{:a (quote (ns fooblah))})))
-  (is (and (= (emit-form (ast '""))
-              '"")
-           (= (emit-form (taj '""))
-              '(quote ""))))
+  (is (= 
+        #{:o-tag :line :tag}
+        (leaf-diff
+          (ast '(ns fooblah))
+          (taj '(ns fooblah)))))
+  ;; FIXME :val is evaluated further in Compiler.java
+  (is (= 
+        #{:o-tag :tag :a}
+        (leaf-diff
+          (ast {:a '(ns fooblah)})
+          (taj {:a '(ns fooblah)}))))
+  (is (= (ast '"")
+         (taj '"")))
   (is (= (:result (ast '""))
          (eval (emit-form (ast '"")))
          (eval (emit-form (taj '"")))))
-  (is (and (= (emit-form (ast 1N))
-              '(quote 1N))
-           (= (emit-form (taj 1N))
-              '1N)))
+  (is (= (ast 1N)
+         (taj 1N)))
   (is (= (:result (ast '1N))
          (eval (emit-form (ast '1N)))
          (eval (emit-form (taj '1N)))))
@@ -176,16 +226,17 @@
 
 (deftest DefExpr-test
   ;; FIXME :tag is different
-  (is (= #{:line :tag}
+  (is (= #{:line :tag :o-tag}
          (leaf-diff (taj (def a 1))
                     (ast (def a 1)))))
-  ;; FIXME :doc is not a node
-  #_(is (= (ast (def a "foo" 1))
-         (taj (def a "foo" 1)))))
+  (is (= #{:o-tag :line :tag}
+         (leaf-diff
+           (ast (def a "foo" 1))
+           (taj (def a "foo" 1))))))
 
 (deftest BodyExpr-test
   ;; Compiler prints (do nil) instead of (do).
-  (is (= #{:form :line}
+  (is (= #{:line}
          (leaf-diff
            (ast (do))
            (taj (do)))))
@@ -319,11 +370,11 @@
           (taj (instance? Object 1))))))
 
 (deftest EmptyExpr-test
-  (is (= (dissoc (ast {}) :eval-fn)
+  (is (= (ast {})
          (taj {})))
-  (is (= (dissoc (ast []) :eval-fn)
+  (is (= (ast [])
          (taj [])))
-  (is (= (dissoc (ast #{}) :eval-fn)
+  (is (= (ast #{})
          (taj #{})))
   (is (= #{:tag :o-tag}
          (leaf-diff 
@@ -369,9 +420,11 @@
 (deftest StaticFieldExpr-test
   (is 
     (= 
-      #{:name :type :o-tag :declaring-class :column :line :form :tag :flags :validated? :assignable? :raw-forms}
-      (leaf-diff (ast Long/MAX_VALUE)
-                 (taj Long/MAX_VALUE)))))
+      #{:o-tag :tag :validated? :raw-forms}
+      (leaf-diff 
+        (dissoc (ast Long/MAX_VALUE)
+                :reflected-field)
+        (taj Long/MAX_VALUE)))))
 
 (deftest InstanceMethodExpr-test
   (is (=
@@ -382,7 +435,7 @@
          (-> (taj (.getName (java.io.File. "a"))) :instance)))))
 
 (deftest deftype-test
-  (is (ast (deftype Inst [abc]
+  (is (ast (deftype InstType [abc]
              Object
              (toString [this]
                (fn [] (.toString this))
@@ -397,9 +450,11 @@
            :a)))
   )
 
+(taj 'Long)
+
 (deftest defrecord-test
   (is (->
-        (ast (defrecord Inst [abc]
+        (ast (defrecord InstRec [abc]
                Object
                (toString [this]
                  (fn [] (.toString this))

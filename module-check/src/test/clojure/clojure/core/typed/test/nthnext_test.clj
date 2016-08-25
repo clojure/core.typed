@@ -32,6 +32,44 @@
        (let [body (nthnext stmt 1)]
          (ann-form body (HSeq [Long])))))))
 
+(deftest next-test-input-types
+  (testing "HVec"
+    (is-tc-e
+     (fn [stmt :- (t/HVec [Any Long])]
+       (let [body (next stmt)]
+         (ann-form body (HSeq [Long]))))))
+
+  (testing "HSeq"
+    (is-tc-e
+     (fn [stmt :- (t/HSeq [Any Long])]
+       (let [body (next stmt)]
+         (ann-form body (HSeq [Long]))))))
+
+  (testing "HSequential"
+    (is-tc-e
+     (fn [stmt :- (t/HSequential [Any Long])]
+       (let [body (next stmt)]
+         (ann-form body (HSeq [Long])))))))
+
+(deftest seq-test-input-types
+  (testing "HVec"
+    (is-tc-e
+     (fn [stmt :- (t/HVec [Any Long])]
+       (let [body (seq stmt)]
+         (ann-form body (HSeq [Any Long]))))))
+
+  (testing "HSeq"
+    (is-tc-e
+     (fn [stmt :- (t/HSeq [Any Long])]
+       (let [body (seq stmt)]
+         (ann-form body (HSeq [Any Long]))))))
+
+  (testing "HSequential"
+    (is-tc-e
+     (fn [stmt :- (t/HSequential [Any Long])]
+       (let [body (seq stmt)]
+         (ann-form body (HSeq [Any Long])))))))
+
 (deftest nthnext-test-fixed-types
   (testing "skipping past all the fixed types"
     (is-tc-e

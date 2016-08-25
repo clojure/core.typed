@@ -11,10 +11,6 @@
   (:import (clojure.lang Symbol Seqable IPersistentSet)
            (clojure.core.typed.path_rep IPathElem)))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 (t/defalias Filter
   "A filter"
   p/IFilter)

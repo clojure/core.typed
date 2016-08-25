@@ -1352,6 +1352,32 @@
            String))
 
 (deftest common-destructuring-test
+  ;; 1.9.0 vector destructuring 
+  (is-tc-e (let [[a b & c] [1 2 3]]
+             (ann-form b Number)))
+  (is-tc-e (let [[a b c d e & r :as all] [1 2 3 4 5 6 7]]
+             (ann-form b Number)
+             (ann-form c Number)
+             (ann-form d Number)
+             (ann-form e Number)
+             (ann-form r (Seqable Number))
+             (ann-form all (Seqable Number))))
+  (is-tc-e (seq [1 2 3])
+           (HSeq [Num Num Num]))
+  (is-tc-e
+    '(1 2 3)
+    (HSeq [Num Num Num]))
+  ;; FIXME
+  #_(is-tc-e
+    (seq '(1 2 3))
+    (HSeq [Num Num Num]))
+  ;; FIXME
+  #_(is-tc-e
+    (let [[a b c & d :as e] '(1 2 3 4 5 6 7)]
+      #_(ann-form a (t/Seqable Number))
+      (ann-form d (t/Seqable Number))
+      #_(ann-form e (t/Seqable Number))))
+
   (is (check-ns 'clojure.core.typed.test.destructure)))
 
 (deftest loop-errors-test
@@ -4861,7 +4887,13 @@
 
 (deftest seq-branch-test
   (is-tc-e (if (seq [1 2 3]) 1 nil)
-           Num))
+           Num)
+  (is-tc-e (if (seq []) 1 nil)
+           nil)
+  (is-tc-err (if (seq (ann-form [] (Seqable Num))) 1 nil)
+             nil)
+  (is-tc-err (if (seq (ann-form [1] (Seqable Num))) 1 nil)
+             Num))
 
 (deftest quote-string-test
   (is-tc-e "a" '"a")

@@ -196,19 +196,18 @@
     (let [fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
           poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)
           ;_ (prn "poly" poly)
+          ;_ (prn "fn-anns-quoted" fn-anns-quoted)
           fn-anns (impl/impl-case
-                    :clojure (if (seq? fn-anns-quoted)
-                               ;; unquote
+                    :clojure (if (seq? (first fn-anns-quoted))
                                (second fn-anns-quoted)
                                fn-anns-quoted)
                     :cljs fn-anns-quoted)
           poly (impl/impl-case
-                 :clojure (if (seq? poly-quoted)
-                            ;; unquote
-                            (second poly-quoted) 
+                 :clojure (if (seq? (first fn-anns-quoted))
+                            (second poly-quoted)
                             poly-quoted)
                  :cljs poly-quoted)
-          _ (assert (vector? fn-anns))
+          _ (assert (vector? fn-anns) (pr-str fn-anns))
           self-name (cu/fn-self-name fexpr)
           _ (assert ((some-fn nil? symbol?) self-name)
                     self-name)

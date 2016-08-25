@@ -12,7 +12,9 @@
   @successfully-loaded?)
 
 (defn cljs? []
-  @cljs-present?)
+  #_@cljs-present?
+  nil
+  )
 
 (defn load-impl []
   (cond 
@@ -75,7 +77,7 @@
                  '[clojure.core.typed.statistics]
                  '[clojure.core.typed.load1]
                  ; used by check-ns-info
-                 '[clojure.jvm.tools.analyzer]
+                 ;'[clojure.jvm.tools.analyzer]
 
                  '[clojure.core.typed.parse-ast]
                  '[clojure.core.typed.file-mapping]
@@ -88,12 +90,13 @@
                  '[clojure.core.typed.rclass-ancestor-env]
                  '[clojure.core.typed.all-envs]
                  '[clojure.reflect])
-        (when (io/resource "cljs/analyzer.clj")
+        (when nil #_(io/resource "cljs/analyzer.clj")
           (do
             (println "Found ClojureScript, loading ...")
             (flush)
             (require
               '[cljs.analyzer]
+              '[cljs.util]
               '[clojure.core.typed.collect-cljs]
               '[clojure.core.typed.check-cljs]
               '[clojure.core.typed.jsnominal-env]

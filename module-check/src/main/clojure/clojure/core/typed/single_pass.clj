@@ -3,7 +3,7 @@
 
   Entry point `analyze`"
   (:import (java.io LineNumberReader InputStreamReader PushbackReader)
-           (clojure.lang RT LineNumberingPushbackReader)
+           (clojure.lang RT LineNumberingPushbackReader Var)
            (clojure.core.typed.lang 
                          Compiler$DefExpr Compiler$LocalBinding Compiler$BindingInit Compiler$LetExpr
                          Compiler$LetFnExpr Compiler$StaticMethodExpr Compiler$InstanceMethodExpr Compiler$StaticFieldExpr
@@ -14,7 +14,10 @@
                          Compiler$TryExpr$CatchClause Compiler$TryExpr Compiler$C Compiler$LocalBindingExpr Compiler$RecurExpr
                          Compiler$MapExpr Compiler$IfExpr Compiler$KeywordInvokeExpr Compiler$InstanceFieldExpr Compiler$InstanceOfExpr
                          Compiler$CaseExpr Compiler$Expr Compiler$SetExpr Compiler$MethodParamExpr 
-                         Compiler$LiteralExpr Compiler$ConstantExpr Compiler$ObjMethod Compiler$Expr))
+                         Compiler$LiteralExpr Compiler$ConstantExpr Compiler$KeywordExpr 
+                         Compiler$ObjMethod Compiler$Expr Compiler$NumberExpr
+                         Compiler$NilExpr Compiler$StringExpr
+                         Compiler$BooleanExpr))
   (:require [clojure.reflect :as reflect]
             [clojure.java.io :as io]
             [clojure.pprint :as pp]
@@ -44,6 +47,12 @@
 ;; Interface
 
 (declare analyze*)
+
+(defn quote? [form]
+  (boolean
+    (when (seq? form)
+      (and (#{'quote} (first form))
+           (= 2 (count form))))))
 
 (defn analyze
   ([form] (analyze form (ana.jvm/empty-env) {}))
@@ -211,8 +220,12 @@
         field (try (.getDeclaredField (class expr) "line")
                 (catch Exception e))]
     (cond 
-      method {:line (method-accessor (class expr) 'line expr [])}
-      field {:line (field-accessor (class expr) 'line expr)})))
+      method (let [line (method-accessor (class expr) 'line expr [])]
+               (when (integer? line)
+                 {:line line}))
+      field (let [line (field-accessor (class expr) 'line expr)]
+              (when (integer? line)
+                {:line line})))))
 
 (defn- when-source-map [expr]
   (let [field (try (.getDeclaredField (class expr) "source")
@@ -234,8 +247,8 @@
 (defn- env-location 
   ([env expr & [form]]
    (merge env
-          (when-line-map expr)
-          (when-column-map expr)
+          ;(when-line-map expr)
+          ;(when-column-map expr)
           (when-form-meta form)
           ;; only adds the suffix of the path
           #_(when-source-map expr))))
@@ -274,26 +287,37 @@
   (let [c (ju/unbox (class val))]
     c))
 
-(defmacro literal-dispatch [disp-class op-keyword]
-  {:pre [((some-fn nil? keyword?) op-keyword)]}
+(defmacro literal-dispatch [disp-class]
   `(extend-protocol AnalysisToMap
      ~disp-class
      (analysis->map
        [expr# env# opt#]
-       (let [v# (.eval expr#)
-             tag# (tag-for-val v#)
-                 #_(method-accessor (class expr#) '~'getJavaClass expr# [])]
-         {:op :const
-          :tag tag#
-          :o-tag tag#
-          :literal? true
-          :type (or ~op-keyword
-                    (u/classify v#))
-          :env env#
-          :val v#
-          :form v#}))))
-
-(literal-dispatch Compiler$EmptyExpr nil)
+       ;(prn "AnalysisToMap case" ~disp-class)
+       (let [val# (.val expr#)
+             tag# (tag-for-val val#)
+             form# (.form expr#)
+             type# (u/classify val#)
+             quoted?# (quote? form#)
+             inner# {:op :const
+                     :form (if quoted?#
+                             (second form#)
+                             form#)
+                     :tag tag#
+                     :o-tag tag#
+                     :literal? true
+                     :type type#
+                     :env (env-location env# expr# form#)
+                     :val val#}]
+         (if quoted?#
+           {:op :quote
+            :env (env-location env# expr# form#)
+            :form form#
+            :expr inner#
+            :literal? true
+            :tag tag#
+            :o-tag tag#
+            :children [:expr]}
+           inner#)))))
 
 (defn quoted-list? [val]
   (boolean
@@ -314,54 +338,70 @@
     (symbol? val) (list 'quote val)
     :else val))
 
-(extend-protocol AnalysisToMap
-  Compiler$LiteralExpr
-  (analysis->map
-    [expr env opt]
-    (let [val (.eval expr)
-          ;; t.a.j is much more specific with things like maps. 
-          ;; eg. Compiler returns APersistentMap, but t.a.j has PersistentArrayMap
-          tag (tag-for-val val)
-                #_(method-accessor (class expr) 'getJavaClass expr [])
-          inner {:op :const
-                 :form val
-                 :tag tag
-                 :o-tag tag
-                 :literal? true
-                 :type (u/classify val)
-                 :env env
-                 :val val}]
-      inner))
+(literal-dispatch Compiler$KeywordExpr)
+(literal-dispatch Compiler$NumberExpr)
+(literal-dispatch Compiler$StringExpr)
+(literal-dispatch Compiler$NilExpr)
+(literal-dispatch Compiler$BooleanExpr)
+(literal-dispatch Compiler$EmptyExpr)
 
-  ;; a ConstantExpr is always originally quoted.
+(extend-protocol AnalysisToMap
   Compiler$ConstantExpr
   (analysis->map
     [expr env opt]
-    (let [val (.eval expr)
+    (let [val (.v expr)
+          form (.form expr)
+          ;_ (prn "constant" val form)
+          quoted? (boolean
+                    (when (seq? form)
+                      (and (#{'quote} (first form))
+                           (= 2 (count form)))))
           ; used as :form for emit-form
-          ;_ (prn "Constant val" val)
           ;; t.a.j is much more specific with things like maps. 
           ;; eg. Compiler returns APersistentMap, but t.a.j has PersistentArrayMap
-          tag (tag-for-val val)
-                #_(method-accessor (class expr) 'getJavaClass expr [])
-          inner {:op :const
-                 :form val
-                 :tag tag
-                 :o-tag tag
-                 :literal? true
-                 :type (u/classify val)
-                 :env env
-                 :val val}]
-      {:op :quote
-       :form (list 'quote val)
-       :literal? true
-       :env env
-       :tag tag
-       :o-tag tag
-       :expr inner
-       :children [:expr]})))
-
-(extend-protocol AnalysisToMap
+          tag (when (.hasJavaClass expr)
+                (.getJavaClass expr))
+          the-meta (if quoted?
+                     (-> form second meta)
+                     (meta form))
+          ;_ (prn "form meta" the-meta)
+          meta-expr (when the-meta
+                      {:op :const
+                       :val the-meta
+                       :form the-meta
+                       :type (u/classify the-meta)
+                       :tag (class the-meta)
+                       :o-tag (class the-meta)
+                       :env (env-location env expr (if quoted?
+                                                     (second form)
+                                                     form))
+                       :literal? true})
+          inner (merge
+                  {:op :const
+                   :form (if quoted?
+                           (second form)
+                           form)
+                   :tag tag
+                   :o-tag tag
+                   :literal? true
+                   :type (u/classify val)
+                   :env (env-location env expr (if quoted?
+                                                 (second form)
+                                                 form))
+                   :val val}
+                  (when meta-expr
+                    {:meta meta-expr
+                     :children [:meta]}))]
+      (if quoted?
+        {:op :quote
+         :env (env-location env expr form)
+         :expr inner
+         :literal? true
+         :form form
+         :tag tag
+         :o-tag tag
+         :children [:expr]}
+        inner)))
 
   ;; def
   ; {:op   :def
@@ -378,14 +418,16 @@
   Compiler$DefExpr
   (analysis->map
     [expr env opt]
-    (let [env (env-location env expr (.form expr))
+    (let [form (.form expr)
+          env (env-location env expr form)
           init? (.initProvided expr)
-          init (analysis->map (.init expr) env opt)
+          init (when init?
+                 (analysis->map (.init expr) env opt))
           meta (when-let [meta (.meta expr)]
                  (analysis->map meta env opt))
           children (into (into [] (when meta [:meta]))
                          (when init? [:init]))
-          ^clojure.lang.Var var (.var expr)
+          var (.var expr)
           ;; massage arglists to get rid of quote,
           ;; emit-form already adds an extra one.
           name (vary-meta (.sym expr)
@@ -397,26 +439,28 @@
                                                  (#{'quote} (first a)))
                                           (second a)
                                           a)))
-                              m)))]
+                              m)))
+          ;; inline doc takes precedence
+          doc (or (when (and (== 4 (count form))
+                             (string? (nth form 2)))
+                    (nth form 2))
+                  (-> form second meta :doc))]
       (merge 
         {:op :def
-         :form (with-meta
-                 (list* 'def name
-                        (when init?
-                          [(emit-form/emit-form init)]))
-                 (meta (.form expr)))
+         :form form
          :tag clojure.lang.Var
          :o-tag clojure.lang.Var
          :env env
          :name name
          :var var}
+        (when doc
+          {:doc doc})
         (when init?
           {:init init})
         (when meta
           {:meta
            (case (:op meta)
-             :quote (:expr meta)
-             :map meta)})
+             (:map :const) meta)})
         (when-not (empty? children)
           {:children children}))))
 
@@ -755,6 +799,7 @@
     [expr env opt]
     (let [^java.lang.reflect.Field
           rfield (.field expr)
+          ;_ (prn "rfield" rfield)
           mfield (when rfield
                    (@#'reflect/field->map rfield))
           tag (ju/maybe-class (.tag expr))
@@ -763,7 +808,9 @@
       (merge
         {:op :static-field
          :form (with-meta
-                 (list '. (emit-form/class->sym c)
+                 (list '. 
+                       ; taj emits a class here
+                       c #_(emit-form/class->sym c)
                        (symbol (str "-" fstr)))
                  (meta (.form expr)))
          :env (env-location env expr)
@@ -773,6 +820,8 @@
          :o-tag tag}
         (when rfield
           {:validated? true
+           :assignable? (not
+                          (-> mfield :flags :final))
            :reflected-field mfield}))))
 
   Compiler$InstanceFieldExpr
@@ -933,16 +982,7 @@
           vs  (mapv #(analysis->map % env opt) (map second kvs))]
       {:op :map
        :env env
-       ;; FIXME use transducers when dropping 1.6 support
-       :form (with-meta
-               (into {}
-                     (map
-                       (fn [k v]
-                         [(emit-form/emit-form k)
-                          (emit-form/emit-form v)])
-                       ks
-                       vs))
-               (meta (.form expr)))
+       :form (.form expr)
        :keys ks
        :vals vs
        :tag clojure.lang.IPersistentMap
@@ -1496,12 +1536,11 @@
     (let [[statements ret] (loop [statements [] [e & exprs] (.exprs expr)]
                              (if exprs
                                (recur (conj statements (analysis->map e env opt)) exprs)
-                               [statements (analysis->map e env opt)]))]
+                               [statements (analysis->map e env opt)]))
+          form (.form expr)]
       {:op :do
-       :env (env-location env expr (.form expr))
-       :form (with-meta
-               (list* 'do (map emit-form/emit-form (concat statements [ret])))
-               (meta (.form expr)))
+       :env (env-location env expr form)
+       :form form
        :statements statements
        :ret ret
        :tag (:tag ret)

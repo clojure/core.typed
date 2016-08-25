@@ -1,26 +1,27 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-cljs
   (:refer-clojure :exclude [extenders])
-  (:require [clojure.core.typed.current-impl :as impl]
-            [cljs.analyzer :as ana]
-            [cljs.jvm.tools.analyzer :as jana]
-            [cljs.jvm.tools.analyzer.hygienic :as hyg]))
-
-(alter-meta! *ns* assoc :skip-wiki true)
+  (:require [clojure.core.typed.current-impl :as impl]))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
   analyzed in the given namespace"
   [nsym form]
-  (-> (jana/analyze-form-in-ns nsym form)
-      hyg/ast-hy))
+  (require 'cljs.jvm.tools.analyzer)
+  (require 'cljs.jvm.tools.analyzer.hygienic)
+  (-> ((impl/v 'cljs.jvm.tools.analyzer/analyze-form-in-ns) nsym form)
+      ((impl/v 'cljs.jvm.tools.analyzer.hygienic/ast-hy)
+                 )))
 
 (defn ast-for-form
   "Returns an AST node for the form"
   [form {:keys [expected eval-fn] :as opt}]
   ;; TODO support bindings-atom, as in c.c.t.analyze-clj
   ;; TODO propagate analyzer env from opt
-  (let [ast (-> (jana/analyze-form form)
-                hyg/ast-hy)]
+  (require 'cljs.jvm.tools.analyzer)
+  (require 'cljs.jvm.tools.analyzer.hygienic)
+  (let [ast (-> ((impl/v 'cljs.jvm.tools.analyzer/analyze-form) form)
+                ((impl/v 'cljs.jvm.tools.analyzer.hygienic/ast-hy)
+                 ))]
     (if eval-fn
       (eval-fn opt ast)
       ast)))
@@ -30,14 +31,18 @@
   in the given namespace symbol nsym"
   [nsym]
   {:pre [(symbol? nsym)]}
-  (map hyg/ast-hy (jana/analyze-ns nsym)))
+  (require 'cljs.jvm.tools.analyzer)
+  (require 'cljs.jvm.tools.analyzer.hygienic)
+  (map (impl/v 'cljs.jvm.tools.analyzer.hygienic/ast-hy)
+       ((impl/v 'cljs.jvm.tools.analyzer/analyze-ns) nsym)))
 
 (defn extenders
   "Returns a set of descendants for a protocol"
   [psym]
   {:pre [(symbol? psym)
          (namespace psym)]}
-  (or (get-in (ana/get-namespace (symbol (namespace psym)))
+  (require 'cljs.analyzer)
+  (or (get-in ((impl/v 'cljs.analyzer/get-namespace) (symbol (namespace psym)))
               [:defs (symbol (name psym)) :impls])
       #{}))
 
@@ -46,7 +51,9 @@
   [sym]
   {:pre [(symbol? sym)] 
    :post [(= :var (:op %))]}
-  (ana/analyze-symbol (ana/empty-env) sym))
+  (require 'cljs.analyzer)
+  ((impl/v 'cljs.analyzer/analyze-symbol) 
+   ((impl/v 'cljs.analyzer/empty-env)) sym))
 
 ;(analyze-qualified-symbol 'cljs.core/ISeq)
 ;(analyze-qualified-symbol 'cljs.core.SubVec)
