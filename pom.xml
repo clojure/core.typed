@@ -34,6 +34,10 @@
           </execution>
         </executions>
         <configuration>
+          <namespaces>
+            <!-- depends on core.async -->
+            <namespace>!cljs.core.typed.async</namespace>
+          </namespaces>
           <!-- Don't put AOT files in jar -->
           <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <sourceDirectories>
