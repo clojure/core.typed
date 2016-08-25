@@ -7,6 +7,7 @@
             [clojure.core.typed.filter-ops :as fo]))
 
 (defn check-vector [check {:keys [items] :as expr} expected]
+  ;(prn "check-vector")
   (let [cargs (mapv check items)
         res-type (r/-hvec (mapv (comp r/ret-t u/expr-type) cargs)
                           :filters (mapv (comp r/ret-f u/expr-type) cargs)

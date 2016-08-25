@@ -955,7 +955,11 @@
              :args cargs
              u/expr-type (u/expr-type ccoll))
 
-      :else (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
+      :else 
+      (let [r (nthnext/check-seq check expr expected :cargs cargs)]
+        (if-not (#{cu/not-special} r)
+          r
+          (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))))
 
 ;make vector
 (add-invoke-special-method 'clojure.core/vector
@@ -1068,6 +1072,16 @@
   {:post [(-> % u/expr-type r/TCResult?)]}
   (let [cargs (mapv check args)
         r (nthnext/check-nthnext check expr expected :cargs cargs)]
+    (if-not (#{cu/not-special} r)
+      r
+      (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
+
+;next
+(add-invoke-special-method 'clojure.core/next
+  [{fexpr :fn :keys [args] :as expr} & [expected]]
+  {:post [(-> % u/expr-type r/TCResult?)]}
+  (let [cargs (mapv check args)
+        r (nthnext/check-next check expr expected :cargs cargs)]
     (if-not (#{cu/not-special} r)
       r
       (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
@@ -1685,11 +1699,8 @@
     (err/int-error "clojure.lang.MultiFn constructor requires an expected type"))
   (when-not (== 4 (count args))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
-  (let [hierarchy-expr (if (#{:quote} (:op hierarchy-expr))
-                         (:expr hierarchy-expr)
-                         hierarchy-expr)]
-    (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
-      (err/int-error "Multimethod hierarchy cannot be customised")))
+  (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
+    (err/int-error "Multimethod hierarchy cannot be customised"))
   (when-not (= (:val default-expr) :default)
     (err/int-error "Non :default default dispatch value NYI"))
   (let [mm-name (:val nme-expr)

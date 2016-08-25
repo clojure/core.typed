@@ -95,10 +95,11 @@
 (defmethod internal-collect-expr ::core/ns
   [{[_ _ third-arg :as statements] :statements fexpr :ret :as expr}]
   ;(prn "collecting ns form")
-  (let [_ (assert (= :quote (:op third-arg)))
-        {ns-form :form} (if (= :quote (:op third-arg))
-                          (-> third-arg :expr :val)
-                          (-> third-arg :val))
+  (let [_ (assert (#{:quote :const} (:op third-arg))
+                  (:op third-arg))
+        {ns-form :form} (case (:op third-arg)
+                          :quote (-> third-arg :expr :val)
+                          :const (-> third-arg :val))
         ;_ (prn "ns" (:op third-arg) ns-form)
         _ (assert ns-form (str "No ns form found for " (cu/expr-ns expr)))
         _ (assert ('#{clojure.core/ns ns} (first ns-form)) ns-form)

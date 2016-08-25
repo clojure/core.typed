@@ -199,7 +199,8 @@
          (throw (UnsupportedOperationException. (str "assoc on " '~name-sym k#)))))
      (entryAt [this# k#] (throw (UnsupportedOperationException. (str "entryAt on " '~name-sym k#))))
      (count [this#] (throw (UnsupportedOperationException. (str "count on " '~name-sym))))
-     (empty [this#] (throw (UnsupportedOperationException. (str "Can't create empty: " ~(str name-sym)))))
+     ;; hack for pr-on, don't use empty
+     (empty [this#] this#)
      (cons [this# e#] (throw (UnsupportedOperationException. (str "cons on " '~name-sym))))
      (equiv [_# ~that]
        (and (instance? ~name-sym ~that)
@@ -306,26 +307,31 @@
   (defmethod check  ...) then becomes (add-check-method ...)"
   [mm-name]
   `(defmacro ~(symbol (str "add-" mm-name "-method")) 
-     [~'nme ~'params & ~'body]
+     [~'disp ~'params & ~'body]
+     (assert (vector? ~'params)
+             ~'params)
      (let [[~'assertmap ~'body] (if (and (map? (first ~'body))
                                          (< 1 (count ~'body)))
                                   [(first ~'body) (next ~'body)]
-                                  [nil ~'body])]
+                                  [nil ~'body])
+           ~'disp-string (str (or (when (vector? ~'disp)
+                                    (first (filter symbol? ~'disp)))
+                                  "unknown"))]
        `(defmethod 
           ;the multimethod to install methods to
           ~'~mm-name 
           ;the dispatch value
-          ~~'nme
+          ~~'disp
           ;the local fn name of this defmethod, gensymed to
           ;avoid reloading conflicts
-          ~(symbol (str ~(str mm-name " ") (str ~'nme) (gensym "")))
+          ~(gensym (str ~(str mm-name) "-" ~'disp-string))
           ;the param list
           ~~'params
           ;the pre/post condition map
           ~~'assertmap
           ;the body, wrapped in a profiling macro
-          (u/p ~(keyword (str '~mm-name) (str ~'nme))
-               (trace '~(symbol (str '~mm-name) (str ~'nme)))
+          (u/p ~(keyword (str '~mm-name) (str ~'disp-string))
+               (trace '~(symbol (str '~mm-name) (str ~'disp-string)))
                ~@~'body)))))
 
 ;; Aliases for profiling stuff
