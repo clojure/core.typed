@@ -17,13 +17,8 @@
   [{:keys [statements] :as expr}]
   (let [[_ _ texpr] statements
         tsyn-quoted (ast-u/map-expr-at texpr :type)
-        _ (impl/impl-case
-            :clojure (assert (and (seq? tsyn-quoted)
-                                  ('#{quote} (first tsyn-quoted)))
-                             tsyn-quoted)
-            :cljs nil)
         tsyn (impl/impl-case
-               :clojure (second tsyn-quoted)
+               :clojure tsyn-quoted
                :cljs tsyn-quoted)]
     tsyn))
 

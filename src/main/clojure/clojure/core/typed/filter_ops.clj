@@ -429,6 +429,7 @@
 (defn -true-filter [] (-FS fr/-top fr/-bot))
 (defn -false-filter [] (-FS fr/-bot fr/-top))
 (defn -simple-filter [] (-FS fr/-top fr/-top))
+(defn -unreachable-filter [] (-FS fr/-bot fr/-bot))
 
 ;; true if f1 is implied by f2
 ;; (implied-atomic? (is Number 0) (is Integer 0)) ;=> true

@@ -28,22 +28,49 @@
   {:pre [(#{:fn} (:op expr))]}
   (assert (apply = (map count [doms rngs rests drests rngs methods]))
           (mapv count [doms rngs rests drests rngs methods]))
-  (let [cmethod-specs
+  ;(prn "check-anon")
+  ;(prn "doms" doms)
+  (let [; only ever at most one rest type. Enforced by the t/fn macro.
+        _ (assert (#{0 1} (count (remove nil? (concat rests drests)))))
+        ; fixed entries are indexed by their domain count,
+        ; :rest entry has variable arity.
+        fixed-expecteds (into {}
+                              (map (fn [dom rng rest drest]
+                                     [(if (or rest drest)
+                                        :rest
+                                        (count dom))
+                                      {:dom dom
+                                       :rng rng
+                                       :rest rest
+                                       :drest drest}])
+                                   doms
+                                   rngs
+                                   rests
+                                   drests))
+        cmethod-specs
         (mapv
-          (fn [method dom rng rest drest ret]
-            (fn-method-one/check-fn-method1 
-              method 
-              (r/make-Function dom (or (when (r/Result? rng)
-                                         (r/Result-type* rng))
-                                       r/-any) rest drest
-                               :filter (when (r/Result? rng)
-                                         (r/Result-filter* rng))
-                               :object (when (r/Result? rng)
-                                         (r/Result-object* rng))
-                               :flow (when (r/Result? rng)
-                                       (r/Result-flow* rng)))
-              :ignore-rng (not rng)))
-          methods doms rngs rests drests rngs)
+          (fn [method]
+            (let [{:keys [dom rng rest drest]
+                   :as expecteds}
+                  (get fixed-expecteds (if (ast-u/method-rest-param method)
+                                         :rest
+                                         (count (ast-u/method-required-params method))))
+                  _ (assert expecteds)]
+              ;(prn "dom" (count dom))
+              ;(prn "method args" (-> method ast-u/method-required-params count))
+              (fn-method-one/check-fn-method1 
+                method 
+                (r/make-Function dom (or (when (r/Result? rng)
+                                           (r/Result-type* rng))
+                                         r/-any) rest drest
+                                 :filter (when (r/Result? rng)
+                                           (r/Result-filter* rng))
+                                 :object (when (r/Result? rng)
+                                           (r/Result-object* rng))
+                                 :flow (when (r/Result? rng)
+                                         (r/Result-flow* rng)))
+                :ignore-rng (not rng))))
+          methods)
 
         [fs cmethods] ((juxt #(map :ftype %)
                              #(mapv :cmethod %))
@@ -169,17 +196,17 @@
     (let [fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
           poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)
           ;_ (prn "poly" poly)
-          _ (impl/impl-case
-              :clojure (do (assert (and (seq? fn-anns-quoted)
-                                    ('#{quote} (first fn-anns-quoted))))
-                           (assert (and (seq? poly-quoted)
-                                        ('#{quote} (first poly-quoted)))))
-              :cljs nil)
           fn-anns (impl/impl-case
-                    :clojure (second fn-anns-quoted)
+                    :clojure (if (seq? fn-anns-quoted)
+                               ;; unquote
+                               (second fn-anns-quoted)
+                               fn-anns-quoted)
                     :cljs fn-anns-quoted)
           poly (impl/impl-case
-                 :clojure (second poly-quoted)
+                 :clojure (if (seq? poly-quoted)
+                            ;; unquote
+                            (second poly-quoted) 
+                            poly-quoted)
                  :cljs poly-quoted)
           _ (assert (vector? fn-anns))
           self-name (cu/fn-self-name fexpr)
