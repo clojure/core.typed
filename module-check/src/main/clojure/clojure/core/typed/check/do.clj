@@ -3,6 +3,8 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
@@ -43,6 +45,7 @@
                                            (when (== (inc n) nexprs)
                                              expected))))
                           res (u/expr-type cexpr)
+                          ;_ (prn "cexpr in do" res)
                           flow (-> res r/ret-flow r/flow-normal)
                           flow-atom (atom true)
                           ;_ (prn flow)
@@ -63,13 +66,17 @@
                         (do ;(prn "Detected unreachable code")
                           (reduced [nenv (conj cexprs 
                                                (assoc cexpr 
-                                                      u/expr-type (r/ret (r/Bottom))))])))))
+                                                      u/expr-type (r/ret (r/Bottom)
+                                                                         (fo/-unreachable-filter)
+                                                                         orep/-empty
+                                                                         (r/-flow fl/-bot))))])))))
                   [(lex/lexical-env) []] (map-indexed vector exprs))
-          actual-types (map u/expr-type cexprs)
+          actual-types (mapv u/expr-type cexprs)
           _ (assert (lex/PropEnv? env))
           _ (assert ((every-pred vector? seq) cexprs)) ; make sure we conj'ed in the right order
           _ (assert ((every-pred (con/every-c? r/TCResult?) seq) actual-types))]
+      ;(prn "do actual-types" actual-types)
       (assoc expr
              :statements (ast-u/do-statements-value cexprs)
-             :ret (last cexprs)
-             u/expr-type (last actual-types))))) ;should be a r/ret already
+             :ret (peek cexprs)
+             u/expr-type (peek actual-types))))) ;should be a r/ret already

@@ -41,7 +41,7 @@
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 
-  ;:java-source-paths ["module-check/src/main/java"]
+  :java-source-paths ["module-check/src/main/java"]
   :source-paths ["module-check/src/main/clojure"
                  "module-check/src/main/cljs"
                  "module-rt/src/main/clojure"

@@ -21,7 +21,7 @@
 ;[Expr (Option TCResult) -> Expr]
 (defn check-normal-def
   "Checks a def that isn't a macro definition."
-  [check-fn {:keys [init env] :as expr} & [expected]]
+  [check-fn {:keys [meta init env] :as expr} & [expected]]
   {:post [(:init %)]}
   (let [init-provided (init-provided? expr)
         _ (assert init-provided)
@@ -39,12 +39,17 @@
                     (binding [vs/*current-env* (:env init)
                               vs/*current-expr* init]
                       (check-fn init (r/ret t))))
+            cmeta (when meta
+                    (binding [vs/*current-env* (:env meta)
+                              vs/*current-expr* meta]
+                      (check-fn meta)))
             _ (when cinit
                 ; now consider this var as checked
                 (var-env/add-checked-var-def vsym))]
         (p/p :check/checked-def)
         (assoc expr
                :init cinit
+               :meta cmeta
                u/expr-type (below/maybe-check-below
                              (impl/impl-case
                                :clojure (r/ret (c/RClass-of Var [t t])
@@ -75,6 +80,14 @@
       (let [_ (assert (not t))
             cinit (when init-provided
                     (check-fn init))
+            cmeta (when meta
+                    (binding [vs/*current-env* (:env meta)
+                              vs/*current-expr* meta
+                              ;; emit-form does not currently
+                              ;; emit :meta nodes in a :def. Don't
+                              ;; try and rewrite it, just type check.
+                              vs/*can-rewrite* false]
+                      (check-fn meta)))
             inferred (r/ret-t (u/expr-type cinit))
             _ (assert (r/Type? inferred))
             _ (when cinit
@@ -85,6 +98,7 @@
         (p/p :check/checked-def)
         (assoc expr
                :init cinit
+               :meta cmeta
                u/expr-type (below/maybe-check-below
                              (impl/impl-case
                                :clojure (r/ret (c/RClass-of Var [inferred inferred])

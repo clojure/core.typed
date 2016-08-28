@@ -26,7 +26,8 @@
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.core :as core])
+            [clojure.core :as core]
+            [clojure.core.typed.single-pass :as single])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -77,12 +78,16 @@
           nil)))
    })
 
+(defn typed-macro-lookup [var]
+  (get typed-macros var var))
+
 ;; copied from tools.analyze.jvm to insert `typed-macros`
 (defn macroexpand-1
   "If form represents a macro form or an inlineable function,returns its expansion,
    else returns form."
   ([form] (macroexpand-1 form (taj/empty-env)))
   ([form env]
+   ;(prn "macroexpand-1" form)
      (ta-env/ensure (taj/global-env)
        (cond
 
@@ -339,8 +344,10 @@
    (let [old-bindings (or (some-> bindings-atom deref) {})]
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
-       (let [ana (analyze+eval form (or env (taj/empty-env))
-                               (merge-with merge opts {:bindings (thread-bindings)}))]
+       (let [ana (single/analyze+eval form (or env (taj/empty-env))
+                               (merge-with merge opts 
+                                           {:bindings (thread-bindings)
+                                            :special-form? special-form?}))]
          ;; only record vars that were already bound
          (when bindings-atom
            (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))

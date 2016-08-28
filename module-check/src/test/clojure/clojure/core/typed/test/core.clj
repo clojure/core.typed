@@ -3539,6 +3539,9 @@
 
 (deftest anon-fn
   (is-tc-e (inc ((fn [a :- Num] a) 1)))
+  (is-tc-e (fn foo 
+             ([a :- Num] :- Num (foo 1 a))
+             ([a :- Num b :- Num] :- Num b)))
   (is-tc-e (inc ((fn foo 
                    ([a :- Num] :- Num (foo 1 a))
                    ([a :- Num b :- Num] :- Num b))
@@ -4343,6 +4346,14 @@
                [Any -> nil :filters {:then ff :else tt} :object {:id 0}]))
   (testing "def"
     (is-tc-e #(def a 1) [-> (Var1 (Val 1))])
+    ;; :dynamic metadata works
+    (is-tc-e (do (def ^:dynamic *blob* 1)
+                 (tc-ignore
+                   (assert (-> #'*blob*
+                               meta
+                               :dynamic)))))
+    ; bad metadata
+    (is-tc-err (def ^{:npe (inc nil)} a 1))
     (is-tc-err #(def a 1) [-> (Var1 (Val 2))])
     (is-tc-e #(def a 1) 
              [-> (Var1 (Val 1)) :filters {:then tt :else ff}])

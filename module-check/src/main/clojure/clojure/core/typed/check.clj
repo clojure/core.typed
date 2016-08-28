@@ -645,7 +645,7 @@
      (ast-u/dummy-const-expr ::t/ann-form env)
      (ast-u/dummy-const-expr 
        {:type (binding [vs/*verbose-types* true]
-                `'~(prs/unparse-type t))}
+                (prs/unparse-type t))}
        env)]
     expr
     env))
@@ -1483,8 +1483,8 @@
       ana-host/analyze-host-expr
       validate/validate))
 
-(add-check-method :host-interop
-  [{:keys [m-or-f target args] :as expr} & [expected]]
+(defn check-host
+  [{:keys [m-or-f target args] :as expr} expected]
   {:post [(-> % u/expr-type r/TCResult?)]}
   ;(prn "host-interop")
   (let [ctarget (check target)
@@ -1505,10 +1505,9 @@
     (if (cu/should-rewrite?)
       (let [ctarget (add-type-hints ctarget)
             cargs (mapv add-type-hints cargs)
-            nexpr (let [e (assoc expr :target ctarget)]
-                    (if cargs
-                      (assoc e :args cargs)
-                      e))
+            nexpr (assoc expr 
+                         :target ctarget
+                         :args cargs)
             ;_ (prn (-> nexpr :target ((juxt :o-tag :tag))))
             rewrite (try-resolve-reflection nexpr)]
         ;(prn "rewrite" (:op rewrite))
@@ -1521,6 +1520,14 @@
           ;; TODO field cases
           (give-up)))
       (give-up))))
+
+(add-check-method :host-interop
+  [{:keys [m-or-f target] :as expr} & [expected]]
+  (check-host expr expected))
+
+(add-check-method :host-call
+  [{:keys [m-or-f target args] :as expr} & [expected]]
+  (check-host expr expected))
 
 (defn clojure-lang-call? [^String m]
   (or 
@@ -1678,8 +1685,11 @@
     (err/int-error "clojure.lang.MultiFn constructor requires an expected type"))
   (when-not (== 4 (count args))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
-  (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
-    (err/int-error "Multimethod hierarchy cannot be customised"))
+  (let [hierarchy-expr (if (#{:quote} (:op hierarchy-expr))
+                         (:expr hierarchy-expr)
+                         hierarchy-expr)]
+    (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
+      (err/int-error "Multimethod hierarchy cannot be customised")))
   (when-not (= (:val default-expr) :default)
     (err/int-error "Non :default default dispatch value NYI"))
   (let [mm-name (:val nme-expr)
@@ -1798,16 +1808,18 @@
 
 (add-check-method :throw
   [{:keys [exception] :as expr} & [expected]]
-  (let [cexception (check exception (r/ret (c/RClass-of Throwable)))]
+  (let [cexception (check exception (r/ret (c/RClass-of Throwable)))
+        ret (below/maybe-check-below
+              (r/ret (c/Un)
+                     (fo/-FS fl/-bot fl/-bot) 
+                     obj/-empty
+                     ;never returns normally
+                     (r/-flow fl/-bot))
+              expected)]
+    ;(prn "throw ret" ret)
     (assoc expr
            :exception cexception
-           u/expr-type (below/maybe-check-below
-                         (r/ret (c/Un)
-                                (fo/-FS fl/-bot fl/-bot) 
-                                obj/-empty
-                                ;never returns normally
-                                (r/-flow fl/-bot))
-                         expected))))
+           u/expr-type ret)))
 
 (add-check-method :recur
   [{args :exprs :keys [env] :as expr} & [expected]]
@@ -1858,14 +1870,12 @@
   (def/check-def check expr expected))
 
 (add-check-method :deftype
-  [{expired-class :class-name :keys [fields methods env] :as expr} & [expected]]
-  {:pre [(class? expired-class)]
+  [{:keys [fields methods env] :as expr} & [expected]]
+  {:pre []
    :post [(-> % u/expr-type r/TCResult?)]}
   ;TODO check fields match, handle extra fields in records
-  ;(prn "Checking deftype definition:" expired-class)
   (binding [vs/*current-env* env]
-    (let [compiled-class 
-          (-> expired-class coerce/Class->symbol coerce/symbol->Class)
+    (let [compiled-class (:class-name expr)
           _ (assert (class? compiled-class))
           nme (coerce/Class->symbol compiled-class)
           field-syms (map :name fields)
@@ -1927,7 +1937,8 @@
               maybe-check-method
               (fn [{:keys [env] :as inst-method}]
                 ;; returns a vector of checked methods
-                {:post [(vector? %)]}
+                {:pre [(#{:method} (:op inst-method))]
+                 :post [(vector? %)]}
                 (if-not (check-method? inst-method)
                   [inst-method]
                   (do
@@ -1942,13 +1953,9 @@
                             ;_ (prn "inst-method" inst-method)
                             _ (assert (:this inst-method))
                             _ (assert (:params inst-method))
+                            _ (assert (:method inst-method))
                             ; minus the target arg
-                            method-sig (first (filter 
-                                                (fn [{:keys [name required-params]}]
-                                                  (and (= (count (:parameter-types inst-method))
-                                                          (count required-params))
-                                                       (#{(munge method-nme)} name)))
-                                                (:methods inst-method)))]
+                            method-sig (:method inst-method)]
                         (if-not method-sig
                           (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme)
                                                 :return [inst-method])

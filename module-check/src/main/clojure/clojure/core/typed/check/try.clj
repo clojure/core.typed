@@ -23,16 +23,21 @@
 (defn check-try [check {:keys [body catches finally] :as expr} expected]
   (let [chk #(check % expected)
         cbody (chk body)
+        ;_ (prn "cbody ret" (u/expr-type cbody))
+        ;_ (prn cbody)
         ccatches (mapv chk catches)
+        ;_ (prn "ccatches ret" (mapv u/expr-type ccatches))
         ; finally result is thrown away
         cfinally (when finally
-                   (check finally))]
+                   (check finally))
+        ret (binding [vs/*current-expr* expr]
+              (below/maybe-check-below
+                (combine-rets
+                  (map u/expr-type (concat [cbody] ccatches)))
+                expected))]
+    ;(prn "try ret" ret)
     (assoc expr
            :body cbody
            :catches ccatches
            :finally cfinally
-           u/expr-type (binding [vs/*current-expr* expr]
-                         (below/maybe-check-below
-                           (combine-rets
-                             (map u/expr-type (concat [cbody] ccatches)))
-                           expected)))))
+           u/expr-type ret)))

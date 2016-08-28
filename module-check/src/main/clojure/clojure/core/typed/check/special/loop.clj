@@ -9,14 +9,14 @@
 ; Extra the :ann annotations for loop variables and propagate to actual loop construct checking
 ; via `recur-u/*loop-bnd-anns*`.
 (defn check-special-loop
-  [check {[_ _ {{tsyns-quoted :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  [check {[_ _ third-arg :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  ; tools.analyzer preserves quotes
-  (impl/impl-case
-    :clojure (assert (and (seq? tsyns-quoted)
-                          (#{'quote} (first tsyns-quoted))))
-    :cljs nil)
-  (let [tsyns (second tsyns-quoted)
+  (let [third-arg (if (#{:quote} (:op third-arg))
+                    (:expr third-arg)
+                    third-arg)
+        _ (map? third-arg)
+        {{tsyns-quoted :ann} :val} third-arg
+        tsyns tsyns-quoted
         _ (assert (map? tsyns))
         tbindings (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (mapv (comp prs/parse-type :type) (:params tsyns)))
