@@ -225,45 +225,45 @@ static
 
 
 //symbol->localbinding
-static final public Var LOCAL_ENV = clojure.lang.Compiler.LOCAL_ENV;
+static final public Var LOCAL_ENV = Var.create(null).setDynamic();
 
 //vector<localbinding>
-static final public Var LOOP_LOCALS = clojure.lang.Compiler.LOOP_LOCALS;
+static final public Var LOOP_LOCALS = Var.create().setDynamic();
 
 //Label
-static final public Var LOOP_LABEL = clojure.lang.Compiler.LOOP_LABEL;
+static final public Var LOOP_LABEL = Var.create().setDynamic();
 
 //vector<object>
-static final public Var CONSTANTS = clojure.lang.Compiler.CONSTANTS;
+static final public Var CONSTANTS = Var.create().setDynamic();
 
 //IdentityHashMap
-static final public Var CONSTANT_IDS = clojure.lang.Compiler.CONSTANT_IDS;
+static final public Var CONSTANT_IDS = Var.create().setDynamic();
 
 //vector<keyword>
-static final public Var KEYWORD_CALLSITES = clojure.lang.Compiler.KEYWORD_CALLSITES;
+static final public Var KEYWORD_CALLSITES = Var.create().setDynamic();
 
 //vector<var>
-static final public Var PROTOCOL_CALLSITES = clojure.lang.Compiler.PROTOCOL_CALLSITES;
+static final public Var PROTOCOL_CALLSITES = Var.create().setDynamic();
 
 //set<var>
-static final public Var VAR_CALLSITES = clojure.lang.Compiler.VAR_CALLSITES;
+static final public Var VAR_CALLSITES = Var.create().setDynamic();
 
 //keyword->constid
-static final public Var KEYWORDS = clojure.lang.Compiler.KEYWORDS;
+static final public Var KEYWORDS = Var.create().setDynamic();
 
 //var->constid
-static final public Var VARS = clojure.lang.Compiler.VARS;
+static final public Var VARS = Var.create().setDynamic();
 
 //FnFrame
-static final public Var METHOD = clojure.lang.Compiler.METHOD;
+static final public Var METHOD = Var.create(null).setDynamic();
 
 //null or not
-static final public Var IN_CATCH_FINALLY = clojure.lang.Compiler.IN_CATCH_FINALLY;
+static final public Var IN_CATCH_FINALLY = Var.create(null).setDynamic();
 
-static final public Var NO_RECUR = clojure.lang.Compiler.NO_RECUR;
+static final public Var NO_RECUR = Var.create(null).setDynamic();
 
 //DynamicClassLoader
-static final public Var LOADER = clojure.lang.Compiler.LOADER;
+static final public Var LOADER = Var.create().setDynamic();
 
 //String
 static final public Var SOURCE = (Var) Clojure.var("clojure.core", "*source-path*");
@@ -325,8 +325,8 @@ static public Object getCompilerOption(Keyword k){
     }
 
 //Integer
-static final public Var LINE = clojure.lang.Compiler.LINE;
-static final public Var COLUMN = clojure.lang.Compiler.COLUMN;
+static final public Var LINE = Var.create(0).setDynamic();
+static final public Var COLUMN = Var.create(0).setDynamic();
 
 static int lineDeref(){
 	return ((Number)LINE.deref()).intValue();
@@ -337,30 +337,30 @@ static int columnDeref(){
 }
 
 //Integer
-static final public Var LINE_BEFORE = clojure.lang.Compiler.LINE_BEFORE;
-static final public Var COLUMN_BEFORE = clojure.lang.Compiler.COLUMN_BEFORE;
-static final public Var LINE_AFTER = clojure.lang.Compiler.LINE_AFTER;
-static final public Var COLUMN_AFTER = clojure.lang.Compiler.COLUMN_AFTER;
+static final public Var LINE_BEFORE = Var.create(0).setDynamic();
+static final public Var COLUMN_BEFORE = Var.create(0).setDynamic();
+static final public Var LINE_AFTER = Var.create(0).setDynamic();
+static final public Var COLUMN_AFTER = Var.create(0).setDynamic();
 
 //Integer
-static final public Var NEXT_LOCAL_NUM = clojure.lang.Compiler.NEXT_LOCAL_NUM;
+static final public Var NEXT_LOCAL_NUM = Var.create(0).setDynamic();
 
 //Integer
-static final public Var RET_LOCAL_NUM = clojure.lang.Compiler.RET_LOCAL_NUM;
+static final public Var RET_LOCAL_NUM = Var.create().setDynamic();
 
 
-static final public Var COMPILE_STUB_SYM = clojure.lang.Compiler.COMPILE_STUB_SYM;
-static final public Var COMPILE_STUB_CLASS = clojure.lang.Compiler.COMPILE_STUB_CLASS;
+static final public Var COMPILE_STUB_SYM = Var.create(null).setDynamic();
+static final public Var COMPILE_STUB_CLASS = Var.create(null).setDynamic();
 
 
 //PathNode chain
-static final public Var CLEAR_PATH = clojure.lang.Compiler.CLEAR_PATH;
+static final public Var CLEAR_PATH = Var.create(null).setDynamic();
 
 //tail of PathNode chain
-static final public Var CLEAR_ROOT = clojure.lang.Compiler.CLEAR_ROOT;
+static final public Var CLEAR_ROOT = Var.create(null).setDynamic();
 
 //LocalBinding -> Set<LocalBindingExpr>
-static final public Var CLEAR_SITES = clojure.lang.Compiler.CLEAR_SITES;
+static final public Var CLEAR_SITES = Var.create(null).setDynamic();
 
     public enum C{
 	STATEMENT,  //value ignored
