@@ -915,6 +915,21 @@
 (deftest host-emit-form
   (is (emit-form (ast (fn [a b] (.getParent a b))))))
 
+
+(deftest macroexpand-eval-test
+  (is (ast 
+        (do
+          (defmacro ^:private compile-if [test then else]
+            (if (eval test)
+              then
+              else))
+          (deftype FooFFoo []
+            Object
+            (toString [this]
+              (compile-if (resolve 'clojure.core/hash-unordered-coll)
+                          (hash-unordered-coll this)
+                          (.hashCode this))))))))
+
 #_(emit-form
 (ast
 (let* [v__4413__auto__ (def nth-path-multimethod)]
