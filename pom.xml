@@ -38,12 +38,6 @@
       <version>0.2.371</version>
       <optional>true</optional>
     </dependency>
-    <!--<dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojurescript</artifactId>
-      <version>1.9.227</version>
-      <optional>true</optional>
-    </dependency>-->
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>test.check</artifactId>

@@ -177,7 +177,7 @@
                           (when recur-target-fn
                             (recur-target-fn expected))
                           ; Otherwise, assume we are checking a regular `fn` method
-                          (recur-u/->RecurTarget dom rest drest nil))
+                          (recur-u/RecurTarget-maker dom rest drest nil))
                   _ (assert (recur-u/RecurTarget? rec))]
               (recur-u/with-recur-target rec
                 (check-fn-method1-checkfn body expected-rng))))))
@@ -209,7 +209,7 @@
                           (:name rest-param))
         
         ftype (fn-method-u/FnResult->Function 
-                (fn-method-u/->FnResult 
+                (fn-method-u/FnResult-maker
                   fixed-entry 
                   (when (and kws rest-param)
                     [rest-param-name kws])

@@ -5,7 +5,6 @@
 
   :dependencies [[org.clojure/clojure "1.9.0-alpha11"]
                  ;[org.clojure/clojurescript "1.9.227"]
-                 [org.clojure/clojurescript "0.0-2268"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.2.371"]
@@ -13,7 +12,6 @@
                  ;[org.clojure/jvm.tools.analyzer "0.6.1" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.analyzer.jvm "0.6.8"]
                  [org.clojure/tools.reader "1.0.0-beta3"]
-                 [org.clojure/core.contracts "0.0.6" :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.1.3" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.namespace "0.3.0-alpha3"]
                  [org.clojure/core.cache "0.6.4"]

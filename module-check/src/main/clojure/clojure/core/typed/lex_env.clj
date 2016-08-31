@@ -14,7 +14,7 @@
 (def prop-set? (con/set-c? fr/Filter?))
 (def alias-env? (con/hash-c? con/local-sym? obj/RObject?))
 
-(u/defrecord PropEnv [l props aliases]
+(u/def-type PropEnv [l props aliases]
   "A lexical environment l, props is a list of known propositions"
   [(lex-env? l)
    (prop-set? props)
@@ -25,7 +25,7 @@
   ([l props]
    (-PropEnv l props {}))
   ([l props aliases]
-   (->PropEnv l 
+   (PropEnv-maker l 
               (if (set? props)
                 props
                 (into #{} props))

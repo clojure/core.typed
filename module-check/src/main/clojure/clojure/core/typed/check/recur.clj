@@ -14,7 +14,7 @@
     (let [{:keys [dom rest] :as recur-target} (if-let [r recur-u/*recur-target*]
                                                 r
                                                 (err/int-error (str "No recur target")))
-          _ (assert (not ((some-fn :drest :kw) recur-target)) "NYI")
+          _ (assert (not ((some-fn :drest :kws) recur-target)) "NYI")
           fixed-args (if rest
                        (butlast args)
                        args)

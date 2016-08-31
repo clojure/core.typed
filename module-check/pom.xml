@@ -125,17 +125,6 @@
       <artifactId>core.typed.rt</artifactId>
       <version>0.3.26-SNAPSHOT</version>
     </dependency>
-    <!--<dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>jvm.tools.analyzer</artifactId>
-      <version>0.6.1</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojurescript</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>-->
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
@@ -155,17 +144,6 @@
       <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
       <version>0.3.0-alpha3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.contracts</artifactId>
-      <version>0.0.6</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

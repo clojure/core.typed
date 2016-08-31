@@ -1253,7 +1253,7 @@
          (= (count vs)
             (count ts))]}
   (into {} (for [[v t] (map vector vs ts)]
-             [v (crep/->t-subst t r/no-bounds)])))
+             [v (crep/t-subst-maker t r/no-bounds)])))
 
 (t/ann ^:no-check instantiate-typefn [TypeFn (t/Seqable r/Type) -> r/Type])
 (defn instantiate-typefn [t types & {:keys [names]
