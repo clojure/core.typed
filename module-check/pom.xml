@@ -16,7 +16,7 @@
       <plugin>
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.3.13</version>
+        <version>1.8.1</version>
         <executions>
           <execution>
             <id>clojure-compile</id>
@@ -28,14 +28,14 @@
           </execution>
         </executions>
         <configuration>
-          <vmargs>-Xmx2048m -XX:MaxPermSize=512M</vmargs>
+          <!--<vmargs>-Xmx2048m -XX:MaxPermSize=512M</vmargs>-->
           <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
           <!--<vmargs>-verbose:class</vmargs>-->
           <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
           <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
           <testDeclaredNamespaceOnly>true</testDeclaredNamespaceOnly>
           <!-- Don't put AOT files in jar -->
-          <temporaryOutputDirectory>true</temporaryOutputDirectory>
+          <temporaryOutputDirectory>false</temporaryOutputDirectory>
           <namespaces>
             <!-- depends on core.async -->
             <namespace>!cljs.core.typed.async</namespace>
@@ -71,8 +71,8 @@
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>
             <sourceDirectory>src/main/java</sourceDirectory>
-            <sourceDirectory>src/test/clojure</sourceDirectory>
             <sourceDirectory>src/main/cljs</sourceDirectory>
+            <sourceDirectory>src/test/clojure</sourceDirectory>
             <sourceDirectory>src/test/cljs</sourceDirectory>
           </sourceDirectories>
         </configuration>

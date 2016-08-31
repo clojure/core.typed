@@ -13,5 +13,9 @@
       <directory>src/main/cljs</directory>
       <outputDirectory>/</outputDirectory>
     </fileSet>
+    <fileSet>
+      <directory>src/main/java</directory>
+      <outputDirectory>/</outputDirectory>
+    </fileSet>
   </fileSets>
 </assembly>
