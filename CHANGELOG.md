@@ -1,3 +1,16 @@
+# 0.3.25 - 31 August 2016 
+
+- Use modified `clojure.lang.Compiler` as analyzer
+  instead of tools.analyzer.
+- Remove CLJS dependency
+- Add Clojure 1.9.0-alpha11 compatibility
+  - fix dependencies with spec errors
+  - update vector destructuring type checking
+    - uses seq/next instead of nthnext
+- Add runtime inference generation
+  - `runtime-infer` generates core.typed types
+  - `spec-infer` generates clojure.spec specs
+
 # 0.3.23 - 16 April 2016 
 
 Release Notes - core.typed - Version 0.3.23
