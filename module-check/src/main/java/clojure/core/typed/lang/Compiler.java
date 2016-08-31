@@ -5982,6 +5982,8 @@ public static class LocalBinding{
     public final PathNode clearPathRoot;
 	public boolean canBeCleared = !RT.booleanCast(getCompilerOption(disableLocalsClearingKey));
 	public boolean recurMistmatch = false;
+  public boolean used = false;
+
 
     public LocalBinding(int num, Symbol sym, Symbol tag, Expr init, boolean isArg,PathNode clearPathRoot)
                 {
@@ -6037,6 +6039,7 @@ public static class LocalBindingExpr implements Expr, MaybePrimitiveExpr, Assign
         this.clearPath = (PathNode)CLEAR_PATH.get();
         this.clearRoot = (PathNode)CLEAR_ROOT.get();
         IPersistentCollection sites = (IPersistentCollection) RT.get(CLEAR_SITES.get(),b);
+        b.used = true;
 
         if(b.idx > 0)
             {
@@ -6504,10 +6507,13 @@ public static class LetExpr implements Expr, MaybePrimitiveExpr{
 				gen.visitVarInsn(Type.getType(primc).getOpcode(Opcodes.ISTORE), bi.binding.idx);
 				}
 			else
-				{
-				bi.init.emit(C.EXPRESSION, objx, gen);
-				gen.visitVarInsn(OBJECT_TYPE.getOpcode(Opcodes.ISTORE), bi.binding.idx);
-				}
+        {
+        bi.init.emit(C.EXPRESSION, objx, gen);
+        if (!bi.binding.used && bi.binding.canBeCleared)
+          gen.pop();
+        else
+          gen.visitVarInsn(OBJECT_TYPE.getOpcode(Opcodes.ISTORE), bi.binding.idx);
+        }
 			bindingLabels.put(bi, gen.mark());
 			}
 		Label loopLabel = gen.mark();
