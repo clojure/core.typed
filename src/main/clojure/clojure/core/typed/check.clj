@@ -44,7 +44,6 @@
             [clojure.core.typed.check.print-env :as print-env]
             [clojure.core.typed.check.recur :as recur]
             [clojure.core.typed.check.recur-utils :as recur-u]
-            [clojure.core.typed.check.tag :as tag]
             [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.check.try :as try]
             [clojure.core.typed.check.catch :as catch]
@@ -1404,18 +1403,6 @@
   [expr expected]
   (tc-ignore/check-tc-ignore check expr expected))
 
-#_(defmethod internal-special-form ::t/tag
-  [{[_ _ {{tag :tag} :val} :as statements] :statements :keys [ret] :as expr} expected]
-  {:pre [(#{3} (count statements))]
-   :post [(-> % u/expr-type r/TCResult?)]}
-  (let [cret (binding [vs/*current-expr* ret]
-               (check ret expected))
-        _ (binding [vs/*current-expr* expr] ;check-tag overrides current-expr when needed
-            (tag/check-tag ret tag))]
-    (assoc expr
-           :ret cret
-           u/expr-type (u/expr-type cret))))
-
 (defmethod internal-special-form ::t/fn
   [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :keys [env] :as expr} expected]
   ;(prn "check special :fn" expected)
@@ -1992,7 +1979,7 @@
                                     (fn [{:keys [dom] :as f}]
                                       {:pre [(r/Function? f)]
                                        :post [(recur-u/RecurTarget? %)]}
-                                      (recur-u/->RecurTarget (rest dom) nil nil nil))
+                                      (recur-u/RecurTarget-maker (rest dom) nil nil nil))
                                     :validate-expected-fn
                                     (fn [fin]
                                       {:pre [(r/FnIntersection? fin)]}

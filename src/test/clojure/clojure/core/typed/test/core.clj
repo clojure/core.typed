@@ -898,18 +898,18 @@
                      {} ;Y
                      (-val 1) ;S
                      (make-F 'x)) ;T
-             (->cset [(make-cset-entry {'x (->c (-val 1) 'x -any no-bounds)
-                                        'y (->c (Un) 'y -any no-bounds)})])))
+             (cset-maker [(make-cset-entry {'x (c-maker (-val 1) 'x -any no-bounds)
+                                        'y (c-maker (Un) 'y -any no-bounds)})])))
   ;intersections correctly inferred
   (is-clj (= (cs-gen '#{} {'x no-bounds} '{} 
                      (-hvec [(RClass-of Number)])
                      (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
-             (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})])))
+             (cset-maker [(make-cset-entry {'x (c-maker (RClass-of Number) 'x -any no-bounds)})])))
 ;correct RClass ancestor inference
   (is-clj (= (cs-gen #{} {'x no-bounds} {} 
                      (RClass-of IPersistentVector [(RClass-of Number)])
                      (RClass-of Seqable [(make-F 'x)]))
-             (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})]))))
+             (cset-maker [(make-cset-entry {'x (c-maker (RClass-of Number) 'x -any no-bounds)})]))))
 
 (deftest subst-gen-test
   (let [cs (clj (cs-gen #{} ;V
@@ -918,8 +918,8 @@
                         (-val 1) ;S
                         (make-F 'x)))]
     (is-clj (= (subst-gen cs #{} (make-F 'x))
-           {'x (->t-subst (-val 1) no-bounds)
-            'y (->t-subst (Un) no-bounds)}))))
+           {'x (t-subst-maker (-val 1) no-bounds)
+            'y (t-subst-maker (Un) no-bounds)}))))
 
 (deftest infer-test
   (is-clj (clj

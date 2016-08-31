@@ -4,7 +4,7 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(u/defrecord RecurTarget [dom rest drest kws]
+(u/def-type RecurTarget [dom rest drest kws]
   "A target for recur"
   [(every? r/Type? dom)
    ((some-fn nil? r/Type?) rest)

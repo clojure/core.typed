@@ -5,19 +5,13 @@
             [clojure.core.typed.impl-protocols :as ps]
             [clojure.core.typed.ast-utils :as au]
             [clojure.core.typed.errors :as err]
-            [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
-            [clojure.core.contracts]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as profiling]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.java.io :as io]))
-
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
 
 (t/ann ^:no-check taoensso.timbre/logging-enabled? [t/Any -> t/Any])
 (t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 t/Any))
@@ -47,43 +41,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-; Temp copy from core.contracts. Faster predicates.
-;(defmacro defconstrainedrecord
-;  [name slots inv-description invariants & etc]
-;  (let [fields (vec slots)
-;        ns-part (namespace-munge *ns*)
-;        classname (symbol (str ns-part "." name))
-;        ctor-name (symbol (str name \.))
-;        positional-factory-name (symbol (str "->" name))
-;        map-arrow-factory-name (symbol (str "map->" name))
-;        pred-arg (gensym)
-;        chk `(clojure.core.contracts/contract
-;                ~(symbol (str "chk-" name))
-;                ~inv-description
-;                [{:keys ~fields :as m#}]
-;                ~invariants)]
-;    `(do
-;       (clojure.core/defrecord ~name ~fields ~@etc)
-;       (defn ~(symbol (str name \?)) [~pred-arg]
-;         (instance? ~name ~pred-arg))
-;
-;       ~(@#'clojure.core.contracts.constraints/build-positional-factory name classname fields invariants chk)
-;
-;       (clojure.core.contracts.constraints/defconstrainedfn ~map-arrow-factory-name
-;         ([{:keys ~fields :as m#}]
-;            ~invariants
-;            (with-meta
-;              (merge (new ~name ~@(for [e fields] nil)) m#)
-;              {:contract ~chk})))
-;       ~name)))
-
-;FIXME prefer def-utils.clj version
-(defmacro defrecord [name slots inv-description invariants & etc]
-  ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
-  (when-not (resolve name)
-    `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
-
-;FIXME prefer def-utils.clj version
 (defmacro defprotocol [name & args]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)

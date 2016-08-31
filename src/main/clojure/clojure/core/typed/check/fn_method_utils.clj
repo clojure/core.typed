@@ -13,7 +13,7 @@
 (defonce ^:dynamic *check-fn-method1-rest-type* nil)
 
 ;lam-result in TR
-(u/defrecord FnResult [args kws rest drest body]
+(u/def-type FnResult [args kws rest drest body]
   "Results of checking a fn method"
   [(every? symbol? (map first args))
    (every? r/Type? (map second args))

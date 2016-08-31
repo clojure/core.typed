@@ -77,7 +77,7 @@
 (defn join [s t] (c/Un s t))
 
 (t/ann c-meet (t/IFn [c c (t/U nil t/Sym) -> c]
-                  [c c -> c]))
+                     [c c -> c]))
 (defn c-meet 
   ([c1 c2] (c-meet c1 c2 nil))
   ([{S  :S X  :X T  :T bnds  :bnds :as c1}
@@ -94,7 +94,7 @@
          ]
      (when-not (subtype? S T)
        (fail! S T))
-     (cr/->c S (or var X) T bnds))))
+     (cr/c-maker S (or var X) T bnds))))
 
 (declare dmap-meet)
 
@@ -111,11 +111,12 @@
                                {map2 :fixed dmap2 :dmap} :- cset-entry, maps2]
                               :- (t/U false cset-entry)
                               (handle-failure
-                                (cr/->cset-entry (merge-with c-meet map1 map2)
-                                                 (dmap-meet dmap1 dmap2))))))]
+                                (cr/cset-entry-maker
+                                  (merge-with c-meet map1 map2)
+                                  (dmap-meet dmap1 dmap2))))))]
     (when (empty? maps)
       (fail! maps1 maps2))
-    (cr/->cset maps))))
+    (cr/cset-maker maps))))
 
 (t/ann cset-meet* [(t/U nil (t/Seqable cset)) -> cset])
 (defn cset-meet* [args]
@@ -123,7 +124,7 @@
    :post [(cr/cset? %)]}
   (u/p :cs-gen/cset-meet*
   (reduce cset-meet
-          (cr/->cset [(cr/->cset-entry {} (cr/->dmap {}))])
+          (cr/cset-maker [(cr/cset-entry-maker {} (cr/dmap-maker {}))])
           args)))
 
 (t/ann cset-combine [(t/U nil (t/Seqable cset)) -> cset])
@@ -134,7 +135,7 @@
                    l)]
     (-> mapss
         (t/ann-form (t/Seqable (t/U nil (t/Seqable cset-entry)))))
-    (cr/->cset (apply concat mapss))))
+    (cr/cset-maker (apply concat mapss))))
 
 ;add new constraint to existing cset
 (t/ann insert-constraint [cset t/Sym r/Type r/Type Bounds -> cset])
@@ -145,12 +146,14 @@
          (r/Type? T)
          (r/Bounds? bnds)]
    :post [(cr/cset? %)]}
-  (cr/->cset (doall
-               (t/for
-                 [{fmap :fixed dmap :dmap} :- cset-entry, (:maps cs)]
-                 :- cset-entry
-                 (cr/->cset-entry (assoc fmap var (cr/->c S var T bnds))
-                                  dmap)))))
+  (cr/cset-maker 
+    (doall
+      (t/for
+        [{fmap :fixed dmap :dmap} :- cset-entry, (:maps cs)]
+        :- cset-entry
+        (cr/cset-entry-maker 
+          (assoc fmap var (cr/c-maker S var T bnds))
+          dmap)))))
 
 ; FIXME no-checked because of massive performance issues. revisit
 (t/ann ^:no-check dcon-meet [cr/DCon cr/DCon -> cr/DCon])
@@ -167,7 +170,7 @@
           {fixed2 :fixed rest2 :rest} dc2]
       (when-not (and rest2 (= (count fixed1) (count fixed2)))
         (fail! fixed1 fixed2))
-      (cr/->dcon-exact
+      (cr/dcon-exact-maker
         (doall
           (let [vector' (t/ann-form vector [c c -> '[c c]])]
             (t/for
@@ -188,7 +191,7 @@
           {fixed2 :fixed} dc2]
       (when-not (= (count fixed1) (count fixed2))
         (fail! fixed1 fixed2))
-      (cr/->dcon
+      (cr/dcon-maker
         (doall
           (for [[c1 c2] (map vector fixed1 fixed2)]
             (c-meet c1 c2 (:X c1))))
@@ -202,7 +205,7 @@
       (assert rest)
       (when-not (>= (count fixed1) (count fixed2))
         (fail! fixed1 fixed2))
-      (cr/->dcon
+      (cr/dcon-maker
         (let [vector' (t/inst vector c c t/Any t/Any t/Any t/Any)]
           (doall
             (t/for
@@ -224,7 +227,7 @@
           (if (< (count fixed1) (count fixed2))
             [fixed1 fixed2 rest1 rest2]
             [fixed2 fixed1 rest2 rest1])]
-      (cr/->dcon
+      (cr/dcon-maker
         (let [vector' (t/inst vector c c t/Any t/Any t/Any t/Any)]
           (doall
             (t/for
@@ -240,13 +243,14 @@
       (when-not (and (= (count fixed1) (count fixed2))
                      (= bound1 bound2))
         (fail! bound1 bound2))
-      (cr/->dcon-dotted (let [vector' (t/inst vector c c t/Any t/Any t/Any t/Any)]
-                          (doall 
-                            (t/for
-                              [[c1 c2] :- '[c c], (map vector' fixed1 fixed2)]
-                              :- c
-                              (c-meet c1 c2 (:X c1)))))
-                        (c-meet c1 c2 bound1) bound1))
+      (cr/dcon-dotted-maker 
+        (let [vector' (t/inst vector c c t/Any t/Any t/Any t/Any)]
+          (doall 
+            (t/for
+              [[c1 c2] :- '[c c], (map vector' fixed1 fixed2)]
+              :- c
+              (c-meet c1 c2 (:X c1)))))
+        (c-meet c1 c2 bound1) bound1))
 
     (and (cr/dcon? dc1)
          (cr/dcon-dotted? dc2))
@@ -263,7 +267,7 @@
   {:pre [(cr/dmap? dm1)
          (cr/dmap? dm2)]
    :post [(cr/dmap? %)]}
-  (cr/->dmap (merge-with dcon-meet (:map dm1) (:map dm2))))
+  (cr/dmap-maker (merge-with dcon-meet (:map dm1) (:map dm2))))
 
 
 ;current seen subtype relations, for recursive types
@@ -1122,7 +1126,7 @@
 
 (t/ann singleton-dmap [t/Sym cr/DCon -> dmap])
 (defn singleton-dmap [dbound dcon]
-  (cr/->dmap {dbound dcon}))
+  (cr/dmap-maker {dbound dcon}))
 
 (t/ann mover [cset t/Sym (t/U nil (t/Seqable t/Sym)) [cr/CMap cr/DMap -> cr/DCon] -> cset])
 (defn mover [cset dbound vars f]
@@ -1130,15 +1134,17 @@
          (symbol? dbound)
          (every? symbol? vars)]
    :post [(cr/cset? %)]}
-  (cr/->cset (map
-               (t/fn [{cmap :fixed dmap :dmap} :- cset-entry]
-                 (cr/->cset-entry (apply dissoc cmap dbound vars)
-                                  (dmap-meet 
-                                    (singleton-dmap 
-                                      dbound
-                                      (f cmap dmap))
-                                    (cr/->dmap (dissoc (:map dmap) dbound)))))
-               (:maps cset))))
+  (cr/cset-maker
+    (map
+      (t/fn [{cmap :fixed dmap :dmap} :- cset-entry]
+        (cr/cset-entry-maker
+          (apply dissoc cmap dbound vars)
+          (dmap-meet 
+            (singleton-dmap 
+              dbound
+              (f cmap dmap))
+            (cr/dmap-maker (dissoc (:map dmap) dbound)))))
+      (:maps cset))))
 
 ;; dbound : index variable
 ;; cset : the constraints being manipulated
@@ -1151,7 +1157,7 @@
    :post [(cr/cset? %)]}
   (mover cset dbound nil
          (fn [cmap dmap]
-           ((if exact cr/->dcon-exact cr/->dcon)
+           ((if exact cr/dcon-exact-maker cr/dcon-maker)
               nil
               (if-let [c (cmap dbound)]
                 c
@@ -1172,7 +1178,7 @@
    :post [(cr/cset? %)]}
   (mover cset dbound vars
          (fn [cmap dmap]
-           (cr/->dcon (doall (t/for [v :- t/Sym, vars] :- c
+           (cr/dcon-maker (doall (t/for [v :- t/Sym, vars] :- c
                                (if-let [c (cmap v)]
                                  c
                                  (err/int-error (str "No constraint for new var " v)))))
@@ -1194,7 +1200,7 @@
    :post [(cr/cset? %)]}
   (mover cset dbound vars
          (fn [cmap dmap]
-           ((if exact cr/->dcon-exact cr/->dcon)
+           ((if exact cr/dcon-exact-maker cr/dcon-maker)
               (doall
                 (for [v vars]
                   (if-let [c (cmap v)]
@@ -1443,7 +1449,7 @@
                            {:pre [(symbol? v)]}
                            (if (fi-R v)
                              (err/int-error "attempted to demote dotted variable")
-                             (cr/->i-subst nil)))]
+                             (cr/i-subst-maker nil)))]
                   ;; absent-entries is false if there's an error in the substitution, otherwise
                   ;; it's a list of variables that don't appear in the substitution
                   (let [absent-entries
@@ -1470,12 +1476,12 @@
                                           [missing
                                            (case var
                                              (:constant :covariant :invariant) (demote-check-free missing)
-                                             :contravariant (cr/->i-subst-starred nil r/-any))])))
+                                             :contravariant (cr/i-subst-starred-maker nil r/-any))])))
                                 S))))))]
 
-      (let [{cmap :fixed dmap* :dmap :keys [delayed-checks]} (if-let [c (-> C :maps first)]
-                                                               c
-                                                               (err/int-error "No constraints found"))
+      (let [{cmap :fixed dmap* :dmap} (if-let [c (-> C :maps first)]
+                                        c
+                                        (err/int-error "No constraints found"))
             ; Typed Racket arbitrarily picks the first constraint here, we follow.
             ;
             ;_ (when-not (= 1 (count (:maps C))) 
@@ -1487,32 +1493,36 @@
                         [[k dc] :- '[t/Sym cr/DCon], dm] :- '[t/Sym cr/SubstRHS]
                         (cond
                           (and (cr/dcon? dc) (not (:rest dc)))
-                          [k (cr/->i-subst (doall
+                          [k (cr/i-subst-maker (doall
                                           (for [f (:fixed dc)]
                                             (constraint->type f idx-hash :variable k))))]
                           (and (cr/dcon? dc) (:rest dc))
-                          [k (cr/->i-subst-starred (doall
-                                                  (for [f (:fixed dc)]
-                                                    (constraint->type f idx-hash :variable k)))
-                                                (constraint->type (:rest dc) idx-hash))]
+                          [k (cr/i-subst-starred-maker 
+                               (doall
+                                 (for [f (:fixed dc)]
+                                   (constraint->type f idx-hash :variable k)))
+                               (constraint->type (:rest dc) idx-hash))]
                           (cr/dcon-exact? dc)
-                          [k (cr/->i-subst-starred (doall
-                                                  (for [f (:fixed dc)]
-                                                    (constraint->type f idx-hash :variable k)))
-                                                (constraint->type (:rest dc) idx-hash))]
+                          [k (cr/i-subst-starred-maker 
+                               (doall
+                                 (for [f (:fixed dc)]
+                                   (constraint->type f idx-hash :variable k)))
+                               (constraint->type (:rest dc) idx-hash))]
                           (cr/dcon-dotted? dc)
-                          [k (cr/->i-subst-dotted (doall
-                                                 (for [f (:fixed dc)]
-                                                   (constraint->type f idx-hash :variable k)))
-                                               (constraint->type (:dc dc) idx-hash :variable k)
-                                               (:dbound dc))]
+                          [k (cr/i-subst-dotted-maker
+                               (doall
+                                 (for [f (:fixed dc)]
+                                   (constraint->type f idx-hash :variable k)))
+                               (constraint->type (:dc dc) idx-hash :variable k)
+                               (:dbound dc))]
                           :else (err/int-error (prn-str "What is this? " dc)))))
 
                     (into {}
                       (t/for
                         [[k v] :- '[t/Sym c], cmap] :- '[t/Sym cr/SubstRHS]
-                        [k (cr/->t-subst (constraint->type v var-hash)
-                                         (:bnds v))])))
+                        [k (cr/t-subst-maker
+                             (constraint->type v var-hash)
+                             (:bnds v))])))
             ;check delayed constraints and type variable bounds
             _ (let [t-substs (into {} (filter (t/fn [[_ v] :- '[t/Sym cr/SubstRHS]]
                                                 (cr/t-subst? v)) 
@@ -1520,15 +1530,6 @@
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
                                       (map (comp :type second) s)])]
-                ;(prn delayed-checks)
-                (t/doseq [[S T] :- '[r/AnyType r/AnyType], delayed-checks]
-                  (let [S* (subst/substitute-many S images names)
-                        T* (subst/substitute-many T images names)]
-                    ;(prn "delayed" (map prs/unparse-type [S* T*]))
-                    (when-not (subtype? S* T*)
-                      (fail! S T))
-                            #_(str "Delayed check failed"
-                                 (mapv prs/unparse-type [S T]))))
                 (t/doseq [[nme {inferred :type :keys [bnds]}] :- '[t/Sym t-subst], t-substs]
                   (when (some r/TypeFn? [(:upper-bound bnds) (:lower-bound bnds)]) (err/nyi-error "Higher kinds"))
                   (let [lower-bound (subst/substitute-many (:lower-bound bnds) images names)

@@ -12,19 +12,19 @@
 
 (u/ann-record t-subst [type :- r/Type,
                        bnds :- Bounds])
-(u/defrecord t-subst [type bnds]
+(u/def-type t-subst [type bnds]
   ""
   [(r/Type? type)
    (r/Bounds? bnds)])
 
 (u/ann-record i-subst [types :- (t/U nil (t/Seqable r/Type))])
-(u/defrecord i-subst [types]
+(u/def-type i-subst [types]
   ""
   [(every? r/Type? types)])
 
 (u/ann-record i-subst-starred [types :- (t/U nil (t/Seqable r/Type)),
                                starred :- r/Type])
-(u/defrecord i-subst-starred [types starred]
+(u/def-type i-subst-starred [types starred]
   ""
   [(every? r/Type? types)
    (r/Type? starred)])
@@ -32,7 +32,7 @@
 (u/ann-record i-subst-dotted [types :- (t/U nil (t/Seqable r/Type)),
                               dty :- r/Type,
                               dbound :- F])
-(u/defrecord i-subst-dotted [types dty dbound]
+(u/def-type i-subst-dotted [types dty dbound]
   ""
   [(or (nil? types)
        (every? r/Type? types))
@@ -58,7 +58,7 @@
                  X :- clojure.lang.Symbol,
                  T :- r/Type,
                  bnds :- Bounds])
-(u/defrecord c [S X T bnds]
+(u/def-type c [S X T bnds]
   "A type constraint on a variable within an upper and lower bound"
   [(r/Type? S)
    (symbol? X)
@@ -72,14 +72,14 @@
 ;; and further instantions of the index variable must respect the rest constraint, if it exists
 (u/ann-record dcon [fixed :- (t/U nil (t/Seqable c))
                     rest :- (t/U nil c)])
-(u/defrecord dcon [fixed rest]
+(u/def-type dcon [fixed rest]
   ""
   [(every? c? fixed)
    ((some-fn nil? c?) rest)])
 
 (u/ann-record dcon-exact [fixed :- (t/U nil (t/Seqable c)),
                           rest :- c])
-(u/defrecord dcon-exact [fixed rest]
+(u/def-type dcon-exact [fixed rest]
   ""
   [(every? c? fixed)
    (c? rest)])
@@ -87,7 +87,7 @@
 (u/ann-record dcon-dotted [fixed :- (t/U nil (t/Seqable c)),
                            dc :- c,
                            dbound :- F])
-(u/defrecord dcon-dotted [fixed dc dbound]
+(u/def-type dcon-dotted [fixed dc dbound]
   ""
   [(every? c? fixed)
    (c? dc)
@@ -100,7 +100,7 @@
 
 ;; map : hash mapping index variables to dcons
 (u/ann-record dmap [map :- (t/Map t/Sym DCon)])
-(u/defrecord dmap [map]
+(u/def-type dmap [map]
   ""
   [((con/hash-c? symbol? dcon-c?) map)])
 
@@ -120,7 +120,7 @@
 
 (u/ann-record cset-entry [fixed :- CMap
                           dmap :- DMap])
-(u/defrecord cset-entry [fixed dmap]
+(u/def-type cset-entry [fixed dmap]
   ""
   [((con/hash-c? symbol? c?) fixed)
    (dmap? dmap)])
@@ -129,8 +129,8 @@
                            [(t/Map t/Sym c) (t/U nil dmap) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil))
-  ([fixed dmap] (->cset-entry fixed
-                              (or dmap (->dmap {})))))
+  ([fixed dmap] (cset-entry-maker fixed
+                              (or dmap (dmap-maker {})))))
 
 ;; maps is a list of cset-entries, consisting of
 ;;    - functional maps from vars to c's
@@ -139,7 +139,7 @@
 ;; because case-lambda can generate multiple possible solutions, and we
 ;; don't want to rule them out too early
 (u/ann-record cset [maps :- (t/U nil (t/Seqable cset-entry))])
-(u/defrecord cset [maps]
+(u/def-type cset [maps]
   ""
   [(every? cset-entry? maps)])
 
@@ -149,7 +149,7 @@
 (defn no-constraint [v bnds]
   {:pre [(symbol? v)
          (r/Bounds? bnds)]}
-  (->c r/-nothing v r/-any bnds))
+  (c-maker r/-nothing v r/-any bnds))
 
 (t/defalias FreeBnds 
   "A map of free variable names to their bounds."
@@ -162,5 +162,5 @@
 (defn empty-cset [X Y]
   {:pre [(every? (con/hash-c? symbol? r/Bounds?) [X Y])]
    :post [(cset? %)]}
-  (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
-                         (->dmap {}))]))
+  (cset-maker [(cset-entry-maker (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
+                                 (dmap-maker {}))]))

@@ -110,7 +110,7 @@
 
              cbody (var-env/with-lexical-env env
                      (if is-loop
-                       (binding [recur-u/*recur-target* (recur-u/->RecurTarget expected-bnds nil nil nil)]
+                       (binding [recur-u/*recur-target* (recur-u/RecurTarget-maker expected-bnds nil nil nil)]
                          (check body expected))
                        (binding [vs/*current-expr* body]
                          (check body expected))))
