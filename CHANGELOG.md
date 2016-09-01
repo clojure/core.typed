@@ -1,3 +1,8 @@
+# 0.3.26 - 31 August 2016 
+
+- remove core.contracts dependency
+- include AOT files in org.clojure/core.typed jar
+
 # 0.3.25 - 31 August 2016 
 
 - Use modified `clojure.lang.Compiler` as analyzer
