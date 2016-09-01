@@ -589,6 +589,60 @@
   ;; avoid NPE for list*
   (is (track (atom {}) '() [])))
 
+(defmacro try-prim [invoke-args & body]
+  (let [name (gensym)]
+    `(do (defn ~name ~@body)
+         (alter-var-root 
+           (var ~name)
+           (constantly
+             (track-var ~name)))
+         (~name ~@invoke-args))))
+
+(deftest track-prim-fn
+  (is (=
+       :ok
+       (try-prim
+         [1]
+         [^long a]
+         :ok)))
+  (is (=
+       10
+       (try-prim
+         [1 'a]
+         ^long [^long a ^Object b]
+         10)))
+  (is (=
+       10
+       (try-prim
+         []
+         ^long []
+         10)))
+  (is (=
+       10.5
+       (try-prim
+         []
+         ^double []
+         10.5)))
+  (is (=
+       :ok
+       (try-prim
+         [1]
+         (^double [] 10.5)
+         (^Object [^long a] :ok))))
+  (is (=
+       10.5
+       (try-prim
+         []
+         (^double [] 10.5)
+         (^Object [^long a] :ok))))
+  )
+
+(deftest mini-occ-test
+  (is 
+    (do
+      (require 'clojure.core.typed.test.mini-occ :reload)
+      :ok)))
+
 (defn anns-from-tenv [tenv]
   (let [ns (create-ns (gensym))]
     (binding [*ann-for-ns* (constantly ns)

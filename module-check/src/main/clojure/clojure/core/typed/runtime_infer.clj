@@ -9,6 +9,7 @@
             [clojure.core.typed.debug :refer [dbg]]
             [clojure.tools.reader.reader-types :as rdrt]
             [clojure.tools.namespace.parse :as nprs]
+            [clojure.math.combinatorics :as comb]
             [clojure.core.typed.coerce-utils :as coerce]))
 
 #_
@@ -1837,6 +1838,141 @@
                (add-infer-result! results-atom (infer-result path (-class (class v) [])))
                v)))))
 
+(def prim-invoke-interfaces
+  (into #{}
+        (->>
+          (map (fn [ss] (apply str ss))
+               (apply concat
+                      (for [n (range 1 6)]
+                        (apply comb/cartesian-product (repeat n [\D \O \L])))))
+          (remove (fn [ss]
+                    (every? #{\O} ss))))))
+
+(defn char->tag [c]
+  {:pre [(char? c)]
+   :post [(symbol? %)]}
+  (case c
+    \L 'long
+    \D 'double
+    \O 'java.lang.Object))
+
+(defn tag->char [t]
+  {:pre [((some-fn nil? symbol?) t)]
+   :post [(char? %)]}
+  (case t
+    long \L
+    double \D
+    \O))
+
+(defn gen-prim-invokes [f-this prims]
+  ;(prn "gen-prim-invokes" prims)
+  (mapcat
+    (fn [p]
+      {:pre [(string? p)]}
+      (let [args (into []
+                       (map-indexed
+                         (fn [n c]
+                           (-> (symbol (str "arg" n))
+                               #_(vary-meta 
+                                 assoc :tag (char->tag c)))))
+                       (butlast p))
+            interface (symbol (str "clojure.lang.IFn$" p))
+            rettag (char->tag (nth p (dec (count p))))
+            ;_ (prn "rettag" rettag)
+            this (gensym 'this)
+            argvec (-> (vec (cons this args))
+                       #_(vary-meta assoc :tag rettag))]
+        #_
+        (binding [*print-meta* true]
+          (prn "argvec" argvec))
+        [interface
+         (list 'invokePrim argvec
+               `(~(f-this this) ~@(map #(with-meta % nil) args)))]))
+    prims))
+
+(defn gen-nonvariadic-invokes [f-this]
+  (for [arity (range 0 20),
+        :let [args (repeatedly arity gensym)
+              this (gensym 'this)]]
+    `(~'invoke [~this ~@args]
+       (~(f-this this) ~@args))))
+
+(defn gen-variadic-invoke [f-this]
+  (let [args (repeatedly 21 gensym)
+        this (gensym 'this)]
+    `(~'invoke [~this ~@args] (apply ~(f-this this) ~@args))))
+
+(defn gen-apply-to [f-this]
+  (let [this (gensym 'this)]
+    `(~'applyTo [~this args#] (apply ~(f-this this) args#))))
+
+(defn extend-IFn [f-this prims]
+  `(clojure.lang.IFn
+    ~@(gen-nonvariadic-invokes f-this)
+    ~(gen-variadic-invoke f-this)
+    ~(gen-apply-to f-this)
+    ~@(gen-prim-invokes f-this prims)))
+
+(defmacro deftypefn
+  "Like deftype, but accepts a function f before any specs that is
+  used to implement clojure.lang.IFn.  f should accept at least one
+  argument, 'this'."
+  [name prims & opts+specs]
+  (let [field 'f
+        f-this (fn [this]
+                 (list '. this (symbol (str "-" field))))
+        source `(deftype ~name [~field]
+                  ~@(extend-IFn f-this prims)
+                  ~@opts+specs)]
+    #_
+    (binding [*print-meta* true]
+      (pprint source))
+    source))
+
+(def this-ns *ns*)
+
+(defn arglist-prim-string [args]
+  {:pre [(vector? args)]
+   :post [((some-fn nil? string?) %)]}
+  (let [s (apply str
+            (concat
+              (->> args
+                   (map (comp :tag meta))
+                   (map tag->char))
+              [(tag->char (-> args meta :tag))]))]
+    (when (prim-invoke-interfaces s)
+      s)))
+
+(defn wrap-prim [vr f]
+  {:pre [(var? vr)]}
+  ;(prn "wrap-prim" vr)
+  (let [prim-arglists 
+        (sort
+          (->> (-> vr meta :arglists)
+               (map arglist-prim-string)
+               (filter string?)))]
+    (cond
+      (seq prim-arglists)
+      (let [type-name (symbol
+                        (str "PrimFn"
+                             (apply str
+                                    (interpose
+                                      "_"
+                                      prim-arglists))))
+            ;_ (prn "type-name" type-name)
+            cls (or #_(ns-resolve this-ns type-name)
+                    (binding [*ns* this-ns]
+                      (eval
+                        `(deftypefn ~type-name ~prim-arglists))))
+            _ (assert (class? cls))
+            ctor (ns-resolve this-ns 
+                             (symbol
+                               (str "->" type-name)))
+            _ (assert (var? ctor))]
+        (ctor f))
+      
+      :else f)))
+
 ; track-var : (IFn [Var -> Value] [(Atom Result) Var Sym -> Value])
 (defn track-var'
   ([vr] (track-var' results-atom vr *ns*))
@@ -1844,9 +1980,11 @@
    {:pre [(var? vr)
           (instance? clojure.lang.IAtom results-atom)]}
    ;(prn "tracking" vr "in ns" ns)
-   (track results-atom @vr [(var-path
-                              (ns-name ns)
-                              (impl/var->symbol vr))])))
+   (wrap-prim
+     vr
+     (track results-atom @vr [(var-path
+                                (ns-name ns)
+                                (impl/var->symbol vr))]))))
 
 (defmacro track-var [v]
   `(track-var' (var ~v)))
@@ -1855,9 +1993,14 @@
 (defn track-def-init [vsym ns val]
   {:pre [(symbol? vsym)
          (namespace vsym)]}
-  (track results-atom val [{:op :var
-                            :ns (ns-name ns)
-                            :name vsym}]))
+  ;(prn "track-def-init")
+  (let [v (ns-resolve ns vsym)]
+    ;(prn v)
+    (wrap-prim
+      v
+      (track results-atom val [{:op :var
+                                :ns (ns-name ns)
+                                :name vsym}]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Analysis compiler pass
