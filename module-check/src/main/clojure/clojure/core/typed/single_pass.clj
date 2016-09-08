@@ -709,6 +709,7 @@
           method-name (symbol (.methodName expr))
           tag (ju/maybe-class (.tag expr))
           c (.c expr)]
+      (assert (class? c))
       (merge
         {:op :static-call
          :env (env-location env expr)
@@ -716,12 +717,12 @@
                           (meta (.form expr)))
          :method method-name
          :args args
+         :class c
          :tag tag
          :o-tag tag
          :children [:args]}
         (when method
           {:validated? true
-           :class c
            :reflected-method method}))))
 
   Compiler$InstanceMethodExpr
@@ -805,6 +806,7 @@
           tag (ju/maybe-class (.tag expr))
           c (.c expr)
           fstr (.fieldName expr)]
+      (assert (class? c))
       (merge
         {:op :static-field
          :form (with-meta
