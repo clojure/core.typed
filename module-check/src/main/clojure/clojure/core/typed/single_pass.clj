@@ -1434,21 +1434,19 @@
           interfaces (remove
                        #{Object}
                        (concat
-                         (map (fn [^java.lang.reflect.Method m]
-                                (.getDeclaringClass m))
-                              (vals (.mmap expr)))
+                         (.interfaces expr)
                          [clojure.lang.IType]))
           tag (.getJavaClass expr)]
+      (assert (every? class? interfaces))
       ;(prn :compiled-class (.compiledClass expr))
       ;(prn :internal-name (.internalName expr))
       ;(prn :this-name (.thisName expr))
       ;(prn "name" name)
-      ;(prn "mmap" (field Compiler$NewInstanceExpr mmap expr))
+      ;(prn "mmap" (.mmap expr))
       {:op (if reify? :reify :deftype)
        :form src
        :name name
-       :env (env-location env expr
-                          (.form expr))
+       :env (env-location env expr (.form expr))
        :methods methods
        :fields fields
        :class-name class-name

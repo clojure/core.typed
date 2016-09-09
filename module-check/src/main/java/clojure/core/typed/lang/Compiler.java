@@ -7728,6 +7728,7 @@ public static Object compile(Reader rdr, String sourcePath, String sourceName) t
 static public class NewInstanceExpr extends ObjExpr{
 	//IPersistentMap optionsMap = PersistentArrayMap.EMPTY;
 	public IPersistentCollection methods;
+  public PersistentVector interfaces;
 
 	public Map<IPersistentVector,java.lang.reflect.Method> mmap;
 	Map<IPersistentVector,Set<Class>> covariants;
@@ -7842,6 +7843,7 @@ static public class NewInstanceExpr extends ObjExpr{
 		Map<IPersistentVector,Set<Class>> covariants = mc[1];
 		ret.mmap = overrideables;
 		ret.covariants = covariants;
+    ret.interfaces = interfaces;
 		
 		String[] inames = interfaceNames(interfaces);
 
