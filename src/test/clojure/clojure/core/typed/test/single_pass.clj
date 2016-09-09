@@ -930,13 +930,52 @@
                           (hash-unordered-coll this)
                           (.hashCode this))))))))
 
+(deftest newmaptype-test
+  (is (emit-form
+        (ast
+            (deftype Impasdfdsf []
+              clojure.lang.MapEquivalence))))
+  (is (contains?
+        (:result
+          (ast
+            (do
+              (deftype Impls []
+                clojure.lang.MapEquivalence)
+              (supers Impls))))
+        clojure.lang.MapEquivalence))
+  (is (:result
+        (ast
+          (do
+            (deftype MyMap [m]
+              clojure.lang.MapEquivalence
+              java.util.Map
+              (containsKey [this k]
+                (contains? m k))
+              (size [this]
+                (count m))
+              (get [this k]
+                (get m k))
+              clojure.lang.IPersistentMap
+              (equiv [this that]
+                (= m that))
+              (seq [this]
+                (seq m)))
+            (and
+              (=
+               (MyMap. {:a 1})
+               {:a 1})
+              (=
+               {:a 1}
+               (MyMap. {:a 1}))))))))
+
 #_(emit-form
 (ast
 (let* [v__4413__auto__ (def nth-path-multimethod)]
   (clojure.core/when-not 
     (clojure.core/and (.hasRoot v__4413__auto__) 
                       (clojure.core/instance? clojure.lang.MultiFn (clojure.core/deref v__4413__auto__))) 
-    (def nth-path-multimethod (new clojure.lang.MultiFn "nth-path-multimethod" first :default #'clojure.core/global-hierarchy))))
+    (def nth-path-multimethod 
+      (new clojure.lang.MultiFn "nth-path-multimethod" first :default #'clojure.core/global-hierarchy))))
 ))
 
 #_(defmacro juxt-ast [f]
