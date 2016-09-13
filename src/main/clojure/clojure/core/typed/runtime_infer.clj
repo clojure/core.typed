@@ -1690,12 +1690,15 @@
     (instance? clojure.lang.ITransientCollection v) :transient
     :else :other))
 
+(def ^:dynamic *should-track* true)
+
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
   ([results-atom v path]
    {:pre [(vector? path)]}
    (let []
      (cond
+       (not *should-track*) v
        ;; only accurate up to 20 arguments.
        ;; all arities 21 and over will collapse into one.
        (fn? v) (let [;; if this is never called, remember it is actually a function
@@ -1762,7 +1765,8 @@
                              (conj path (transient-vector-entry)))]
                (if (identical? e e')
                  v
-                 (assoc! v i e'))))
+                 (binding [*should-track* false]
+                   (assoc! v i e')))))
            v
            (range cnt)))
 
@@ -1776,7 +1780,8 @@
              (let [v' (track results-atom v (conj path (index-path len k)))]
                (if (identical? v v')
                  e
-                 (assoc e k v'))))
+                 (binding [*should-track* false]
+                   (assoc e k v')))))
            v
            v))
 
@@ -1789,10 +1794,12 @@
                            (-class clojure.lang.IPersistentSet
                                    [{:op :union :types #{}}]))))
          ;; preserve sorted sets
-         (into (empty v)
-               (map (fn [e]
-                      (track results-atom e (conj path (set-entry)))))
-               v))
+         (binding [*should-track* false]
+           (into (empty v)
+                 (map (fn [e]
+                        (binding [*should-track* true]
+                          (track results-atom e (conj path (set-entry))))))
+                 v)))
 
        ;; maps with keyword keys
        (and (or (instance? clojure.lang.PersistentHashMap v)
@@ -1814,7 +1821,8 @@
                ;; only assoc if needed
                (if (identical? v orig-v)
                  m
-                 (assoc m k v))))
+                 (binding [*should-track* false]
+                   (assoc m k v)))))
            v
            ks))
 
