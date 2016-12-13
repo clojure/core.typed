@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed-pom</artifactId>
   <version>0.3.29-SNAPSHOT</version>
-  <name>${project.artifactId}</name>
+  <name>core.typed-pom</name>
   <description>An optional type system for Clojure</description>
   <packaging>pom</packaging>
 
@@ -82,7 +82,7 @@
       <plugin>
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.3.13</version>
+        <version>1.7.1</version>
         <executions>
           <execution>
             <id>clojure-compile</id>
