@@ -211,7 +211,9 @@
   (let [field (try (.getDeclaredField (class expr) "column")
                 (catch Exception e))]
     (when field
-      {:column (field-accessor (class expr) 'column expr)})))
+      (let [n (field-accessor (class expr) 'column expr)]
+        (when (integer? n)
+          {:column n})))))
 
 (defn- when-line-map [expr]
   (let [^java.lang.reflect.Method
