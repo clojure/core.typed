@@ -188,6 +188,14 @@
     e
     (throw (Exception. "Failure"))))
 
+(defn should-infer-vars? [expr]
+  (-> (cu/expr-ns expr)
+      find-ns
+      meta
+      :core.typed
+      :experimental
+      (contains? :infer-vars)))
+
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
   {:pre [(var? var)]}
@@ -225,12 +233,7 @@
 
         ;; :infer-vars are enabled for this namespace, this
         ;; var dereference is the dynamic type
-        (-> (cu/expr-ns expr)
-            find-ns
-            meta
-            :core.typed
-            :experimental
-            (contains? :infer-vars))
+        (should-infer-vars? expr)
         (assoc expr
                u/expr-type (below/maybe-check-below
                              (r/ret (r/-unchecked vsym))
@@ -257,6 +260,9 @@
         t (cond
             t t
             macro? r/-any
+            ;; :infer-vars are enabled for this namespace, this
+            ;; var object is the dynamic type
+            (should-infer-vars? expr) (r/-unchecked id)
             :else (err/tc-delayed-error (str "Untyped var reference: " id
                                            "\nHint: Add the annotation for " id
                                            " via check-ns or cf")

@@ -27,3 +27,4 @@
           {:pre [(integer? a)]}
           (inc a))
         [1 2 3])
+(inc @#'u/bar)
