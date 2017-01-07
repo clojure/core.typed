@@ -420,7 +420,7 @@
 (deftest StaticFieldExpr-test
   (is 
     (= 
-      #{:o-tag :tag :validated? :raw-forms}
+      #{:o-tag :tag :validated? :raw-forms :line :column}
       (leaf-diff 
         (dissoc (ast Long/MAX_VALUE)
                 :reflected-field)
