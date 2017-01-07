@@ -247,8 +247,8 @@
 (defn- env-location 
   ([env expr & [form]]
    (merge env
-          ;(when-line-map expr)
-          ;(when-column-map expr)
+          (when-line-map expr)
+          (when-column-map expr)
           (when-form-meta form)
           ;; only adds the suffix of the path
           #_(when-source-map expr))))
