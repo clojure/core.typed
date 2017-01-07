@@ -4537,8 +4537,34 @@ static public class ObjExpr implements Expr{
 			ctorgen.visitCode();
 			ctorgen.loadThis();
 			ctorgen.loadArgs();
-			for(int i=0;i<altCtorDrops;i++)
-				ctorgen.visitInsn(Opcodes.ACONST_NULL);
+
+			ctorgen.visitInsn(Opcodes.ACONST_NULL); //__meta
+			ctorgen.visitInsn(Opcodes.ACONST_NULL); //__extmap
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hash
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hasheq
+
+			ctorgen.invokeConstructor(objtype, new Method("<init>", Type.VOID_TYPE, ctorTypes));
+
+			ctorgen.returnValue();
+			ctorgen.endMethod();
+
+            // alt ctor no __hash, __hasheq
+			altCtorTypes = new Type[ctorTypes.length-2];
+			for(int i=0;i<altCtorTypes.length;i++)
+				altCtorTypes[i] = ctorTypes[i];
+
+			alt = new Method("<init>", Type.VOID_TYPE, altCtorTypes);
+			ctorgen = new GeneratorAdapter(ACC_PUBLIC,
+															alt,
+															null,
+															null,
+															cv);
+			ctorgen.visitCode();
+			ctorgen.loadThis();
+			ctorgen.loadArgs();
+
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hash
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hasheq
 
 			ctorgen.invokeConstructor(objtype, new Method("<init>", Type.VOID_TYPE, ctorTypes));
 
@@ -7823,7 +7849,11 @@ static public class NewInstanceExpr extends ObjExpr{
 			//use array map to preserve ctor order
 			ret.closes = new PersistentArrayMap(closesvec);
 			ret.fields = fmap;
-			for(int i=fieldSyms.count()-1;i >= 0 && (((Symbol)fieldSyms.nth(i)).getName().equals("__meta") || ((Symbol)fieldSyms.nth(i)).getName().equals("__extmap"));--i)
+			for(int i=fieldSyms.count()-1;i >= 0 && (((Symbol)fieldSyms.nth(i)).getName().equals("__meta")
+                                                     || ((Symbol)fieldSyms.nth(i)).getName().equals("__extmap")
+                                                     || ((Symbol)fieldSyms.nth(i)).getName().equals("__hash")
+                                                     || ((Symbol)fieldSyms.nth(i)).getName().equals("__hasheq")
+                                                     );--i)
 				ret.altCtorDrops++;
 			}
 		//todo - set up volatiles
@@ -7968,8 +7998,35 @@ static public class NewInstanceExpr extends ObjExpr{
 			ctorgen.visitCode();
 			ctorgen.loadThis();
 			ctorgen.loadArgs();
-			for(int i=0;i<ret.altCtorDrops;i++)
-				ctorgen.visitInsn(Opcodes.ACONST_NULL);
+
+			ctorgen.visitInsn(Opcodes.ACONST_NULL); //__meta
+			ctorgen.visitInsn(Opcodes.ACONST_NULL); //__extmap
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hash
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hasheq
+
+			ctorgen.invokeConstructor(Type.getObjectType(COMPILE_STUB_PREFIX + "/" + ret.internalName),
+			                          new Method("<init>", Type.VOID_TYPE, ctorTypes));
+
+			ctorgen.returnValue();
+			ctorgen.endMethod();
+
+            // alt ctor no __hash, __hasheq
+			altCtorTypes = new Type[ctorTypes.length-2];
+			for(int i=0;i<altCtorTypes.length;i++)
+				altCtorTypes[i] = ctorTypes[i];
+
+			alt = new Method("<init>", Type.VOID_TYPE, altCtorTypes);
+			ctorgen = new GeneratorAdapter(ACC_PUBLIC,
+															alt,
+															null,
+															null,
+															cv);
+			ctorgen.visitCode();
+			ctorgen.loadThis();
+			ctorgen.loadArgs();
+
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hash
+			ctorgen.visitInsn(Opcodes.ICONST_0); //__hasheq
 
 			ctorgen.invokeConstructor(Type.getObjectType(COMPILE_STUB_PREFIX + "/" + ret.internalName),
 			                          new Method("<init>", Type.VOID_TYPE, ctorTypes));
@@ -8064,9 +8121,11 @@ static public class NewInstanceExpr extends ObjExpr{
 							}
 						}
 
-				mv.visitInsn(ACONST_NULL);
-				mv.visitVarInsn(ALOAD, 0);
+				mv.visitInsn(ACONST_NULL); //__meta
+				mv.visitVarInsn(ALOAD, 0); //__extmap
 				mv.visitMethodInsn(INVOKESTATIC, "clojure/lang/RT", "seqOrElse", "(Ljava/lang/Object;)Ljava/lang/Object;");
+				mv.visitInsn(ICONST_0); //__hash
+				mv.visitInsn(ICONST_0); //__hasheq
 				mv.visitMethodInsn(INVOKESPECIAL, className, "<init>", ctor.getDescriptor());
 				mv.visitInsn(ARETURN);
 				mv.visitMaxs(4+fieldCount, 1+fieldCount);
