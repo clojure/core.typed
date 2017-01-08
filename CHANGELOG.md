@@ -1,3 +1,17 @@
+# 0.3.29 - 7 January 2016 
+
+- CTYP-318: ensure :class in :static-method
+- CTYP-319: preserve interfaces in deftype
+- CTYP-320: Don't track internals of track
+- CTYP-294: add :infer-vars and :infer-locals :experimental features
+- improve line numbers in errors
+- update Clojure to 1.9-alpha14
+- update Compiler.java port
+
+# 0.3.{27,28} - 1 September 2016 
+
+- instrument primitive functions for runtime inference (CTYP-316)
+
 # 0.3.26 - 31 August 2016 
 
 - remove core.contracts dependency
