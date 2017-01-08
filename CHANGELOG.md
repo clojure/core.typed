@@ -1,9 +1,25 @@
 # 0.3.29 - 7 January 2016 
 
-- CTYP-318: ensure :class in :static-method
-- CTYP-319: preserve interfaces in deftype
-- CTYP-320: Don't track internals of track
-- CTYP-294: add :infer-vars and :infer-locals :experimental features
+Release Notes - core.typed - Version 0.3.29
+
+<h2>        Defect
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-318'>CTYP-318</a>] -         Ensure :static-method has :class entry
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-319'>CTYP-319</a>] -         Single-pass compiler misses interfaces
+</li>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-320'>CTYP-320</a>] -         Don&#39;t track internals of track implementation
+</li>
+</ul>
+    
+<h2>        Enhancement
+</h2>
+<ul>
+<li>[<a href='http://dev.clojure.org/jira/browse/CTYP-294'>CTYP-294</a>] -         Infer untyped vars via unsafe Dyn-like type
+</li>
+</ul>
+
 - improve line numbers in errors
 - update Clojure to 1.9-alpha14
 - update Compiler.java port
