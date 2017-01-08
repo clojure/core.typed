@@ -1944,9 +1944,12 @@
         (not= expected-field-syms 
               ; remove implicit __meta and __extmap fields
               (if (c/isa-Record? compiled-class)
-                (drop-last 2 field-syms)
+                (remove cu/record-hidden-fields field-syms)
                 field-syms))
-        (err/tc-delayed-error (str "deftype " nme " fields do not match annotation. "
+        (err/tc-delayed-error (str (if (c/isa-Record? compiled-class)
+                                     "Record "
+                                     "Datatype ")
+                                   nme " fields do not match annotation. "
                                  " Expected: " (vec expected-field-syms)
                                  ", Actual: " (vec field-syms))
                             :return ret-expr)
