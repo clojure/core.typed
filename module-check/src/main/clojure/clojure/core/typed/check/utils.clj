@@ -146,6 +146,9 @@
      assoc iterator seq entryAt containsKey equiv cons empty count getLookupThunk valAt
      withMeta meta equals hashCode hasheq})
 
+(def record-hidden-fields
+  '#{__meta __extmap __hash __hasheq})
+
 (declare symbol->PArray)
 
 ;[t/Sym Boolean -> Type]
