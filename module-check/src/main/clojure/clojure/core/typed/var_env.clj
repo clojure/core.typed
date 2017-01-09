@@ -9,21 +9,14 @@
             [clojure.set :as set]
             [clojure.core.typed.env :as env]))
 
-(def current-var-annotations-kw ::current-var-annotations)
-(def current-nocheck-var?-kw ::current-nocheck-var?)
-(def current-used-vars-kw ::current-used-vars)
-(def current-checked-var-defs-kw ::current-checked-var-defs)
-(def cljs-jsvar-annotations-kw ::cljs-jsvar-annotations)
-(def untyped-var-annotations-kw ::untyped-var-annotations)
-
 (defn clj-var-annotations []
-  (get @(impl/clj-checker) current-var-annotations-kw {}))
+  (get @(impl/clj-checker) impl/current-var-annotations-kw {}))
 
 (defn clj-nocheck-var? []
-  (get @(impl/clj-checker) current-nocheck-var?-kw {}))
+  (get @(impl/clj-checker) impl/current-nocheck-var?-kw {}))
 
 (defn clj-used-vars []
-  (get @(impl/clj-checker) current-used-vars-kw {}))
+  (get @(impl/clj-checker) impl/current-used-vars-kw {}))
 
 (def var-annotations-con (con/hash-c? (every-pred symbol? namespace) (some-fn delay? r/Type?)))
 (def nocheck-var-con (con/set-c? (every-pred symbol? namespace)))
@@ -37,42 +30,38 @@
 
 (defn var-annotations []
   {:post [(map? %)]}
-  (get (env/deref-checker) current-var-annotations-kw {}))
+  (get (env/deref-checker) impl/current-var-annotations-kw {}))
 
-(defn var-no-checks []
-  {:post [(set? %)]}
-  (get (env/deref-checker) current-nocheck-var?-kw #{}))
+(def var-no-checks impl/var-no-checks)
 
 (defn used-vars []
   {:post [(set? %)]}
-  (get (env/deref-checker) current-used-vars-kw #{}))
+  (get (env/deref-checker) impl/current-used-vars-kw #{}))
 
 (defn checked-vars []
   {:post [(set? %)]}
-  (get (env/deref-checker) current-checked-var-defs-kw #{}))
+  (get (env/deref-checker) impl/current-checked-var-defs-kw #{}))
 
 (defn untyped-var-annotations []
   {:post [(map? %)]}
-  (get (env/deref-checker) untyped-var-annotations-kw {}))
+  (get (env/deref-checker) impl/untyped-var-annotations-kw {}))
 
 (defn add-var-type [sym type]
   (when-let [old-t ((var-annotations) sym)]
-    (when (not= old-t type)
-      (println "WARNING: Duplicate var annotation: " sym)
-      (flush)))
-  (env/swap-checker! assoc-in [current-var-annotations-kw sym] type)
+    ;; if old type is realized, it's probably been
+    ;; used. We should force the new type to ensure
+    ;; it's the same.
+    (when (and (delay? old-t)
+               (realized? old-t))
+      (when (not= (force old-t) (force type))
+        (println "WARNING: Duplicate var annotation: " sym)
+        (flush))))
+  (env/swap-checker! assoc-in [impl/current-var-annotations-kw sym] type)
   nil)
 
-(defn add-untyped-var [nsym sym t]
-  {:pre [(symbol? nsym)
-         (symbol? sym)
-         (r/Type? t)]
-   :post [(nil? %)]}
-  (env/swap-checker! assoc-in [untyped-var-annotations-kw nsym sym] t)
-  nil)
+(def add-untyped-var impl/add-untyped-var)
 
-(defn check-var? [sym]
-  (not (contains? (var-no-checks) sym)))
+(def check-var? impl/check-var?)
 
 (defn checked-var-def? [sym]
   (contains? (checked-vars) sym))
@@ -80,20 +69,15 @@
 (defn used-var? [sym]
   (contains? (used-vars) sym))
 
-(defn add-nocheck-var [sym]
-  (env/swap-checker! update current-nocheck-var?-kw (fnil conj #{}) sym)
-  nil)
-
-(defn remove-nocheck-var [sym]
-  (env/swap-checker! update current-nocheck-var?-kw (fnil disj #{}) sym)
-  nil)
+(def add-nocheck-var impl/add-nocheck-var)
+(def remove-nocheck-var impl/remove-nocheck-var)
 
 (defn add-used-var [sym]
-  (env/swap-checker! update current-used-vars-kw (fnil conj #{}) sym)
+  (env/swap-checker! update impl/current-used-vars-kw (fnil conj #{}) sym)
   nil)
 
 (defn add-checked-var-def [sym]
-  (env/swap-checker! update current-checked-var-defs-kw (fnil conj #{}) sym)
+  (env/swap-checker! update impl/current-checked-var-defs-kw (fnil conj #{}) sym)
   nil)
 
 (defn vars-with-unchecked-defs []
@@ -102,19 +86,28 @@
                   (var-no-checks)))
 
 (defn reset-current-var-annotations! [m]
-  (env/swap-checker! assoc current-var-annotations-kw m)
+  (env/swap-checker! assoc impl/current-var-annotations-kw m)
+  nil)
+
+(defn merge-current-var-annotations! [m]
+  {:pre [(map? m)]}
+  (env/swap-checker! update impl/current-var-annotations-kw merge m)
   nil)
 
 (defn reset-current-nocheck-var?! [nocheck]
-  (env/swap-checker! assoc current-nocheck-var?-kw nocheck)
+  (env/swap-checker! assoc impl/current-nocheck-var?-kw nocheck)
+  nil)
+
+(defn merge-current-nocheck-var?! [nocheck]
+  (env/swap-checker! update impl/current-nocheck-var?-kw (fnil into #{}) nocheck)
   nil)
 
 (defn reset-current-used-vars! [s]
-  (env/swap-checker! assoc current-used-vars-kw s)
+  (env/swap-checker! assoc impl/current-used-vars-kw s)
   nil)
 
 (defn reset-current-checked-var-defs! [s]
-  (env/swap-checker! assoc current-checked-var-defs-kw s)
+  (env/swap-checker! assoc impl/current-checked-var-defs-kw s)
   nil)
 
 (defn reset-var-type-env! [m nocheck]
@@ -124,15 +117,22 @@
   (reset-current-checked-var-defs! #{})
   nil)
 
+(defn refresh-var-type-env! [m nocheck]
+  (merge-current-var-annotations! m)
+  (merge-current-nocheck-var?! nocheck)
+  (reset-current-used-vars! #{})
+  (reset-current-checked-var-defs! #{})
+  nil)
+
 (defn reset-jsvar-type-env! [m]
   {:pre [(cljs-jsvar-annotations-con m)]
    :post [(nil? %)]}
-  (env/swap-checker! assoc cljs-jsvar-annotations-kw m)
+  (env/swap-checker! assoc impl/cljs-jsvar-annotations-kw m)
   nil)
 
 (defn jsvar-annotations []
   {:post [(map? %)]}
-  (get (env/deref-checker) cljs-jsvar-annotations-kw {}))
+  (get (env/deref-checker) impl/cljs-jsvar-annotations-kw {}))
 
 (defn lookup-Var-nofail [nsym]
   {:post [((some-fn nil? r/Type?) %)]}
@@ -174,4 +174,5 @@
               (r/Type? %))]}
   (some-> (untyped-var-annotations)
           (get nsym)
-          (get sym)))
+          (get sym)
+          force))

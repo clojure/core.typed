@@ -67,6 +67,10 @@
   (let [alias-env (init-alias-env)]
     (nme-env/reset-name-env! alias-env)))
 
+(defn refresh-core-alias-env! []
+  (let [alias-env (init-alias-env)]
+    (nme-env/merge-name-env! alias-env)))
+
 (delay-and-cache-env ^:private init-protocol-env 
                      {}
    #_(protocol-mappings
@@ -1860,10 +1864,13 @@ clojure.lang.Delay (All [x]
                         [[-> x] -> (clojure.lang.Delay x)])
     ))
 
+;; not added in refresh
 (delay-and-cache-env ^:private init-declared-kinds {})
 
+;; not added in refresh
 (delay-and-cache-env ^:private init-datatype-env {})
 
+;; not added in refresh
 (delay-and-cache-env ^:private init-datatype-ancestor-env {})
 
 (defn reset-clojure-envs! []
@@ -1889,4 +1896,23 @@ clojure.lang.Delay (All [x]
      (init-datatype-env))
     ((v 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!)
      (init-datatype-ancestor-env)))
+  nil)
+
+(defn refresh-core-clojure-envs! []
+  (impl/with-clojure-impl
+    (refresh-core-alias-env!)
+    ((v 'clojure.core.typed.protocol-env/merge-protocol-env!) 
+     (init-protocol-env))
+    ((v 'clojure.core.typed.var-env/refresh-var-type-env!)
+     (init-var-env) 
+     (init-var-nochecks))
+    ((v 'clojure.core.typed.method-param-nilables/merge-method-nilable-param-env!)
+     (init-method-nilable-param-env))
+    ((v 'clojure.core.typed.method-return-nilables/merge-nonnilable-method-return-env!) 
+     (init-method-nonnilable-return-env))
+    ((v 'clojure.core.typed.method-override-env/merge-method-override-env!)
+     (init-method-override-env))
+    ((v 'clojure.core.typed.ctor-override-env/merge-constructor-override-env!) 
+     (init-ctor-override-env))
+    )
   nil)

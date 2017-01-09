@@ -28,7 +28,7 @@
   (let [f (-> nsym coerce/ns->file)
         ns (ns-form-for-file f)]
     (or ns
-        (err/warn (str "File for " nsym " not found on classpath: " f)))))
+        (err/int-error (str "File for " nsym " not found on classpath: " f)))))
 
 (defn ns-form-deps
   "Given a ns-form, returns a set of dependencies"

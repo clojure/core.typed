@@ -13,10 +13,6 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 (t/defalias NameEnv
   "Environment mapping names to types. Keyword values are special."
   (t/Map t/Sym (t/U t/Kw r/Type)))
@@ -24,20 +20,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
 
-(t/ann-many t/Kw 
-            declared-name-type 
-            protocol-name-type 
-            datatype-name-type)
-
-(def declared-name-type ::declared-name)
-(def protocol-name-type ::protocol-name)
-(def datatype-name-type ::datatype-name)
-
 (t/ann temp-binding t/Kw)
 (def temp-binding ::temp-binding)
 
 (t/tc-ignore
-(doseq [k [declared-name-type protocol-name-type datatype-name-type]]
+(doseq [k [impl/declared-name-type impl/protocol-name-type impl/datatype-name-type]]
   (derive k temp-binding))
   )
 
@@ -47,21 +34,24 @@
                                         symbol?)
                             (some-fn r/Type? #(isa? % temp-binding))))
 
-(def current-name-env-kw ::current-name-env)
-
 (t/ann ^:no-check name-env [-> NameEnv])
 (defn name-env []
-  (get (env/deref-checker) current-name-env-kw {}))
+  (get (env/deref-checker) impl/current-name-env-kw {}))
 
 (t/ann ^:no-check update-name-env! [NameEnv -> nil])
 (defn update-name-env! [nme-env]
-  (env/swap-checker! update current-name-env-kw
+  (env/swap-checker! update impl/current-name-env-kw
                      (fnil merge {}) nme-env)
   nil)
 
 (t/ann ^:no-check reset-name-env! [NameEnv -> nil])
 (defn reset-name-env! [nme-env]
-  (env/swap-checker! assoc current-name-env-kw nme-env)
+  (env/swap-checker! assoc impl/current-name-env-kw nme-env)
+  nil)
+
+(defn merge-name-env! [nme-env]
+  {:pre [(map? nme-env)]}
+  (env/swap-checker! update impl/current-name-env-kw merge nme-env)
   nil)
 
 (t/ann get-type-name [t/Any -> (t/U nil t/Kw r/Type)])
@@ -69,47 +59,34 @@
   "Return the name with var symbol sym.
   Returns nil if not found."
   [sym]
-  (get (name-env) sym))
+  {:post [(or (nil? %)
+              (keyword? %)
+              (r/Type? %))]}
+  (force (get (name-env) sym)))
 
 (t/ann ^:no-check add-type-name [t/Sym (t/U t/Kw r/Type) -> nil])
-(defn add-type-name [sym ty]
-  (env/swap-checker! assoc-in
-                     [current-name-env-kw sym]
-                     (if (r/Type? ty)
-                       (vary-meta ty assoc :from-name sym)
-                       ty))
-  nil)
+(def add-type-name impl/add-tc-type-name)
 
 (t/ann declare-name* [t/Sym -> nil])
-(defn declare-name* [sym]
-  {:pre [(symbol? sym)
-         (namespace sym)]}
-  (add-type-name sym declared-name-type)
-  nil)
+(def declare-name* impl/declare-name*)
 
 (t/ann declared-name? [t/Any -> t/Any])
 (defn declared-name? [sym]
-  (= declared-name-type (get-type-name sym)))
+  (= impl/declared-name-type (get-type-name sym)))
 
 (t/ann declare-protocol* [t/Sym -> nil])
-(defn declare-protocol* [sym]
-  {:pre [(symbol? sym)
-         (namespace sym)]}
-  (add-type-name sym protocol-name-type)
-  nil)
+(def declare-protocol* impl/declare-protocol*)
 
 (t/ann declared-protocol? [t/Any -> t/Any])
 (defn declared-protocol? [sym]
-  (= protocol-name-type (get-type-name sym)))
+  (= impl/protocol-name-type (get-type-name sym)))
 
 (t/ann declare-datatype* [t/Sym -> nil])
-(defn declare-datatype* [sym]
-  (add-type-name sym datatype-name-type)
-  nil)
+(def declare-datatype* impl/declare-datatype*)
 
 (t/ann declared-datatype? [t/Any -> t/Any])
 (defn declared-datatype? [sym]
-  (= datatype-name-type (get-type-name sym)))
+  (= impl/datatype-name-type (get-type-name sym)))
 
 (t/ann ^:no-check resolve-name* [t/Sym -> r/Type])
 (defn resolve-name* [sym]
@@ -131,9 +108,9 @@
     (if tfn
       tfn
       (cond
-        (= protocol-name-type t) (prenv/resolve-protocol sym)
-        (= datatype-name-type t) (dtenv/resolve-datatype sym)
-        (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
+        (= impl/protocol-name-type t) (prenv/resolve-protocol sym)
+        (= impl/datatype-name-type t) (dtenv/resolve-datatype sym)
+        (= impl/declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
         (r/Type? t) (vary-meta t assoc :source-Name sym)
         :else (err/int-error (str "Cannot resolve name " (pr-str sym)
                                   (when t

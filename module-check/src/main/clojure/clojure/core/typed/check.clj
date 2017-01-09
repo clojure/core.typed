@@ -74,9 +74,6 @@
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.lex-env :as lex]
-            [clojure.core.typed.method-override-env :as mth-override]
-            [clojure.core.typed.method-param-nilables :as mtd-param-nil]
-            [clojure.core.typed.method-return-nilables :as mtd-ret-nil]
             [clojure.core.typed.mm-env :as mm]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-options :as ns-opts]
@@ -102,9 +99,6 @@
             [clojure.pprint :as pprint]
             [clojure.repl :as repl])
   (:import (clojure.lang IPersistentMap Var Seqable)))
-
-(alter-meta! *ns* assoc :skip-wiki true
-             :core.typed {:collect-only true})
 
 (t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (t/U nil t/Sym))
 (t/ann ^:no-check clojure.core.typed.util-vars/*already-checked* (t/U nil (t/Atom1 (t/Vec t/Sym))))
@@ -1796,7 +1790,7 @@
                           (let [clssym (-> expr
                                            ast-u/new-op-class 
                                            coerce/Class->symbol)]
-                            (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
+                            (or (ctor-override/get-constructor-override clssym)
                                 (and (dt-env/get-datatype clssym)
                                      (cu/DataType-ctor-type clssym))
                                 (when-let [ctor (cu/NewExpr->Ctor expr)]
@@ -1887,7 +1881,18 @@
 ;; Multimethods
 
 (add-check-method :def
-  [expr & [expected]]
+  [{:keys [var env] :as expr} & [expected]]
+  ; annotation side effect
+  (let [prs-ns (cu/expr-ns expr)]
+    (let [mvar (meta var)
+          qsym (coerce/var->symbol var)]
+      (when-let [[_ tsyn] (find mvar :ann)]
+        (let [ann-type (binding [vs/*current-env* env
+                                 prs/*parse-type-in-ns* prs-ns]
+                         (prs/parse-type tsyn))]
+          (var-env/add-var-type qsym ann-type)))
+      (when (:no-check mvar)
+        (var-env/add-nocheck-var qsym))))
   (def/check-def check expr expected))
 
 (add-check-method :deftype

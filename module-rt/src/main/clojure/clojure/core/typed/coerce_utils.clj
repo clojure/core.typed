@@ -4,8 +4,6 @@
             [clojure.core.typed.current-impl :as impl])
   (:import (clojure.lang RT Var)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ;(t/ann symbol->Class [Symbol -> Class])
 (defn symbol->Class 
   "Returns the Class represented by the symbol. Works for

@@ -1171,6 +1171,13 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro declare-datatypes 
   "Declare datatypes, similar to declare but on the type level."
   [& syms]
+  (impl/with-clojure-impl
+    (doseq [sym syms]
+      (assert (not (or (some #(= \. %) (str sym))
+                       (namespace sym)))
+              (str "Cannot declare qualified datatype: " sym))
+      (let [qsym (symbol (str (munge (name (ns-name *ns*))) \. (name sym)))]
+        (impl/declare-datatype* qsym))))
   `(declare-datatypes* '~syms))
 
 (defn ^:skip-wiki
@@ -1206,6 +1213,11 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro declare-names 
   "Declare names, similar to declare but on the type level."
   [& syms]
+  (assert (every? (every-pred symbol? (complement namespace)) syms)
+          "declare-names only accepts unqualified symbols")
+  (let [nsym (ns-name *ns*)]
+    (doseq [sym syms]
+      (impl/declare-name* (symbol (str nsym) (str sym)))))
   `(declare-names* '~syms))
 
 (defn ^:skip-wiki
@@ -1225,24 +1237,61 @@ for checking namespaces, cf for checking individual forms."}
                                              @Compiler/COLUMN)}]
        ~@body)))
 
-(defmacro ^:private delay-parse 
+(defmacro ^:private delay-rt-parse
   "We can type check c.c.t/parse-ast if we replace all instances
   of parse-ast in clojure.core.typed with delay-parse. Otherwise
   there is a circular dependency."
   [t]
   `(let [t# ~t
-         app-outer-context# (bound-fn* (fn [f# t#] (f# t#)))]
+         app-outer-context# (bound-fn [f# t#] (f# t#))]
      (delay
        (require '~'clojure.core.typed.parse-ast)
        (let [parse-clj# (impl/v '~'clojure.core.typed.parse-ast/parse-clj)]
          (app-outer-context# parse-clj# t#)))))
 
-(defn ^:skip-wiki add-to-alias-env [form qsym t]
+(defmacro ^:private delay-tc-parse
+  [t]
+  `(let [t# ~t
+         app-outer-context# (bound-fn [f#] (f#))]
+     (delay
+       (require '~'clojure.core.typed.parse-unparse)
+       (let [parse-clj# (impl/v '~'clojure.core.typed.parse-unparse/parse-clj)
+             with-parse-ns*# (impl/v '~'clojure.core.typed.parse-unparse/with-parse-ns*)]
+         (app-outer-context#
+           (fn []
+             (with-parse-ns*#
+               (ns-name *ns*)
+               #(parse-clj# t#))))))))
+
+(defn ^:skip-wiki add-to-rt-alias-env [form qsym t]
   (impl/with-impl impl/clojure
     (impl/add-alias-env
       qsym
       (with-current-location form
-        (delay-parse t))))
+        (delay-rt-parse t))))
+  nil)
+
+(defn ^:skip-wiki add-tc-type-name [form qsym t]
+  (impl/with-impl impl/clojure
+    (let [;; preserve *ns*
+          bfn (bound-fn [f] (f))
+          t (delay
+              (let [t (bfn
+                        #(with-current-location form
+                           @(delay-tc-parse t)))
+                    _ (require 'clojure.core.typed.subtype
+                               'clojure.core.typed.declared-kind-env)
+                    declared-kind-or-nil (impl/v 'clojure.core.typed.declared-kind-env/declared-kind-or-nil)
+                    unparse-type (impl/v 'clojure.core.typed.parse-unparse/unparse-type)
+                    subtype? (impl/v 'clojure.core.typed.subtype/subtype?)
+                    _ (impl/with-impl impl/clojure
+                        (when-let [tfn (declared-kind-or-nil qsym)]
+                          (when-not (subtype? t tfn)
+                            (err/int-error (str "Declared kind " (unparse-type tfn)
+                                                " does not match actual kind " (unparse-type t))))))
+                    ]
+                t))]
+      (impl/add-tc-type-name qsym t)))
   nil)
 
 (defmacro
@@ -1303,16 +1352,7 @@ for checking namespaces, cf for checking individual forms."}
      &form
      'def-alias
      'defalias)
-   (let [qsym (if (namespace sym)
-                sym
-                (symbol (-> *ns* ns-name str) (str sym)))
-         m (-> (meta sym)
-             (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
-     `(do
-        (tc-ignore (add-to-alias-env '~&form '~qsym '~t))
-        (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
-          (tc-ignore (alter-meta! v# merge '~m)))
-        (def-alias* '~qsym '~t)))))
+   `(defalias ~sym ~t)))
 
 (defmacro defalias 
   "Define a recursive type alias. Takes an optional doc-string as a second
@@ -1338,9 +1378,10 @@ for checking namespaces, cf for checking individual forms."}
                       update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t))))
          qsym (-> (symbol (-> *ns* ns-name str) (str sym))
                   (with-meta (meta m)))]
+     (add-to-rt-alias-env &form qsym t)
+     (add-tc-type-name &form qsym t)
      `(do
         (declare ~sym)
-        (tc-ignore (add-to-alias-env '~&form '~qsym '~t))
         (def-alias* '~qsym '~t)))))
 
 #_(defmacro tag
@@ -1694,6 +1735,8 @@ for checking namespaces, cf for checking individual forms."}
   eg. ; must use full class name
       (non-nil-return java.lang.Class/getDeclaredMethod :all)"
   [msym arities]
+  (impl/with-clojure-impl
+    (impl/add-nonnilable-method-return msym arities))
   `(non-nil-return* '~msym '~arities))
 
 (defn ^:skip-wiki
@@ -1711,6 +1754,8 @@ for checking namespaces, cf for checking individual forms."}
   positions (integers). If the map contains the key :all then this overrides
   other entries. The key can also be :all, which declares all parameters nilable."
   [msym mmap]
+  (impl/with-clojure-impl
+    (impl/add-method-nilable-param msym mmap))
   `(nilable-param* '~msym '~mmap))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1731,9 +1776,19 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro untyped-var
   "Check a given var has the specified type at runtime."
   [varsym typesyn]
-  (let [qsym (if (namespace varsym)
+  (let [prs-ns (-> *ns* ns-name)
+        qsym (if (namespace varsym)
                varsym
-               (symbol (-> *ns* ns-name str) (str varsym)))]
+               (symbol (str prs-ns) (str varsym)))
+        _ (require 'clojure.core.typed.coerce-utils)
+        var->symbol (impl/v 'clojure.core.typed.coerce-utils/var->symbol)
+        var (resolve varsym)
+        _ (assert (var? var) (str varsym " must resolve to a var."))
+        qsym (var->symbol var)
+        expected-type (with-current-location &form
+                        (delay-tc-parse typesyn))
+        _ (impl/with-clojure-impl
+            (impl/add-untyped-var prs-ns qsym expected-type))]
     `(untyped-var* '~qsym '~typesyn)))
 
 (defn ^:skip-wiki
@@ -1773,10 +1828,23 @@ for checking namespaces, cf for checking individual forms."}
                   "Cannot provide both :nocheck and :no-check metadata to ann")
         check? (not (or (:no-check opts)
                         (:nocheck opts)))
+        _ (impl/with-impl impl/clojure
+            (when (and (contains? (impl/var-env) qsym)
+                       (not (impl/check-var? qsym))
+                       check?)
+              (err/warn (str "Removing :no-check from var " qsym))
+              (impl/remove-nocheck-var qsym)))
+        _ (impl/with-impl impl/clojure
+            (when-not check?
+              (impl/add-nocheck-var qsym)))
         ast (with-current-location &form
-              (delay-parse typesyn))]
+              (delay-rt-parse typesyn))
+        tc-type (with-current-location &form
+                  (delay-tc-parse typesyn))]
     (impl/with-impl impl/clojure
       (impl/add-var-env qsym ast))
+    (impl/with-impl impl/clojure
+      (impl/add-tc-var-type qsym tc-type))
     `(ann* '~qsym '~typesyn '~check?)))
 
 (defmacro ann-many
@@ -1858,6 +1926,9 @@ for checking namespaces, cf for checking individual forms."}
            :name qname
            :fields fields
            :bnd vbnd})))
+    (with-current-location &form
+      (impl/with-clojure-impl
+        (impl/gen-datatype* vs/*current-env* (ns-name *ns*) dname fields vbnd opts false)))
     `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
 
 (defn ^:skip-wiki
@@ -1943,6 +2014,9 @@ for checking namespaces, cf for checking individual forms."}
            :name qname
            :fields fields
            :bnd vbnd})))
+    (with-current-location &form
+      (impl/with-clojure-impl
+        (impl/gen-datatype* vs/*current-env* (ns-name *ns*) dname fields vbnd opt true)))
     `(ann-record* '~vbnd '~dname '~fields '~opt)))
 
 
@@ -2018,6 +2092,14 @@ for checking namespaces, cf for checking individual forms."}
         {:name qualsym
          :methods mth
          :bnds vbnd}))
+    (impl/with-clojure-impl
+      (with-current-location &form
+        (impl/gen-protocol*
+          vs/*current-env*
+          (ns-name *ns*)
+          varsym
+          vbnd
+          mth)))
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki
@@ -2098,6 +2180,11 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro override-constructor 
   "Override all constructors for Class ctorsym with type."
   [ctorsym typesyn]
+  (impl/with-clojure-impl
+    (impl/add-constructor-override 
+      ctorsym
+      (with-current-location &form
+        (delay-tc-parse typesyn))))
   `(override-constructor* '~ctorsym '~typesyn))
 
 (defn ^:skip-wiki
@@ -2126,6 +2213,12 @@ for checking namespaces, cf for checking individual forms."}
   This overrides the return type of method stringPropertyNames
   of class java.util.Properties to be (java.util.Set String)."
   [methodsym typesyn]
+  (assert ((every-pred symbol? namespace) methodsym) "Method symbol must be a qualified symbol")
+  (impl/with-clojure-impl
+    (impl/add-method-override 
+      methodsym
+      (with-current-location &form
+        (delay-tc-parse typesyn))))
   `(override-method* '~methodsym '~typesyn))
 
 (defn ^:skip-wiki
@@ -2141,7 +2234,16 @@ for checking namespaces, cf for checking individual forms."}
   eg. (typed-deps clojure.core.typed.holes
                   myns.types)"
   [& args]
-  `(typed-deps* '~args))
+  (with-current-location &form
+    (impl/with-clojure-impl
+      (let [_ (require 'clojure.core.typed.coerce-utils)
+            ns->URL (impl/v 'clojure.core.typed.coerce-utils/ns->URL)]
+        (doseq [dep args]
+          (when-not (ns->URL dep)
+            (err/int-error (str "Cannot find dependency declared with typed-deps: " dep))))))
+    (impl/with-clojure-impl
+      (impl/add-ns-deps (ns-name *ns*) (set args)))
+    `(typed-deps* '~args)))
 
 ;(defn unchecked-ns*
 ;  "Internal use only. Use unchecked-ns."
@@ -2187,6 +2289,8 @@ for checking namespaces, cf for checking individual forms."}
   
   eg. (warn-on-unannotated-vars)"
   []
+  (impl/with-clojure-impl
+    (impl/register-warn-on-unannotated-vars (ns-name *ns*)))
   `(warn-on-unannotated-vars*))
 
 (defn check-form-info 
