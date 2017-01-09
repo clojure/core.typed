@@ -27,10 +27,11 @@
           msym (cu/MethodExpr->qualsym expr)
           rfin-type (or method-override
                         (when msym
-                          (@mth-override/METHOD-OVERRIDE-ENV msym))
+                          (mth-override/get-method-override msym))
                         (when method
                           (p/p :check.method/calling-Method->Type)
                           (cu/Method->Type method)))
+          _ (assert ((some-fn nil? r/Type?) rfin-type))
           ctarget (when inst?
                     (assert (:instance expr))
                     (or ctarget (check-fn (:instance expr))))

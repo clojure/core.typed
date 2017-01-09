@@ -115,11 +115,13 @@
       (reset! successfully-loaded? true)
       (println "Building core.typed base environments ...")
       (flush)
+      ;(impl/with-clojure-impl
+      ;  ((impl/v 'clojure.core.typed.reset-env/reset-envs!)))
       (impl/with-clojure-impl
-        ((impl/v 'clojure.core.typed.reset-env/reset-envs!)))
+        ((impl/v 'clojure.core.typed.reset-env/load-core-envs!)))
       (when (cljs?)
         (impl/with-cljs-impl
-          ((impl/v 'clojure.core.typed.reset-env/reset-envs!))))
+          ((impl/v 'clojure.core.typed.reset-env/load-core-envs!))))
       (println "Finished building base environments")
       (flush)
       nil)))

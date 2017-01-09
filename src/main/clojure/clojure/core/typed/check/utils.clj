@@ -468,9 +468,10 @@
          (doseq [dep deps]
            (check-ns dep))
          ;check normal dependencies
-         (doseq [dep (ns-depsu/deps-for-ns nsym)
-                 :when (ns-depsu/should-check-ns? nsym)]
-           (check-ns dep))
+         (doseq [dep (ns-depsu/deps-for-ns nsym)]
+           ;; ensure namespace actually exists
+           (when (ns-depsu/should-check-ns? nsym)
+             (check-ns dep)))
          ; ignore ns declaration
          (let [ns-form (ns-depsu/ns-form-for-ns nsym)
                check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]

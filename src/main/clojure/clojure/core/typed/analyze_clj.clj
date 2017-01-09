@@ -27,6 +27,8 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core :as core]
+            [clojure.core.typed.ns-deps :as dep]
+            [clojure.core.typed.ns-deps-utils :as dep-u]
             [clojure.core.typed.single-pass :as single])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
@@ -58,6 +60,12 @@
            references (remove #(= :gen-class (first %)) references)
            ;ns-effect (clojure.core/in-ns name)
            name-metadata (meta name)]
+       ;; core.typed side effect
+       (let [prs-ns (dep-u/ns-form-name &form)
+             deps   (dep-u/ns-form-deps &form)
+             tdeps (set (filter dep-u/should-check-ns? deps))]
+         ;; is this line needed?
+         (dep/add-ns-deps prs-ns tdeps))
        `(do
           ::T/special-collect
           ::core/ns

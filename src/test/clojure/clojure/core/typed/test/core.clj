@@ -5214,7 +5214,7 @@
            '(ns foo
               {:core.typed {:collect-only true}}))
          (should-check-or-collect-file
-           'clojure.core.typed.test.dont-check-me))))
+           'clojure.spec))))
   (testing ":collect-only should collect but not check"
     (is-clj
       (= #{:collect}
@@ -5328,6 +5328,32 @@
              (count
                (tc/infer-unannotated-vars 'clojure.core.typed.test.ctyp-294.typed))))))
 
+(deftest override-ctor-test
+  ;; dumb override
+  (is-tc-e 
+    (do (override-constructor java.util.concurrent.LinkedBlockingQueue
+                              (IFn
+                                [String ->
+                                 java.util.concurrent.LinkedBlockingQueue]))
+        #(let [^int i "fo"]
+           (java.util.concurrent.LinkedBlockingQueue. i))))
+  (is-tc-e
+    (do (override-constructor java.util.concurrent.LinkedBlockingQueue
+                              (IFn
+                                [String ->
+                                 String]))
+        #(let [^int i "fo"]
+           (ann-form (java.util.concurrent.LinkedBlockingQueue. i)
+                     String))))
+  (is-tc-err
+    (do (override-constructor java.util.concurrent.LinkedBlockingQueue
+                              (IFn
+                                [String ->
+                                 String]))
+        #(let [^int i "fo"]
+           (ann-form (java.util.concurrent.LinkedBlockingQueue. i)
+                     java.util.concurrent.LinkedBlockingQueue))))
+  )
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

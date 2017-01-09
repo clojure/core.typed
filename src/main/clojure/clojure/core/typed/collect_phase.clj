@@ -31,6 +31,7 @@
             [clojure.core.typed.datatype-env :as dt-env]
             [clojure.core.typed.protocol-env :as ptl-env]
             [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.ctor-override-env :as ctor-override]
             [clojure.core.typed.method-override-env :as override]
             [clojure.core.typed.method-return-nilables :as ret-nil]
             [clojure.core.typed.method-param-nilables :as param-nil]
@@ -92,6 +93,7 @@
   (doseq [expr (concat statements [ret])]
     (f expr)))
 
+#_
 (defmethod internal-collect-expr ::core/ns
   [{[_ _ third-arg :as statements] :statements fexpr :ret :as expr}]
   ;(prn "collecting ns form")
@@ -135,6 +137,7 @@
 
 (add-collect-method :do [expr] (visit-do expr collect))
 
+#_
 (add-collect-method :def
   [{:keys [var env] :as expr}]
   (let [prs-ns (chk-u/expr-ns expr)]
@@ -158,12 +161,14 @@
   nil)
 
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann-precord*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[dname vbnd fields opt] (ast-u/constant-exprs args)]
     (gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields vbnd opt true)))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann-pdatatype*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
@@ -171,18 +176,21 @@
     (assert nil "REMOVED OPERATION: ann-pdatatype, use ann-datatype with binder as first argument, ie. before datatype name")
     #_(gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields vbnd opt false)))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann-datatype*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[binder dname fields opt] (ast-u/constant-exprs args)]
     (gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields binder opt false)))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann-record*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[binder dname fields opt] (ast-u/constant-exprs args)]
     (gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields binder opt true)))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/warn-on-unannotated-vars*
   [{:as expr}]
   (clt-u/assert-expr-args expr #{0})
@@ -190,10 +198,12 @@
     (ns-opts/register-warn-on-unannotated-vars prs-ns)
     nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/typed-deps*
   [{:keys [args] :as expr}]
   (typed-deps/collect-typed-deps collect-ns expr))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/declare-datatypes*
   [{:keys [args] :as expr}]
   (clt-u/assert-expr-args expr #{1})
@@ -229,6 +239,7 @@
 ;    (decl/declare-alias-kind* qsym ty)
 ;    nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/declare-names*
   [{:keys [args] :as expr}]
   (clt-u/assert-expr-args expr #{1})
@@ -239,6 +250,7 @@
     (doseq [sym syms]
       (nme-env/declare-name* (symbol (str nsym) (str sym))))))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/untyped-var*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{2})
@@ -251,6 +263,8 @@
     (var-env/add-untyped-var prs-ns qsym expected-type)
     nil))
 
+;; done at runtime
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{3})
@@ -271,6 +285,7 @@
     (var-env/add-var-type qsym expected-type)
     nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/def-alias*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{2})
@@ -296,6 +311,7 @@
                             " does not match actual kind " (prs/unparse-type alias-type)))))
     nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/non-nil-return*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{2})
@@ -303,6 +319,7 @@
     (ret-nil/add-nonnilable-method-return msym arities)
     nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/nilable-param*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{2})
@@ -310,6 +327,7 @@
     (param-nil/add-method-nilable-param msym mmap)
     nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/override-method*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{2})
@@ -322,6 +340,7 @@
     (override/add-method-override msym ty)
     nil))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/override-constructor*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{2})
@@ -330,7 +349,7 @@
         ty (binding [vs/*current-env* env
                      prs/*parse-type-in-ns* prs-ns]
              (prs/parse-type tsyn))]
-    (override/add-method-override msym ty)
+    (ctor-override/add-constructor-override msym ty)
     nil))
 
 
@@ -368,6 +387,7 @@
       (prs/parse-free-binder-with-variance binder))))
 
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann-protocol*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{3})
@@ -375,6 +395,7 @@
     ;(prn "collected ann-protocol" varsym)
     (gen-protocol/gen-protocol* env (chk-u/expr-ns expr) varsym binder mth)))
 
+#_
 (add-invoke-special-collect-method 'clojure.core.typed/ann-pprotocol*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{3})

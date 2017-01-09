@@ -12,7 +12,7 @@
   {:impl impl/clojure
    :ast-for-form ana-clj/ast-for-form
    :unparse-ns *ns*
-   :collect-expr collect-clj/collect-ast
+   :collect-expr (fn [_] nil) #_collect-clj/collect-ast
    :check-expr chk-clj/check-expr
    :runtime-check-expr rt-chk/runtime-check-expr
    :runtime-infer-expr rt-infer/runtime-infer-expr

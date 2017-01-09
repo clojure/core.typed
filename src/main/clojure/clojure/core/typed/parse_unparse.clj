@@ -84,6 +84,11 @@
   `(binding [*parse-type-in-ns* ~sym]
      ~@body))
 
+(defn with-parse-ns* [sym f]
+  {:pre [(symbol? sym)]}
+  (binding [*parse-type-in-ns* sym]
+    (f)))
+
 (declare parse-type parse-type* resolve-type-clj resolve-type-cljs)
 
 (defn parse-clj [s]
