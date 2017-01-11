@@ -85,12 +85,14 @@
                                    :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
                     (doseq [nsym nsym-coll]
                       (check-ns nsym)))
+                  #_
                   (let [vs (var-env/vars-with-unchecked-defs)]
                     (binding [*out* *err*]
                       (doseq [v vs]
                         (println "WARNING: Type Checker: Definition missing:" v 
                                  "\nHint: Use :no-check metadata with ann if this is an unchecked var")
                         (flush))))
+                  #_
                   (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
                         checked (some-> vs/*already-checked* deref)
                         _ (when (#{impl/clojure} impl)

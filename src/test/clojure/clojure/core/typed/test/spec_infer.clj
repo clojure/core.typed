@@ -2,6 +2,7 @@
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }
+  (:refer-clojure :exclude [alias])
   (:require [clojure.core.typed :as t]
             [clojure.spec.test :as stest]
             [clojure.spec :as s]
