@@ -38,21 +38,25 @@
     (symbol (str (ns-name ns))
             (str (.sym var)))))
 
-(defn ns->file [nsym]
-  {:pre [(symbol? nsym)]
-   :post [(string? %)]}
-  ;copied basic approach from tools.emitter.jvm
-  (let [res (munge nsym)
-        f (str/replace res #"\." "/")
-        ex (impl/impl-case
-              :clojure ".clj"
-              :cljs ".cljs")
-        p (str f ex)
-        p (if (io/resource p)
-            p
-            (str f ".cljc"))
-        p (if (.startsWith p "/") (subs p 1) p)]
-    p))
+(defn ns->file 
+  ([nsym] (ns->file nsym true))
+  ([nsym suffix?]
+   {:pre [(symbol? nsym)]
+    :post [(string? %)]}
+   ;copied basic approach from tools.emitter.jvm
+   (let [res (munge nsym)
+         f (str/replace res #"\." "/")
+         ex (when suffix?
+              (impl/impl-case
+                :clojure ".clj"
+                :cljs ".cljs"))
+         p (str f ex)
+         p (if (or (io/resource p)
+                   (not suffix?))
+             p
+             (str f ".cljc"))
+         p (if (.startsWith p "/") (subs p 1) p)]
+     p)))
 
 (defn ns->URL [nsym]
   {:pre [(symbol? nsym)]
