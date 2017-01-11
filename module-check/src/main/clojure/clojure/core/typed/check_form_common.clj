@@ -91,7 +91,8 @@
       (let [expected (or
                        expected-ret
                        (when type-provided?
-                         (r/ret (prs/parse-type expected))))
+                         (r/ret (binding [prs/*parse-type-in-ns* (ns-name unparse-ns)]
+                                  (prs/parse-type expected)))))
             stop-analysis (atom nil)
             delayed-errors-fn (fn [] (seq @vs/*delayed-errors*))
             file-mapping-atom (atom [])

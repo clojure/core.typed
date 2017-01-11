@@ -5354,6 +5354,17 @@
            (ann-form (java.util.concurrent.LinkedBlockingQueue. i)
                      java.util.concurrent.LinkedBlockingQueue))))
   )
+
+
+(deftest conflicting-anns-test
+  (is-tc-e (do (ann foo Num)
+               (def foo 1)
+               (ann foo Bool)
+               (def foo false)))
+  (is-tc-e (do (def> foo :- Num 1)
+               (def> foo :- Bool false)))
+  )
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
