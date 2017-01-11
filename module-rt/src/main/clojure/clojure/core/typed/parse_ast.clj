@@ -58,8 +58,6 @@
            :form t/Any
            :children (t/Vec t/Kw)})))
 
-(t/ann parse [t/Any -> Type])
-
 ;Map from scoped vars to unique names
 (t/ann *tvar-scope* (t/Map t/Sym t/Sym))
 (def ^:dynamic *tvar-scope* {})
