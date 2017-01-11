@@ -10,7 +10,7 @@
                  [org.clojure/core.async "0.2.371"]
                  [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
                  ;[org.clojure/jvm.tools.analyzer "0.6.1" :exclusions [org.clojure/clojure]]
-                 [org.clojure/tools.analyzer.jvm "0.6.8"]
+                 [org.clojure/tools.analyzer.jvm "0.6.10"]
                  [org.clojure/tools.reader "1.0.0-beta3"]
                  [org.clojure/math.combinatorics "0.1.3" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.namespace "0.3.0-alpha3"]
