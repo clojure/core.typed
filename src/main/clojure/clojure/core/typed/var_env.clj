@@ -7,7 +7,8 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t]
             [clojure.set :as set]
-            [clojure.core.typed.env :as env]))
+            [clojure.core.typed.env :as env]
+            [clojure.core.typed.name-env :as name-env]))
 
 (defn clj-var-annotations []
   (get @(impl/clj-checker) impl/current-var-annotations-kw {}))
@@ -139,7 +140,8 @@
   (or (let [e (var-annotations)]
         (force (e nsym)))
       (when (impl/checking-clojurescript?)
-        ((jsvar-annotations) nsym))))
+        (or (nsym (name-env/name-env))
+            ((jsvar-annotations) nsym)))))
 
 (defn lookup-Var [nsym]
   {:post [((some-fn nil? r/Type?) %)]}

@@ -47,11 +47,8 @@
   (r/-val (:val k)))
 
 (defn fn-self-name [{:keys [op] :as fexpr}]
-  (impl/impl-case
-    :clojure (do (assert (#{:fn} op))
-                 (-> fexpr :local :name))
-    :cljs (do (assert (#{:fn} op))
-              (-> fexpr :name :name))))
+  (assert (#{:fn} op))
+  (-> fexpr :local :name))
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]

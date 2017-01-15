@@ -6,7 +6,6 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.rclass-env :as rcls]
-            [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.declared-kind-env :as kinds]
             [clojure.core.typed.current-impl :as impl]
@@ -98,7 +97,9 @@
                       (impl/impl-case :clojure #(or (rcls/get-rclass %)
                                                     (when (class? (resolve %))
                                                       (c/RClass-of-with-unknown-params %)))
-                                      :cljs jsnom/get-jsnominal)
+                                      :cljs (do 
+                                              (require 'clojure.core.typed.jsnominal-env)
+                                              (impl/v 'clojure.core.typed.jsnominal-env/get-jsnominal)))
                       ; during the definition of RClass's that reference
                       ; themselves in their definition, a temporary TFn is
                       ; added to the declared kind env which is enough to determine

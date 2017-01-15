@@ -11,7 +11,7 @@
 (defn config-map []
   {:impl impl/clojure
    :ast-for-form ana-clj/ast-for-form
-   :unparse-ns *ns*
+   :unparse-ns (ns-name *ns*)
    :collect-expr (fn [_] nil) #_collect-clj/collect-ast
    :check-expr chk-clj/check-expr
    :runtime-check-expr rt-chk/runtime-check-expr

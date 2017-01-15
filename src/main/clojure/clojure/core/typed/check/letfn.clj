@@ -27,7 +27,7 @@
                                   (prs/parse-type (ast-u/constant-expr type-syn-expr)))])
                     :cljs [(-> lb-expr :info :name)
                            (binding [prs/*parse-type-in-ns* (cu/expr-ns letfn-expr)]
-                             (prs/parse-type (:form type-syn-expr)))]))))]
+                             (prs/parse-type (-> type-syn-expr :expr :form)))]))))]
     (if-not inits-expected
       (err/tc-delayed-error (str "letfn requires annotation, see: "
                                (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.typed/letfn>")
