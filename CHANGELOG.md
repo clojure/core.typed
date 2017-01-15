@@ -1,3 +1,10 @@
+# 0.3.30 - 15 January 2016 
+
+- merge Di Xu's GSoC 2014 code
+  - Add pdot/prest support
+  - update core type annotations
+- move core.async dep from `core.typed.rt` to `core.typed` pom
+
 # 0.3.29 - 7 January 2016 
 
 Release Notes - core.typed - Version 0.3.29
