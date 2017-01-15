@@ -11,7 +11,10 @@
 (defn check-special-loop
   [check {[_ _ {{tsyns-quoted :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [tsyns (if (seq? tsyns-quoted)
+  (let [tsyns-quoted (impl/impl-case
+                      :clojure tsyns-quoted
+                      :cljs (-> statements rest rest first :form :ann))
+        tsyns (if (seq? tsyns-quoted)
                 (second tsyns-quoted)
                 tsyns-quoted)
         _ (assert (map? tsyns))

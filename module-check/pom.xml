@@ -38,23 +38,16 @@
           <temporaryOutputDirectory>false</temporaryOutputDirectory>
           <namespaces>
             <!-- depends on core.async -->
-            <namespace>!cljs.core.typed.async</namespace>
-            <namespace>!clojure.core.typed.async</namespace>
-            <namespace>!clojure.core.typed.util-cljs</namespace>
             <namespace>clojure.core.typed.*</namespace>
             <namespace>clojure.core.typed.test.pred</namespace>
             <namespace>!clojure.core.typed.test.core</namespace>
             <namespace>!clojure.core.typed.test.*</namespace>
-            <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>!cljs.core.typed.*</namespace>
-            <namespace>!clojure.core.typed.base-env-cljs</namespace>
-            <namespace>!clojure.core.typed.check-form-cljs</namespace>
-            <namespace>!clojure.core.typed.check-ns-cljs</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
             <!-- depends on tools.nrepl -->
             <!--<namespace>!clojure.core.typed.repl</namespace>
             <namespace>!clojure.core.typed.load</namespace>-->
+            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
+            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </namespaces>
           <testNamespaces>
             <namespace>clojure.core.typed.test.*</namespace>
@@ -63,9 +56,6 @@
             <namespace>!clojure.core.typed.test.load-file2</namespace>
             <!-- depends on tools.nrepl -->
             <!-- <namespace>!clojure.core.typed.test.repl</namespace>-->
-            <namespace>!clojure.core.typed.test.cljs</namespace>
-            <namespace>!clojure.core.typed.test.cljs-core</namespace>
-            <namespace>!clojure.core.typed.test.cljs-utils</namespace>
             <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
             <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </testNamespaces>
@@ -131,6 +121,11 @@
       <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
       <version>0.7.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>jvm.tools.analyzer</artifactId>
+      <version>0.6.2</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

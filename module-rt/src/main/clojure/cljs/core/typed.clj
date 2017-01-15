@@ -18,7 +18,7 @@
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   []
-  (load/load-if-needed))
+  (load/load-if-needed true))
 
 (defn reset-caches
   "Reset internal type caches."
@@ -172,8 +172,8 @@
     `(cljs.core/letfn ~(vec inits)
        ;unquoted to allow bindings to resolve with hygiene
        ~init-syn
-       ;preserve letfn empty body
-       nil
+       ;;preserve letfn empty body
+       ;;nil
        ~@body)))
 
 (defmacro 

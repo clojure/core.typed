@@ -1,5 +1,6 @@
 (ns clojure.core.typed.test.cljs-utils
   (:require [clojure.core.typed :as clj-t]
+            [cljs.core.typed :as cljs-t]
             [cljs.repl.rhino :as rhino]
             [cljs.repl :as repl]
             [cljs.analyzer :as ana]
@@ -7,7 +8,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]))
 
-(clj-t/load-if-needed)
+(cljs-t/load-if-needed)
 
 (require '[clojure.test :refer :all :as test]
          '[cljs.core.typed :as t]
