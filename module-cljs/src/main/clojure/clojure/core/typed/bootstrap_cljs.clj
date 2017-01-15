@@ -1,8 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.bootstrap-cljs
   (:require [clojure.set :as set]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (def -base-aliases
   '#{AnyInteger Integer Seqable NonEmptySeq Number String Boolean Seq
      EmptySeqable NonEmptySeqable Option Coll NonEmptyColl NonEmptyASeq NonEmptyAVec
@@ -11,7 +9,8 @@
 
 (def -specials 
   '#{All U Any Pred Int Bool Num Str Object ReadOnlyArray
-     Array IFn TFn I HSequential})
+     Array IFn TFn I HSequential HSeq HSet HMap Val Value CountRange
+     ExactCount Difference Rec Assoc Get HVec})
 
 (assert (empty? (set/intersection -base-aliases -specials)))
 

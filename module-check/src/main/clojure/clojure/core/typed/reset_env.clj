@@ -5,16 +5,12 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.mm-env :as mmenv]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
-(defn load-cljs? []
-  ((impl/v 'clojure.core.typed.init/cljs?)))
-
-(defn reset-envs! 
+(defn reset-envs!
   "Reset all environments for all implementations. Cannot be called
   if a specific implementation is currently bound"
-  []
-  (let [cljs? (load-cljs?)]
+  ([] (reset-envs! false))
+  ([cljs?]
+  (let []
     (impl/impl-case
       :clojure
       (do (bse-clj/reset-clojure-envs!)
@@ -28,13 +24,14 @@
           ((impl/v 'clojure.core.typed.base-env-cljs/reset-cljs-envs!))
           (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
-    nil))
+    nil)))
 
 (defn load-core-envs! 
   "Add core annotations to environments for all implementations. Cannot be called
   if a specific implementation is currently bound"
-  []
-  (let [cljs? (load-cljs?)]
+  ([] (load-core-envs! false))
+  ([cljs?]
+  (let []
     (impl/impl-case
       :clojure
       (do (bse-clj/refresh-core-clojure-envs!)
@@ -50,5 +47,5 @@
           ((impl/v 'clojure.core.typed.base-env-cljs/reset-cljs-envs!))
           (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
-    nil))
+    nil)))
 

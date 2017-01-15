@@ -3,13 +3,13 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/clojure "1.9.0-alpha20"]
-                 ;[org.clojure/clojurescript "1.9.227"]
+  :dependencies [[org.clojure/clojure "1.9.0-alpha17"]
+                 [org.clojure/clojurescript "0.0-SNAPSHOT"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.3.443"]
                  [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
-                 ;[org.clojure/jvm.tools.analyzer "0.6.1" :exclusions [org.clojure/clojure]]
+                 [org.clojure/jvm.tools.analyzer "0.6.2" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.analyzer.jvm "0.7.0"]
                  [org.clojure/tools.reader "1.0.0-beta3"]
                  [org.clojure/math.combinatorics "0.1.3" :exclusions [org.clojure/clojure]]
@@ -44,13 +44,15 @@
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 
   :java-source-paths ["module-check/src/main/java"]
-  :source-paths ["module-check/src/main/clojure"
+  :source-paths ["module-cljs/src/main/clojure"
+                 "module-cljs/src/main/cljs"
+                 "module-check/src/main/clojure"
                  "module-check/src/main/cljs"
                  "module-rt/src/main/clojure"
-                 "module-rt/src/main/cljs"
-                 #_"../clojurescript/src/clj"
-                 #_"../clojurescript/src/cljs"]
-  :test-paths ["module-check/src/test/clojure"
+                 "module-rt/src/main/cljs"]
+  :test-paths ["module-cljs/src/test/clojure"
+               "module-cljs/src/test/cljs"
+               "module-check/src/test/clojure"
                "module-check/src/test/cljs"
                "module-check/src/test/resources"
                "module-rt/test/clojure"
@@ -58,3 +60,5 @@
 
   :jvm-opts ["-Xss4m"]
   :cljsbuild {:builds {}})
+
+

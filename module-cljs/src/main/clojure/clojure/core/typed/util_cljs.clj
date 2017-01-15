@@ -25,10 +25,11 @@
         r (with-cljs-typed-env
             (binding [ana/*cljs-ns* nsym]
               (comp/with-core-cljs
-                (ana/resolve-var (ana/empty-env) sym
-                                 (fn [env ns sym]
-                                   (when-not (var-exists? env ns sym)
-                                     (reset! unresolved? true)))))))
+                nil
+                #(ana/resolve-var (ana/empty-env) sym
+                                  (fn [env ns sym]
+                                    (when-not (var-exists? env ns sym)
+                                      (reset! unresolved? true)))))))
         sym* (when-not @unresolved?
                (:name r))
         _ (when sym*
@@ -45,6 +46,7 @@
 
 (defmacro with-core-cljs-typed [& body]
   `(comp/with-core-cljs
-     (do (when-not (get-in @env/*compiler* [::ana/namespaces 'cljs.core.typed :defs])
-           (ana/analyze-file "cljs/core/typed.cljs"))
-         ~@body)))
+     nil
+     #(do (when-not (get-in @env/*compiler* [::ana/namespaces 'cljs.core.typed :defs])
+            (ana/analyze-file "cljs/core/typed.cljs"))
+          ~@body)))

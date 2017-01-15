@@ -17,9 +17,7 @@
   {:pre [(#{3} (count statements))]}
   (let [[_ _ texpr] statements
         tsyn-quoted (ast-u/map-expr-at texpr :type)
-        tsyn (impl/impl-case
-               :clojure tsyn-quoted
-               :cljs tsyn-quoted)
+        tsyn tsyn-quoted
         parsed-t (binding [vs/*current-env* env
                            prs/*parse-type-in-ns* (cu/expr-ns expr)]
                    ;; unwrap quoted syntax with second
