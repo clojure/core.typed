@@ -32,30 +32,6 @@
       <artifactId>clojure</artifactId>
       <version>1.9.0-alpha14</version>
     </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>0.2.371</version>
-      <optional>true</optional>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>tools.analyzer.jvm</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>test.check</artifactId>
-      <version>0.9.0</version>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>com.gfredericks</groupId>
-      <artifactId>test.chuck</artifactId>
-      <version>0.2.6</version>
-      <optional>true</optional>
-    </dependency>
   </dependencies>
 
   <developers>
