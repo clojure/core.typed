@@ -84,7 +84,14 @@ Expressions evaluated via `eval` will also be type checked if the following is t
 Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion, 
 or try #typed-clojure on Freenode (the main developer is ambrosebs).
 
-[IRC Logs](http://logs.lazybot.org/irc.freenode.net/%23typed-clojure) (Thanks to [Anthony Grimes](https://twitter.com/IORayne)!)
+This used to point to the logs for the typed-clojure IRC channel,
+provided by [Anthony Grimes](https://twitter.com/StRaynes).
+Anthony was an amazing human being,
+and the programming community will never be the same without him.
+His creativity, work ethic, and ability to engage with anyone around him
+was second to none. We miss him dearly.
+
+RIP Anthony. You live on in your work and our hearts.
 
 ## Documentation
 
