@@ -774,7 +774,25 @@ clojure.string/trim [String -> String]
 clojure.string/trimr [String -> String]
 clojure.string/triml [String -> String]
 
-
+ clojure.data/diff [Any Any -> '[Any Any Any]]
+ clojure.instant/read-instant-date [String -> java.util.Date]
+ clojure.instant/read-instant-calendar [String -> java.util.GregorianCalendar]
+ clojure.instant/read-instant-timestamp [String -> java.sql.Timestamp]
+ clojure.repl/apropos [String -> (U (Seq String) nil)]
+ clojure.repl/demunge [String -> String]
+ clojure.repl/source-fn [clojure.lang.Symbol ->(U (Seq String) nil]
+ clojure.template/apply-template [(Vec Any) Any (List Any) -> Any]
+ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
+ clojure.set/subset? [(Set Any) (Set Any) -> Boolean]
+ clojure.set/superset? [(Set Any) (Set Any) -> Boolean]
+ clojure.set/join [(Set (Map Any Any)) (Set (Map Any Any)) -> (Set (Map Any Any))]
+ clojure.set/index [(Set (Map Any Any)) (Vec Any) -> (Map (Map Any Any) (Set (Map Any Any)))]
+ clojure.set/map-invert (All [a b] [(Map a b) -> (Map b a)])
+ clojure.set/project [(Set (Map Any Any)) (Vec Any) -> (Set (Map Any Any))]
+ clojure.set/rename [(Set Any) (Map Any Any) -> (Set Any)]
+ clojure.set/rename-keys [(Map Any Any) (Map Any Any) -> (Map Any Any)]
+ clojure.set/select [ (IFn [AnyInteger -> java.lang.Boolean]) (Set Any) -> (Set Any)]
+ 
 
 clojure.core/interpose (All [x] (IFn [x (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (ASeq x)])
@@ -1486,6 +1504,7 @@ clojure.pprint/pprint (IFn [Any -> nil]
 clojure.set/union (All [x] [(Set x) * -> (Set x)])
 clojure.set/intersection (All [x] [(Set x) (Set x) * -> (Set x)])
 clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
+
 
 clojure.repl/pst (IFn [-> nil]
                       [(U Int Throwable) -> nil]
