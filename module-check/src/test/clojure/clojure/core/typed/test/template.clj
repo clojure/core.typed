@@ -10,5 +10,6 @@
              :requires [[clojure.template :refer [apply-template]]])
   (is-tc-e   (apply-template '[a b c d e] 3 '(1 2 3 4 5))
              :requires [[clojure.template :refer [apply-template]]])  
-  (is-tc-err (apply-template '[a b c d e] '[d a b e c e b a d] '(1 2 3 4 5)) (t/U (t/Vec t/Any) (t/HVec [t/Any]) (t/List t/Any))
+  (is-tc-err (apply-template '[a b c d e] '[d a b e c e b a d] '(1 2 3 4 5)) 
+             (U (Vec Any) (HVec [Any]) (List Any))
              :requires [[clojure.template :refer [apply-template]]]))

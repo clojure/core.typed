@@ -1,10 +1,10 @@
-(ns clojure.core.typed.test.repl_new
+(ns clojure.core.typed.test.repl-new
   (:require [clojure.core.typed :as t]
             [clojure.test :refer :all]                
             [clojure.core.typed.test.test-utils :refer :all]))
 
 (deftest apropos-test
-  (is-tc-e (apropos "clojure") (t/Seq t/Str)        
+  (is-tc-e (apropos "clojure") (U nil (t/Seq t/Str))
              :requires [[clojure.repl :refer [apropos]]])
   (is-tc-err (apropos "clojure") t/Str 
              :requires [[clojure.repl :refer [apropos]]])
