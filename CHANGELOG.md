@@ -1,4 +1,4 @@
-# 0.3.31 - SNAPSHOT
+# 0.3.32 - 16 January 2016
 
 - merge Aravind's GSoC annotations
   - added annotations for core clojure libraries
