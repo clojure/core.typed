@@ -81,7 +81,7 @@ Expressions evaluated via `eval` will also be type checked if the following is t
 
 ## Mailing List and IRC
 
-Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion, 
+Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion,
 or try #typed-clojure on Freenode (the main developer is ambrosebs).
 
 This used to point to the logs for the typed-clojure IRC channel,
@@ -108,6 +108,10 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 ## Vim Plugin
 
 [vim-typedclojure](https://github.com/typedclojure/vim-typedclojure)
+
+## Emacs Mode
+
+[typed-clojure-mode](https://github.com/typedclojure/typed-clojure-mode)
 
 ## Quickstart
 
