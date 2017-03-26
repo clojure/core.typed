@@ -222,8 +222,8 @@
     clojure.core/distinct? [Any Any * -> Boolean]
     clojure.core/compare [Any Any -> Number]
     clojure.core/sort (All [x]
-                           (IFn [(U nil (Seqable x)) -> (U nil (ASeq x))]
-                                [[x x -> AnyInteger] (U nil (Seqable x)) -> (U nil (ASeq x))]))
+                           (IFn [(Option (Seqable x)) -> (ASeq x)]
+                                [[x x -> AnyInteger] (Option (Seqable x)) -> (ASeq x)]))
     clojure.core/shuffle (All [x]
                               (IFn [(I (Collection x) (Seqable x)) -> (Vec x)]
                                    [(Collection x) -> (Vec x)]))
@@ -294,7 +294,7 @@
     #_clojure.core/chunk-cons
     #_(All [x]
          [(clojure.lang.IChunk x) (Option (Seqable x)) -> (Option (Seqable x))])
-    #_clojure.core/chunk-append 
+    #_clojure.core/chunk-append
     #_(All [x]
                                    [(clojure.lang.ChunkBuffer x) x -> Any])
     #_clojure.core/chunk
