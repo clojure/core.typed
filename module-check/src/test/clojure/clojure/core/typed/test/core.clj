@@ -5461,6 +5461,39 @@
              (when (some? x)
                (inc x)))))
 
+(deftest let-alias-vector-test
+  (is-tc-e (fn [v :- '[(U nil Num)]] :- Num
+             (if (nth v 0)
+               (nth v 0)
+               1)))
+  (is-tc-e (fn [v :- '[(U nil Num)]] :- Num
+             (let [x (first v)]
+               (if x
+                 x
+                 1))))
+  (is-tc-e (fn [v :- '[(U nil Num)]] :- Num
+             (let [x (nth v 0 nil)]
+               (if x
+                 x
+                 1))))
+;  (is-tc-e (fn [[x] :- '[(U nil Num)]] :- Num
+;             (if x
+;               x
+;               1)))
+;  (is-tc-e (fn [v :- '[(U nil Num)]] :- Num
+;             (if (nth v 0 nil)
+;               (nth v 0 nil)
+;               1)))
+;  (is-tc-e (fn [v :- '[(U nil Num)]] :- Num
+;             (if (first v)
+;               (first v)
+;               1)))
+;  (is-tc-e (fn [x :- (Vec Num)] :- Num
+;             (if (first x)
+;               (first x)
+;               1)))
+  )
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

@@ -70,13 +70,13 @@
   (fo/-or (nth-positive-filter-default-truthy target-o default-o)
           (nth-positive-filter-default-falsy target-o default-o idx)))
 
-(defn ^:private nth-positive-filter-no-default [target-o idx]
+(defn extend-path [target-o idx]
   {:pre [(obj/RObject? target-o)
          (con/znat? idx)]
-   :post [(fl/Filter? %)]}
-  (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
-                       (r/make-CountRange (inc idx)))
-                 target-o))
+   :post [(obj/RObject? %)]}
+  (if (obj/Path? target-o)
+    (update-in target-o [:path] concat [(pe/NthPE-maker idx)])
+    target-o))
 
 (defn ^:private nth-filter [target-expr default-expr idx default-t]
   {:pre [(expression? target-expr)
@@ -84,12 +84,18 @@
          (con/znat? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(fl/Filter? %)]}
+  ;(prn "nth-filter" default-t)
   (let [target-o (expr->object target-expr)
         default-o (expr->object default-expr)
 
         filter+ (if default-t
                   (nth-positive-filter-default target-o default-o idx)
-                  (nth-positive-filter-no-default target-o idx))]
+                  (fo/-and
+                    ;; we know the original collection is at least of length (inc idx)
+                    (fo/-filter-at (r/make-CountRange (inc idx)) target-o)
+                    ;; and the element we're looking up is truthy
+                    (fo/-not-filter-at r/-false-types (extend-path target-o idx))))]
+    ;(prn "filter+" filter+)
     (fo/-FS filter+
             ;; not sure if there's anything worth encoding here
             fl/-top)))
@@ -98,10 +104,10 @@
   {:pre [(expression? target-expr)
          (con/znat? idx)]
    :post [(obj/RObject? %)]}
+  ;(prn "nth-object")
   (let [target-o (expr->object target-expr)]
-    (if (obj/Path? target-o)
-      (update-in target-o [:path] concat [(pe/NthPE-maker idx)])
-      target-o)))
+    ;(prn "target-o" target-o)
+    (extend-path target-o idx)))
 
 (def nat-value? (every-pred r/Value? (comp con/znat? :val)))
 
@@ -127,6 +133,7 @@
          (#{:static-call} (:op expr))]
    :post [(or (#{cu/not-special} %)
               (-> % u/expr-type r/TCResult?))]}
+  ;(prn "invoke-nth")
   (let [_ (assert (#{2 3} (count args)) (str "nth takes 2 or 3 arguments, actual " (count args)))
         [te ne de :as cargs] (or cargs (mapv check-fn args))
         types (let [ts (c/fully-resolve-type (expr->type te))]
@@ -135,6 +142,9 @@
                   [ts]))
         num-t (expr->type ne)
         default-t (expr->type de)]
+    ;(prn "types" types)
+    ;(prn "num-t" num-t)
+    ;(prn "default-t" default-t)
     (cond
       (and (nat-value? num-t)
            (every? (some-fn r/Nil?

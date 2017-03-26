@@ -130,7 +130,7 @@
 ; pos? indicates polarity
 ; - if true, we're updating with a TypeFilter so we use restrict
 ; - if false, we're updateing with a NotTypeFilter so we use remove
-; lo is a sequence of path elements, in the same order as -> (left to right)
+; lo is a nilable non-empty sequence of path elements, in the same order as -> (left to right)
 ;[Type Type Boolean PathElems -> Type]
 (defn update* [t ft pos? lo]
   {:pre [(r/Type? t)
@@ -138,6 +138,7 @@
          (con/boolean? pos?)
          (pr/path-elems? lo)]
    :post [(r/Type? %)]}
+  ;(prn "update" t ft pos? lo)
   (u/p :check/update
   (let [t (c/fully-resolve-type t)]
     (cond
@@ -251,6 +252,29 @@
       (and (not pos?)
            (pe/CountPE? (first lo)))
       t
+
+      (and (pe/NthPE? (first lo))
+           (r/HeterogeneousVector? t))
+      (let [type ft
+            path-expr (first lo)
+            types (:types t)
+            idx (:idx path-expr)]
+        (if (and (< idx (count types))
+                 (not (:rest t))
+                 (not (:drest t)))
+          (r/-hvec (update-in types [idx] update* ft pos? (next lo))
+                   :filters (:fs t)
+                   :objects (:objects t)
+                   :rest (:rest t)
+                   :drest (:drest t))
+          ;; if we knew whether an NthPE could be for an nth expression
+          ;; without a default, then we could bottom out if we had no
+          ;; rest/drest members.
+          ;;
+          ;; Otherwise, we could extend the fixed args until idx, keeping
+          ;; the rest args. Di Xu's work for GSoC 2014 is highly relevant,
+          ;; a PR on the github repo.
+          type))
 
       (and pos?
            (pe/NthPE? (first lo))

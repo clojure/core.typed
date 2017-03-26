@@ -438,6 +438,8 @@
 (def -true (-val true))
 (def -nil (-val nil))
 
+(def -false-types (Un -false -nil))
+
 (t/ann-many [t/Any -> Boolean]
             Nil? False? True?)
 (defn Nil? [a] (= -nil a))
