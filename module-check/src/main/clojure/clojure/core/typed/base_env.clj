@@ -488,11 +488,11 @@ clojure.core/zipmap
 
 clojure.core/keys
 (All [k]
-     [(Map k Any) -> (ASeq k) :object {:id 0 :path [Keys]}])
+     [(Nilable (Map k Any)) -> (ASeq k) :object {:id 0 :path [Keys]}])
 
 clojure.core/vals
 (All [v]
-     [(Map Any v) -> (ASeq v) :object {:id 0 :path [Vals]}])
+     [(Nilable (Map Any v)) -> (ASeq v) :object {:id 0 :path [Vals]}])
 
 ;most useful case
 clojure.core/comp
