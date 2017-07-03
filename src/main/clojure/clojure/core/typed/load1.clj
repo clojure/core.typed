@@ -41,7 +41,8 @@
        (assert file-url (str "Cannot find file " filename))
        (binding [*ns*   *ns*
                  *file* filename
-                 vs/*in-typed-load* true]
+                 vs/*in-typed-load* true
+                 vs/*typed-load-atom* (atom {})]
          (with-open [rdr (io/reader file-url)]
            (let [pbr (readers/indexing-push-back-reader
                        (java.io.PushbackReader. rdr) 1 filename)

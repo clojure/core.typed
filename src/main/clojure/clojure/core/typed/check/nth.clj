@@ -26,7 +26,7 @@
 (defn ^:private expression? [expr]
   (r/TCResult? (u/expr-type expr)))
 
-(defn ^:private nth-type [types idx default-t]
+(defn nth-type [types idx default-t]
   {:pre [(every? r/Type? types)
          (con/znat? idx)
          ((some-fn nil? r/Type?) default-t)]

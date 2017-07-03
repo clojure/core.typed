@@ -141,7 +141,7 @@
                                                       (-> name r/make-F r/F-original-name)])))
                                          (:types fin))))
           "\n\n"
-          "Arguments:\n\t" (apply prn-str (map (comp prs/unparse-type r/ret-t) arg-ret-types))
+          "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type r/ret-t) arg-ret-types))
           "\n"
           "Ranges:\n\t"
           (str/join "\n\t" 

@@ -763,12 +763,17 @@
                                           expected))))
     :else :default))
 
+(declare maybe-special-apply)
+
 ;FIXME need to review if any repeated "check"s happen between invoke-apply and specials
 ;apply
 (add-invoke-special-method 'clojure.core/apply
   [expr & [expected]]
   ;(prn "special apply:")
-  (let [e (invoke-apply expr expected)]
+  (let [e (invoke-apply expr expected)
+        e (if (= e cu/not-special)
+            (maybe-special-apply check expr expected)
+            e)]
     (if (= e cu/not-special)
       :default
       e)))
@@ -1333,16 +1338,20 @@
 (add-static-method-special-method :default [& args] :default)
 (add-instance-method-special-method :default [& args] :default)
 
-
-;TODO attach new :args etc.
-;convert apply to normal function application
-(add-invoke-apply-method :default 
-  [expr & [expected]]
+(defn maybe-special-apply [check expr expected]
   (let [t (apply/check-apply check expr expected)]
     (if (= t cu/not-special)
       t
       (assoc expr
              u/expr-type t))))
+
+;;TODO attach new :args etc.
+;;convert apply to normal function application
+(add-invoke-apply-method :default 
+  [expr & [expected]]
+; commented: Now done in the invoke-special method for apply
+  #_(maybe-special-apply check expr expected)
+  cu/not-special)
 
 (add-check-method :invoke
   [{fexpr :fn :keys [args env] :as expr} & [expected]]

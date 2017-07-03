@@ -26,7 +26,7 @@
         body ((ast-u/let-body-kw) expr)]
     (u/p :check/check-let
      (cond
-       (and is-loop (seq bindings) (not expected-bnds) )
+       (and is-loop (seq bindings) (not expected-bnds))
        (do
          (err/tc-delayed-error "Loop requires more annotations")
          (assoc expr

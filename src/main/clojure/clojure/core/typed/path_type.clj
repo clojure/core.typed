@@ -12,10 +12,6 @@
             [clojure.core.typed.errors :as err])
   (:import (clojure.lang Keyword Symbol)))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 ; ported from Typed Racket, originally by Andrew Kent
 ;; returns the result of following a path into a type
 ;;  Type (Listof PathElem)-> Type
@@ -43,6 +39,27 @@
                      {:post [(r/Type? %)]}
                      (path-type t* ps resolved))
                    (:types t)))
+
+       (pe/KeysPE? (first ps))
+       (c/-name 
+         'clojure.core.typed/ASeq
+         (cond
+           (r/HeterogeneousMap? t) (c/RClass-of clojure.lang.Keyword)
+           (r/RClass? t) (let [_ (assert (= (:the-class t) 'clojure.lang.IPersistentMap))
+                               _ (assert (= 2 (count (:poly? t))))]
+                           (first (:poly? t)))
+           :else (err/int-error (str "Bad call to path-type: bad KeysPE, " (pr-str t) ", " (pr-str ps)))))
+
+       (pe/ValsPE? (first ps))
+       (c/-name 
+         'clojure.core.typed/ASeq
+         (cond
+           (r/HeterogeneousMap? t) (apply c/Un (mapcat vals [(:mandatory t) (:optional t)]))
+           (r/RClass? t) (let [_ (assert (= (:the-class t) 'clojure.lang.IPersistentMap))
+                               _ (assert (= 2 (count (:poly? t))))]
+                           (second (:poly? t)))
+           :else (err/int-error (str "Bad call to path-type: bad KeysPE, " (pr-str t) ", " (pr-str ps)))))
+
 
        (and (pe/KeyPE? (first ps))
             (r/HeterogeneousMap? t))
@@ -74,6 +91,9 @@
        (pe/CountPE? (first ps))
        (path-type (r/Name-maker `t/Int) (next ps))
 
+       (pe/ClassPE? (first ps))
+       (path-type (c/Un r/-nil (c/RClass-of Class)) (next ps))
+
        (and (pe/NthPE? (first ps))
             (r/HeterogeneousList? t))
        (path-type
@@ -89,6 +109,11 @@
                (:rest t)
                r/-any)
            (next ps)))
+
+       (and (pe/NthPE? (first ps))
+            (r/Nil? t))
+       ;; we don't know the default value, so could return anything
+       (path-type r/-any (next ps))
 
        (pe/KeywordPE? (first ps))
        (path-type
@@ -110,5 +135,5 @@
            :else (c/Un r/-nil (c/RClass-of Keyword)))
          (next ps))
 
-       :else (err/int-error (str "Bad call to path-type: " (pr-str t) ", " (pr-str ps)))
+       :else (err/int-error (str "Bad call to path-type: " (pr-str t) ", " (pr-str ps) ", " (mapv class ps)))
        ))))

@@ -36,7 +36,7 @@
 
 ; Updated for Clojure 1.8
 ;  https://github.com/clojure/clojure/commit/7f79ac9ee85fe305e4d9cbb76badf3a8bad24ea0
-(def typed-macros
+(def ^:dynamic *typed-macros*
   {#'clojure.core/ns 
    (fn [&form &env name & references]
      (let [process-reference
@@ -84,12 +84,49 @@
               (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol T/Any) '~name)) nil)))
           ;; so core.typed knows `ns` always returns nil
           nil)))
+   ;; add positional information for destructured bindings
+   #'clojure.core/loop
+   (fn [&form &env bindings & body]
+     (@#'clojure.core/assert-args
+       (vector? bindings) "a vector for its binding"
+       (even? (count bindings)) "an even number of forms in binding vector")
+     (let [db (destructure bindings)]
+       (if (= db bindings)
+         `(loop* ~bindings ~@body)
+         (let [vs (take-nth 2 (drop 1 bindings))
+               bs (take-nth 2 bindings)
+               gs (map (fn [b] (if (symbol? b) 
+                                 b 
+                                 ;; preserve positional metadata
+                                 (with-meta 
+                                   (gensym) 
+                                   (meta b))))
+                       bs)
+               bfs (reduce (fn [ret [b v g]]
+                             (if (symbol? b)
+                               (conj ret g v)
+                               (conj ret g v b g)))
+                           [] (map vector bs vs gs))]
+           `(let ~bfs
+              (loop* ~(vec (interleave gs gs))
+                     (let ~(vec (interleave bs gs))
+                       ~@body)))))))
+   #'clojure.core/for
+	 (fn [&form &env seq-exprs body-expr]
+		 (@#'T/for &form &env seq-exprs body-expr))
+
+   ;; setting the :macro metadata on a var is a runtime side effect that
+   ;; core.typed cannot see. Here, we tc-ignore the body of macros manually.
+   #'clojure.core/defmacro
+	 (fn [&form &env & args]
+     `(T/tc-ignore
+        ~(apply @#'core/defmacro &form &env args)))
    })
 
 (defn typed-macro-lookup [var]
-  (get typed-macros var var))
+  (get *typed-macros* var var))
 
-;; copied from tools.analyze.jvm to insert `typed-macros`
+;; copied from tools.analyze.jvm to insert `*typed-macros*`
 (defn macroexpand-1
   "If form represents a macro form or an inlineable function,returns its expansion,
    else returns form."
@@ -116,7 +153,7 @@
               (cond
 
                macro?
-               (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
+               (let [res (apply (typed-macro-lookup v) form (:locals env) (rest form))] ; (m &form &env & args)
                  (taj/update-ns-map!)
                  (if (ta-utils/obj? res)
                    (vary-meta res merge (meta form))

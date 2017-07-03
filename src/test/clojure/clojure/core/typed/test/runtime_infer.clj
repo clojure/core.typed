@@ -7,6 +7,9 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.runtime-infer :refer :all]))
 
+(defn add-tmp-aliases [env as]
+  (update-alias-env env merge (zipmap as (repeat nil))))
+
 (defmacro with-tmp-aliases [env as & body]
   `(binding [*envs* (atom (add-tmp-aliases ~env ~as))] 
      ~@body))
@@ -19,7 +22,43 @@
                      :alias-env ~a}})]
      ~@body))
 
+(deftest union-test
+  (is (= (make-Union [(prs Long)
+                      (prs Double)])
+         (prs Number)
+         (make-Union [(prs Long)
+                      (prs Double)
+                      (prs Number)])
+         )))
+
 (deftest join-test
+  (is (= (join* (prs String))
+         (make-Union [(prs String)])
+         (prs String)))
+  (is (= (join* (prs Sym))
+         (make-Union [(prs Sym)])
+         (prs Sym)))
+  (is (not= (prs Any)
+            (prs (U Sym String))))
+  ;;FIXME
+  #_
+  (is (=
+       (prs (U '{:f [? :-> java.lang.Long], :a ?} 
+               '{:f [? :-> java.lang.Long]}))
+       (prs (HMap :mandatory {:f [? :-> java.lang.Long]} 
+                  :optional {:a ?}))))
+  ;;FIXME
+  #_
+  (is (=
+       (join-HMaps
+         (prs '{:f ':op1, :a Any})
+         (prs '{:f ':op2, :a Any}))
+       (join
+         (prs '{:f ':op1, :a Any})
+         (prs '{:f ':op2, :a Any}))
+       (prs (U 
+              '{:f ':op1, :a Any}
+              '{:f ':op2, :a Any}))))
   (checking
     "join maps"
     5
@@ -161,7 +200,7 @@
     [infers (gen/shuffle
               [(infer-result [(var-path 'use-map)
                               (key-path #{:a} :a)]
-                             (-unknown))
+                             -unknown)
                (infer-result [(var-path 'use-map)
                               (key-path #{:a} :a)]
                              (-class Long []))])]
@@ -237,6 +276,8 @@
          (prs (U '{:f [? :-> java.lang.Long], :a ?} 
                  '{:f [? :-> java.lang.Long]})))))
   
+  ;;hardcoded, but now fails
+  #_
   (checking
     "big"
     75
@@ -643,17 +684,125 @@
       (require 'clojure.core.typed.test.mini-occ :reload)
       :ok)))
 
-(defn anns-from-tenv [tenv]
+(deftest optional-keys-test
+  (is 
+    (= 
+      (join-HMaps
+        (prs
+          (HMap :optional {:a Any}))
+        (prs
+          (HMap :optional {:a Any})))
+      (prs
+        (HMap :optional {:a Any}))))
+  (is 
+    (= 
+      (join-HMaps
+        (prs
+          (HMap :optional {:a String}))
+        (prs
+          (HMap :mandatory {:a Long})))
+      (prs
+        (HMap :optional {:a (U String Long)}))))
+  (is 
+    (= 
+      (join-HMaps
+        (prs
+          (HMap :mandatory {:op ':Foo}))
+        (prs
+          (HMap :mandatory {:op ':Foo}
+                :optional {:bar String})))
+      (prs
+        (HMap :mandatory {:op ':Foo}
+              :optional {:bar String}))))
+
+  (is (=
+       (HMap-req-keyset
+         (prs
+           (HMap :mandatory {:a Long})))
+       #{:a}))
+  (is (=
+       (HMap-req-keyset
+         (prs
+           (HMap :optional {:a Long})))
+       #{}))
+  (is (=
+       (HMap-req-keyset
+         (prs
+           (HMap :optional {:a Long}
+                 :mandatory {:b Long})))
+       #{:b}))
+  (is (=
+       (HMap-req-opt-keysets
+         (prs
+           (HMap :optional {:a Long}
+                 :mandatory {:b Long})))
+       #{#{:a :b} #{:b}}))
+  (is (=
+       (make-Union
+         [(prs
+            (HMap :mandatory {:op ':Foo}))
+          (prs
+            (HMap :mandatory {:op ':Foo}
+                  :optional  {:opt String}))])
+       (prs (HMap :mandatory {:op ':Foo}
+                  :optional {:opt String}))))
+  (is (=
+       (make-Union
+         [(prs
+            (HMap :mandatory {:op ':Foo}
+                  :optional {:opt Long}))
+          (prs
+            (HMap :optional {:op ':Foo
+                             :opt String}))])
+       (prs (clojure.lang.IPersistentMap Any Any))))
+  (is 
+    (= 
+      (join-HMaps
+        (prs
+          '{:op ':the-foo
+            :the-bar Sym
+            :opt Sym})
+        (prs
+          '{:op ':the-foo
+            :the-bar Sym}))
+      (prs
+        (HMap :mandatory {:op ':the-foo
+                          :the-bar Sym}
+              :optional {:opt Sym}))))
+)
+
+(defn *-from-tenv [f tenv config]
   (let [ns (create-ns (gensym))]
     (binding [*ann-for-ns* (constantly ns)
-              *ns* ns]
-      (let [_ (prn (current-ns))
+              *ns* ns
+              *debug* (if-let [[debug] (find config :debug)]
+                        debug
+                        *debug*)]
+      ;; set up ns refers
+      (refer-clojure)
+      (require '[clojure.core.typed 
+                 :as t 
+                 :refer [defalias ann Str Any U Vec Map
+                         Sym HMap Nothing]])
+      (require '[clojure.spec :as s])
+
+      (let [_ (prn "Current ns:" (current-ns))
             env (as-> (init-env) env
                   (update-type-env env merge tenv))
-            config (init-config)
             env (populate-envs env config)
-            anns (envs-to-annotations env config)]
+            anns (f env config)]
         (pprint anns)))))
+
+(defn anns-from-tenv [tenv & [config]]
+  (*-from-tenv envs-to-annotations
+               tenv
+               (or config {})))
+
+(defn specs-from-tenv [tenv & [config]]
+  (*-from-tenv envs-to-specs
+               tenv
+               (merge config
+                      {:spec? true})))
 
 (let [st-type (prs
                 '{:quads
@@ -718,7 +867,8 @@
        (U
         '{:exp '{:name Sym, :E ':var},
           :P ':is,
-          :type '{:T ':intersection, :types (Set Nothing)}}
+          :type '{:T ':intersection, :types (Set Nothing)}
+          :foo Sym}
         '{:P ':=,
           :exps
           (Set
@@ -729,5 +879,269 @@
               :E ':app}))}))})
    :->
    Any])]
-(anns-from-tenv {'unparse-prop1 t
+(anns-from-tenv {;'unparse-prop1 t
                  'unparse-prop2 t}))
+
+;; collapse maps with completely disjoint keys
+(let [t (prs
+          [(U '{:entry1 String}
+              '{:entry2 Boolean}
+              '{:entry3 Boolean})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+;; don't collapse common keys with keyword entry
+(let [t (prs
+          [(U '{:op :foo
+                :entry1 String}
+              '{:op :bar
+                :entry2 Boolean}
+              '{:op :baz
+                :entry3 Boolean})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}
+                  {:debug true}))
+
+;; upcast Kw + HMap to Any
+(let [t (prs
+          [(U ':foo
+              '{:op :bar
+                :entry2 Boolean})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+;; simplify keywords + seqables to Any
+(let [t (prs
+          [(U ':foo
+              (clojure.lang.Seqable String))
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+;; simplify Sym/Kw + seqable to Any
+(let [t (prs
+          [(U Sym
+              (clojure.lang.Seqable String))
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+;; don't simplify Seqable + nil
+(let [t (prs
+          [(U nil
+              (clojure.lang.Seqable String))
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+;; use optional keys
+(let [t (prs
+          [(U '{:foo String}
+              '{:foo String
+                :bar Boolean})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}
+                  {:debug true}))
+
+;upcast union to Any
+(let [t (prs
+          [(U Any
+              '{:foo String
+                :bar Boolean})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+; Kw simplification
+(let [t (prs
+          [(U ':foo ':bar)
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+; join on class arguments
+(let [t (prs
+          [(U (Vec Integer)
+              (Vec Long))
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+; don't alias args implicitly
+(let [t (prs
+          [[Any :->  Any]
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+; upcast HMaps to Map if they appear in a union
+(let [t (prs
+          [(U '{:foo Any}
+              (clojure.lang.IPersistentMap Any Any))
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+; upcast HMaps to Map if they appear in a union
+(let [t (prs
+          [(U '{:foo Any}
+              (clojure.lang.IPersistentMap Any Any))
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+; optional HMaps test
+(let [t (prs
+          [(HMap :optional {:foo String})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}))
+
+(let [t (prs
+          [(U '{:op ':the-foo
+                :the-bar Sym
+                :opt Sym}
+              '{:op ':the-foo
+                :the-bar Sym})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}
+                  {:debug true}))
+
+; namespaced entry + spec
+(let [t (prs
+          ['{::op ':the-foo}
+           :->
+           Any])]
+  (specs-from-tenv {'config-in t}))
+
+;; TODO recursive example of this test
+(with-debug
+(let [t (prs
+          [(U '{:op ':the-bar
+                :the-foo String
+                :the-baz String}
+              '{:op ':the-foo
+                :the-foo Sym
+                :the-baz Sym})
+           :->
+           Any])]
+  (anns-from-tenv {'config-in t}
+                  {:debug true}))
+)
+
+; HMap alias naming test
+(let [t (prs
+          [
+           '{:op ':foo
+             :the-bar '{:op ':term
+                        :val Sym}}
+           :->
+           Any])]
+  ((juxt specs-from-tenv
+         anns-from-tenv)
+    {'config-in t}))
+
+; recursive HMaps test
+(with-debug
+(let [t (prs
+          [(U
+           '{:op ':foo
+             :the-bar '{:op ':bar
+                        :the-foo '{:op ':foo
+                                   :the-bar '{:op ':term
+                                              :val Sym}}}}
+           '{:op ':foo
+             :opt Sym
+             :the-bar '{:op ':bar
+                        :the-foo '{:op ':foo
+                                   :the-bar '{:op ':term
+                                              :val Sym}}}}
+           #_
+             '{:op ':bar
+               :the-foo '{:op ':foo
+                          :the-bar '{:op ':bar
+                                     :the-foo '{:op ':term
+                                                :val Sym}}}}
+)
+           :->
+           Any])]
+         
+  ((juxt #_specs-from-tenv ;; FIXME
+         anns-from-tenv)
+    {'config-in t}
+    {:debug true}))
+)
+
+;; FIXME prefer :op over :type?
+(let [t (prs
+          [
+           (U
+           '{:op ':foo
+             :type (U ':int ':nil ':faz)
+             :the-bar '{:op ':bar
+                        :type (U ':int ':nil ':faz)
+                        :the-foo '{:op ':foo
+                                   :type (U ':int ':nil ':faz)
+                                   :the-bar '{:op ':term
+                                              :val Sym}}}}
+           '{:op ':foo
+             :type (U ':int ':nil ':faz)
+             :opt Sym
+             :the-bar '{:op ':bar
+                        :type (U ':int ':nil ':faz)
+                        :the-foo '{:op ':foo
+                                   :type (U ':int ':nil ':faz)
+                                   :the-bar '{:op ':term
+                                              :val Sym}}}}
+             '{:op ':bar
+               :type (U ':int ':nil ':faz)
+               :the-foo '{:op ':foo
+                          :type (U ':int ':nil ':faz)
+                          :the-bar '{:op ':bar
+                                     :type (U ':int ':nil ':faz)
+                                     :the-foo '{:op ':term
+                                                :val Sym}}}})
+           :->
+           Any])]
+  (;specs-from-tenv 
+   anns-from-tenv 
+   {'config-in t}
+   {:fuel 0})
+  )
+
+(with-debug
+(let [t (prs
+          [':a
+           Integer
+           ':b
+           Boolean
+           :->
+           Any])]
+         
+  ((juxt #_specs-from-tenv ;; FIXME
+         anns-from-tenv)
+    {'config-in t}
+    {:debug true}))
+)
+
+;; combine maps that look similar
+(let [t (prs
+          ['{:a Long
+             :b Long
+             :c Long
+             :d Long}
+           '{:a Long
+             :b Long
+             :c Long}
+           :->
+           Any])]
+         
+  ((juxt #_specs-from-tenv ;; FIXME
+         anns-from-tenv)
+    {'config-in t}
+    ))

@@ -74,6 +74,10 @@
       (let [kt ^Value rkt]
         (when (integer? (.val kt))
           (c/RClass-of IPersistentVector [(c/Un (:t vt) (nth (:poly? rc) 0))])))
+
+      (and (= (:the-class rc) 'clojure.lang.IPersistentVector)
+           (ind/subtype? rkt (r/Name-maker 'clojure.core.typed/Int)))
+      (c/RClass-of IPersistentVector [(c/Un (:t vt) (nth (:poly? rc) 0))])
       )))
   
   HeterogeneousMap
