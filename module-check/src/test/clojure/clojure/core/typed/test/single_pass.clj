@@ -36,7 +36,9 @@
 
 (defmacro taj [form]
   `(binding [ana.jvm/run-passes passes]
-     (ana.jvm/analyze+eval '~form)))
+     (ana.jvm/analyze+eval '~form
+                           (ana.jvm/empty-env)
+                           {:handle-evaluation-exception (constantly nil)})))
 
 (defn ppdiff [x y]
   (pprint (diff x y)))
@@ -967,6 +969,9 @@
               (=
                {:a 1}
                (MyMap. {:a 1}))))))))
+
+(deftest static-invoke-expr
+  (is (ast (long 1))))
 
 #_(emit-form
 (ast

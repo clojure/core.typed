@@ -50,11 +50,11 @@
             <namespace>!clojure.core.typed.base-env-cljs</namespace>
             <namespace>!clojure.core.typed.check-form-cljs</namespace>
             <namespace>!clojure.core.typed.check-ns-cljs</namespace>
+            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
+            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
             <!-- depends on tools.nrepl -->
             <!--<namespace>!clojure.core.typed.repl</namespace>
             <namespace>!clojure.core.typed.load</namespace>-->
-
-
           </namespaces>
           <testNamespaces>
             <namespace>clojure.core.typed.test.*</namespace>
@@ -66,6 +66,8 @@
             <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>!clojure.core.typed.test.cljs-core</namespace>
             <namespace>!clojure.core.typed.test.cljs-utils</namespace>
+            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
+            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
@@ -128,7 +130,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
-      <version>0.6.10</version>
+      <version>0.7.0</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -183,7 +185,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
-      <version>0.2.371</version>
+      <version>0.3.443</version>
       <optional>true</optional>
       <exclusions>
         <exclusion>

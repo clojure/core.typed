@@ -70,7 +70,12 @@
                                                   (-> %
                                                     (update-in [:pre-type] type-rec))))
                            (update-in [:prest] #(when %
-                                                  (type-rec %))))))
+                                                  (let [t (type-rec %)]
+                                                    ;; if we fully flatten out the prest, we're left
+                                                    ;; with no prest
+                                                    (if (= r/-nothing t)
+                                                      nil
+                                                      t)))))))
 
 (add-default-fold-case JSNominal
                        (fn [ty _]

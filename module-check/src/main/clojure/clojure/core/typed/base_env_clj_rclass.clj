@@ -61,7 +61,9 @@ ILookup [[[a :variance :covariant]
 IPersistentSet [[[a :variance :covariant]]
                 :replace
                 {IPersistentCollection (IPersistentCollection a)
-                 Seqable (Seqable a)}]
+                 Seqable (Seqable a)}
+                :unchecked-ancestors
+                #{[Any -> (U a nil)]}] ;; not a real ancestor
 
 APersistentSet [[[a :variance :covariant]]
                 :replace
@@ -168,7 +170,9 @@ IPersistentVector [[[a :variance :covariant]]
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
                     Associative (Associative Number a)
-                    Indexed (Indexed a)}]
+                    Indexed (Indexed a)}
+                   :unchecked-ancestors
+                   #{[Number -> a]}] ;; not a real ancestor, but very useful
 
 APersistentVector [[[a :variance :covariant]]
                    :replace

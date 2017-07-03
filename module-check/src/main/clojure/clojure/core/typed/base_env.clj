@@ -408,6 +408,7 @@ clojure.core/concat (All [x] [(Option (Seqable x)) * -> (ASeq x)])
 clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)])
 clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
 clojure.core/hash-map (All [x y] [(HSequential [x y] :repeat true) <* -> (Map x y)])
+clojure.core/sorted-map (All [x y] [(HSequential [x y] :repeat true) <* -> (Map x y)])
 clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
@@ -508,7 +509,7 @@ clojure.core/comp
 
 clojure.core/apply
      (All [y a b c d r z ...]
-          (Fn [[z ... z -> y] (U nil (HSequential [z ... z])) -> y]
+          (IFn [[z ... z -> y] (U nil (HSequential [z ... z])) -> y]
               [[a z ... z -> y] a (U nil (HSequential [z ... z])) -> y]
               [[a b z ... z -> y] a b (U nil (HSequential [z ... z])) -> y]
               [[a b c z ... z -> y] a b c (U nil (HSequential [z ... z])) -> y]
@@ -517,7 +518,8 @@ clojure.core/apply
               [[a r * -> y] a (U nil (Seqable r)) -> y]
               [[a b r * -> y] a b (U nil (Seqable r)) -> y]
               [[a b c r * -> y] a b c (U nil (Seqable r)) -> y]
-              [[a b c d r * -> y] a b c d (U nil (Seqable r)) -> y]))
+              [[a b c d r * -> y] a b c d (U nil (Seqable r)) -> y]
+              ))
 
 ;partial: wishful thinking (replaces the first 4 arities)
 ; (All [b1 ...]
@@ -610,14 +612,10 @@ clojure.core/realized? [clojure.lang.IPending -> Boolean]
 clojure.core/select-keys (All [k v] [(Map k v) (U nil (Seqable Any))
                                      -> (Map k v)])
 
-; could possibly return nil in some insane mutable situtation
 clojure.core/sort (All [x] 
-                       (IFn [(U nil (Seqable x)) -> (U nil (ASeq x))]
+                       (IFn [(U nil (Seqable x)) -> (ASeq x)]
                            [(I Comparator [x x -> AnyInteger]) 
-                            (U nil (Seqable x)) -> (U nil (ASeq x))]))
-
-; this is insane
-;clojure.core/test
+                            (U nil (Seqable x)) -> (ASeq x)]))
 
 clojure.core/reset! (All [w r]
                               [(Atom2 w r) w -> w])
@@ -1499,9 +1497,9 @@ clojure.core/rseq
        [(clojure.core.typed/Reversible x) -> (Option (NonEmptyASeq x))])
 
 ;coercions
-clojure.core/bigdec [Number -> BigDecimal]
-clojure.core/bigint [Number -> clojure.lang.BigInt]
-clojure.core/biginteger [Number -> java.math.BigInteger]
+clojure.core/bigdec [(U String Number) -> BigDecimal]
+clojure.core/bigint [(U String Number) -> clojure.lang.BigInt]
+clojure.core/biginteger [(U String Number) -> java.math.BigInteger]
 clojure.core/boolean [Any -> Boolean]
 clojure.core/byte [(U Character Number) -> Byte]
 clojure.core/char [(U Character Number) -> Character]
@@ -1948,6 +1946,7 @@ clojure.lang.Numbers/unchecked_multiply (IFn [Long Long -> Long]
 clojure.lang.Numbers/unchecked_int_multiply [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_divide [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_remainder [Number Number -> AnyInteger]
+clojure.lang.Numbers/remainder [Number Number -> AnyInteger]
 clojure.lang.Numbers/multiply (IFn [Long Long -> Long]
                                    [(U Double Long) (U Double Long) -> Double]
                                    [AnyInteger AnyInteger -> AnyInteger]
@@ -1972,10 +1971,12 @@ clojure.lang.Numbers/unsignedShiftRight [AnyInteger AnyInteger -> Long]
 clojure.lang.Numbers/max (IFn 
                            [Long Long -> Long]
                            [Double Double -> Double]
+                           [AnyInteger AnyInteger -> AnyInteger]
                            [Number Number -> Number])
 clojure.lang.Numbers/min (IFn 
                            [Long Long -> Long]
                            [Double Double -> Double]
+                           [AnyInteger AnyInteger -> AnyInteger]
                            [Number Number -> Number])
 
 clojure.lang.Numbers/lt [Number Number -> Boolean]
@@ -1986,6 +1987,8 @@ clojure.lang.Numbers/gte [Number Number -> Boolean]
 clojure.lang.Numbers/isZero [Number -> Boolean
                              :filters {:then (is (Value 0) 0)
                                        :else (!  (Value 0) 0)}]
+clojure.lang.Numbers/isNeg [Number -> Boolean]
+clojure.lang.Numbers/isPos [Number -> Boolean]
 
 clojure.lang.Util/compare [Any Any -> Number]
 

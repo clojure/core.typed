@@ -314,7 +314,8 @@
     This macro will macroexpand the body twice: once for type checking
     and again for the actual return value."
   [& body]
-  (let [[t? t body] (maybe-annotation body)]
+  (let [[t? t body] (maybe-annotation body)
+        crossing-env (zipmap (keys &env) (repeatedly gensym))]
     `(let [c# (chan :- ~(if t? t `t/Any), 1)
            captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
        ; wrap unexpanded go body in a thunk for type checking.
@@ -323,12 +324,13 @@
        ; we don't want to touch this.
        (t/tc-ignore
          (dispatch/run
-           (fn []
-             (let [f# ~(ioc/state-machine `(do ~@body) 1 (keys &env) ioc/async-custom-terminators)
-                   state# (-> (f#)
-                              (ioc/aset-all! ioc/USER-START-IDX c#
-                                             ioc/BINDINGS-IDX captured-bindings#))]
-               (ioc/run-state-machine-wrapped state#)))))
+           (^:once fn* []
+                   (let [~@(mapcat (fn [[l sym]] [sym `(^:once fn* [] ~(vary-meta l dissoc :tag))]) crossing-env)
+                         f# ~(ioc/state-machine `(do ~@body) 1 [crossing-env &env] ioc/async-custom-terminators)
+                         state# (-> (f#)
+                                    (ioc/aset-all! ioc/USER-START-IDX c#
+                                                   ioc/BINDINGS-IDX captured-bindings#))]
+                     (ioc/run-state-machine-wrapped state#)))))
        c#)))
 
 (defmacro go-loop
@@ -452,15 +454,4 @@
   "DEPRECATED: use go"
   [& body]
   (prn "DEPRECATED: go>, use go")
-  `(let [c# (chan> ~'Any 1)
-         captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
-     (tc-ignore
-       (clojure.core.async.impl.dispatch/run
-         (fn []
-           (let [f# ~(ioc/state-machine body 1 &env ioc/async-custom-terminators)
-                 state# (-> (f#)
-                            (ioc/aset-all! 
-                              ioc/USER-START-IDX c#
-                              ioc/BINDINGS-IDX captured-bindings#))]
-             (ioc/run-state-machine state#)))))
-     c#))
+  `(go ~@body))

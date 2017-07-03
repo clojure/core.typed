@@ -367,7 +367,9 @@ for checking namespaces, cf for checking individual forms."}
   (@#'core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
-  (let [[ret-ann body-expr] (if (#{:-} (first maybe-ann-body-expr))
+  (let [orig-seq-exprs seq-exprs
+        has-explicit-return-type? (#{:-} (first maybe-ann-body-expr))
+        [ret-ann body-expr] (if has-explicit-return-type?
                               (let [_ (assert (#{3} (count maybe-ann-body-expr))
                                               (str "Wrong arguments to for: " maybe-ann-body-expr))
                                     [colon t body] maybe-ann-body-expr]
@@ -376,6 +378,12 @@ for checking namespaces, cf for checking individual forms."}
                                               (str "Wrong arguments to for: " maybe-ann-body-expr))
                                     [body] maybe-ann-body-expr]
                                 [`Any body]))
+        ret-ann (if-let [[_ meta-ann] (find (meta seq-exprs) ::ann)]
+                  (do (assert (not has-explicit-return-type?)
+                              "Cannot mix explicit and metadata return type in for.")
+                      meta-ann)
+                  ret-ann)
+        ;_ (prn "ret-ann" ret-ann)
         normalise-args
         ; change [a :- b c] to [[a :- b] c]
         (fn [seq-exprs]
@@ -390,17 +398,23 @@ for checking namespaces, cf for checking individual forms."}
                                                  [k v & rst] seq-exprs]
                                              (recur (conj flat-result k v)
                                                     rst))
-              :else (if (#{:-} (second seq-exprs))
-                      (let [_ (assert (#{4} (count (take 4 seq-exprs)))
-                                      (str "for parameter missing after ':-'"))
-                            [b colon t init & rst] seq-exprs]
-                        (recur (conj flat-result [b colon t] init)
-                               rst))
-                      (let [_ (assert (#{2} (count (take 2 seq-exprs)))
-                                      (str "for binding needs initial values"))
-                            [b init & rst] seq-exprs]
-                        (recur (conj flat-result [b :- `Any] init)
-                               rst))))))
+              :else (let [[meta-ann has-meta-ann?]
+                          (when-let [[_ meta-ann] (find (meta (first seq-exprs)) ::ann)]
+                            [meta-ann true])]
+                      (if (#{:-} (second seq-exprs))
+                        (let [_ (assert (#{4} (count (take 4 seq-exprs)))
+                                        (str "for parameter missing after ':-'"))
+                              [b colon t init & rst] seq-exprs]
+                          (assert (not meta-ann)
+                                  "Cannot mix metadata annotation and explicit annotation in for.")
+                          (recur (conj flat-result [b colon t] init)
+                                 rst))
+                        (let [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                        (str "for binding needs initial values"))
+                              [b init & rst] seq-exprs
+                              ann (if has-meta-ann? meta-ann `Any)]
+                          (recur (conj flat-result [b :- ann] init)
+                                 rst)))))))
 
         ; normalise seq-exprs to be flat pairs
         seq-exprs (normalise-args seq-exprs)
@@ -437,16 +451,28 @@ for checking namespaces, cf for checking individual forms."}
                                          (if fs#
                                            (concat fs# (~giter (rest ~gxs)))
                                            (recur (rest ~gxs))))
-                                     :else `(cons ~body-expr
+                                     :else `(cons (ann-form ~body-expr ~ret-ann) ;; ann-form for better error messages
                                                   (~giter (rest ~gxs)))))]
                       (if next-groups
                         #_"not the inner-most loop"
-                        `(fn ~giter [~gxs :- (Option (Seqable ~bind-ann))]
+                        `(fn ~giter 
+                           [~gxs :- (Option (Seqable ~bind-ann))]
                            :- (Seq ~ret-ann)
                            (lazy-seq
-                             (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
-                               (when-first [~bind ~gxs]
-                                 ~(do-mod mod-pairs)))))
+                             (map (fn [t# :- ~ret-ann] :- ~ret-ann
+                                    (let [^{::auto-ann ~(meta orig-seq-exprs)
+                                            ::track-kind ::for-return}
+                                          t# t#]
+                                      ;(prn "tracked t#" t#)
+                                      t#))
+                                  (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                    (when-let [xs# (seq ~gxs)]
+                                      (let [^{::auto-ann ~(meta bind)
+                                              ::track-kind ::for-param}
+                                            x# (first xs#)
+                                            ;_# (prn "for param x#" x#)
+                                            ~bind x#]
+                                        ~(do-mod mod-pairs)))))))
                         #_"inner-most loop"
                         (let [gi (gensym "i__")
                               gb (gensym "b__")
@@ -471,25 +497,37 @@ for checking namespaces, cf for checking individual forms."}
                           `(fn ~giter [~gxs :- (Option (Seqable ~bind-ann))]
                              :- (Seq ~ret-ann)
                              (lazy-seq
-                               (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
-                                 (when-let [~gxs (seq ~gxs)]
-                                   (if (chunked-seq? ~gxs)
-                                     (let [c# (chunk-first ~gxs)
-                                           size# (int (count c#))
-                                           ~gb (ann-form (chunk-buffer size#)
-                                                         (~'clojure.lang.ChunkBuffer ~ret-ann))]
-                                       (if (loop [~gi :- Int, (int 0)]
-                                             (if (< ~gi size#)
-                                               (let [;~bind (.nth c# ~gi)]
-                                                     ~bind (nth c# ~gi)]
-                                                 ~(do-cmod mod-pairs))
-                                               true))
-                                         (chunk-cons
-                                           (chunk ~gb)
-                                           (~giter (chunk-rest ~gxs)))
-                                         (chunk-cons (chunk ~gb) nil)))
-                                     (let [~bind (first ~gxs)]
-                                       ~(do-mod mod-pairs)))))))))))]
+                               (map (fn [t# :- ~ret-ann] :- ~ret-ann
+                                      (let [^{::auto-ann ~(meta orig-seq-exprs)
+                                              ::track-kind ::for-return}
+                                            t# t#]
+                                        t#))
+                                    (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                      (when-let [~gxs (seq ~gxs)]
+                                        (if (chunked-seq? ~gxs)
+                                          (let [c# (chunk-first ~gxs)
+                                                size# (int (count c#))
+                                                ~gb (ann-form (chunk-buffer size#)
+                                                              (~'clojure.lang.ChunkBuffer ~ret-ann))]
+                                            (if (loop [~gi :- Int, (int 0)]
+                                                  (if (< ~gi size#)
+                                                    (let [;~bind (.nth c# ~gi)]
+                                                          ^{::auto-ann ~(meta bind)
+                                                            ::track-kind ::for-param}
+                                                          x# (nth c# ~gi)
+                                                          ~bind x#]
+                                                      ~(do-cmod mod-pairs))
+                                                    true))
+                                              (chunk-cons
+                                                (chunk ~gb)
+                                                (~giter (chunk-rest ~gxs)))
+                                              (chunk-cons (chunk ~gb) nil)))
+                                          (let [^{::auto-ann ~(meta bind)
+                                                  ::track-kind ::for-param}
+                                                x# (first ~gxs)
+                                                ;_# (prn "for param x#" x#)
+                                                ~bind x#]
+                                            ~(do-mod mod-pairs))))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
         (iter# ~(second seq-exprs)))))
 
@@ -2040,8 +2078,8 @@ for checking namespaces, cf for checking individual forms."}
   
   eg. (ann-protocol IFoo
         bar
-        (Fn [IFoo -> Any]
-            [IFoo Number Symbol -> Any])
+        (IFn [IFoo -> Any]
+             [IFoo Number Symbol -> Any])
         baz
         [IFoo Number -> Number])
       (defprotocol> IFoo
@@ -2053,8 +2091,8 @@ for checking namespaces, cf for checking individual forms."}
       (ann-protocol [[x :variance :covariant]]
         IFooPoly
         bar
-        (Fn [(IFooPoly x) -> Any]
-            [(IFooPoly x) Number Symbol -> Any])
+        (IFn [(IFooPoly x) -> Any]
+             [(IFooPoly x) Number Symbol -> Any])
         baz
         [(IFooPoly x) Number -> Number])
       (defprotocol> IFooPoly
@@ -2457,16 +2495,36 @@ for checking namespaces, cf for checking individual forms."}
   Then call `runtime-infer` to populate the namespace's
   corresponding file with these generated annotations.
 
+  Optional keys:
+    :ns     The namespace to infer types for. (Symbol/Namespace)
+            Default: *ns*
+    :fuel   Number of iterations to perform in inference algorithm
+            (integer)
+            Default: nil (don't restrict iterations)
+    :debug  Perform print debugging. (boolean/nil)
+            Default: nil
+
   eg. (runtime-infer) ; infer for *ns*
 
-      (runtime-infer 'my-ns) ; infer for my-ns
+      (runtime-infer :ns 'my-ns) ; infer for my-ns
+
+      (runtime-infer :fuel 0) ; iterations in type inference algorithm
+                              ; (higher = smaller types + more recursive)
+
+      (runtime-infer :debug true) ; enable debugging
   "
-  ([] (runtime-infer *ns*))
-  ([ns]
+  ([& kws]
    (load-if-needed)
    (require '[clojure.core.typed.runtime-infer])
-   ((impl/v 'clojure.core.typed.runtime-infer/runtime-infer)
-    {:ns ns})))
+   (let [m (-> (if (= 1 (count kws))
+                 (do
+                   (err/deprecated-warn
+                     "runtime-infer with 1 arg: use {:ns <ns>}")
+                   {:ns (first kws)})
+                 (apply hash-map kws))
+               (update :ns #(or % *ns*)))]
+     ((impl/v 'clojure.core.typed.runtime-infer/runtime-infer)
+      m))))
 
 (defn spec-infer 
   "Infer and insert specs for a given namespace.
@@ -2486,16 +2544,36 @@ for checking namespaces, cf for checking individual forms."}
   Then call `spec-infer` to populate the namespace's
   corresponding file with these generated specs.
 
+  Optional keys:
+    :ns     The namespace to infer specs for. (Symbol/Namespace)
+            Default: *ns*
+    :fuel   Number of iterations to perform in inference algorithm
+            (integer)
+            Default: nil (don't restrict iterations)
+    :debug  Perform print debugging. (boolean/nil)
+            Default: nil
+
   eg. (spec-infer) ; infer for *ns*
 
-      (spec-infer 'my-ns) ; infer for my-ns
+      (spec-infer :ns 'my-ns) ; infer for my-ns
+
+      (spec-infer :fuel 0) ; iterations in spec inference algorithm
+                           ; (higher = smaller specs + more recursive)
+
+      (spec-infer :debug true) ; enable debugging
   "
-  ([] (spec-infer *ns*))
-  ([ns]
+  ([& kws]
    (load-if-needed)
    (require '[clojure.core.typed.runtime-infer])
-   ((impl/v 'clojure.core.typed.runtime-infer/spec-infer)
-    {:ns ns})))
+   (let [m (-> (if (= 1 (count kws))
+                 (do
+                   (err/deprecated-warn
+                     "runtime-infer with 1 arg: use {:ns <ns>}")
+                   {:ns (first kws)})
+                 (apply hash-map kws))
+               (update :ns #(or % *ns*)))]
+     ((impl/v 'clojure.core.typed.runtime-infer/spec-infer)
+      m))))
 
 (defn pred* [tsyn nsym pred]
   pred)

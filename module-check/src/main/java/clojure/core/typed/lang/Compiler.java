@@ -3539,7 +3539,7 @@ public static class InstanceOfExpr implements Expr, MaybePrimitiveExpr{
 
 }
 
-static class StaticInvokeExpr implements Expr, MaybePrimitiveExpr{
+public static class StaticInvokeExpr implements Expr, MaybePrimitiveExpr{
 	public final Type target;
 	public final Class retClass;
 	public final Class[] paramclasses;
@@ -3902,7 +3902,8 @@ public static class InvokeExpr implements Expr{
            && context != C.EVAL)
 			{
 			Var v = ((VarExpr)fexpr).var;
-            if(!v.isDynamic() && !RT.booleanCast(RT.get(v.meta(), redefKey, false)))
+            if(false && // don't create StaticInvokeExpr's since we don't handle it in the converter - Ambrose
+                !v.isDynamic() && !RT.booleanCast(RT.get(v.meta(), redefKey, false)))
                 {
                 Symbol formtag = tagOf(form);
                 Object arglists = RT.get(RT.meta(v), arglistsKey);
@@ -5999,7 +6000,10 @@ abstract public static class ObjMethod{
 	}
 }
 
-public static class LocalBinding{
+// since core.async depends on the &env of a macro, we need this LocalBinding
+// to extend clojure.lang.Compiler.LocalBinding. Through dumb luck, it's public
+// and non-final, great! Just needs an explicit call to super(..).
+public static class LocalBinding extends clojure.lang.Compiler.LocalBinding {
 	public final Symbol sym;
 	public final Symbol tag;
 	public Expr init;
@@ -6014,6 +6018,8 @@ public static class LocalBinding{
 
     public LocalBinding(int num, Symbol sym, Symbol tag, Expr init, boolean isArg,PathNode clearPathRoot)
                 {
+// pass null to avoid casting errors from {Expr,PathNode} to clojure.lang.Compiler.{Expr,PathNode}
+    super(num, sym, tag, null, isArg, null); // need to call superclass explicitly since superclass doesn't have 0-arg constructor
 		if(maybePrimitiveType(init) != null && tag != null)
 			throw new UnsupportedOperationException("Can't type hint a local with a primitive initializer");
 		this.idx = num;
@@ -6025,6 +6031,7 @@ public static class LocalBinding{
 		name = munge(sym.getName());
 	}
 
+  @Override
 	public boolean hasJavaClass() {
 		if(init != null && init.hasJavaClass()
 		   && Util.isPrimitive(init.getJavaClass())
@@ -6034,11 +6041,13 @@ public static class LocalBinding{
 		       || (init != null && init.hasJavaClass());
 	}
 
+  @Override
 	public Class getJavaClass() {
 		return tag != null ? HostExpr.tagToClass(tag)
 		                   : init.getJavaClass();
 	}
 
+  @Override
 	public Class getPrimitiveType(){
 		return maybePrimitiveType(init);
 	}

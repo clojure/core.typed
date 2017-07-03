@@ -1,6 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.check.funapp
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.type-ctors :as c]
@@ -25,22 +27,6 @@
             [clojure.core.typed.infer-vars :as infer-vars]
             [clojure.core.typed.hset-utils :as hset]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
-(defn ifn-ancestor 
-  "If this type can be treated like a function, return one of its
-  possibly polymorphic function ancestors.
-  
-  Assumes the type is not a union"
-  [t]
-  {:pre [(r/Type? t)]
-   :post [((some-fn nil? r/Type?) %)]}
-  (let [t (c/fully-resolve-type t)]
-    (cond
-      (r/RClass? t)
-      (first (filter (some-fn r/Poly? r/FnIntersection?) (c/RClass-supers* t)))
-      ;handle other types here
-      )))
 
 ; Expr Expr^n TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
@@ -49,7 +35,9 @@
          ((some-fn nil? r/TCResult?) expected)]
    :post [(r/TCResult? %)]}
   (u/p :check/check-funapp
-  (let [fexpr-type (c/fully-resolve-type (r/ret-t fexpr-ret-type))
+  (let [_ (require 'clojure.core.typed.check.nth)
+        nth-type (impl/v 'clojure.core.typed.check.nth/nth-type)
+        fexpr-type (c/fully-resolve-type (r/ret-t fexpr-ret-type))
         arg-types (mapv r/ret-t arg-ret-types)]
     (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                              (when fexpr
@@ -73,15 +61,20 @@
       (r/Intersection? fexpr-type)
       (let [a-fntype (first (filter
                               (fn [t]
+                                ;; would be nice to recur on check-funapp on each of these
+                                ;; instead of this hack to find a function type.
                                 (or (r/FnIntersection? t)
+                                    (r/HeterogeneousVector? t)
+                                    (c/keyword-value? t)
+                                    (c/ifn-ancestor t)
                                     (r/Poly? t)))
                               (map c/fully-resolve-type (:types fexpr-type))))]
         (if a-fntype
           (check-funapp fexpr args (r/ret a-fntype) arg-ret-types expected)
-          (err/int-error (str "Cannot invoke type: " fexpr-type))))
+          (err/int-error (str "Cannot invoke type: " (prs/unparse-type fexpr-type)))))
 
-      (ifn-ancestor fexpr-type)
-      (check-funapp fexpr args (r/ret (ifn-ancestor fexpr-type)) arg-ret-types expected)
+      (c/ifn-ancestor fexpr-type)
+      (check-funapp fexpr args (r/ret (c/ifn-ancestor fexpr-type)) arg-ret-types expected)
 
       ;keyword function
       (c/keyword-value? fexpr-type)
@@ -97,13 +90,24 @@
       (do
         (when-not (#{1} (count args))
           (err/tc-delayed-error (str "Wrong number of arguments to set function (" (count args)")")))
-        (r/ret r/-any))
+        (below/maybe-check-below
+          (r/ret r/-any)
+          expected))
 
       ;FIXME same as IPersistentSet case
       (and (r/RClass? fexpr-type)
            (isa? (coerce/symbol->Class (:the-class fexpr-type)) clojure.lang.IPersistentMap))
       ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
       (let [mapfn (prs/parse-type `(t/All [x#] [(t/Map t/Any x#) t/Any :-> (t/U nil x#)]))]
+        (check-funapp fexpr args (r/ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
+
+      ;FIXME same as IPersistentSet case
+      (and (r/RClass? fexpr-type)
+           (isa? (coerce/symbol->Class (:the-class fexpr-type)) clojure.lang.IPersistentVector))
+      ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
+      (let [mapfn (prs/parse-type `(t/All [x# y#]
+                                          (t/IFn [(t/Vec x#) t/Int :-> x#]
+                                                 [(t/Vec x#) t/Int y# :-> (t/U y# x#)])))]
         (check-funapp fexpr args (r/ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
 
       ;Symbol function
@@ -122,7 +126,9 @@
 
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
-      (r/ret r/Err)
+      (below/maybe-check-below
+        (r/ret r/Err)
+        expected)
 
       ; Unchecked function is upcast to anything so we don't check arguments,
       ; but return Unchecked or expected.
@@ -141,32 +147,44 @@
         (or expected
             (r/ret (r/-unchecked nil))))
 
-      (r/HSet? fexpr-type)
-      (let [fixed (:fixed fexpr-type)]
-        (cond
-          (not (#{1} (count arg-ret-types))) 
-          (do (err/tc-delayed-error (str "Wrong number of arguments to set (" (count args)")"))
-              (r/ret r/Err))
+      (and (r/HeterogeneousVector? fexpr-type)
+           (#{1 2} (count arg-types))
+           (let [i (first arg-types)]
+             (and (r/Value? i)
+                  (integer? (:val i)))))
+      (below/maybe-check-below
+        (r/ret (nth-type [fexpr-type] (:val (first arg-types)) (second arg-types)))
+        expected)
 
-          :else
-          (let [[argt] arg-ret-types
-                ; default value is nil
-                set-return (apply c/Un r/-nil fixed)]
-            (if (and (:complete? fexpr-type)
-                     (every? (every-pred
-                               r/Value?
-                               (comp hset/valid-fixed? :val))
-                             fixed))
-              (let [; (#{false nil} a) returns false even if a is nil/false
-                    filter-type (apply c/Un
-                                       (disj (r/sorted-type-set fixed) 
-                                             (r/-val nil)
-                                             (r/-val false)))]
-                (r/ret set-return
-                       (fops/-FS
-                         (fops/-filter-at filter-type (r/ret-o argt))
-                         (fops/-not-filter-at filter-type (r/ret-o argt)))))
-              (r/ret set-return)))))
+      (r/HSet? fexpr-type)
+      (let [fixed (:fixed fexpr-type)
+            ret (cond
+                  (not (#{1} (count arg-ret-types))) 
+                  (do (err/tc-delayed-error (str "Wrong number of arguments to set (" (count args)")"))
+                      (r/ret r/Err))
+
+                  :else
+                  (let [[argt] arg-ret-types
+                        ; default value is nil
+                        set-return (apply c/Un r/-nil fixed)]
+                    (if (and (:complete? fexpr-type)
+                             (every? (every-pred
+                                       r/Value?
+                                       (comp hset/valid-fixed? :val))
+                                     fixed))
+                      (let [; (#{false nil} a) returns false even if a is nil/false
+                            filter-type (apply c/Un
+                                               (disj (r/sorted-type-set fixed) 
+                                                     (r/-val nil)
+                                                     (r/-val false)))]
+                        (r/ret set-return
+                               (fops/-FS
+                                 (fops/-filter-at filter-type (r/ret-o argt))
+                                 (fops/-not-filter-at filter-type (r/ret-o argt)))))
+                      (r/ret set-return))))]
+        (below/maybe-check-below
+          ret
+          expected))
 
   ; FIXME error messages are worse here because we don't use line numbers for
   ; specific arguments

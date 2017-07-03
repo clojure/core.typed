@@ -231,7 +231,7 @@
                                                      (:name dentries)))))))
 
 (defn substitute-dotted-for-heterogeneous* [constructor]
-  (fn [{:keys [types fs objects rest drest repeat]} {{:keys [sb name image]} :locals}]
+  (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [sb name image]} :locals}]
     (constructor
              (doall (map sb types))
              :filters (doall (map sb fs))
@@ -242,7 +242,7 @@
                                               (if (= name (:name drest))
                                                 name
                                                 (:name drest))))
-             :repeat repeat)))
+             :repeat (:repeat ftype))))
 
 (f/add-fold-case ::substitute-dotted
   HeterogeneousVector

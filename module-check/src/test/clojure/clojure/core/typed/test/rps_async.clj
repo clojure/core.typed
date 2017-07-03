@@ -88,10 +88,8 @@
 (defn play
   "Play by taking a match reporting channel and reporting the results of the latest match."
   [out-chan]
-  (let [[move1 move2 winner] (a/<!! out-chan)]
-    (assert move1)
-    (assert move2)
-    (assert winner)
+  (let [[move1 move2 winner :as c] (a/<!! out-chan)]
+    (assert c)
     (report move1 move2 winner)))
 
 (t/ann play-many [(ta/Chan RPSResult) t/Int -> (t/Map t/Any t/Any)])
@@ -102,12 +100,12 @@
            results :- (t/Map PlayerName t/Int), {}]
     (if (zero? remaining)
       results
-      (let [[m1 m2 winner] (a/<!! out-chan)]
-        (assert m1)
-        (assert m2)
-        (assert winner)
+      (let [[m1 m2 winner :as c] (a/<!! out-chan)]
+        (assert c)
         (recur (dec remaining)
-               (merge-with + results {winner 1}))))))
+               (merge-with (t/fn [i :- t/Num, j :- t/Num]
+                             (int (+ i j)))
+                           results {winner 1}))))))
 
 
 (fn []

@@ -758,6 +758,8 @@
                       o :- p/IRObject
                       flow :- FlowSet])
 
+(declare -AnyHSequential? DottedPretype?)
+
 (u/ann-record Function [dom :- (t/U nil (t/Seqable Type)),
                         rng :- Result,
                         rest :- (U nil Type)
@@ -774,6 +776,10 @@
    ;at most one of rest drest kws prest or pdot can be provided
    (#{0 1} (count (filter identity [rest drest kws prest pdot])))
    ; we could have prest without repeat, but why would you do that
+   (or (nil? prest)
+       (-AnyHSequential? prest))
+   (or (nil? pdot)
+       (DottedPretype? pdot))
    (if prest (and (:repeat prest) (:types prest)) true)
    ; we could have pdot without repeat, but why would you do that
    (if pdot
@@ -1151,3 +1157,10 @@
   []
   :methods
   [p/TCType])
+
+(t/tc-ignore
+(def -AnyHSequential?
+  "Predicate for any type that fully supports the HSequential interface."
+  ;; HeterogeneousList does not currently support :rest and others
+  (some-fn HSequential? HeterogeneousSeq? HeterogeneousVector?))
+)

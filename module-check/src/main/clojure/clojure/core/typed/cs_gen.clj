@@ -837,6 +837,12 @@
              (r/FnIntersection? T))
         (cs-gen-FnIntersection V X Y S T)
 
+;; extract IFn unchecked ancestor
+        (and (r/RClass? S)
+             (c/ifn-ancestor S)
+             (r/FnIntersection? T))
+        (cs-gen V X Y (c/ifn-ancestor S) T)
+
         (and (r/Function? S)
              (r/Function? T))
         (cs-gen-Function V X Y S T)
