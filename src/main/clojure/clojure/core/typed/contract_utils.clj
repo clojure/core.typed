@@ -4,11 +4,6 @@
   (:refer-clojure :exclude [boolean?])
   (:require [clojure.set :as set]))
 
-(alter-meta! *ns* assoc :skip-wiki true
-             :core.typed {:collect-only true})
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
 
