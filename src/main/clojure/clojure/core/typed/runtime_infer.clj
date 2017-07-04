@@ -685,7 +685,7 @@
 (defn qualify-spec-symbol [s]
   {:pre [(symbol? s)]
    :post [(symbol? %)]}
-  (qualify-symbol-in 'clojure.spec s))
+  (qualify-symbol-in 'clojure.spec.alpha s))
 
 (defn qualify-typed-symbol [s]
   {:pre [(symbol? s)]
@@ -1051,7 +1051,7 @@
                                                      (= clojure.lang.IPersistentVector
                                                         (:class d))))))
                                              arities)
-                                 [:bindings :clojure.core.specs/bindings])
+                                 [:bindings :clojure.core.specs.alpha/bindings])
                                ;; if there is more than one arity,
                                ;; default to a rest argument.
                                [:body
@@ -1073,7 +1073,7 @@
                                                        (#{:class} (:op d))
                                                        (= clojure.lang.IPersistentVector
                                                           (:class d)))
-                                                  :clojure.core.specs/bindings
+                                                  :clojure.core.specs.alpha/bindings
 
                                                   :else
                                                   (unparse-spec d))
@@ -3116,7 +3116,7 @@
 ; ns-exclusions : (Set Sym)
 (def ns-exclusions
   '#{clojure.core
-     clojure.spec
+     clojure.spec.alpha
      clojure.core.typed
      clojure.core.typed.contract
      clojure.core.typed.current-impl

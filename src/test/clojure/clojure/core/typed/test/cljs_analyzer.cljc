@@ -3387,7 +3387,7 @@
         (if-some [mac-var (when (symbol? op) (get-expander op env))]
           (#?@(:clj [binding [*ns* (create-ns *cljs-ns*)]]
                :cljs [do])
-            (let [mchk  #?(:clj  (some-> (find-ns 'clojure.spec)
+            (let [mchk  #?(:clj  (some-> (find-ns 'clojure.spec.alpha)
                                    (ns-resolve 'macroexpand-check))
                            :cljs (get-macroexpand-check-var))
                   _     (when (some? mchk)

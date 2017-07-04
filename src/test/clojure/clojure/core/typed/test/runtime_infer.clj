@@ -784,7 +784,7 @@
                  :as t 
                  :refer [defalias ann Str Any U Vec Map
                          Sym HMap Nothing]])
-      (require '[clojure.spec :as s])
+      (require '[clojure.spec.alpha :as s])
 
       (let [_ (prn "Current ns:" (current-ns))
             env (as-> (init-env) env
