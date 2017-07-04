@@ -16,7 +16,7 @@ Features/fixes
   - fragile workaround needed since core.async depends on
     `clojure.lang.Compiler.LocalBinding`. Seems to work.
   - updated the typed `go` wrapper
-- update Clojure to 1.9.0-alpha15
+- update Clojure to 1.9.0-alpha17
 - add metadata type annotations to `for`, `loop`
   - use `:clojure.core.typed/ann` keyword metadata to associate
     types to loop bindings

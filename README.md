@@ -37,7 +37,7 @@ using the slim jar in production.
 
 ## Compatibility
 
-`core.typed` supports Clojure 1.9.0-alpha15 and JDK 1.7+.
+`core.typed` supports Clojure 1.9.0-alpha17 and JDK 1.7+.
 
 ## Getting started
 
