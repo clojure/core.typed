@@ -37,7 +37,7 @@ using the slim jar in production.
 
 ## Compatibility
 
-`core.typed` supports Clojure 1.9.0-alpha14 and JDK 1.7+.
+`core.typed` supports Clojure 1.9.0-alpha15 and JDK 1.7+.
 
 ## Getting started
 
@@ -74,6 +74,20 @@ It's useful to also import `clojure.core.typed` to annotate expressions.
 
 Expressions evaluated via `eval` will also be type checked if the following is true at runtime:
 `(= :core.typed (:lang (meta *ns*)))`.
+
+## Runtime Spec and type inference
+
+core.typed can observe your tests running and generate appropriate annotations
+for your functions.
+
+First, call `(clojure.core.typed/prepare-infer-ns)` in the namespace you wish
+to infer.
+
+Then, run the relevant tests, ensuring you don't accidentally re-load the instrumented
+namespace.
+
+Finally, call `(clojure.core.typed/runtime-infer)` to insert core.typed annotations
+in your file, or `(clojure.core.typed/spec-infer)` for clojure.spec annotations.
 
 ## [Talk] Clojure Conj 2012
 
