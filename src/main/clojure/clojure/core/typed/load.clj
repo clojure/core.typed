@@ -30,14 +30,14 @@
     opts)))
 
 (defn typed-load1
-  "Checks if the given file is typed, and loads it with core.typed if so,
+  "For each path, checks if the given file is typed, and loads it with core.typed if so,
   otherwise with clojure.core/load"
-  [base-resource-path]
-  {:pre [(string? base-resource-path)]
+  [& base-resource-paths]
+  {:pre [(every? string? base-resource-paths)]
    :post [(nil? %)]}
   (load-if-needed)
-  ((impl/v 'clojure.core.typed.load1/typed-load1)
-   base-resource-path))
+  (apply (impl/v 'clojure.core.typed.load1/typed-load1)
+   base-resource-paths))
 
 (defn typed-eval [form]
   (load-if-needed)

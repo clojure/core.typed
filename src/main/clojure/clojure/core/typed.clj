@@ -362,7 +362,16 @@ for checking namespaces, cf for checking individual forms."}
   eg. (for [a :- (U nil Int) [1 nil 2 3]
             :when a]
         :- Number
-        (inc a))"
+        (inc a))
+  
+  Metadata using the :clojure.core.typed/ann keyword
+  can also be used for annotation.
+
+  eg. (for ^{::ann Number}
+        [^{::ann (U nil Int)} a [1 nil 2 3]
+         :when a]
+        (inc a))
+  "
   [seq-exprs & maybe-ann-body-expr]
   (@#'core/assert-args
      (vector? seq-exprs) "a vector for its binding"
@@ -2346,8 +2355,7 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    ((impl/v 'clojure.core.typed.check-form-clj/check-form*) form expected type-provided?)))
 
-; cf can pollute current type environment to allow REPL experimentation, 
-; which is ok because check-ns resets it when called.
+; cf can pollute current type environment to allow REPL experimentation
 (defmacro cf
   "Takes a form and an optional expected type and
   returns a human-readable inferred type for that form.
@@ -2400,10 +2408,6 @@ for checking namespaces, cf for checking individual forms."}
   Do not use check-ns within a checked namespace.
   It is intended to be used at the REPL or within a unit test.
   Suggested idiom for clojure.test: (is (check-ns 'your.ns))
-
-  check-ns resets annotations collected from 
-  previous check-ns calls or cf. A successful check-ns call will
-  preserve any type annotations collect during that checking run.
   
   Keyword arguments:
   - :collect-only  if true, collect type annotations but don't type check code.
@@ -2468,6 +2472,23 @@ for checking namespaces, cf for checking individual forms."}
                                 (filter (fn [v]
                                           (when (var? v)
                                             (-> v meta ::special-type))))))}))
+
+(defn prepare-infer-ns
+  "Instruments the current namespace to prepare for runtime type
+  or spec inference.
+
+  Optional keys:
+    :ns     The namespace to infer types for. (Symbol/Namespace)
+            Default: *ns*
+  "
+  [& {:keys [ns]}]
+  (load-if-needed)
+  (require 'clojure.core.typed.coerce-utils)
+  (impl/with-impl impl/clojure
+    (binding [vs/*prepare-infer-ns* true]
+      (typed-load/load-typed-file 
+        (subs (@#'clojure.core/root-resource (ns-name (or ns *ns*))) 1))))
+  :ok)
 
 (defn refresh-runtime-infer 
   "Clean the current state of runtime inference.
