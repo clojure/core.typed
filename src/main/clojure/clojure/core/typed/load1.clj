@@ -28,21 +28,25 @@
   ([filename env opts]
    {:pre [(string? filename)]
     :post [(nil? %)]}
+   ;(prn "load-typed-file" filename)
     (t/load-if-needed)
     (ta-env/ensure (p/p :typed-load/global-env
                         (taj/global-env))
-     (let [[file-url filename]
+     (let [should-runtime-infer? vs/*prepare-infer-ns*
+           orig-filename filename
+           [file-url filename]
            (or (let [f (str filename ".clj")]
                  (when-let [r (io/resource f)]
                    [r f]))
                (let [f (str filename ".cljc")]
                  (when-let [r (io/resource f)]
                    [r f])))]
-       (assert file-url (str "Cannot find file " filename))
+       (assert file-url (str "Cannot find file " orig-filename))
        (binding [*ns*   *ns*
                  *file* filename
                  vs/*in-typed-load* true
-                 vs/*typed-load-atom* (atom {})]
+                 vs/*typed-load-atom* (atom {})
+                 vs/*prepare-infer-ns* nil]
          (with-open [rdr (io/reader file-url)]
            (let [pbr (readers/indexing-push-back-reader
                        (java.io.PushbackReader. rdr) 1 filename)
@@ -52,7 +56,8 @@
                         (assoc opts :read-cond :allow)
                         opts)
                  config (assoc (chk-frm-clj/config-map)
-                               :env env)]
+                               :env env
+                               :should-runtime-infer? should-runtime-infer?)]
              (impl/with-full-impl (:impl config)
                (loop []
                  (let [form (p/p :typed-load/read (reader/read opts pbr))]
@@ -65,21 +70,22 @@
                      (recur))))))))))))
 
 (defn typed-load1
-  "Checks if the given file is typed, and loads it with core.typed if so,
+  "For each path, checks if the given file is typed, and loads it with core.typed if so,
   otherwise with clojure.core/load"
-  [base-resource-path]
-  {:pre [(string? base-resource-path)]
+  [& base-resource-paths]
+  {:pre [(every? string? base-resource-paths)]
    :post [(nil? %)]}
-  ;(prn "typed load" base-resource-path)
-  (cond
-    (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
-        (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc")))
-    (do
-      (when @#'clojure.core/*loading-verbosely*
-        (printf "Loading typed file\n" base-resource-path))
-      (load-typed-file base-resource-path))
+  ;(prn "typed load" base-resource-paths)
+  (doseq [base-resource-path base-resource-paths]
+    (cond
+      (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
+          (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc")))
+      (do
+        (when @#'clojure.core/*loading-verbosely*
+          (printf "Loading typed file\n" base-resource-path))
+        (load-typed-file base-resource-path))
 
-    :else (clojure.lang.RT/load base-resource-path)))
+      :else (clojure.lang.RT/load base-resource-path))))
 
 (defn typed-eval [form]
   (let [{:keys [ex result]} (t/check-form-info form)]
