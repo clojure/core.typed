@@ -5538,6 +5538,18 @@
 (deftest group-by-annotation-test
   (is-tc-e #(group-by (inst identity Any) (range 10))))
 
+(deftest metadata-ann-test
+  (is-tc-e (for ^{:clojure.core.typed/ann t/Num} [^{:clojure.core.typed/ann t/Num} a [1 2 3]] a))
+  (is-tc-err (for ^{:clojure.core.typed/ann t/Bool} [^{:clojure.core.typed/ann t/Num} a [1 2 3]] a))
+  (is-tc-e #(clojure.core/loop [^{:clojure.core.typed/ann t/Num} a 1] (inc a)))
+  (is-tc-err #(clojure.core/loop [^{:clojure.core.typed/ann t/Bool} a 1] (inc a)))
+  ;;TODO
+  ;(is-tc-e (doseq [^{:clojure.core.typed/ann t/Num} a [1 2 3]] (inc a)))
+  ;(is-tc-err (doseq [^{:clojure.core.typed/ann t/Bool} a [1 2 3]] a))
+  ;(is-tc-e (fn [^{:clojure.core.typed/ann t/Num} a] (inc a)))
+  ;(is-tc-err (fn [^{:clojure.core.typed/ann t/Bool} a] (inc a)))
+)
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 

@@ -2629,7 +2629,7 @@
 (defn track 
   ([results-atom v path]
    {:pre [(vector? path)]}
-   (prn (str "track depth " (count path) " " (-> path first :name)))
+   ;(prn (str "track depth " (count path) " " (-> path first :name)))
    #_(when (< 3 (count path))
      (prn (class v)))
    (let [_ (swap! results-atom update-in [:path-occurrences (-> path first :name)] (fnil inc 1))]

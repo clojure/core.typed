@@ -1,16 +1,56 @@
-# 0.3.32 - 16 January 2016
+# 0.4.0-SNAPSHOT
+
+Deprecations
+
+- `{runtime,spec}-infer` now take keyword arguments, single namespace argument
+  is deprecated
+
+Features/fixes
+
+- remove documentation promising `check-ns`
+  resets all environments on each run. This actually
+  changed a long time ago.
+- update tools.analyzer.jvm to 0.7.0
+  - some changes needed to uses of `analyze+eval`
+- update core.async to 0.3.44
+  - fragile workaround needed since core.async depends on
+    `clojure.lang.Compiler.LocalBinding`. Seems to work.
+  - updated the typed `go` wrapper
+- update Clojure to 1.9.0-alpha15
+- add metadata type annotations to `for`, `loop`
+  - use `:clojure.core.typed/ann` keyword metadata to associate
+    types to loop bindings
+- various improvements to runtime inference
+  - infer local type annotations with runtime inference
+- add/fix annotations
+  - `sorted-map`
+  - `frequencies`
+  - `big{dec,int,integer}` now also accept strings
+  - `sort` pretends a nil return isn't possible, ignore unlikely
+    edge case.
+  - `seqable?` now tests for `(Seqable Any)`
+- set/vectors now invokable
+- better handle infinitely expanding map types
+- Add new `{runtime,spec}-infer` keyword options
+  - :ns, :fuel, :debug
+- Monkeypatched typed load now takes variable arguments like
+  `clojure.core/load`
+- Added `prepare-infer-ns` function to instrument a namespace
+  for runtime type inference without using monkeypatching.
+
+# 0.3.32 - 16 January 2017
 
 - merge Aravind's GSoC annotations
   - added annotations for core clojure libraries
 
-# 0.3.30 - 15 January 2016 
+# 0.3.30 - 15 January 2017 
 
 - merge Di Xu's GSoC 2014 code
   - Add pdot/prest support
   - update core type annotations
 - move core.async dep from `core.typed.rt` to `core.typed` pom
 
-# 0.3.29 - 7 January 2016 
+# 0.3.29 - 7 January 2017 
 
 Release Notes - core.typed - Version 0.3.29
 
