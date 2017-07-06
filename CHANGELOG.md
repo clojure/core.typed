@@ -1,4 +1,4 @@
-# 0.4.0-SNAPSHOT
+# 0.4.0 - 6 July 2017
 
 Deprecations
 
