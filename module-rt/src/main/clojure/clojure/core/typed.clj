@@ -2501,7 +2501,12 @@ for checking namespaces, cf for checking individual forms."}
 (defn runtime-infer 
   "Infer and insert annotations for a given namespace.
 
-  To instrument your namespace, use the :runtime-infer
+  There are two ways to instrument your namespace.
+
+  Call `prepare-infer-ns` function on the namespace
+  of your choosing.
+
+  Alternatively, use the :runtime-infer
   feature in your namespace metadata. Note: core.typed
   must be installed via `clojure.core.typed/install`.
 
@@ -2524,6 +2529,17 @@ for checking namespaces, cf for checking individual forms."}
             Default: nil (don't restrict iterations)
     :debug  Perform print debugging. (boolean/nil)
             Default: nil
+    :track-depth   Maximum nesting depth data will be tracked.
+                   Default: nil (don't restrict nestings)
+    :track-count   Maximum number of elements of a single collection
+                   will be tracked.
+                   Default: nil (don't restrict elements)
+    :root-results  Maximum number of inference results collected per top-level
+                   root form, from the perspective of the tracker (eg. vars, local functions).
+                   Default: nil (don't restrict)
+    :preserve-unknown  If true, output the symbol `?` where inference was cut off
+                       or never reached.
+                       Default: nil (convert to unknown to `clojure.core.typed/Any`)
 
   eg. (runtime-infer) ; infer for *ns*
 
@@ -2550,7 +2566,12 @@ for checking namespaces, cf for checking individual forms."}
 (defn spec-infer 
   "Infer and insert specs for a given namespace.
 
-  To instrument your namespace, use the :runtime-infer
+  There are two ways to instrument your namespace.
+
+  Call `prepare-infer-ns` function on the namespace
+  of your choosing.
+
+  Alternatively, use the :runtime-infer
   feature in your namespace metadata. Note: core.typed
   must be installed via `clojure.core.typed/install`.
 
@@ -2573,6 +2594,19 @@ for checking namespaces, cf for checking individual forms."}
             Default: nil (don't restrict iterations)
     :debug  Perform print debugging. (boolean/nil)
             Default: nil
+    :track-depth   Maximum nesting depth data will be tracked.
+                   Default: nil (don't restrict nestings)
+    :track-count   Maximum number of elements of a single collection
+                   will be tracked.
+                   Default: nil (don't restrict elements)
+    :root-results  Maximum number of inference results collected per top-level
+                   root form, from the perspective of the tracker (eg. vars, local functions).
+                   Default: nil (don't restrict)
+    :preserve-unknown  If true, output the symbol `?` where inference was cut off
+                       or never reached.
+                       Default: nil (convert to unknown to `clojure.core/any?`)
+    :higher-order-fspec   If true, generate higher-order fspecs.
+                          Default: false
 
   eg. (spec-infer) ; infer for *ns*
 
