@@ -1,6 +1,7 @@
 (ns clojure.core.typed.runtime-infer
   (:refer-clojure :exclude [any?])
   (:require [clojure.pprint :as pp]
+            [clojure.core :as core]
             [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -14,7 +15,12 @@
             [clojure.math.combinatorics :as comb]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.spec.alpha :as s]))
+            [clojure.core.typed.utils :as u]
+            [clojure.walk :as walk]
+            ))
+
+(def spec-ns (or u/spec-ns 'clojure.spec.alpha))
+(def core-specs-ns (or u/core-specs-ns 'clojure.core.specs.alpha))
 
 ;; https://github.com/r0man/inflections-clj/blob/master/src/inflections/core.cljc
 (defn str-name
@@ -685,7 +691,7 @@
 (defn qualify-spec-symbol [s]
   {:pre [(symbol? s)]
    :post [(symbol? %)]}
-  (qualify-symbol-in 'clojure.spec.alpha s))
+  (qualify-symbol-in spec-ns s))
 
 (defn qualify-typed-symbol [s]
   {:pre [(symbol? s)]
@@ -744,6 +750,8 @@
         a))
     a))
 
+(declare uniquify)
+
 (defn alt-spec [alts]
   {:pre [(every? type? alts)]}
   (let [specs (into {} 
@@ -763,29 +771,49 @@
     (if (= 1 (count specs))
       (unparse-spec (simplify-spec-alias (second (first specs))))
       (list*-force (qualify-spec-symbol 'or)
-             (mapcat (fn [[s alt]]
-                       (let [alt (if (alias? alt)
-                                   (simplify-spec-alias alt)
-                                   alt)]
-                         [(or (when (symbol? s)
-                                (keyword (name s)))
-                              (when (and (set? s)
-                                         (every? keyword? s))
-                                (keyword (str
-                                           "literal-"
-                                           (apply str
-                                                  (interpose
-                                                    "-"
-                                                    (map (fn [k]
-                                                           (if (namespace k)
-                                                             (str (namespace k)
-                                                                  "_"
-                                                                  (name k))
-                                                             (name k)))
-                                                         s))))))
-                              (keyword (name (gensym))))
-                          s]))
-                     specs)))))
+                   (let [names (map 
+                                 (fn [[s orig]]
+                                   {:pre [(core/any? s)
+                                          (type? orig)]
+                                    :post [(keyword? %)]}
+                                   ;; we can enhance the naming for s/or tags here
+                                   (or ;; probably a predicate
+                                       (when (symbol? s)
+                                         (keyword (name s)))
+                                       ;; a spec alias
+                                       (when (keyword? s)
+                                         (keyword (name s)))
+                                       ;; literal keywords
+                                       (when (and (set? s)
+                                                  (every? keyword? s))
+                                         :kw)
+                                       ;; an instance check
+                                       (when (and (seq? s)
+                                                  (= (count s) 3)
+                                                  (= (first s) (qualify-core-symbol 'partial))
+                                                  (= (second s) (qualify-core-symbol 'instance?))
+                                                  (symbol? (nth s 2)))
+                                         (keyword (name (nth s 2))))
+                                       ;; a coll-of
+                                       (when (and (seq? s)
+                                                  (>= (count s) 2)
+                                                  (= (first s) (qualify-spec-symbol 'coll-of)))
+                                         :coll)
+                                       ;; a map-of
+                                       (when (and (seq? s)
+                                                  (>= (count s) 3)
+                                                  (= (first s) (qualify-spec-symbol 'map-of)))
+                                         :map)
+                                       ;; a tuple
+                                       (when (and (seq? s)
+                                                  (>= (count s) 1)
+                                                  (= (first s) (qualify-spec-symbol 'tuple)))
+                                         :tuple)
+                                       ;; give up
+                                       (keyword (name (gensym)))))
+                                   specs)
+                         names (uniquify names)]
+                     (interleave names (map first specs)))))))
 
 (def ^:dynamic *qualified-spec-aliases* nil) ;; for spec aliases where namespaces matter
 (def ^:dynamic *spec-aliases* nil)
@@ -813,15 +841,26 @@
     ss
     (let [repeats (into {}
                         (remove (comp #{1} val))
-                        (frequencies ss))]
-      (map (fn [s]
-             {:pre [(keyword? s)]
-              :post [(keyword? %)]}
-             (if (contains? repeats s)
-               (keyword (str (gensym (name s))))
-               s))
-           ss))))
-
+                        (frequencies ss))
+          ;; first, let's try and just append an index
+          ;; to each repeated entry. If that fails, just gensym.
+          optimistic-attempt (map-indexed
+                               (fn [i s]
+                                 {:pre [(keyword? s)]
+                                  :post [(keyword? %)]}
+                                 (if (contains? repeats s)
+                                   (keyword (str (name s) "-" i))
+                                   s))
+                               ss)]
+      (if (distinct? optimistic-attempt)
+        optimistic-attempt
+        (map (fn [s]
+               {:pre [(keyword? s)]
+                :post [(keyword? %)]}
+               (if (contains? repeats s)
+                 (keyword (str (gensym (name s))))
+                 s))
+             ss)))))
 
 (def ^:dynamic *preserve-unknown* nil)
 (def ^:dynamic *higher-order-fspec* nil)
@@ -933,7 +972,9 @@
                                   (mapv unparse-type (:vec m)))
             :else `'~(mapv unparse-type (:vec m)))
     :HMap (cond
-            *unparse-spec* (let [specify-keys 
+            *unparse-spec* (let [get-spec (when u/spec-ns
+                                            (impl/v (symbol (str u/spec-ns) "get-spec")))
+                                 specify-keys 
                                  (fn [entries]
                                    (into []
                                          (let [kns (name (gensym "keys"))]
@@ -947,7 +988,8 @@
                                                     ;; is already defined. If it isn't, we need
                                                     ;; to generate it.
                                                     ;;FIXME see below
-                                                    (namespace k) (do (when (not (s/get-spec k))
+                                                    (namespace k) (do (when (and get-spec
+                                                                                 (not (get-spec k)))
                                                                         (println (str "WARNING: Could not generate "
                                                                                       "spec alias for " k)))
                                                                       k)
@@ -969,7 +1011,7 @@
                                                     #_(cond
                                                                     ;; this spec exists, probably in some other namespace.
                                                                     ;; Just trust it.
-                                                                    (s/get-spec k) k
+                                                                    (and get-spec (get-spec k)) k
 
                                                                     (and *qualified-spec-aliases* *envs*)
                                                                     ;; generate aliases just in time
@@ -1003,6 +1045,14 @@
                                                     ;; an appropriate alias if it's not already mapped
                                                     ;; to one.
                                                     :else
+                                                    ;; TODO idea to reduce alias names: combine like-named
+                                                    ;; keys that are reachable from the root of a type.
+                                                    ;; ie. (U (HMap :mandatory {:foo Int})
+                                                    ;;        (HMap :mandatory {:foo Bar}))
+                                                    ;;  both share ::foo, but
+                                                    ;; an unrelated map has its own.
+                                                    ;; Might not work that well with multi-specs that share
+                                                    ;; key names that are otherwise unrelated.
                                                     (let [maybe-kw
                                                           (when (or (not (alias? v))
                                                                     (let [n (:name v)]
@@ -1138,7 +1188,7 @@
                                                        (= clojure.lang.IPersistentVector
                                                           (:class d))))))
                                                arities)
-                                   [:bindings :clojure.core.specs.alpha/bindings])
+                                   [:bindings (keyword (str core-specs-ns) "bindings")])
                                  ;; if there is more than one arity,
                                  ;; default to a rest argument.
                                  [:body
@@ -1161,7 +1211,7 @@
                                                          (#{:class} (:op d))
                                                          (= clojure.lang.IPersistentVector
                                                             (:class d)))
-                                                    :clojure.core.specs.alpha/bindings
+                                                    (keyword (str core-specs-ns) "bindings")
 
                                                     :else (unparse-spec d))]
                                               [k spec]))
@@ -3230,13 +3280,13 @@
 
 ; ns-exclusions : (Set Sym)
 (def ns-exclusions
-  '#{clojure.core
-     clojure.spec.alpha
-     clojure.core.typed
-     clojure.core.typed.contract
-     clojure.core.typed.current-impl
-     clojure.test
-     clojure.string})
+  #{'clojure.core
+    spec-ns
+    'clojure.core.typed
+    'clojure.core.typed.contract
+    'clojure.core.typed.current-impl
+    'clojure.test
+    'clojure.string})
 
 (defn dummy-do [env statements ret]
   {:pre [((some-fn nil? vector) statements)]}
@@ -3529,6 +3579,7 @@
   (let [;; filter results
         infer-results (if *root-results*
                         (let [root-count (atom {})
+                              _ (println "Filtering results...")
                               infer-results (reduce (fn [infer-results {:keys [path] :as res}]
                                                       (let [;; to get a good spread of annotations, pick
                                                             ;; *root-results* number of infer-results from
@@ -4168,15 +4219,28 @@
 (defn def-spec [k s]
   (list (qualify-spec-symbol 'def)
         k
-        ; handle recursive specs
-        ; s/and is late binding. This is dumb.
+        ; handle possibly recursive specs
+        ; s/and is late binding. 
+        ; TODO intelligently order specs to minimize this issue
         (if (or (symbol? s)
+                ;; already late bound
                 (and (seq? s)
-                     (or (= (first s) (qualify-spec-symbol 'and))
-                         (= (first s) (qualify-spec-symbol 'keys))
-                         (= (first s) (qualify-spec-symbol 'cat))
-                         (= (first s) (qualify-spec-symbol 'alt))
-                         (= (first s) (qualify-spec-symbol 'or)))))
+                     (let [fs (first s)]
+                       (or (= fs (qualify-spec-symbol 'and))
+                           (= fs (qualify-spec-symbol 'keys))
+                           (= fs (qualify-spec-symbol 'cat))
+                           (= fs (qualify-spec-symbol 'alt))
+                           (= fs (qualify-spec-symbol 'or)))))
+                ;; TODO could be more efficient
+                (let [found-kw-alias (atom false)]
+                  (walk/prewalk (fn [a]
+                                  (when ((every-pred keyword? namespace) a)
+                                    (reset! found-kw-alias true)))
+                                s)
+                  ;; no namespaced keywords, no possibility of recursion.
+                  ;; Assumes we don't emit spec aliases as (var) symbols, and
+                  ;; that we never refer to one directly.
+                  (not @found-kw-alias)))
           s
           (list (qualify-spec-symbol 'and)
                 s))))
@@ -5038,7 +5102,7 @@
      (let [existing-alias? (some? (namespace-alias-in
                                     (the-ns (current-ns))
                                     (if spec?
-                                      'clojure.spec.alpha
+                                      spec-ns
                                       'clojure.core.typed)))
            require-info
            (when-not existing-alias?
@@ -5049,7 +5113,7 @@
                                          '[s spc spec]
                                          '[t typ ct typed])))
                    explicit-ns (if spec?
-                                 'clojure.spec.alpha
+                                 spec-ns
                                  'clojure.core.typed)]
                (when new-alias
                  (binding [*ns* (the-ns (current-ns))]

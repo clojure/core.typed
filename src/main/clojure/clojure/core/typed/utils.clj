@@ -428,4 +428,20 @@
   [ns]
   (ns-has-feature? ns :runtime-infer))
 
+(defn ^:private try-resolve-nsyms [nsyms]
+  (reduce (fn [_ s]
+            (try
+              (require [s])
+              (reduced s)
+              (catch Throwable e
+                nil)))
+          nil
+          nsyms))
+
+(def spec-ns
+  (try-resolve-nsyms '[clojure.spec clojure.spec.alpha]))
+
+(def core-specs-ns 
+  (try-resolve-nsyms '[clojure.core.specs clojure.core.specs.alpha]))
+
 )
