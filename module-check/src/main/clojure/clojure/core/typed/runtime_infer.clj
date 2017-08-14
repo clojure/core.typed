@@ -664,6 +664,8 @@
 (defn current-ns [] (ns-name (*ann-for-ns*)))
 
 (defn namespace-alias-in [ns maybe-aliased-ns]
+  {:pre [((some-fn nil? #(instance? clojure.lang.Namespace %)) maybe-aliased-ns)]
+   :post [((some-fn nil? symbol) %)]}
   (get (set/map-invert (ns-aliases ns)) maybe-aliased-ns))
 
 (defn qualify-symbol-in [nsym s]
@@ -976,8 +978,7 @@
                                             (impl/v (symbol (str u/spec-ns) "get-spec")))
                                  specify-keys 
                                  (fn [entries]
-                                   (into []
-                                         (let [kns (name (gensym "keys"))]
+                                   (-> (let [kns (name (gensym "keys"))]
                                            (map (fn [[k v]]
                                                   {:pre [(keyword? k)]}
                                                   ;; must be aliases
@@ -1073,8 +1074,10 @@
                                                                   kw))))]
                                                       (if maybe-kw
                                                         maybe-kw
-                                                        (unparse-spec (assoc v :HMap-entry true))))))))
-                                         entries))
+                                                        (unparse-spec (assoc v :HMap-entry true))))))
+                                                entries))
+                                       sort
+                                       vec))
                                  {req true req-un false}
                                  (group-by (comp boolean namespace key) (::HMap-req m))
                                  {opt true opt-un false}
@@ -1497,7 +1500,10 @@
                            (empty? common-keys)
                            (do
                              ;(debug-flat (println "no common keys, upcasting to (Map Any Any)"))
-                             #{(-class clojure.lang.IPersistentMap [-any -any])})
+                             ;#{(-class clojure.lang.IPersistentMap [-any -any])}
+                             #{{:op :HMap
+                                ::HMap-req {}
+                                ::HMap-opt (apply merge-with join (mapcat (juxt ::HMap-req ::HMap-opt) hmaps-merged))}})
 
                            ;; if one of the common keys is always mapped to a singleton keyword,
                            ;; merge by the value of this key
@@ -2235,9 +2241,13 @@
   ;(prn "resolve-alias" name (keys (alias-env env)))
   (get (alias-env env) name))
 
-(defn fully-resolve-alias [env a]
+(defn fully-resolve-alias 
+  ([env a] (fully-resolve-alias env a #{}))
+  ([env a seen]
   (if (alias? a)
-    (recur env (resolve-alias env a))
+    (do (assert (not (contains? seen (:name a))) "Infinite type detected")
+      (recur env (resolve-alias env a)
+             (conj seen (:name a))))
     a))
 
 (def kw-val? (every-pred val? (comp keyword? :val)))
@@ -2432,7 +2442,8 @@
                                                                (interpose "-"
                                                                           (concat
                                                                             (cons (name common-tag)
-                                                                                  (map (comp kw->sym
+                                                                                  (map (comp keyword
+                                                                                             name
                                                                                              :val
                                                                                              common-tag 
                                                                                              ::HMap-req)
@@ -2785,7 +2796,7 @@
 
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
-  ([results-atom v path]
+  ([{:keys [track-depth track-count root-results] :as config} results-atom v path]
    {:pre [(vector? path)]}
    ;(prn (str "track depth " (count path) " " (path-root path)))
    #_(when (< 3 (count path))
@@ -2799,11 +2810,11 @@
 
        ;; cut off path
        (or
-         #_
-         (when-let [root-results *root-results*]
+         #_ ;; doesn't make sense to count root results here, since we don't keep a running count of results
+         (when root-results
            (< root-results (get-in @results-atom [:path-occurrences (path-root path)] 0)))
-         (when-let [max-depth *track-depth*]
-           (> (count path) max-depth))
+         (when track-depth
+           (> (count path) track-depth))
          (not *should-track*))
        ;(debug
        ;  (println "Cut off inference at path "
@@ -2829,15 +2840,15 @@
                      (fn [& args]
                        (let [blen (bounded-count apply-realize-limit args) ;; apply only realises 20 places
                              _ (when (= 0 blen)
-                                 (track results-atom -any
+                                 (track config results-atom -any
                                         (conj path (fn-dom-path 0 -1))))
                              args (map-indexed
                                     (fn [n v]
                                       (if (< n blen)
-                                        (track results-atom v (conj path (fn-dom-path blen n)))
+                                        (track config results-atom v (conj path (fn-dom-path blen n)))
                                         v))
                                     args)]
-                         (track results-atom (apply v args) (conj path (fn-rng-path blen)))))
+                         (track config results-atom (apply v args) (conj path (fn-rng-path blen)))))
                      ;; readable name
                      ;outer-fn 
                      ;(eval `(fn [f#] 
@@ -2859,7 +2870,7 @@
                (with-meta
                  (apply list
                         (map (fn [e]
-                               (track results-atom e (conj path (seq-entry))))
+                               (track config results-atom e (conj path (seq-entry))))
                              v))
                  (meta v))]
            (assert (list? res))
@@ -2878,7 +2889,7 @@
                              path 
                              (-class clojure.lang.ISeq [(make-Union #{})]))))
                        v)
-                     (cons (track results-atom
+                     (cons (track config results-atom
                                   (first v)
                                   (conj path (seq-entry)))
                            (wrap-lseq (rest v)
@@ -2892,7 +2903,7 @@
          (reduce
            (fn [v i]
              (let [e (nth v i)
-                   e' (track results-atom e
+                   e' (track config results-atom e
                              (conj path (transient-vector-entry)))]
                (if (identical? e e')
                  v
@@ -2904,8 +2915,8 @@
        ;; cover map entries
        (and (vector? v) 
             (= 2 (count v)))
-       (let [k  (track results-atom (nth v 0) (conj path (index-path 2 0)))
-             vl (track results-atom (nth v 1) (conj path (index-path 2 1)))]
+       (let [k  (track config results-atom (nth v 0) (conj path (index-path 2 0)))
+             vl (track config results-atom (nth v 1) (conj path (index-path 2 1)))]
          (assoc v 0 k 1 vl))
 
        (and (vector? v) 
@@ -2918,11 +2929,11 @@
          (reduce-kv
            (fn [e k v]
              (swap! so-far inc)
-             (let [v' (track results-atom v (conj path (if heterogeneous?
+             (let [v' (track config results-atom v (conj path (if heterogeneous?
                                                          (index-path len k)
                                                          (vec-entry-path))))]
                (cond
-                 (when-let [tc *track-count*]
+                 (when-let [tc track-count]
                    (< tc @so-far)) 
                  (reduced (binding [*should-track* false]
                             (assoc e k v')))
@@ -2947,7 +2958,7 @@
            (into (empty v)
                  (map (fn [e]
                         (binding [*should-track* true]
-                          (track results-atom e (conj path (set-entry))))))
+                          (track config results-atom e (conj path (set-entry))))))
                  v)))
 
        (or (instance? clojure.lang.PersistentHashMap v)
@@ -2982,13 +2993,13 @@
                  _ (when (and (empty? no-kw-val)
                               (seq kw-entries-types))
                      (let [k (key (first kw-entries-types))]
-                       (track results-atom (get v k)
+                       (track config results-atom (get v k)
                               (binding [*should-track* false]
                                 (conj path (key-path kw-entries-types ks k))))))
                  ]
              (reduce
                (fn [m [k orig-v]]
-                 (let [v (track results-atom orig-v
+                 (let [v (track config results-atom orig-v
                                 (binding [*should-track* false]
                                   (conj path (key-path kw-entries-types ks k))))]
                    (cond
@@ -3012,15 +3023,15 @@
                          ;; We don't want to pollute the HMap-req-ks with
                          ;; non keywords (yet), disable.
                          ;(keyword? k)
-                         ;[k (track results-atom orig-v
+                         ;[k (track config results-atom orig-v
                          ;          (binding [*should-track* false]
                          ;            (conj path (key-path {} ks k))))]
 
                          :else 
-                         [(track results-atom k
+                         [(track config results-atom k
                                  (binding [*should-track* false]
                                    (conj path (map-keys-path))))
-                          (track results-atom orig-v
+                          (track config results-atom orig-v
                                  (binding [*should-track* false]
                                    (conj path (map-vals-path))))])]
                    (cond
@@ -3057,14 +3068,14 @@
               should-track? (binding [*should-track* false]
                               (not= @v old-val))
               _ (when should-track?
-                  (track results-atom @v new-path))
+                  (track config results-atom @v new-path))
               _ (binding [*should-track* false]
                   (add-watch
                     v
                     new-path
                     (fn [_ _ _ new]
-                      (future
-                        (track results-atom new new-path)))))]
+                      (binding [*should-track* true]
+                        (track config results-atom new new-path)))))]
           v)
 
        :else (do
@@ -3206,24 +3217,31 @@
       
       :else f)))
 
+(defn gen-track-config []
+  {:track-depth *track-depth*
+   :track-count *track-count*
+   :root-results *root-results*})
+
 ; track-var : (IFn [Var -> Value] [(Atom Result) Var Sym -> Value])
 (defn track-var'
-  ([vr] (track-var' results-atom vr *ns*))
-  ([results-atom vr ns]
+  ([vr] (track-var' (gen-track-config) results-atom vr *ns*))
+  ([config vr] (track-var' config results-atom vr *ns*))
+  ([config results-atom vr ns]
    {:pre [(var? vr)
           (instance? clojure.lang.IAtom results-atom)]}
    ;(prn "tracking" vr "in ns" ns)
    (wrap-prim
      vr
-     (track results-atom @vr [(var-path
-                                (ns-name ns)
+     (track config
+            results-atom @vr [(var-path
+                                (ns-name (the-ns ns))
                                 (impl/var->symbol vr))]))))
 
 (defmacro track-var [v]
   `(track-var' (var ~v)))
 
 ; track-def-init : Sym Sym Value -> Value
-(defn track-def-init [vsym ns val]
+(defn track-def-init [config vsym ns val]
   {:pre [(symbol? vsym)
          (namespace vsym)]}
   ;(prn "track-def-init")
@@ -3231,11 +3249,12 @@
     ;(prn v)
     (wrap-prim
       v
-      (track results-atom val [{:op :var
+      (track config
+             results-atom val [{:op :var
                                 :ns (ns-name ns)
                                 :name vsym}]))))
 
-(defn track-local-fn [track-kind line column end-line end-column ns val]
+(defn track-local-fn [config track-kind line column end-line end-column ns val]
   {:pre [(#{:local-fn :loop-var} track-kind)]}
   #_
   (prn "track-local-fn" 
@@ -3249,7 +3268,8 @@
               end-line
               "|"
               end-column)))
-  (track results-atom val [{:op :var
+  (track config
+         results-atom val [{:op :var
                             ::track-kind track-kind
                             :line line
                             :column column
@@ -3282,6 +3302,9 @@
 (def ns-exclusions
   #{'clojure.core
     spec-ns
+    (if (= spec-ns 'clojure.spec)
+      'clojure.spec.gen
+      'clojure.spec.gen.alpha)
     'clojure.core.typed
     'clojure.core.typed.contract
     'clojure.core.typed.current-impl
@@ -3307,6 +3330,7 @@
 
 ; dummy-sym : Env Sym -> TAExpr
 (defn dummy-sym [env vsym]
+  {:pre [(symbol? vsym)]}
   {:op :const
    :type :symbol
    :form `'~vsym
@@ -3328,11 +3352,23 @@
    :env env
    :val n})
 
+(defn dummy-const-map [env m]
+  ; if we need something more specific, think more carefully
+  ; about whether this is a :const node, maybe with a :quote
+  ; surrounding it?
+  {:pre [(every? keyword? (keys m))
+         (every? (some-fn nil? number?) (vals m))]}
+  {:op :const
+   :type :map
+   :form m
+   :env env
+   :val m})
+
 ; wrap-var-deref : TAExpr Sym Namespace -> TAExpr
-(defn wrap-var-deref [expr vsym *ns*]
-  (do
+(defn wrap-var-deref [{:keys [env] :as expr} vsym var-ns]
+  (let [var-nsym (ns-name var-ns)]
     (println
-      (str "Instrumenting " vsym " in " (ns-name *ns*) 
+      (str "Instrumenting " vsym " in " var-nsym
            #_":" 
            #_(-> expr :env :line)
            #_(when-let [col (-> expr :env :column)]
@@ -3340,27 +3376,28 @@
     {:op :invoke 
      :children [:fn :args]
      :form `(track-var' (var ~vsym))
-     :env (:env expr)
+     :env env
      :fn {:op :var
           :var #'track-var'
           :form `track-var'
-          :env (:env expr)}
-     :args [{:op :var
+          :env env}
+     :args [(dummy-const-map env (gen-track-config))
+            {:op :var
              :form `results-atom
-             :env (:env expr)
+             :env env
              :var #'results-atom}
             {:op :the-var
              :form `(var ~vsym)
-             :env (:env expr)
+             :env env
              :var (:var expr)}
-            (dummy-sym (:env expr) *ns*)]}))
+            (dummy-sym env var-nsym)]}))
 
 ; wrap-def-init : TAExpr Sym Namespace -> TAExpr
-(defn wrap-def-init [expr vsym *ns*]
+(defn wrap-def-init [{:keys [env] :as expr} vsym def-ns]
   ;(prn ((juxt identity class) (-> expr :env :ns)))
-  (do
+  (let [def-nsym (ns-name def-ns)]
     (println
-      (str "Instrumenting def init " vsym " in " (ns-name *ns*) 
+      (str "Instrumenting def init " vsym " in " def-nsym
            #_":" 
            #_(-> expr :env :line)
            #_(when-let [col (-> expr :env :column)]
@@ -3373,14 +3410,15 @@
           :var #'track-def-init
           :form `track-def-init
           :env (:env expr)}
-     :args [(dummy-sym (:env expr) vsym)
+     :args [(dummy-const-map env (gen-track-config))
+            (dummy-sym (:env expr) vsym)
             (dummy-sym (:env expr) (:ns (:env expr)))
             expr]}))
 
-(defn wrap-local-fn [track-kind coord expr *ns*]
+(defn wrap-local-fn [track-kind coord {:keys [env] :as expr} fn-ns]
   {:pre [(#{:local-fn :loop-var} track-kind)]}
-  (do
-    (println (str "Instrumenting local fn in " (ns-name *ns*)
+  (let [nsym (ns-name fn-ns)]
+    (println (str "Instrumenting local fn in " nsym
                   " "
                   (:line coord)
                   ":"
@@ -3392,17 +3430,18 @@
     {:op :invoke
      :children [:fn :args]
      :form `(track-local-fn ~(:form expr))
-     :env (:env expr)
+     :env env
      :fn {:op :var
           :var #'track-local-fn
           :form `track-local-fn
-          :env (:env expr)}
-     :args [(dummy-kw (:env expr)  track-kind)
-            (dummy-num (:env expr) (:line coord))
-            (dummy-num (:env expr) (:column coord))
-            (dummy-num (:env expr) (:end-line coord))
-            (dummy-num (:env expr) (:end-column coord))
-            (dummy-sym (:env expr) (:ns (:env expr)))
+          :env env}
+     :args [(dummy-const-map env (gen-track-config))
+            (dummy-kw env  track-kind)
+            (dummy-num env (:line coord))
+            (dummy-num env (:column coord))
+            (dummy-num env (:end-line coord))
+            (dummy-num env (:end-column coord))
+            (dummy-sym env nsym)
             expr]}))
 
 (def ^:dynamic *found-fn* false)
@@ -3457,16 +3496,19 @@
                               (wrap-def-init (ast/def-var-name expr) *ns*))))
                 expr))
        ;; Only wrap library imports so we can infer how they are used.
+       ;; Also wrap :dynamic vars since they can be rebound at runtime
+       ;; and lose instrumentation.
        :var (let [vsym (impl/var->symbol (:var expr))
                   vns (symbol (namespace vsym))
+                  excluded? (contains? (conj ns-exclusions (ns-name *ns*)) vns)
+                  ;dynamic? (-> (:var expr) meta :dynamic)
                   no-infer? (-> vsym meta ::t/no-infer)]
               (when no-infer?
                 (prn "no-infer" vsym))
               ;(prn "var" vsym)
-              (if-not (or (contains? (conj ns-exclusions (ns-name *ns*)) vns)
-                          no-infer?)
-                (wrap-var-deref expr vsym *ns*)
-                expr))
+              (if (or excluded? no-infer?)
+                expr
+                (wrap-var-deref expr vsym *ns*)))
        :fn 
        (if (not *found-fn*)
          ;; this is a top-level function that's already being wrapped
@@ -4065,7 +4107,9 @@
                                       [HMap-a tagk])
                                     (apply set/union (vals tagv->HMap-as)))))
                            tagk->tagv->HMap-as)
-        find-alias-tag-keys (fn find-alias-tag-keys [t]
+        find-alias-tag-keys (fn find-alias-tag-keys 
+                              ([t] (find-alias-tag-keys t #{}))
+                              ([t seen]
                               {:pre [(type? t)]
                                :post [((con/set-c? keyword?) %)]}
                               (let [;; we've already separated all HMap aliases.
@@ -4073,11 +4117,14 @@
                                     ]
                                 (case (:op t)
                                   :union (apply set/union 
-                                                (map find-alias-tag-keys (:types t)))
+                                                (map #(find-alias-tag-keys % seen) (:types t)))
                                   :alias (if-let [tagk (HMap-a->tagk (:name t))]
                                            #{tagk}
-                                           (find-alias-tag-keys (resolve-alias env t)))
-                                  #{})))
+                                           (if (contains? seen (:name t))
+                                             #{}
+                                             (find-alias-tag-keys (resolve-alias env t)
+                                                                  (conj seen (:name t)))))
+                                  #{}))))
         tagk->HMap-as (apply merge-with into {}
                              (map (fn [[HMap-a tagk]]
                                     {tagk #{HMap-a}})
@@ -4690,16 +4737,28 @@
 ;; Inserting/deleting annotations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; from tools.namespace
+;; adapted from tools.namespace
 (defn update-file
   "Reads file as a string, calls f on the string plus any args, then
-  writes out return value of f as the new contents of file. Does not
-  modify file if the content is unchanged."
-  [file f & args]
+  writes out return value of f as the new contents of file, or writes
+  content to `out`."
+  [file ^String out f & args]
+  {:pre [(instance? java.net.URL file)
+         ((some-fn nil? string?) out)]}
   (let [old (slurp file)
-        new (str (apply f old args))]
-    (when-not (= old new)
-      (spit file new))))
+        new (str (apply f old args))
+        _ (when out
+            (let [leading-slash? (boolean (#{\/} (first out)))
+                  dirs (apply str (interpose "/" (pop (str/split out #"/"))))
+                  dirs (if leading-slash?
+                         (str "/" dirs)
+                         dirs)
+                  ;_ (prn "creating" dirs)
+                  _ (doto (java.io.File. ^String dirs)
+                      .mkdirs)]
+              out))]
+    (spit (or out file) new)
+    (println "Output annotations to " (or out file))))
 
 (defn ns-file-name [sym]
   (io/resource
@@ -4992,31 +5051,36 @@
 (comment
   (println
     (insert-local-fns
-      [{:line 1 :column 1
+      [{::track-kind :local-fn
+        :line 1 :column 1
         :end-line 1 :end-column 11
         :type {:op :Top}}]
       "(fn [a] a)"
       {}))
   (println
     (insert-local-fns
-      [{:line 1 :column 1
+      [{::track-kind :local-fn
+        :line 1 :column 1
         :end-line 2 :end-column 5
         :type {:op :Top}}]
       "(fn [a]\n  a) foo"
       {}))
   (println
     (insert-local-fns
-      [{:line 1 :column 3
+      [{::track-kind :local-fn
+        :line 1 :column 3
         :end-line 2 :end-column 7
         :type {:op :Top}}]
       "  (fn [a]\n    a) foo"
       {}))
   (println
     (insert-local-fns
-      [{:line 1 :column 1
+      [{::track-kind :local-fn
+        :line 1 :column 1
         :end-line 1 :end-column 20
         :type {:op :Top}}
-       {:line 1 :column 9
+       {::track-kind :local-fn
+        :line 1 :column 9
         :end-line 1 :end-column 19
         :type {:op :Top}}]
       "(fn [b] (fn [a] a))"
@@ -5065,6 +5129,7 @@
     (update-file (ns-file-name (if (symbol? ns)
                                  ns ;; avoid `the-ns` call in case ns does not exist yet.
                                  (ns-name ns)))
+                 nil
                  delete-generated-annotations-in-str)))
 
 (declare infer-anns)
@@ -5081,19 +5146,31 @@
         (pprint a))
       (print generate-ann-end))))
 
-(defn insert-generated-annotations [ns config]
-  (impl/with-clojure-impl
-    (update-file (ns-file-name (ns-name ns))
-                 insert-generated-annotations-in-str
-                 ns
-                 config)))
+(defn default-out-dir [{:keys [spec?] :as config}]
+  (let [cp-root (-> "" java.io.File. .getAbsoluteFile .getPath)
+        dir-name (str "generated-" (if spec? "spec" "type") "-annotations")]
+    (str cp-root "/" dir-name)))
 
-(defn replace-generated-annotations [ns config]
+(defn insert-or-replace-generated-annotations [ns {:keys [out-dir] :as config}]
   (impl/with-clojure-impl
-    (update-file (ns-file-name (ns-name ns))
-                 insert-generated-annotations-in-str
-                 ns
-                 (assoc config :replace-top-level? true))))
+    (let [nsym (ns-name ns)
+          ^java.net.URL
+          file-in (ns-file-name nsym)]
+      (update-file file-in
+                   (when (or out-dir 
+                             (not= "file" (.getProtocol file-in)))
+                     (str (or out-dir
+                              (default-out-dir config))
+                          "/" 
+                          (coerce/ns->file nsym)))
+                   insert-generated-annotations-in-str
+                   ns
+                   config))))
+
+(defn insert-generated-annotations [ns config]
+  (insert-or-replace-generated-annotations ns config))
+(defn replace-generated-annotations [ns config]
+  (insert-or-replace-generated-annotations ns (assoc config :replace-top-level? true)))
 
 (defn infer-anns
   ([ns {:keys [spec?] :as config}]
@@ -5101,9 +5178,10 @@
               (symbol? ns))]}
      (let [existing-alias? (some? (namespace-alias-in
                                     (the-ns (current-ns))
-                                    (if spec?
-                                      spec-ns
-                                      'clojure.core.typed)))
+                                    (find-ns
+                                      (if spec?
+                                        spec-ns
+                                        'clojure.core.typed))))
            require-info
            (when-not existing-alias?
              (let [current-aliases (ns-aliases (the-ns (current-ns)))
@@ -5130,7 +5208,8 @@
            (populate-envs config)
            (out (assoc config :explicit-require-needed require-info))))))
 
-(defn infer-with-frontend [front-end {:keys [ns fuel] :as args}]
+(defn infer-with-frontend [front-end {:keys [ns fuel out-dir] :as args}]
+  {:pre [((some-fn nil? string?) out-dir)]}
   (binding [*spec* (case front-end
                      :spec true
                      false)
@@ -5166,6 +5245,8 @@
                                      (case front-end
                                        :spec {:spec? true}
                                        nil)
+                                     (when out-dir
+                                       {:out-dir out-dir})
                                      (when fuel
                                        {:fuel fuel})))))
 
@@ -5188,6 +5269,7 @@
 
 (defmacro defntrack [n & args]
   `(def ~n (track-def-init
+             '~(gen-track-config)
              '~(symbol (str (ns-name *ns*)) (str n))
              '~(ns-name *ns*)
              (fn ~@args))))

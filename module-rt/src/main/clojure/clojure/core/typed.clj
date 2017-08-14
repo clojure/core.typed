@@ -2480,10 +2480,18 @@ for checking namespaces, cf for checking individual forms."}
   Optional keys:
     :ns     The namespace to infer types for. (Symbol/Namespace)
             Default: *ns*
+    :strategy  Choose which inference preparation strategy to use.
+               - :compile      recompile the namespace and wrap at compilation-time.
+                               Supports local annotation inference. Source is analyzed
+                               via core.typed's custom analyzer.
+               - :instrument   wrap top-level vars without recompilation.
+                               No support for local annotations, but the default
+                               Clojure analyzer is used.
+
+               Default: :compile
   "
   [& {:keys [ns]}]
   (load-if-needed)
-  (require 'clojure.core.typed.coerce-utils)
   (impl/with-impl impl/clojure
     (binding [vs/*prepare-infer-ns* true]
       (typed-load/load-typed-file 
@@ -2540,6 +2548,9 @@ for checking namespaces, cf for checking individual forms."}
     :preserve-unknown  If true, output the symbol `?` where inference was cut off
                        or never reached.
                        Default: nil (convert to unknown to `clojure.core.typed/Any`)
+    :out-dir       A classpath-relative directory (string) to which to dump changes to files,
+                   instead of modifying the original file.
+                   Default: nil (modify original file)
 
   eg. (runtime-infer) ; infer for *ns*
 
@@ -2607,6 +2618,9 @@ for checking namespaces, cf for checking individual forms."}
                        Default: nil (convert to unknown to `clojure.core/any?`)
     :higher-order-fspec   If true, generate higher-order fspecs.
                           Default: false
+    :out-dir       A classpath-relative directory (string) to which to dump changes to files,
+                   instead of modifying the original file.
+                   Default: nil (modify original file)
 
   eg. (spec-infer) ; infer for *ns*
 
