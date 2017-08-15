@@ -814,8 +814,9 @@
                                        ;; give up
                                        (keyword (name (gensym)))))
                                    specs)
-                         names (uniquify names)]
-                     (interleave names (map first specs)))))))
+                         names (uniquify names)
+                         names+specs (sort-by first (map vector names (map first specs)))]
+                     (apply concat names+specs))))))
 
 (def ^:dynamic *qualified-spec-aliases* nil) ;; for spec aliases where namespaces matter
 (def ^:dynamic *spec-aliases* nil)
@@ -866,6 +867,8 @@
 
 (def ^:dynamic *preserve-unknown* nil)
 (def ^:dynamic *higher-order-fspec* nil)
+
+(declare join)
 
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
@@ -989,7 +992,7 @@
                                                     ;; is already defined. If it isn't, we need
                                                     ;; to generate it.
                                                     ;;FIXME see below
-                                                    (namespace k) (do (when (and get-spec
+                                                    (namespace k) #_(do (when (and get-spec
                                                                                  (not (get-spec k)))
                                                                         (println (str "WARNING: Could not generate "
                                                                                       "spec alias for " k)))
@@ -1009,39 +1012,30 @@
                                                     ;
                                                     ; ::also-important wants to generate an ::important, who wants to
                                                     ; generate ::also-important.
-                                                    #_(cond
-                                                                    ;; this spec exists, probably in some other namespace.
-                                                                    ;; Just trust it.
-                                                                    (and get-spec (get-spec k)) k
+                                                    (cond
+                                                      ;; this spec exists, probably in some other namespace.
+                                                      ;; Just trust it.
+                                                      ;(and get-spec (get-spec k)) k
 
-                                                                    (and *qualified-spec-aliases* *envs*)
-                                                                    ;; generate aliases just in time
-                                                                    (let [spec-aliases *qualified-spec-aliases*
-                                                                          _ (assert spec-aliases)
-                                                                          envs *envs*
-                                                                          _ (assert envs)
-                                                                          kw k
-                                                                          _ (swap! spec-aliases update kw 
-                                                                                   (fn [old]
-                                                                                     (if old
-                                                                                       (cond
-                                                                                         ;; merge two possible unions
-                                                                                         (union? old)
-                                                                                         (update old :types 
-                                                                                                 into (if (union? v) 
-                                                                                                        (:types v)
-                                                                                                        #{v}))
-                                                                                         :else {:op :union
-                                                                                                :types (set [v old])})
-                                                                                       (assert nil)
-                                                                                       v)))
-                                                                          _ (swap! envs update-alias-env
-                                                                                   update kw (constantly (get @spec-aliases kw)))]
-                                                                      kw)
+                                                      (and *qualified-spec-aliases* *envs*)
+                                                      ;; generate aliases just in time
+                                                      (let [spec-aliases *qualified-spec-aliases*
+                                                            _ (assert spec-aliases)
+                                                            envs *envs*
+                                                            _ (assert envs)
+                                                            kw k
+                                                            _ (swap! spec-aliases update kw 
+                                                                     (fn [t1 t2]
+                                                                       (if t1
+                                                                         (join t1 t2)
+                                                                         t2))
+                                                                     v)
+                                                            _ (swap! envs update-alias-env assoc kw (get @spec-aliases kw))]
+                                                        kw)
 
-                                                                    :else (do (println (str "WARNING: Could not generate "
-                                                                                            "spec alias for " k))
-                                                                              k))
+                                                      :else (do (println (str "WARNING: Could not generate "
+                                                                              "spec alias for " k))
+                                                                k))
                                                     ;; for unqualified keyword map entries, we can just gensym
                                                     ;; an appropriate alias if it's not already mapped
                                                     ;; to one.
@@ -2248,7 +2242,7 @@
     (do (assert (not (contains? seen (:name a))) "Infinite type detected")
       (recur env (resolve-alias env a)
              (conj seen (:name a))))
-    a))
+    a)))
 
 (def kw-val? (every-pred val? (comp keyword? :val)))
 
