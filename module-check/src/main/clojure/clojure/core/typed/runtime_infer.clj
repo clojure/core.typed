@@ -569,6 +569,7 @@
 (defn rename-alias [env old new]
   {:pre [(symbol? old)
          (symbol? new)]}
+  ;(prn "rename" old "->" new)
   (let [tenv (into {}
                    (map (fn [[k t]]
                           [k (subst-alias t (-alias old) (-alias new))]))
@@ -756,20 +757,25 @@
 
 (defn alt-spec [alts]
   {:pre [(every? type? alts)]}
-  (let [specs (into {} 
-                    (map (fn [alt]
-                           [(unparse-spec alt) alt]))
-                    (set alts))
-        ;; put instance comparisons at the front of the disjunction.
+  (let [;; put instance comparisons at the front of the disjunction.
         ;; avoid errors in checking specs that have both records
         ;; and collections, since records do not implement `empty`.
-        {inst? true other false}
-        (group-by (fn [[s _]]
-                    (boolean
-                      (when (or (seq? s) (list? s))
-                        (some #{(qualify-core-symbol 'instance?)} s))))
-                  specs)
-        specs (vec (concat inst? other))]
+        {inst? true other false} (group-by (fn [t]
+                                             (boolean
+                                               (or (#{:val} (:op t))
+                                                   (and (#{:class} (:op t))
+                                                        (not
+                                                          (#{clojure.lang.IPersistentSet
+                                                             clojure.lang.IPersistentMap
+                                                             clojure.lang.IPersistentVector
+                                                             clojure.lang.IPersistentCollection
+                                                             clojure.lang.ISeq}
+                                                            (:class t)))))))
+                                           alts)
+        specs (into {}
+                    (map (fn [alt]
+                           [(unparse-spec alt) alt]))
+                    (concat (set inst?) (set other)))]
     (if (= 1 (count specs))
       (unparse-spec (simplify-spec-alias (second (first specs))))
       (list*-force (qualify-spec-symbol 'or)
@@ -815,7 +821,8 @@
                                        (keyword (name (gensym)))))
                                    specs)
                          names (uniquify names)
-                         names+specs (sort-by first (map vector names (map first specs)))]
+                         ;; FIXME sort by key, but preserve instance checks first
+                         names+specs (map vector names (map first specs))]
                      (apply concat names+specs))))))
 
 (def ^:dynamic *qualified-spec-aliases* nil) ;; for spec aliases where namespaces matter
@@ -1033,7 +1040,7 @@
                                                             _ (swap! envs update-alias-env assoc kw (get @spec-aliases kw))]
                                                         kw)
 
-                                                      :else (do (println (str "WARNING: Could not generate "
+                                                      :else (do #_(println (str "WARNING: Could not generate "
                                                                               "spec alias for " k))
                                                                 k))
                                                     ;; for unqualified keyword map entries, we can just gensym
@@ -2436,8 +2443,7 @@
                                                                (interpose "-"
                                                                           (concat
                                                                             (cons (name common-tag)
-                                                                                  (map (comp keyword
-                                                                                             name
+                                                                                  (map (comp name
                                                                                              :val
                                                                                              common-tag 
                                                                                              ::HMap-req)
@@ -3887,8 +3893,7 @@
                             {:pre [(type? t)]
                              :post [(type? %)]}
                             (case (:op t)
-                              :alias (if (and (alias? t)
-                                              (contains? as (:name t)))
+                              :alias (if (contains? as (:name t))
                                        -nothing
                                        t)
                               :union (make-Union
@@ -4001,6 +4006,37 @@
         ;_ (prn "similar aliases" as)
         ]
     alias-groups)))
+
+(defn group-HMap-aliases-by-overlapping-qualified-keys [env as]
+  (let [as (set as)
+        overlapping (apply merge-with into
+                           (->> (alias-env env)
+                                (filter (fn [[k t]]
+                                          (contains? as k)))
+                                (mapcat (fn [[a t]]
+                                          {:pre [(type? t)]}
+                                          (let [hmap-qkeys (fn [hmap]
+                                                             {:pre [(HMap? hmap)]}
+                                                             (set
+                                                               (filter namespace
+                                                                       (concat (keys (::HMap-req hmap))
+                                                                               (keys (::HMap-opt hmap))))))
+                                                ]
+                                          (case (:op t)
+                                            :HMap (map (fn [qkey]
+                                                         {qkey #{a}})
+                                                       (hmap-qkeys t))
+                                            :union
+                                            (let [hmap-qkeys (->> (filter HMap? (:types t))
+                                                                  (mapcat (fn [t]
+                                                                            (map (fn [qkey]
+                                                                                   {qkey #{a}})
+                                                                                 (hmap-qkeys t)))))]
+                                              hmap-qkeys)
+                                            nil))))))]
+    (prn "group-HMap-aliases-by-overlapping-qualified-keys"
+         overlapping)
+    (vals overlapping)))
 
 (defn group-HMap-aliases-by-likely-tag* [env as]
   {:post [((con/hash-c?
@@ -4142,34 +4178,42 @@
         ]
     (vals tagk->as)))
 
+(declare debug-output)
+
 (defn rename-HMap-aliases [env config]
   (reduce (fn [env a]
-            (let [t (get (alias-env env) a)]
-              ;(prn "renaming" a (unp t) (:op t))
-              (assert (type? t))
-              (case (:op t)
-                :union (let [ts (:types t)
-                             every-hmap? (every? HMap? ts)]
-                         (if every-hmap?
-                           (let [k (HMap-likely-tag-key ts)]
-                             (if (every? #(HMap-has-tag-key? % k) ts)
-                               (let [new-a (gen-unique-alias-name env config (symbol (name k)))]
-                                 (rename-alias env a new-a))
-                               env))
-                           env))
-                ;; this is not a tagged map
-                :HMap (let [relevant-names (map
-                                             camel-case
-                                             (concat
-                                               (sort
-                                                 (map name (keys (::HMap-req t))))
-                                               (sort
-                                                 (map name (keys (::HMap-opt t))))))
-                            name (if (empty? relevant-names)
-                                   "EmptyMap"
-                                   (apply str (concat (take 3 relevant-names) ["Map"])))]
-                        (rename-alias env a (symbol name)))
-                env)))
+            (let [t (get (alias-env env) a)
+                  ;_ (prn "renaming" a (unp t) (:op t))
+                  _ (assert (type? t))
+                  ;_ (debug-output (str "before rename-HMap-aliases " a) env config)
+                  env (case (:op t)
+                        :union (let [ts (:types t)
+                                     every-hmap? (every? HMap? ts)]
+                                 (if every-hmap?
+                                   (let [k (HMap-likely-tag-key ts)]
+                                     (if (every? #(HMap-has-tag-key? % k) ts)
+                                       (let [new-a (gen-unique-alias-name env config (symbol (name k)))]
+                                         (rename-alias env a new-a))
+                                       env))
+                                   env))
+                        ;; this is not a tagged map
+                        :HMap (let [relevant-names (map
+                                                     camel-case
+                                                     (concat
+                                                       (sort
+                                                         (map name (keys (::HMap-req t))))
+                                                       (sort
+                                                         (map name (keys (::HMap-opt t))))))
+                                    a-new (gen-unique-alias-name
+                                            env config
+                                            (symbol
+                                              (if (empty? relevant-names)
+                                                "EmptyMap"
+                                                (apply str (concat (take 3 relevant-names) ["Map"])))))]
+                                (rename-alias env a a-new))
+                        env)]
+              ;(debug-output (str "after rename-HMap-aliases " a) env config)
+              env))
           env
           (keys (alias-env env))))
 
@@ -4224,6 +4268,10 @@
         asets (group-aliases-by-likely-tag-key env as)
         env (reduce merge-aliases env asets)
 
+        ;; merge HMaps on their tags key/val pairs.
+        asets (group-HMap-aliases-by-overlapping-qualified-keys env as)
+        env (reduce merge-aliases env asets)
+
         as (reachable-aliases env)
         ;; remove unreachable aliases
         env (update-alias-env env select-keys as)
@@ -4231,8 +4279,10 @@
         ;; delete intermediate aliases
         env (follow-all env (assoc config :simplify? false))
 
+        _ (debug-output "before rename-HMap-aliases" env config)
         ;; rename aliases pointing to HMaps
         env (rename-HMap-aliases env config)
+        _ (debug-output "after rename-HMap-aliases" env config)
         ]
     env))
 
@@ -4463,6 +4513,11 @@
                                                        @used-aliases))))]
                                     (conj prefix def-spec)))))
               (sort-by first tenv)))
+
+          top-level-types (vec (concat
+                                 ;; FIXME what if this call refines qualified alias specs?
+                                 (gen-aliases @qualified-spec-aliases)
+                                 top-level-types))
           ]
       {:top-level top-level-types
        :requires (when-let [requires (:explicit-require-needed config)]
