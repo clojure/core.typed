@@ -505,13 +505,9 @@
 
 (defn HMap-req-opt-keysets [t]
   {:pre [(HMap? t)]
-   :post [(set? %)
-          (every? set? %)]}
-  (let [req (map-key-set (::HMap-req t))]
-    (into #{}
-          (map (fn [s]
-                 (into req s)))
-          (comb/subsets (vec (keys (::HMap-opt t)))))))
+   :post [(set? %)]}
+  #{{:req-keyset (map-key-set (::HMap-req t))
+     :opt-keyset (map-key-set (::HMap-opt t))}})
 
 (declare unp)
 
@@ -733,10 +729,12 @@
   (symbol (namespace k)
           (name k)))
 
-(defn alias->spec-kw [k]
-  {:pre [(symbol? k)]
+(defn alias->spec-kw [s]
+  {:pre [(symbol? s)]
    :post [(keyword? %)]}
-  (keyword (name (current-ns)) (name k)))
+  (if (namespace s)
+    (keyword s)
+    (keyword (name (current-ns)) (name s))))
 
 (declare resolve-alias-or-nil)
 
@@ -987,9 +985,7 @@
                                   (mapv unparse-type (:vec m)))
             :else `'~(mapv unparse-type (:vec m)))
     :HMap (cond
-            *unparse-spec* (let [get-spec (when u/spec-ns
-                                            (impl/v (symbol (str u/spec-ns) "get-spec")))
-                                 specify-keys 
+            *unparse-spec* (let [specify-keys 
                                  (fn [entries]
                                    (-> (let [kns (name (gensym "keys"))]
                                            (map (fn [[k v]]
@@ -2058,10 +2054,7 @@
                          (case (:op x)
                            :var (let [n (:name x)
                                       t (if-let [t (get (type-env env) n)]
-                                          (do
-                                            #_(prn "update-path join"
-                                                   (map :op [t type]))
-                                            (join t type))
+                                          (join t type)
                                           type)]
                                   (assert (#{:var} (:op x))
                                           (str "First element of path must be a variable or local-fn " x))
@@ -2111,6 +2104,64 @@
                             :arities [{:op :IFn1
                                        :dom (into [] (repeat (:arity cur-pth) {:op :unknown}))
                                        :rng type}]}))))))
+
+(defn update-grouped-paths [env config {:keys [:current-level :inner-level] :as paths}]
+  {:pre [(map? env)
+         (set? current-level)
+         (map? inner-level)]
+   :post [(type? %)]}
+  ;(prn "update-grouped-paths current level:" (count current-level))
+  ;(prn "update-grouped-paths num next levels:" (count inner-level))
+  (apply join*
+    (concat current-level
+      (->> 
+        inner-level
+        (map (fn [[cur-pth next-group]]
+               (let [type (update-grouped-paths env config next-group)]
+                 (case (:op cur-pth)
+                   :var (throw (Exception. "Var path element must only be first path element"))
+                   :key (let [{:keys [kw-entries keys key]} cur-pth]
+                          {:op :HMap
+                           ::HMap-req (merge (zipmap keys (repeat {:op :unknown}))
+                                             ;; immediately associate kw->kw entries
+                                             ;; to distinguish in merging algorithm
+                                             kw-entries
+                                             {key type})})
+                   :set-entry (-class clojure.lang.IPersistentSet [type])
+                   :seq-entry (-class clojure.lang.ISeq [type])
+                   :vec-entry (-class clojure.lang.IPersistentVector [type])
+                   :map-keys (-class clojure.lang.IPersistentMap [type {:op :unknown}])
+                   :map-vals (-class clojure.lang.IPersistentMap [{:op :unknown} type])
+                   :transient-vector-entry (-class clojure.lang.ITransientVector [type])
+                   :atom-contents (-class clojure.lang.IAtom [type])
+                   :index (if true #_(= 2 (:count cur-pth))
+                            {:op :HVec
+                             :vec (assoc (vec (repeat (:count cur-pth) -unknown)) (:nth cur-pth) type)}
+                            #_(-class clojure.lang.IPersistentVector [type]))
+                   :fn-domain (let [{:keys [arity position]} cur-pth]
+                                {:op :IFn
+                                 :arities [{:op :IFn1
+                                            :dom (let [dom (into [] 
+                                                                 (repeat (:arity cur-pth) {:op :unknown}))]
+                                                   (if (zero? arity)
+                                                     dom
+                                                     (assoc dom position type)))
+                                            :rng {:op :unknown}}]})
+                   :fn-range (let [{:keys [arity]} cur-pth]
+                               {:op :IFn
+                                :arities [{:op :IFn1
+                                           :dom (into [] (repeat (:arity cur-pth) {:op :unknown}))
+                                           :rng type}]})))))))))
+
+(defn grouped-paths-to-env [env config {:keys [:current-level :inner-level] :as paths}]
+  {:pre [(empty? current-level)
+         (map? inner-level)]}
+  (into {}
+        (map (fn [[pth next-group]]
+               {:pre [(#{:var} (:op pth))]}
+               ;(prn "grouped-paths-to-env" (:name pth))
+               [(:name pth) (update-grouped-paths env config next-group)]))
+        inner-level))
 
 (defn walk-type-children [v f]
   {:pre [(type? v)]
@@ -2319,16 +2370,18 @@
                                            (filter (fn [[k v]]
                                                      (kw-vals? v))
                                                    (::HMap-req t)))
+                                         ;_ (prn "original" k v)
                                          ;; information from a union takes precedence
-                                         [k v] (if-let [upper-k (::union-likely-tag (meta t))]
-                                                 (if-let [e (find (::HMap-req t) upper-k)]
-                                                   e
-                                                   [k v])
-                                                 [k v])]
+                                         [k v] (or (when-let [upper-k (::union-likely-tag (meta t))]
+                                                     (let [e (find (::HMap-req t) upper-k)]
+                                                       (when (kw-vals? (val e))
+                                                         e)))
+                                                   [k v])]
                                      (do-alias env-atom t 
                                                (or
                                                  ;; try and give a tagged name
                                                  (when k
+                                                   ;(prn "kw-vals" k v)
                                                    (str (name k) "-" (kw-vals->str v)))
                                                  ;; for small number of keys, spell out the keys
                                                  (when (<= (+ (count (::HMap-req t))
@@ -2399,8 +2452,10 @@
                         ;; we want every level of types to be an alias,
                         ;; since all members of a union are at the same
                         ;; level, call them the same thing.
-                        (make-Union
-                          (map #(fully-resolve-alias @env-atom %) (:types t)))
+                        ;; Since we just created these aliases, we don't need to
+                        ;; further simplify via `make-Union`.
+                        {:op :union
+                         :types (set (map #(fully-resolve-alias @env-atom %) (:types t)))}
 
                         ;; if we are generating specs, we also want aliases
                         ;; for each HMap entry.
@@ -2466,33 +2521,33 @@
                     a @a-atom
                     _ (assert a)]
                 (-alias a)))]
-      [(postwalk t
-         (fn [t]
-           (case (:op t)
-             :HMap ;(debug
-                   ;  (println "alias-hmap-type:" (unp-str t))
-                     (do-alias t)
-                   ;)
-             :union (if (and (seq (:types t))
-                             (not-every?
-                               (fn [t]
-                                 (case (:op t)
-                                   :val true
-                                   :class (empty? (:args t))
-                                   false))
-                               (:types t)))
-                      ;(debug
-                      ;  (println "alias-union-type:" (unp-str t))
-                        (do-alias t)
-                      ;)
-                      t)
-             :IFn1 (if (:spec? config)
-                     (-> t
-                         (update :dom #(mapv do-alias %))
-                         (update :rng do-alias))
-                     t)
-             t)))
-       @env-atom])))
+      (let [t (postwalk t
+                        (fn [t]
+                          (case (:op t)
+                            :HMap ;(debug
+                            ;  (println "alias-hmap-type:" (unp-str t))
+                            (do-alias t)
+                            ;)
+                            :union (if (and (seq (:types t))
+                                            (not-every?
+                                              (fn [t]
+                                                (case (:op t)
+                                                  :val true
+                                                  :class (empty? (:args t))
+                                                  false))
+                                              (:types t)))
+                                     ;(debug
+                                     ;  (println "alias-union-type:" (unp-str t))
+                                     (do-alias t)
+                                     ;)
+                                     t)
+                            :IFn1 (if (:spec? config)
+                                    (-> t
+                                        (update :dom #(mapv do-alias %))
+                                        (update :rng do-alias))
+                                    t)
+                            t)))]
+        [t @env-atom]))))
 
 (declare fv)
 
@@ -2502,9 +2557,8 @@
          (symbol? f)
          (alias? t)]
    :post [(map? env)]}
-  #_
-  (prn "Try merging" f
-       "with" (:name t))
+  ;(prn "Try merging" f
+  ;     "with" (:name t))
   (let [tks (keysets env t)
         fks (keysets env (-alias f))]
     ;(prn "merging keysets?"
@@ -2514,7 +2568,17 @@
       ;; identical in both, collapse the entire thing.
       ;; TODO is this too aggresssive? Shouldn't the keysets
       ;; be exactly identical?
-      (and (seq (set/intersection tks fks))
+      (and (some (fn [fk]
+                   (some (fn [tk]
+                           (or
+                             (seq (set/intersection (set/union (:req-keyset fk)
+                                                               (:opt-keyset fk))
+                                                    (:req-keyset tk)))
+                             (seq (set/intersection (set/union (:req-keyset tk)
+                                                               (:opt-keyset tk))
+                                                    (:req-keyset fk)))))
+                         tks))
+                 fks)
            (not (alias? (resolve-alias env (-alias f))))
            (not (alias? (resolve-alias env t))))
       (let [;_ (prn "Merging" f
@@ -2569,10 +2633,11 @@
                     (fn [env f]
                       (try-merge-aliases env config f t))
                     env
-                    (concat
-                      (fv env (resolve-alias env t))
-                      ;; also try and merge with parents
-                      (map :name (disj done t))))
+                    (set 
+                      (concat
+                        (fv env (resolve-alias env t))
+                        ;; also try and merge with parents
+                        (map :name done))))
                   env)]
         (recur env
                (into (subvec worklist 1)
@@ -2712,6 +2777,7 @@
         ;_ (prn "free aliases" (unp t) fvs
         ;       (keys (alias-env env)))
         env (reduce (fn [env a]
+                      (prn "squash" a)
                       (squash env config a))
                     env (map -alias fvs))]
     [t env]))
@@ -3641,14 +3707,30 @@
                    [name (unparse-type t)]))
             (type-env env)))))
 
+(defn group-by-path
+  ([infer-results] (group-by-path 0 infer-results))
+  ([path-index infer-results]
+   {:pre [(integer? path-index)]}
+   ;(prn "group-by-path" path-index)
+   (let [[current-group ps]
+         (-> (group-by (comp #(nth % path-index ::current-group) :path) infer-results)
+             ((juxt ::current-group #(dissoc % ::current-group))))]
+     {:current-level (set (map :type current-group))
+      :inner-level (apply merge {}
+                          (map (fn [[pth-elem rs]]
+                                 {:pre [(keyword? (:op pth-elem))]}
+                                 {pth-elem (group-by-path (inc path-index) rs)})
+                               ps))})))
+
 ; generate-tenv : InferResultEnv -> AliasTypeEnv
 (defn generate-tenv
   "Reset and populate global type environment."
   [env config {:keys [infer-results equivs] :as is}]
   (println "generate-tenv:"
                   (str (count infer-results) " infer-results"))
-  (let [;; filter results
-        infer-results (if *root-results*
+  (let [by-path (group-by-path infer-results)
+        ;; filter results
+        #_#_infer-results (if *root-results*
                         (let [root-count (atom {})
                               _ (println "Filtering results...")
                               infer-results (reduce (fn [infer-results {:keys [path] :as res}]
@@ -3671,18 +3753,10 @@
                                    "Filtered to"
                                    (str (count infer-results) " infer-results"))
                           infer-results)
-                        infer-results)]
+                        infer-results)
+        ]
     (as-> (init-env) env 
-      (reduce 
-        (fn [env {:keys [path type] :as i}] 
-          (update-path env config path type))
-        env
-        infer-results)
-      (reduce 
-        (fn [env i]
-          (update-equiv env config (:= i) (:type i)))
-        env
-        equivs))))
+      (update-env env assoc :type-env (grouped-paths-to-env env config by-path)))))
 
 (defn gen-current1
   "Print the currently inferred type environment"
@@ -4383,17 +4457,23 @@
 (defn squash-vertically [env config]
   (reduce
     (fn [env [v t]]
+      (prn "vertically squashing" v)
       (let [;; create graph nodes from HMap types
             [t env] (alias-hmap-type env config t)
+            _ (prn "finish alias-hmap-type")
             ;; squash local recursive types
             [t env] (squash-all env config t)
+            _ (prn "finish squash-all")
             ;; trim redundant aliases in local types
-            [t env] (follow-aliases env (assoc config :simplify? true) t)]
+            [t env] (follow-aliases env (assoc config :simplify? true) t)
+            _ (prn "finish follow-aliases")
+            ]
         (update-type-env env assoc v t)))
     env
     (type-env env)))
 
 (defn populate-envs [env {:keys [spec?] :as config}]
+  (prn "populating envs")
   (debug "populate-envs:"
   (let [;; create recursive types
         env (if-let [fuel (:fuel config)]
