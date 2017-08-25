@@ -1153,12 +1153,27 @@
                macro? (some-> top-level-var meta :macro)
                {fixed-arglists :fixed [rest-arglist] :rest}
                (group-by (fn [v]
+                           {:pre [(vector? v)]}
                            (if (and (<= 2 (count v))
                                     (#{'&} (get v (- (count v) 2))))
                              :rest
                              :fixed))
                          arglists)
+               _ (assert ((some-fn nil? (every-pred vector? #(<= 2 (count %)))) rest-arglist))
+               ;; expand varargs into extra fixed arguments
+               fixed-arglists (into (or fixed-arglists [])
+                                    (when rest-arglist
+                                      (let [fixed-arg-nums (into #{} (map count) fixed-arglists)
+                                            fixed (subvec rest-arglist 0 (- (count rest-arglist) 2))
+                                            rst-arg (peek rest-arglist)
+                                            extra-fixed (if (vector? rst-arg)
+                                                          (vec (take-while (complement #{'& :as}) rst-arg))
+                                                          [])]
+                                        (->> (map #(into fixed (subvec extra-fixed 0 %)) (range (inc (count extra-fixed))))
+                                             ;; prefer actual fixed arguments over derived ones
+                                             (remove (comp fixed-arg-nums count))))))
                ;_ (prn "fixed-arglists" fixed-arglists)
+               ;_ (prn "rest-arglist" rest-arglist)
                ;; map from arity length to vector of fixed arguments
                fixed-name-lookup (into {}
                                        (map (fn [v]

@@ -974,7 +974,7 @@
   (is (ast (long 1))))
 
 (deftest case-nil-expr
-  (is (ast (case 1
+  (is (ast (case nil
              nil 2))))
 
 #_(emit-form
