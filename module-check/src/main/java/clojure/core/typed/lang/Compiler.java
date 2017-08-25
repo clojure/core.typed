@@ -1979,6 +1979,7 @@ public static class ConstantExpr extends LiteralExpr{
   public final Object form;
 
 	public ConstantExpr(Object v, Object form){
+    if (v == null) throw new IllegalArgumentException("Constant cannot be null");
 		this.v = v;
 		this.id = registerConstant(v);
     this.form = form;
@@ -2022,6 +2023,15 @@ public static class ConstantExpr extends LiteralExpr{
 			return v.getClass();
 		//throw new IllegalArgumentException("Has no Java class");
 	}
+
+  // ConstantExpr's hasJavaClass cannot be called when v == null.
+  // So, we work around this by making a NilExpr instead.
+  public static Expr createConstantExpr(Object v, Object form){
+    if(v == null)
+      return new NilExpr(form);
+    else
+      return new ConstantExpr(v, form);
+  }
 
 	static class Parser implements IParser{
 		static Keyword formKey = Keyword.intern("form");
@@ -8914,7 +8924,7 @@ public static class CaseExpr implements Expr, MaybePrimitiveExpr{
                 Object pair = e.getValue(); // [test-val then-expr]
                 Expr testExpr = testType == intKey
                                     ? NumberExpr.parse(((Number)RT.first(pair)).intValue())
-                                    : new ConstantExpr(RT.first(pair), RT.first(pair));
+                                    : ConstantExpr.createConstantExpr(RT.first(pair), RT.first(pair));
                 tests.put(minhash, testExpr);
 
                 Expr thenExpr;

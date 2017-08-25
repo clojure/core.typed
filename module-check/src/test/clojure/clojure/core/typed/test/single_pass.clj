@@ -973,6 +973,10 @@
 (deftest static-invoke-expr
   (is (ast (long 1))))
 
+(deftest case-nil-expr
+  (is (ast (case 1
+             nil 2))))
+
 #_(emit-form
 (ast
 (let* [v__4413__auto__ (def nth-path-multimethod)]

@@ -2535,7 +2535,7 @@ for checking namespaces, cf for checking individual forms."}
     :fuel   Number of iterations to perform in inference algorithm
             (integer)
             Default: nil (don't restrict iterations)
-    :debug  Perform print debugging. (boolean/nil)
+    :debug  Perform print debugging. (:all/:iterations/nil)
             Default: nil
     :track-depth   Maximum nesting depth data will be tracked.
                    Default: nil (don't restrict nestings)
@@ -2559,7 +2559,7 @@ for checking namespaces, cf for checking individual forms."}
       (runtime-infer :fuel 0) ; iterations in type inference algorithm
                               ; (higher = smaller types + more recursive)
 
-      (runtime-infer :debug true) ; enable debugging
+      (runtime-infer :debug :iterations) ; enable iteration debugging
   "
   ([& kws]
    (load-if-needed)
@@ -2603,7 +2603,7 @@ for checking namespaces, cf for checking individual forms."}
     :fuel   Number of iterations to perform in inference algorithm
             (integer)
             Default: nil (don't restrict iterations)
-    :debug  Perform print debugging. (boolean/nil)
+    :debug  Perform print debugging. (:all/:iterations/nil)
             Default: nil
     :track-depth   Maximum nesting depth data will be tracked.
                    Default: nil (don't restrict nestings)
@@ -2629,7 +2629,7 @@ for checking namespaces, cf for checking individual forms."}
       (spec-infer :fuel 0) ; iterations in spec inference algorithm
                            ; (higher = smaller specs + more recursive)
 
-      (spec-infer :debug true) ; enable debugging
+      (spec-infer :debug :iterations) ; enable iteration debugging
   "
   ([& kws]
    (load-if-needed)
