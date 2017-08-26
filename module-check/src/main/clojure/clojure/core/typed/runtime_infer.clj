@@ -1237,9 +1237,10 @@
                                                    (or (when-let [f (get fixed-name-lookup (count dom))]
                                                          [f nil])
                                                        (when rest-arglist
-                                                         [(when (>= (count dom) (dec (count rest-arglist)))
-                                                            (drop-last 2 rest-arglist))
-                                                          (peek rest-arglist)]))
+                                                         (assert (vector? rest-arglist))
+                                                         (when (>= (count dom) (dec (count rest-arglist)))
+                                                           [(subvec rest-arglist 0 (- (count rest-arglist) 2))
+                                                            (peek rest-arglist)])))
                                                    keywordify-arg 
                                                    (fn [arg]
                                                      ;; here we can improve naming by examining destructuring
@@ -1260,23 +1261,29 @@
                                                             (symbol? (peek arg)))
                                                        (keyword (namespace (peek arg))
                                                                 (name (peek arg)))))
-                                                   fixed-kws (some->> matching-fixed-names
-                                                                      (map-indexed (fn [n arg]
-                                                                                     (or (keywordify-arg arg)
-                                                                                         (let [s (or (some-> top-level-def name)
-                                                                                                     "arg")]
-                                                                                           (keyword (str s "-" n))))))
-                                                                      uniquify)
-                                                   rest-kws (when rest-arg-name
-                                                              (let [dom-remain (- (count dom) (count fixed-kws))
-                                                                    kw-arg (keywordify-arg rest-arg-name)]
-                                                                (map (fn [n]
-                                                                       (if kw-arg
-                                                                         (keyword (namespace kw-arg)
-                                                                                  (str (name kw-arg) "-" n))
-                                                                         (keyword (str "arg-" n))))
-                                                                     (range dom-remain))))
-                                                   combined-kws (vec (uniquify (concat fixed-kws rest-kws)))]
+                                                   combined-kws 
+                                                   (let [fixed-kws (map-indexed (fn [n arg]
+                                                                                  (or (keywordify-arg arg)
+                                                                                      (let [s (or #_(some-> top-level-def name)
+                                                                                                  "arg")]
+                                                                                        (keyword (str s "-" n)))))
+                                                                                matching-fixed-names)
+                                                         rest-kws (when rest-arg-name
+                                                                    (let [dom-remain (- (count dom) (count fixed-kws))
+                                                                          kw-arg (keywordify-arg rest-arg-name)
+                                                                          prefix (if kw-arg
+                                                                                   (str (when-let [n (namespace kw-arg)]
+                                                                                          (str n "/"))
+                                                                                        (name kw-arg))
+                                                                                   (str "rest-arg"))]
+                                                                      (map (fn [n]
+                                                                             (keyword (str prefix "-" n)))
+                                                                           (range dom-remain))))
+                                                         combined-kws (vec (uniquify (concat fixed-kws rest-kws)))]
+                                                     (if (= (count dom) (count combined-kws))
+                                                       combined-kws
+                                                       (mapv (fn [n] (keyword (str "arg-" n)))
+                                                             (range (count dom)))))]
                                                (assert (= (count dom) (count combined-kws)))
                                                combined-kws)]
                                   (spec-cat
