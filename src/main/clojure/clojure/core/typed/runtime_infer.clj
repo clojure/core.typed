@@ -17,6 +17,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.walk :as walk]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             ))
 
 (def spec-ns (or u/spec-ns 'clojure.spec.alpha))
@@ -909,7 +910,7 @@
 (def ^:dynamic *preserve-unknown* nil)
 (def ^:dynamic *higher-order-fspec* nil)
 
-(declare join alias-matches-key-for-spec-keys?)
+(declare join alias-matches-key-for-spec-keys? alternative-arglists)
 
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
@@ -932,7 +933,7 @@
              *unparse-spec* (cond
                               (nil? t) (qualify-core-symbol 'nil?)
                               (false? t) (qualify-core-symbol 'false?)
-                              (keyword? t) (qualify-core-symbol 'keyword?)
+                              (keyword? t) #{t} #_(qualify-core-symbol 'keyword?)
                               (string? t) (qualify-core-symbol 'string?)
                               :else (qualify-core-symbol 'any?))
              :else
@@ -1148,7 +1149,8 @@
                                         (namespace top-level-def)) ;; testing purposes
                                (some-> top-level-def find-var))
                ;_ (prn "top-level-var" top-level-def top-level-var)
-               arglists (some-> top-level-var meta :arglists)
+               arglists (or (some-> top-level-var meta :arglists)
+                            (get @alternative-arglists (coerce/var->symbol top-level-var)))
                ;_ (prn "arglists" arglists)
                macro? (some-> top-level-var meta :macro)
                {fixed-arglists :fixed [rest-arglist] :rest}
@@ -1294,8 +1296,10 @@
                                  (list* (qualify-spec-symbol 'alt) ;; use alt to treat args as flat sequences
                                         (doall
                                           (mapcat (fn [alt]
-                                                    (let [kw (keyword (str (/ (dec (count alt)) 2)
-                                                                           "-args"))]
+                                                    (let [kw (keyword (let [n (/ (dec (count alt)) 2)]
+                                                                        (str n (or (when (= 1 n)
+                                                                                     "-arg")
+                                                                                   "-args"))))]
                                                       [kw alt]))
                                                   doms))))]
                   (list* (qualify-spec-symbol 'fspec)
@@ -3597,6 +3601,24 @@
             expr]}))
 
 (def ^:dynamic *found-fn* false)
+(def alternative-arglists (atom {}))
+
+(defn infer-arglists [v expr]
+  {:pre [(var? v)]}
+  (letfn [(arglists-for [expr]
+            (case (:op expr)
+              :var (or (-> (:var expr) meta :arglists)
+                       (get @alternative-arglists (coerce/var->symbol (:var expr))))
+              :fn (let [frm (emit-form/emit-form expr)]
+                    (@#'clojure.core/sigs (next frm)))
+              :with-meta (arglists-for (:expr expr))
+              :do (arglists-for (:ret expr))
+              (:let :body :letfn :loop) (arglists-for (:body expr))
+              nil))]
+    (let [arglists (arglists-for expr)]
+      (when arglists
+        (swap! alternative-arglists assoc (coerce/var->symbol v) arglists)))
+    nil))
 
 ; check : (IFn [TAExpr -> TAExpr] [TAExpr CTType -> TAExpr]
 (defn check
@@ -3636,13 +3658,16 @@
        ;; namespace.
        :def (let [v (:var expr)
                   _ (assert ((some-fn nil? var?) v))
-                  no-infer? (some-> v meta ::t/no-infer)]
+                  no-infer? (some-> v meta ::t/no-infer)
+                     ]
               (when no-infer?
                 (prn "no-infer" (ast/def-var-name expr)))
               (if (and (:init expr)
                        (not no-infer?))
                 (update expr :init 
                         (fn [init]
+                          (when-not (-> v meta :arglists)
+                            (infer-arglists v init))
                           (-> init
                               check
                               (wrap-def-init (ast/def-var-name expr) *ns*))))
@@ -4490,7 +4515,9 @@
                        ((into #{}
                               (map qualify-spec-symbol)
                               ; late binding ops
-                              '[and keys cat alt or nilable])
+                              '[and keys cat alt or nilable coll-of
+                                fspec map-of tuple cat multi-spec
+                                *])
                         fs))))
           s
           (list (qualify-spec-symbol 'and)
