@@ -1233,57 +1233,69 @@
                               (fn [{:keys [dom]}]
                                 {:pre [dom]}
                                 ;(prn "doms" (count dom) (keyword (get fixed-name-lookup (count dom))))
-                                (spec-cat
-                                  (mapcat (fn [n k d]
-                                            {:pre [(keyword? k)]}
-                                            (let [spec 
-                                                  (cond
-                                                    (and (zero? n)
-                                                         macro?
-                                                         (#{:class} (:op d))
-                                                         (= clojure.lang.IPersistentVector
-                                                            (:class d)))
-                                                    (keyword (str core-specs-ns) "bindings")
+                                (let [knames (let [[matching-fixed-names rest-arg-name]
+                                                   (or (when-let [f (get fixed-name-lookup (count dom))]
+                                                         [f nil])
+                                                       (when rest-arglist
+                                                         [(when (>= (count dom) (dec (count rest-arglist)))
+                                                            (drop-last 2 rest-arglist))
+                                                          (peek rest-arglist)]))
+                                                   keywordify-arg 
+                                                   (fn [arg]
+                                                     ;; here we can improve naming by examining destructuring
+                                                     (cond
+                                                       ;; simple argument name
+                                                       (symbol? arg) (keyword (namespace arg) (name arg))
 
-                                                    :else (unparse-spec d))]
-                                              [k spec]))
-                                          (range)
-                                          (or
-                                            (when-let [ss (get fixed-name-lookup (count dom))]
-                                              ;; here we can improve naming by examining destructuring
-                                              (->> ss
-                                                   (map-indexed
-                                                     (fn [n arg]
-                                                       (cond
-                                                         ;; simple argument name
-                                                         (symbol? arg) (keyword (namespace arg) (name arg))
+                                                       ;; {:as foo} map destructuring
+                                                       (and (map? arg)
+                                                            (symbol? (:as arg)))
+                                                       (keyword (namespace (:as arg)) 
+                                                                (name (:as arg)))
 
-                                                         ;; {:as foo} map destructuring
-                                                         (and (map? arg)
-                                                              (symbol? (:as arg)))
-                                                         (keyword (namespace (:as arg)) 
-                                                                  (name (:as arg)))
+                                                       ;; [:as foo] vector destructuring
+                                                       (and (vector? arg)
+                                                            (<= 2 (count arg))
+                                                            (#{:as} (nth arg (- (count arg) 2)))
+                                                            (symbol? (peek arg)))
+                                                       (keyword (namespace (peek arg))
+                                                                (name (peek arg)))))
+                                                   fixed-kws (some->> matching-fixed-names
+                                                                      (map-indexed (fn [n arg]
+                                                                                     (or (keywordify-arg arg)
+                                                                                         (let [s (or (some-> top-level-def name)
+                                                                                                     "arg")]
+                                                                                           (keyword (str s "-" n))))))
+                                                                      uniquify)
+                                                   rest-kws (when rest-arg-name
+                                                              (let [dom-remain (- (count dom) (count fixed-kws))
+                                                                    kw-arg (keywordify-arg rest-arg-name)]
+                                                                (map (fn [n]
+                                                                       (if kw-arg
+                                                                         (keyword (namespace kw-arg)
+                                                                                  (str (name kw-arg) "-" n))
+                                                                         (keyword (str "arg-" n))))
+                                                                     (range dom-remain))))
+                                                   combined-kws (vec (uniquify (concat fixed-kws rest-kws)))]
+                                               (assert (= (count dom) (count combined-kws)))
+                                               combined-kws)]
+                                  (spec-cat
+                                    (mapcat (fn [n k d]
+                                              {:pre [(keyword? k)]}
+                                              (let [spec 
+                                                    (cond
+                                                      (and (zero? n)
+                                                           macro?
+                                                           (#{:class} (:op d))
+                                                           (= clojure.lang.IPersistentVector
+                                                              (:class d)))
+                                                      (keyword (str core-specs-ns) "bindings")
 
-                                                         ;; [:as foo] vector destructuring
-                                                         (and (vector? arg)
-                                                              (<= 2 (count arg))
-                                                              (#{:as} (nth arg (- (count arg) 2)))
-                                                              (symbol? (peek arg)))
-                                                         (keyword (namespace (peek arg))
-                                                                  (name (peek arg)))
-
-                                                         :else
-                                                         (let [s (or (some-> top-level-def name)
-                                                                     "arg")]
-                                                           (keyword (str s  "-" n))))))
-                                                   uniquify))
-                                            ;; TODO use rest-arglist here
-                                            (map (fn [n]
-                                                   (let [s (or (some-> top-level-def name)
-                                                               "arg")]
-                                                     (keyword (str s  "-" n))))
-                                                 (range #_(count dom))))
-                                          dom)))
+                                                      :else (unparse-spec d))]
+                                                [k spec]))
+                                            (range)
+                                            knames
+                                            dom))))
                               arities))
                      rngs (if macro?
                             (qualify-core-symbol 'any?)
