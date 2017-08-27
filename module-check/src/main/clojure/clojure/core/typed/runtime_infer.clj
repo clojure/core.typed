@@ -1149,8 +1149,9 @@
                                         (namespace top-level-def)) ;; testing purposes
                                (some-> top-level-def find-var))
                ;_ (prn "top-level-var" top-level-def top-level-var)
-               arglists (or (some-> top-level-var meta :arglists)
-                            (get @alternative-arglists (coerce/var->symbol top-level-var)))
+               arglists (when top-level-var
+                          (or (-> top-level-var meta :arglists)
+                              (->> top-level-var coerce/var->symbol (get @alternative-arglists))))
                ;_ (prn "arglists" arglists)
                macro? (some-> top-level-var meta :macro)
                {fixed-arglists :fixed [rest-arglist] :rest}
@@ -1287,22 +1288,25 @@
                                                (assert (= (count dom) (count combined-kws)))
                                                combined-kws)]
                                   (spec-cat
-                                    (mapcat (fn [n k d]
-                                              {:pre [(keyword? k)]}
-                                              (let [spec 
-                                                    (cond
-                                                      (and (zero? n)
-                                                           macro?
-                                                           (#{:class} (:op d))
-                                                           (= clojure.lang.IPersistentVector
-                                                              (:class d)))
-                                                      (keyword (str core-specs-ns) "bindings")
+                                    (->>
+                                      (map (fn [n k d]
+                                             {:pre [(keyword? k)]}
+                                             (let [spec 
+                                                   (cond
+                                                     (and (zero? n)
+                                                          macro?
+                                                          (#{:class} (:op d))
+                                                          (= clojure.lang.IPersistentVector
+                                                             (:class d)))
+                                                     (keyword (str core-specs-ns) "bindings")
 
-                                                      :else (unparse-spec d))]
-                                                [k spec]))
-                                            (range)
-                                            knames
-                                            dom))))
+                                                     :else (unparse-spec d))]
+                                               [k spec]))
+                                              (range)
+                                              knames
+                                              dom)
+                                      (sort-by first)
+                                      (mapcat identity)))))
                               arities))
                      rngs (if macro?
                             (qualify-core-symbol 'any?)
@@ -1676,12 +1680,22 @@
         _ (assert (set? ts))
         ;; upcast Long and Double combination to t/Num
         ts (cond
-             (or (and (contains? ts (-class Long []))
-                      (contains? ts (-class Double [])))
+             (or (and (or (contains? ts (-class Long []))
+                          (contains? ts (-class Integer []))
+                          (contains? ts (-class Short []))
+                          (contains? ts (-class Byte []))
+                          (contains? ts (-class BigInteger [])))
+                      (or (contains? ts (-class Double []))
+                          (contains? ts (-class BigDecimal []))))
                  (contains? ts (-class Number [])))
              (-> (disj ts 
                        (-class Long [])
-                       (-class Double []))
+                       (-class Integer [])
+                       (-class Short [])
+                       (-class Byte [])
+                       (-class BigInteger [])
+                       (-class Double [])
+                       (-class BigDecimal []))
                  (conj (-class Number [])))
 
              :else ts)
@@ -2973,6 +2987,13 @@
 (defn track 
   ([{:keys [track-depth track-count root-results] :as config} results-atom v path]
    {:pre [(vector? path)]}
+   #_(prn "identity"
+        ((juxt 
+           #(System/identityHashCode %)
+           #(.hashCode ^Object %)
+           hash
+           class)
+         v))
    ;(prn (str "track depth " (count path) " " (path-root path)))
    #_(when (< 3 (count path))
      (prn (class v)))
