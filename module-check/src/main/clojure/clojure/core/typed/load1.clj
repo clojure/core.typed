@@ -33,6 +33,9 @@
     (ta-env/ensure (p/p :typed-load/global-env
                         (taj/global-env))
      (let [should-runtime-infer? vs/*prepare-infer-ns*
+           _ (when should-runtime-infer?
+               (println "Refreshing runtime inference")
+               (t/refresh-runtime-infer))
            orig-filename filename
            [file-url filename]
            (or (let [f (str filename ".clj")]
@@ -130,7 +133,7 @@
 
   eg. (install)            ; installs `load` and `eval`
   eg. (install #{:eval})   ; installs `eval`
-  eg. (install #{:eval})   ; installs `load`"
+  eg. (install #{:load})   ; installs `load`"
   ([] (install :all))
   ([features]
    {:pre [((some-fn set? #{:all}) features)]
