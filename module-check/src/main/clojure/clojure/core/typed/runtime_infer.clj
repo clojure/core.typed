@@ -1294,25 +1294,22 @@
                                                (assert (= (count dom) (count combined-kws)))
                                                combined-kws)]
                                   (spec-cat
-                                    (->>
-                                      (map (fn [n k d]
-                                             {:pre [(keyword? k)]}
-                                             (let [spec 
-                                                   (cond
-                                                     (and (zero? n)
-                                                          macro?
-                                                          (#{:class} (:op d))
-                                                          (= clojure.lang.IPersistentVector
-                                                             (:class d)))
-                                                     (keyword (str core-specs-ns) "bindings")
+                                    (mapcat (fn [n k d]
+                                              {:pre [(keyword? k)]}
+                                              (let [spec 
+                                                    (cond
+                                                      (and (zero? n)
+                                                           macro?
+                                                           (#{:class} (:op d))
+                                                           (= clojure.lang.IPersistentVector
+                                                              (:class d)))
+                                                      (keyword (str core-specs-ns) "bindings")
 
-                                                     :else (unparse-spec d))]
-                                               [k spec]))
-                                              (range)
-                                              knames
-                                              dom)
-                                      (sort-by first)
-                                      (mapcat identity)))))
+                                                      :else (unparse-spec d))]
+                                                [k spec]))
+                                            (range)
+                                            knames
+                                            dom))))
                               arities))
                      rngs (if macro?
                             (qualify-core-symbol 'any?)
