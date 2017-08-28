@@ -1737,7 +1737,7 @@
                                          [(apply join*
                                                  (concat
                                                    (map (comp first :args) vec-classes)
-                                                   (apply concat (map :vec merged-HVecs))))])]
+                                                   (apply concat (map :vec HVecs))))])]
                                 merged-HVecs)
                  ]
              (into (set non-HVecs) final-merged))
@@ -4957,7 +4957,7 @@
                                             paths (into #{path} related-paths)]
                                         (prn "paths" (count paths))
                                         (when (< 1 (count paths))
-                                          (let [x (gensym 'x)
+                                          (let [x 'x
                                                 infer-results (map #(infer-result % {:op :free :name x}) paths)
                                                 by-path (group-by-path infer-results)
                                                 v (->
