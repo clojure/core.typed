@@ -285,19 +285,25 @@
 (defn ppresults []
   (pprint (mapv unparse-infer-result (get-infer-results results-atom))))
 
+(defn swap-infer-results! [results-atom f & args]
+  (apply swap! results-atom update :infer-results f args))
+
 (defn add-infer-result! [results-atom r]
-  (swap! results-atom update :infer-results conj r))
+  (swap-infer-results! results-atom (fnil conj #{}) r))
+
+(defn add-infer-results! [results-atom r]
+  (swap-infer-results! results-atom (fnil into #{}) r))
 
 (defn get-infer-results [results-atom]
   (get @results-atom :infer-results))
-
-(defn swap-infer-results! [results-atom f & args]
-  (apply swap! results-atom update :infer-results f args))
 
 (defn infer-result [path type]
   {:op :path-type
    :type type
    :path path})
+
+(defn infer-results [paths type]
+  (map #(infer-result % type) paths))
 
 (defn equiv-result [ps cls]
   {:pre [(set? ps)
@@ -1317,14 +1323,14 @@
                      dom-specs (if (= 1 (count doms))
                                  (first doms)
                                  (list* (qualify-spec-symbol 'alt) ;; use alt to treat args as flat sequences
-                                        (doall
-                                          (mapcat (fn [alt]
-                                                    (let [kw (keyword (let [n (/ (dec (count alt)) 2)]
-                                                                        (str n (or (when (= 1 n)
-                                                                                     "-arg")
-                                                                                   "-args"))))]
-                                                      [kw alt]))
-                                                  doms))))]
+                                        (let [named-alts (map (fn [alt]
+                                                                (let [kw (keyword (let [n (/ (dec (count alt)) 2)]
+                                                                                    (str n (or (when (= 1 n)
+                                                                                                 "-arg")
+                                                                                               "-args"))))]
+                                                                  [kw alt]))
+                                                              doms)]
+                                          (apply concat (sort-by first named-alts)))))]
                   (list* (qualify-spec-symbol 'fspec)
                          [:args dom-specs
                           :ret rngs])))
@@ -2975,6 +2981,12 @@
 (defn path-root [path]
   (-> path first :name))
 
+(defn extend-paths [paths extension]
+  (into #{}
+        (map (fn [path]
+               (conj path extension)))
+        paths))
+
 (def ^:dynamic *should-track* true)
 
 (def ^:const apply-realize-limit 20)
@@ -2985,32 +2997,27 @@
 
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
-  ([{:keys [track-depth track-count root-results] :as config} results-atom v path]
-   {:pre [(vector? path)]}
-   #_(prn "identity"
-        ((juxt 
-           #(System/identityHashCode %)
-           #(.hashCode ^Object %)
-           hash
-           class)
-         v))
-   ;(prn (str "track depth " (count path) " " (path-root path)))
-   #_(when (< 3 (count path))
-     (prn (class v)))
-   (let [_ (swap! results-atom update-in [:path-occurrences (path-root path)] (fnil inc 0))]
+  ([{:keys [track-depth track-count root-results] :as config} results-atom v paths]
+   {:pre [((con/set-c? vector?) paths)
+          (seq paths)]}
+   #_(prn "npaths" (count paths)
+        (map unparse-path paths))
+   (let [_ (swap! results-atom update :path-occurrences 
+                  (fn [po]
+                    (reduce (fn [po path]
+                              (update po (path-root path) (fnil inc 0)))
+                            po
+                            paths)))]
      (cond
        ((some-fn keyword? nil? false?) v)
        (do
-         (add-infer-result! results-atom (infer-result path (-val v)))
+         (add-infer-results! results-atom (infer-results paths (-val v)))
          v)
 
        ;; cut off path
        (or
-         #_ ;; doesn't make sense to count root results here, since we don't keep a running count of results
-         (when root-results
-           (< root-results (get-in @results-atom [:path-occurrences (path-root path)] 0)))
          (when track-depth
-           (> (count path) track-depth))
+           (> (apply min (map count paths)) track-depth))
          (not *should-track*))
        ;(debug
        ;  (println "Cut off inference at path "
@@ -3022,51 +3029,60 @@
        ;           ")")
          (let [;; record as unknown so this doesn't
                ;; cut off actually recursive types.
-               ir (infer-result path {:op :unknown})
-               _ (add-infer-result! results-atom ir)]
+               _ (add-infer-results! results-atom (infer-results paths {:op :unknown}))]
            v)
        ;)
 
        ;; only accurate up to 20 arguments.
        ;; all arities 21 and over will collapse into one.
-       (fn? v) (let [;; if this is never called, remember it is actually a function
-                     ir (infer-result path (-class clojure.lang.IFn []))
-                     _ (add-infer-result! results-atom ir)
-                     inner-fn 
-                     (fn [& args]
-                       (let [blen (bounded-count apply-realize-limit args) ;; apply only realises 20 places
-                             _ (when (= 0 blen)
-                                 (track config results-atom -any
-                                        (conj path (fn-dom-path 0 -1))))
-                             args (map-indexed
-                                    (fn [n v]
-                                      (if (< n blen)
-                                        (track config results-atom v (conj path (fn-dom-path blen n)))
-                                        v))
-                                    args)]
-                         (track config results-atom (apply v args) (conj path (fn-rng-path blen)))))
-                     ;; readable name
-                     ;outer-fn 
-                     ;(eval `(fn [f#] 
-                     ;         (fn ~(symbol (gensym (munge (path-root path)))) [& args#] 
-                     ;           (apply f# args#))))
-                     ]
-                 (with-meta
-                   inner-fn ;(outer-fn inner-fn)
-                   (meta v)))
+       (fn? v) (let [[paths unwrapped-fn] (if (-> v meta ::wrapped-fn?)
+                                            ((juxt ::paths ::unwrapped-fn) 
+                                             ;; combine paths
+                                             (update (meta v) ::paths into paths))
+                                            [paths v])
+                     _ (assert (set? paths))
+                     ;; If this is never called, remember it is actually a function.
+                     ;; This will get noted redundantly for older paths, if that's
+                     ;; some kind of issue, we should remember which paths we've already noted.
+                     _ (add-infer-results! results-atom (infer-results paths (-class clojure.lang.IFn [])))
+                     ;; space efficient function wrapping
+                     wrap-fn (fn [paths unwrapped-fn]
+                               (with-meta
+                                 (fn [& args]
+                                   (let [blen (bounded-count apply-realize-limit args) ;; apply only realises 20 places
+                                         _ (when (= 0 blen)
+                                             (track config results-atom -any
+                                                    (extend-paths paths (fn-dom-path 0 -1))))
+                                         ;; here we throw away arities after 20 places.
+                                         ;; no concrete reason for this other than it feeling like a sensible
+                                         ;; compromise.
+                                         args (map-indexed
+                                                (fn [n arg]
+                                                  (if (< n blen)
+                                                    (track config results-atom arg
+                                                           (extend-paths paths (fn-dom-path blen n)))
+                                                    arg))
+                                                args)]
+                                     (track config results-atom (apply unwrapped-fn args)
+                                            (extend-paths paths (fn-rng-path blen)))))
+                                 (merge (meta unwrapped-fn)
+                                        {::wrapped-fn? true
+                                         ::paths paths
+                                         ::unwrapped-fn unwrapped-fn})))]
+                 (wrap-fn paths v))
 
        (list? v)
        (let []
          (when (empty? v)
-           (add-infer-result!
+           (add-infer-results!
              results-atom
-             (infer-result path 
+             (infer-results paths
                            (-class clojure.lang.IPersistentList [(make-Union #{})]))))
          (let [res 
                (with-meta
                  (apply list
                         (map (fn [e]
-                               (track config results-atom e (conj path (seq-entry))))
+                               (track config results-atom e (extend-paths paths (seq-entry))))
                              v))
                  (meta v))]
            (assert (list? res))
@@ -3074,25 +3090,40 @@
 
        (and (seq? v)
             (not (list? v)))
-       (letfn [(wrap-lseq [v could-be-empty?]
+       (let [[paths unwrapped-seq paths-where-original-coll-could-be-empty]
+             (if (-> v meta ::wrapped-seq?)
+               ((juxt ::paths ::unwrapped-seq ::paths-where-original-coll-could-be-empty)
+                ;; combine paths
+                (-> (update (meta v) ::paths into paths)
+                    (update (meta v) ::paths-where-original-coll-could-be-empty into paths)))
+               [paths v paths])
+             _ (assert (set? paths))
+             ;; space efficient wrapping
+             wrap-lseq 
+             (fn wrap-lseq [unwrapped-seq paths-where-original-coll-could-be-empty]
+               (with-meta
                  (lazy-seq
-                   (if (empty? v)
+                   (if (empty? unwrapped-seq)
                      (let []
-                       (when could-be-empty?
-                         (add-infer-result!
+                       (when (seq paths-where-original-coll-could-be-empty)
+                         (add-infer-results!
                            results-atom
-                           (infer-result 
-                             path 
+                           (infer-results
+                             paths-where-original-coll-could-be-empty
                              (-class clojure.lang.ISeq [(make-Union #{})]))))
-                       v)
+                       unwrapped-seq)
                      (cons (track config results-atom
-                                  (first v)
-                                  (conj path (seq-entry)))
-                           (wrap-lseq (rest v)
-                                      false)))))]
-         (with-meta
-           (wrap-lseq v true)
-           (meta v)))
+                                  (first unwrapped-seq)
+                                  (extend-paths paths (seq-entry)))
+                           (wrap-lseq (rest unwrapped-seq)
+                                      ;; collection can no longer be empty for these paths
+                                      #{}))))
+                 (merge (meta unwrapped-seq)
+                        {::wrapped-seq? true
+                         ::paths-where-original-coll-could-be-empty paths-where-original-coll-could-be-empty
+                         ::paths paths
+                         ::unwrapped-seq unwrapped-seq})))]
+         (wrap-lseq unwrapped-seq paths-where-original-coll-could-be-empty))
 
        (instance? clojure.lang.ITransientVector v)
        (let [cnt (count v)]
@@ -3100,7 +3131,7 @@
            (fn [v i]
              (let [e (nth v i)
                    e' (track config results-atom e
-                             (conj path (transient-vector-entry)))]
+                             (extend-paths paths (transient-vector-entry)))]
                (if (identical? e e')
                  v
                  (binding [*should-track* false]
@@ -3111,8 +3142,8 @@
        ;; cover map entries
        (and (vector? v) 
             (= 2 (count v)))
-       (let [k  (track config results-atom (nth v 0) (conj path (index-path 2 0)))
-             vl (track config results-atom (nth v 1) (conj path (index-path 2 1)))]
+       (let [k  (track config results-atom (nth v 0) (extend-paths paths (index-path 2 0)))
+             vl (track config results-atom (nth v 1) (extend-paths paths (index-path 2 1)))]
          (assoc v 0 k 1 vl))
 
        (and (vector? v) 
@@ -3121,13 +3152,15 @@
              len (count v)
              so-far (atom 0)]
          (when (= 0 len)
-           (add-infer-result! results-atom (infer-result path (-class clojure.lang.IPersistentVector [{:op :union :types #{}}]))))
+           (add-infer-results! results-atom (infer-results paths (-class clojure.lang.IPersistentVector [{:op :union :types #{}}]))))
          (reduce-kv
            (fn [e k v]
              (swap! so-far inc)
-             (let [v' (track config results-atom v (conj path (if heterogeneous?
-                                                         (index-path len k)
-                                                         (vec-entry-path))))]
+             (let [v' (track config results-atom v (extend-paths 
+                                                     paths 
+                                                     (if heterogeneous?
+                                                       (index-path len k)
+                                                       (vec-entry-path))))]
                (cond
                  (when-let [tc track-count]
                    (< tc @so-far)) 
@@ -3144,9 +3177,9 @@
        (set? v)
        (do
          (when (empty? v)
-           (add-infer-result!
+           (add-infer-results!
              results-atom
-             (infer-result path
+             (infer-results paths
                            (-class clojure.lang.IPersistentSet
                                    [{:op :union :types #{}}]))))
          ;; preserve sorted sets
@@ -3154,7 +3187,7 @@
            (into (empty v)
                  (map (fn [e]
                         (binding [*should-track* true]
-                          (track config results-atom e (conj path (set-entry))))))
+                          (track config results-atom e (extend-paths paths (set-entry))))))
                  v)))
 
        (or (instance? clojure.lang.PersistentHashMap v)
@@ -3162,9 +3195,9 @@
            (instance? clojure.lang.PersistentTreeMap v))
        (let [ks (set (keys v))]
          (when (empty? v)
-           (add-infer-result!
+           (add-infer-results!
              results-atom
-             (infer-result path
+             (infer-results paths
                            (-class clojure.lang.IPersistentMap
                                    [{:op :union :types #{}}
                                     {:op :union :types #{}}]))))
@@ -3191,13 +3224,13 @@
                      (let [k (key (first kw-entries-types))]
                        (track config results-atom (get v k)
                               (binding [*should-track* false]
-                                (conj path (key-path kw-entries-types ks k))))))
+                                (extend-paths paths (key-path kw-entries-types ks k))))))
                  ]
              (reduce
                (fn [m [k orig-v]]
                  (let [v (track config results-atom orig-v
                                 (binding [*should-track* false]
-                                  (conj path (key-path kw-entries-types ks k))))]
+                                  (extend-paths paths (key-path kw-entries-types ks k))))]
                    (cond
                      ;; only assoc if needed
                      (identical? v orig-v) m
@@ -3221,15 +3254,15 @@
                          ;(keyword? k)
                          ;[k (track config results-atom orig-v
                          ;          (binding [*should-track* false]
-                         ;            (conj path (key-path {} ks k))))]
+                         ;            (extend-paths paths (key-path {} ks k))))]
 
                          :else 
                          [(track config results-atom k
                                  (binding [*should-track* false]
-                                   (conj path (map-keys-path))))
+                                   (extend-paths paths (map-keys-path))))
                           (track config results-atom orig-v
                                  (binding [*should-track* false]
-                                   (conj path (map-vals-path))))])]
+                                   (extend-paths paths (map-vals-path))))])]
                    (cond
                      ; cut off homogeneous map
                      (when-let [tc *track-count*]
@@ -3259,23 +3292,23 @@
 
         (instance? clojure.lang.IAtom v)
         (let [old-val (-> v meta ::t/old-val)
-              new-path (binding [*should-track* false]
-                         (conj path (atom-contents)))
+              new-paths (binding [*should-track* false]
+                         (extend-paths paths (atom-contents)))
               should-track? (binding [*should-track* false]
                               (not= @v old-val))
               _ (when should-track?
-                  (track config results-atom @v new-path))
+                  (track config results-atom @v new-paths))
               _ (binding [*should-track* false]
                   (add-watch
                     v
-                    new-path
+                    new-paths
                     (fn [_ _ _ new]
                       (binding [*should-track* true]
-                        (track config results-atom new new-path)))))]
+                        (track config results-atom new new-paths)))))]
           v)
 
        :else (do
-               (add-infer-result! results-atom (infer-result path (-class (class v) [])))
+               (add-infer-results! results-atom (infer-results paths (-class (class v) [])))
                v)))))
 
 (def prim-invoke-interfaces
@@ -3429,9 +3462,9 @@
    (wrap-prim
      vr
      (track config
-            results-atom @vr [(var-path
-                                (ns-name (the-ns ns))
-                                (impl/var->symbol vr))]))))
+            results-atom @vr #{[(var-path
+                                  (ns-name (the-ns ns))
+                                  (impl/var->symbol vr))]}))))
 
 (defmacro track-var [v]
   `(track-var' (var ~v)))
@@ -3446,9 +3479,10 @@
     (wrap-prim
       v
       (track config
-             results-atom val [{:op :var
-                                :ns (ns-name ns)
-                                :name vsym}]))))
+             results-atom val 
+             #{[{:op :var
+                 :ns (ns-name ns)
+                 :name vsym}]}))))
 
 (defn track-local-fn [config track-kind line column end-line end-column ns val]
   {:pre [(#{:local-fn :loop-var} track-kind)]}
@@ -3465,30 +3499,31 @@
               "|"
               end-column)))
   (track config
-         results-atom val [{:op :var
-                            ::track-kind track-kind
-                            :line line
-                            :column column
-                            :end-line end-line
-                            :end-column end-column
-                            :ns (ns-name ns)
-                            :name (with-meta
-                                    (symbol
-                                      (str (ns-name ns)
-                                           "|"
-                                           line
-                                           "|"
-                                           column
-                                           "|"
-                                           end-line
-                                           "|"
-                                           end-column))
-                                    {::track-kind track-kind
-                                     :line line
-                                     :column column
-                                     :end-line end-line
-                                     :end-column end-column
-                                     :ns (ns-name ns)})}]))
+         results-atom val 
+         #{[{:op :var
+             ::track-kind track-kind
+             :line line
+             :column column
+             :end-line end-line
+             :end-column end-column
+             :ns (ns-name ns)
+             :name (with-meta
+                     (symbol
+                       (str (ns-name ns)
+                            "|"
+                            line
+                            "|"
+                            column
+                            "|"
+                            end-line
+                            "|"
+                            end-column))
+                     {::track-kind track-kind
+                      :line line
+                      :column column
+                      :end-line end-line
+                      :end-column end-column
+                      :ns (ns-name ns)})}]}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Analysis compiler pass
