@@ -2995,19 +2995,39 @@
 (def ^:dynamic *track-count* nil #_5)
 (def ^:dynamic *root-results* nil #_5)
 
+(def stored-call-ids (atom {}))
+
+(defn gen-call-id [paths]
+  [paths (swap! stored-call-ids update paths (fnil inc 0))])
+
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
-  ([{:keys [track-depth track-count root-results] :as config} results-atom v paths]
+  ([{:keys [track-depth track-count] :as config} results-atom v paths call-ids]
    {:pre [((con/set-c? vector?) paths)
-          (seq paths)]}
-   #_(prn "npaths" (count paths)
-        (map unparse-path paths))
-   (let [_ (swap! results-atom update :path-occurrences 
-                  (fn [po]
-                    (reduce (fn [po path]
-                              (update po (path-root path) (fnil inc 0)))
-                            po
-                            paths)))]
+          (seq paths)
+          ((con/set-c? vector?) call-ids)]}
+   (let [_ (let [hs ((juxt #(System/identityHashCode %)
+                           #(if (some? %)
+                              (.hashCode ^Object %)
+                              0)
+                           hash
+                           class)
+                     v)]
+             (swap! results-atom update :call-flows
+                    (fn [flows]
+                      (reduce (fn [flows call-id]
+                                (reduce (fn [flows path]
+                                          (let [vname (-> path first :name)
+                                                _ (assert (symbol? vname))]
+                                            (update-in flows [vname call-id]
+                                                       (fn [m]
+                                                         (-> m
+                                                             (update-in [:path-hashes hs] (fnil conj #{}) path)
+                                                             (update-in [:hash-occurrences path] (fnil conj #{}) hs))))))
+                                        flows
+                                        paths))
+                              flows
+                              call-ids))))]
      (cond
        ((some-fn keyword? nil? false?) v)
        (do
@@ -3045,6 +3065,7 @@
                      ;; This will get noted redundantly for older paths, if that's
                      ;; some kind of issue, we should remember which paths we've already noted.
                      _ (add-infer-results! results-atom (infer-results paths (-class clojure.lang.IFn [])))
+                     call-ids (conj call-ids (gen-call-id paths))
                      ;; space efficient function wrapping
                      wrap-fn (fn [paths unwrapped-fn]
                                (with-meta
@@ -3052,7 +3073,8 @@
                                    (let [blen (bounded-count apply-realize-limit args) ;; apply only realises 20 places
                                          _ (when (= 0 blen)
                                              (track config results-atom -any
-                                                    (extend-paths paths (fn-dom-path 0 -1))))
+                                                    (extend-paths paths (fn-dom-path 0 -1))
+                                                    call-ids))
                                          ;; here we throw away arities after 20 places.
                                          ;; no concrete reason for this other than it feeling like a sensible
                                          ;; compromise.
@@ -3060,11 +3082,13 @@
                                                 (fn [n arg]
                                                   (if (< n blen)
                                                     (track config results-atom arg
-                                                           (extend-paths paths (fn-dom-path blen n)))
+                                                           (extend-paths paths (fn-dom-path blen n))
+                                                           call-ids)
                                                     arg))
                                                 args)]
                                      (track config results-atom (apply unwrapped-fn args)
-                                            (extend-paths paths (fn-rng-path blen)))))
+                                            (extend-paths paths (fn-rng-path blen))
+                                            call-ids)))
                                  (merge (meta unwrapped-fn)
                                         {::wrapped-fn? true
                                          ::paths paths
@@ -3082,7 +3106,8 @@
                (with-meta
                  (apply list
                         (map (fn [e]
-                               (track config results-atom e (extend-paths paths (seq-entry))))
+                               (track config results-atom e (extend-paths paths (seq-entry))
+                                      call-ids))
                              v))
                  (meta v))]
            (assert (list? res))
@@ -3114,7 +3139,8 @@
                        unwrapped-seq)
                      (cons (track config results-atom
                                   (first unwrapped-seq)
-                                  (extend-paths paths (seq-entry)))
+                                  (extend-paths paths (seq-entry))
+                                  call-ids)
                            (wrap-lseq (rest unwrapped-seq)
                                       ;; collection can no longer be empty for these paths
                                       #{}))))
@@ -3131,7 +3157,8 @@
            (fn [v i]
              (let [e (nth v i)
                    e' (track config results-atom e
-                             (extend-paths paths (transient-vector-entry)))]
+                             (extend-paths paths (transient-vector-entry))
+                             call-ids)]
                (if (identical? e e')
                  v
                  (binding [*should-track* false]
@@ -3142,8 +3169,8 @@
        ;; cover map entries
        (and (vector? v) 
             (= 2 (count v)))
-       (let [k  (track config results-atom (nth v 0) (extend-paths paths (index-path 2 0)))
-             vl (track config results-atom (nth v 1) (extend-paths paths (index-path 2 1)))]
+       (let [k  (track config results-atom (nth v 0) (extend-paths paths (index-path 2 0)) call-ids)
+             vl (track config results-atom (nth v 1) (extend-paths paths (index-path 2 1)) call-ids)]
          (assoc v 0 k 1 vl))
 
        (and (vector? v) 
@@ -3160,7 +3187,8 @@
                                                      paths 
                                                      (if heterogeneous?
                                                        (index-path len k)
-                                                       (vec-entry-path))))]
+                                                       (vec-entry-path)))
+                             call-ids)]
                (cond
                  (when-let [tc track-count]
                    (< tc @so-far)) 
@@ -3187,7 +3215,8 @@
            (into (empty v)
                  (map (fn [e]
                         (binding [*should-track* true]
-                          (track config results-atom e (extend-paths paths (set-entry))))))
+                          (track config results-atom e (extend-paths paths (set-entry))
+                                 call-ids))))
                  v)))
 
        (or (instance? clojure.lang.PersistentHashMap v)
@@ -3224,13 +3253,15 @@
                      (let [k (key (first kw-entries-types))]
                        (track config results-atom (get v k)
                               (binding [*should-track* false]
-                                (extend-paths paths (key-path kw-entries-types ks k))))))
+                                (extend-paths paths (key-path kw-entries-types ks k)))
+                              call-ids)))
                  ]
              (reduce
                (fn [m [k orig-v]]
                  (let [v (track config results-atom orig-v
                                 (binding [*should-track* false]
-                                  (extend-paths paths (key-path kw-entries-types ks k))))]
+                                  (extend-paths paths (key-path kw-entries-types ks k)))
+                                call-ids)]
                    (cond
                      ;; only assoc if needed
                      (identical? v orig-v) m
@@ -3259,10 +3290,12 @@
                          :else 
                          [(track config results-atom k
                                  (binding [*should-track* false]
-                                   (extend-paths paths (map-keys-path))))
+                                   (extend-paths paths (map-keys-path)))
+                                 call-ids)
                           (track config results-atom orig-v
                                  (binding [*should-track* false]
-                                   (extend-paths paths (map-vals-path))))])]
+                                   (extend-paths paths (map-vals-path)))
+                                 call-ids)])]
                    (cond
                      ; cut off homogeneous map
                      (when-let [tc *track-count*]
@@ -3297,14 +3330,16 @@
               should-track? (binding [*should-track* false]
                               (not= @v old-val))
               _ (when should-track?
-                  (track config results-atom @v new-paths))
+                  (track config results-atom @v new-paths
+                         call-ids))
               _ (binding [*should-track* false]
                   (add-watch
                     v
                     new-paths
                     (fn [_ _ _ new]
                       (binding [*should-track* true]
-                        (track config results-atom new new-paths)))))]
+                        (track config results-atom new new-paths
+                               call-ids)))))]
           v)
 
        :else (do
@@ -3464,7 +3499,8 @@
      (track config
             results-atom @vr #{[(var-path
                                   (ns-name (the-ns ns))
-                                  (impl/var->symbol vr))]}))))
+                                  (impl/var->symbol vr))]}
+            #{}))))
 
 (defmacro track-var [v]
   `(track-var' (var ~v)))
@@ -3482,7 +3518,8 @@
              results-atom val 
              #{[{:op :var
                  :ns (ns-name ns)
-                 :name vsym}]}))))
+                 :name vsym}]}
+             #{}))))
 
 (defn track-local-fn [config track-kind line column end-line end-column ns val]
   {:pre [(#{:local-fn :loop-var} track-kind)]}
@@ -3523,7 +3560,8 @@
                       :column column
                       :end-line end-line
                       :end-column end-column
-                      :ns (ns-name ns)})}]}))
+                      :ns (ns-name ns)})}]}
+         #{}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Analysis compiler pass
@@ -3879,13 +3917,23 @@
                                  {pth-elem (group-by-path (inc path-index) rs)})
                                ps))})))
 
+(defn polymorphic-function-reports [call-flows]
+  (doseq [[vname call-ids] call-flows]
+    (prn "Polymorphic report for" vname)
+    (prn "N calls" (count call-ids))
+    (doseq [[_ {:keys [:path-hashes :hash-occurrences]}] call-ids]
+      (prn "N paths" (count path-hashes))
+      (prn "N hashes" (count hash-occurrences)))))
+
+
 ; generate-tenv : InferResultEnv -> AliasTypeEnv
 (defn generate-tenv
   "Reset and populate global type environment."
-  [env config {:keys [infer-results equivs] :as is}]
+  [env config {:keys [infer-results :call-flows] :as is}]
   (println "generate-tenv:"
                   (str (count infer-results) " infer-results"))
-  (let [by-path (group-by-path infer-results)
+  (let [_ (polymorphic-function-reports call-flows)
+        by-path (group-by-path infer-results)
         ;; filter results
         #_#_infer-results (if *root-results*
                         (let [root-count (atom {})
