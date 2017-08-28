@@ -454,6 +454,8 @@
 
 (defn HMap? [t]
   (= :HMap (:op t)))
+(defn HVec? [t]
+  (= :HVec (:op t)))
 
 (defn alias? [t]
   (= :alias (:op t)))
@@ -1706,41 +1708,50 @@
              :else ts)
 
         ;; simplify HVec's
-        ts (let [{HVecs true non-HVecs false} (group-by (comp boolean #{:HVec} :op) ts)
+        ts (let [merge-same-length-HVecs (fn [hvs]
+                                           {:pre [(apply = (map (comp count :vec) hvs))]
+                                            :post [(HVec? %)]}
+                                           {:op :HVec
+                                            :vec (apply mapv join* (map :vec hvs))})
+                 {HVecs true non-HVecs false} (group-by (comp boolean #{:HVec} :op) ts)
                  by-count (group-by (comp count :vec) HVecs)
                  ;; erase HVec's if we have two different length HVec's
                  should-collapse-HVecs? (< 1 (count by-count))
-                 merged-HVecs (when-not should-collapse-HVecs?
-                                (mapv (fn [hvs]
-                                        {:pre [(apply = (map (comp count :vec) hvs))]}
-                                        {:op :HVec
-                                         :vec (apply mapv join* (map :vec hvs))})
-                                      (vals by-count)))
-                 ;; at this point, collection classes are normalized to either IPC or IPV.
-                 {vec-classes true non-HVecs false}
-                 (group-by
-                   (every-pred
-                     -class?
-                     (comp boolean #{clojure.lang.IPersistentVector
-                                     clojure.lang.IPersistentCollection} :class))
-                   non-HVecs)
-                 vec-classes (if should-collapse-HVecs?
-                               (concat vec-classes (map upcast-HVec merged-HVecs))
-                               vec-classes)
-                 ;; erase HVec's if we have a IPV class
-                 final-merged (if (or (seq vec-classes)
-                                      should-collapse-HVecs?)
-                                [(-class (if (every? (comp boolean #{clojure.lang.IPersistentVector} :class)
-                                                     vec-classes)
-                                           clojure.lang.IPersistentVector
-                                           clojure.lang.IPersistentCollection)
-                                         [(apply join*
-                                                 (concat
-                                                   (map (comp first :args) vec-classes)
-                                                   (apply concat (map :vec HVecs))))])]
-                                merged-HVecs)
+                 [HVecs non-HVecs] (if should-collapse-HVecs?
+                                     ;; upcast HVecs
+                                     [[] (concat non-HVecs (map upcast-HVec HVecs))]
+                                     [(mapv merge-same-length-HVecs (vals by-count))
+                                      non-HVecs])
+                 _ (assert (every? HVec? HVecs))
+                 ;; if needed, upcast all HVec's
+                 [HVecs non-HVecs]
+                 (let [;; at this point, collection classes are normalized to either IPC or IPV.
+                       {vec-classes true non-vecs false}
+                       (group-by
+                         (every-pred
+                           -class?
+                           (comp boolean #{clojure.lang.IPersistentVector
+                                           clojure.lang.IPersistentCollection} :class))
+                         non-HVecs)
+                       _ (assert (= (count non-HVecs) (+ (count vec-classes) (count non-vecs))))
+                       ;; erase HVec's if we have a IPV class
+                       [HVecs vec-classes]
+                       (if (seq vec-classes)
+                         [[]
+                          (cons 
+                            (let [class-name (if (every? (comp boolean #{clojure.lang.IPersistentVector} :class) vec-classes)
+                                               clojure.lang.IPersistentVector
+                                               clojure.lang.IPersistentCollection)
+                                  upcasted-HVecs (map upcast-HVec HVecs)]
+                              (-class class-name
+                                      [(apply join*
+                                              (concat
+                                                (map (comp first :args) (concat vec-classes upcasted-HVecs))))]))
+                            vec-classes)]
+                         [HVecs vec-classes])]
+                   [HVecs (concat vec-classes non-vecs)])
                  ]
-             (into (set non-HVecs) final-merged))
+             (into (set non-HVecs) HVecs))
 
         
         ;; simplify multiple keywords to Kw if
