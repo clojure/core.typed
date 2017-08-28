@@ -282,8 +282,10 @@
 
 (declare pprint get-infer-results unparse-infer-result)
 
-(defn ppresults []
-  (pprint (mapv unparse-infer-result (get-infer-results results-atom))))
+(defn ppresults 
+  ([] (ppresults (get-infer-results results-atom)))
+  ([infer-results]
+   (pprint (mapv unparse-infer-result infer-results))))
 
 (defn swap-infer-results! [results-atom f & args]
   (apply swap! results-atom update :infer-results f args))
@@ -2997,6 +2999,13 @@
 (defn gen-call-id [paths]
   [paths (swap! stored-call-ids update paths (fnil inc 0))])
 
+(defn unwrap-value [v]
+  (if-some [[_ u] (or (-> v meta (find ::unwrapped-fn))
+                      (-> v meta (find ::unwrapped-seq)))]
+    ;; values are only wrapped one level, no recursion calls needed
+    u
+    v))
+
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
   ([{:keys [track-depth track-count] :as config} results-atom v paths call-ids]
@@ -3009,7 +3018,8 @@
                               0)
                            hash
                            class)
-                     v)]
+                     (unwrap-value v))]
+             ;(prn "call-ids" (map (comp #(map (comp :name first) %) first) call-ids))
              (swap! results-atom update :call-flows
                     (fn [flows]
                       (reduce (fn [flows call-id]
@@ -3019,8 +3029,8 @@
                                             (update-in flows [vname call-id]
                                                        (fn [m]
                                                          (-> m
-                                                             (update-in [:path-hashes hs] (fnil conj #{}) path)
-                                                             (update-in [:hash-occurrences path] (fnil conj #{}) hs))))))
+                                                             (update-in [:path-hashes path] (fnil conj #{}) hs)
+                                                             (update-in [:hash-occurrences hs] (fnil conj #{}) path))))))
                                         flows
                                         paths))
                               flows
@@ -3058,7 +3068,7 @@
                                              (update (meta v) ::paths into paths))
                                             [paths v])
                      _ (assert (set? paths))
-                     ;; If this is never called, remember it is actually a function.
+                     ;; Now, remember this value is at least a function, in case it is never invoked.
                      ;; This will get noted redundantly for older paths, if that's
                      ;; some kind of issue, we should remember which paths we've already noted.
                      _ (add-infer-results! results-atom (infer-results paths (-class clojure.lang.IFn [])))
@@ -3914,13 +3924,35 @@
                                  {pth-elem (group-by-path (inc path-index) rs)})
                                ps))})))
 
-(defn polymorphic-function-reports [call-flows]
-  (doseq [[vname call-ids] call-flows]
+(declare pprint-env)
+
+(defn polymorphic-function-reports [config call-flows]
+  (doseq [[vname call-ids] call-flows
+          :when (not ((some-fn local-fn-symbol?
+                               macro-symbol?)
+                      vname))]
     (prn "Polymorphic report for" vname)
     (prn "N calls" (count call-ids))
     (doseq [[_ {:keys [:path-hashes :hash-occurrences]}] call-ids]
-      (prn "N paths" (count path-hashes))
-      (prn "N hashes" (count hash-occurrences)))))
+      ;(doseq [[path hss] path-hashes])
+      (doseq [[path hs] path-hashes]
+        (let [related-paths (apply concat (vals (select-keys hash-occurrences hs)))
+              _ (prn "hashes" hs)
+              paths (into #{path} related-paths)]
+          (when (< 1 (count paths))
+            (let [x (gensym 'x)
+                  infer-results (map #(infer-result % {:op :free :name x}) paths)
+                  by-path (group-by-path infer-results)]
+              (binding [*preserve-unknown* true]
+                (pprint-env 
+                  (as-> (init-env) env 
+                    (update-env env assoc :type-env 
+                                (grouped-paths-to-env env config by-path)))
+                  (assoc config :spec? false)))))))
+      ;(prn "")
+      ;(prn "Path" (unparse-path path) (count hss))
+      #_(prn "N paths" (count path-hashes))
+      #_(prn "N hashes" (count hash-occurrences)))))
 
 
 ; generate-tenv : InferResultEnv -> AliasTypeEnv
@@ -3929,8 +3961,7 @@
   [env config {:keys [infer-results :call-flows] :as is}]
   (println "generate-tenv:"
                   (str (count infer-results) " infer-results"))
-  (let [_ (polymorphic-function-reports call-flows)
-        by-path (group-by-path infer-results)
+  (let [by-path (group-by-path infer-results)
         ;; filter results
         #_#_infer-results (if *root-results*
                         (let [root-count (atom {})
@@ -4600,13 +4631,16 @@
 (declare envs-to-annotations
          envs-to-specs)
 
-(defn debug-output [msg env {:keys [spec?] :as config}]
+(defn pprint-env [env {:keys [spec?] :as config}]
+  (pprint ((if spec?
+             envs-to-specs
+             envs-to-annotations)
+           env config)))
+
+(defn debug-output [msg env config]
   (when (= :iterations *debug*)
     (println (str "ITERATION: " msg))
-    (pprint ((if spec?
-               envs-to-specs
-               envs-to-annotations)
-             env config))))
+    (pprint-env env config)))
 
 (defn dec-fuel [env]
   (if (contains? env :fuel)
@@ -4846,7 +4880,7 @@
 
 (def ^:dynamic *new-aliases* nil)
 
-(defn envs-to-annotations [env {:keys [no-local-ann?] :as config}]
+(defn envs-to-annotations [env {:keys [no-local-ann? polymorphic? :call-flows] :as config}]
   (let [full-type-env (type-env env)
         local-fn-env (if no-local-ann?
                        {}
@@ -4901,31 +4935,61 @@
                          'clojure.core/declare)
                        (sort (map (comp symbol name key) as))))
               (unp-anns [tenv]
-                (mapv (fn [[k v]]
-                        (list (qualify-typed-symbol 'ann)
-                              (if (= (namespace k)
-                                     (str (ns-name (current-ns))))
-                                ;; defs
-                                (symbol (name k))
-                                ;; imports
-                                k)
-                              (unparse-type (assoc v :top-level-def k))))
-                      (sort-by first tenv)))
-              ]
+                (vec
+                  (mapcat (fn [[k v]]
+                            (concat
+                              [(list (qualify-typed-symbol 'ann)
+                                     (if (= (namespace k)
+                                            (str (ns-name (current-ns))))
+                                       ;; defs
+                                       (symbol (name k))
+                                       ;; imports
+                                       k)
+                                     (unparse-type (assoc v :top-level-def k)))]
+                              (when polymorphic?
+                                (prn "polymorphic?" polymorphic? k)
+                                (let [call-ids (get call-flows k)]
+                                  ;(prn "count path-hashes" (count path-hashes))
+                                  (apply concat 
+                                    (for [[_ {:keys [:path-hashes :hash-occurrences]}] call-ids
+                                          [path hs] path-hashes]
+                                      (let [related-paths (apply concat (vals (select-keys hash-occurrences hs)))
+                                            paths (into #{path} related-paths)]
+                                        (prn "paths" (count paths))
+                                        (when (< 1 (count paths))
+                                          (let [x (gensym 'x)
+                                                infer-results (map #(infer-result % {:op :free :name x}) paths)
+                                                by-path (group-by-path infer-results)
+                                                v (->
+                                                    (binding [*preserve-unknown* true]
+                                                      (as-> (init-env) env 
+                                                        (update-env env assoc :type-env 
+                                                                    (grouped-paths-to-env env config by-path))))
+                                                    type-env
+                                                    (get k))
+                                                _ (assert (type? v))]
+                                            [(list 
+                                               (qualify-core-symbol 'comment)
+                                               (list (qualify-typed-symbol 'ann)
+                                                     (if (= (namespace k)
+                                                            (str (ns-name (current-ns))))
+                                                       ;; defs
+                                                       (symbol (name k))
+                                                       ;; imports
+                                                       k)
+                                                     (list (qualify-typed-symbol 'All)
+                                                           [x]
+                                                           (binding [*preserve-unknown* true]
+                                                             (unparse-type (assoc v :top-level-def k))))))])))))))))
+                          (sort-by first tenv))))]
         (let [declares (declares-for-aliases as)
               defaliases (unp-defalias-env as)
-              anns (unp-anns tenv)
-              ;new-aliases-env (alias-env @*new-aliases*)
-              ;; these won't generate new aliases. They refer
-              ;; to the previous aliases.
-              ;extra-defaliases (binding [*new-aliases* nil]
-              ;                   (unp-defalias-env new-aliases-env))
-              ]
+              anns (unp-anns tenv)]
           {:requires (when-let [requires (:explicit-require-needed config)]
                        [requires])
            :top-level
            (into [declares] 
-                 (concat defaliases #_extra-defaliases anns))
+                 (concat defaliases anns))
            :local-fns (mapv (fn [[k v]]
                               (assoc (meta k) :type v))
                             local-fn-env)})))))
@@ -4972,7 +5036,7 @@
               ([v recur? seen-alias]
                (fv env v recur? seen-alias)))]
      (case (:op v)
-       (:Top :unknown :val) []
+       (:free :Top :unknown :val) []
        :HMap (into []
                    (mapcat fv)
                    (concat
@@ -5082,15 +5146,6 @@
               nodes
               edge-map
               (:viz-args config)))))
-
-
-(defn ppresults []
-  (pprint
-    (into #{}
-          (map (fn [a]
-                 (update a :type unparse-type)))
-          (get-infer-results results-atom))))
-
 
 (defn var-constraints 
   "Return the bag of constraints in the current results-atom
@@ -5590,12 +5645,14 @@
        (-> (init-env)
            (generate-tenv config infer-results)
            (populate-envs config)
-           (out (assoc config :explicit-require-needed require-info))))))
+           (out (assoc config :explicit-require-needed require-info
+                       :call-flows (:call-flows infer-results)))))))
 
 (defn infer-with-frontend [front-end {:keys [ns fuel out-dir save-infer-results load-infer-results debug
-                                             no-local-ann?] :as args}]
+                                             no-local-ann? polymorphic?] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
          ((some-fn nil? #{:all :iterations}) debug)]}
+  (prn "polymorphic?" polymorphic?)
   (binding [*spec* (= :spec front-end)
             *debug* debug
             *preserve-unknown* (if-let [[_ preserve-unknown] (find args :preserve-unknown)]
@@ -5625,7 +5682,8 @@
                                    (merge
                                      (init-config)
                                      {:no-local-ann? no-local-ann?
-                                      :spec? (= :spec front-end)}
+                                      :spec? (= :spec front-end)
+                                      :polymorphic? polymorphic?}
                                      (when save-infer-results
                                        (assert (string? save-infer-results)
                                                (str ":save-infer-results must be a string, given"
