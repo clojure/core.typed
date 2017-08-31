@@ -678,6 +678,8 @@
    :post [((some-fn nil? symbol) %)]}
   (get (set/map-invert (ns-aliases ns)) maybe-aliased-ns))
 
+(def ^:dynamic *verbose-specs* nil)
+
 (defn qualify-symbol-in [nsym s]
   {:pre [(symbol? nsym)
          (symbol? s)
@@ -692,12 +694,14 @@
                                                 (name s))]
                             ;(prn actual desired)
                             (= actual desired))]
-    (symbol (when-not already-referred?
-              (or (when talias
-                    (str talias))
-                  (when ns
-                    (str (ns-name ns)))
-                  (name nsym)))
+    (symbol (if *verbose-specs*
+              (str nsym)
+              (when-not already-referred?
+                (or (when talias
+                      (str talias))
+                    (when ns
+                      (str (ns-name ns)))
+                    (name nsym))))
             (str s))))
 
 (defn qualify-spec-symbol [s]
@@ -3364,6 +3368,9 @@
                (add-infer-results! results-atom (infer-results paths (-class (class v) [])))
                v)))))
 
+(defn diff-spec [new old]
+  )
+
 (def prim-invoke-interfaces
   (into #{}
         (->>
@@ -3935,7 +3942,7 @@
                                  {pth-elem (group-by-path (inc path-index) rs)})
                                ps))})))
 
-(declare pprint-env)
+(declare pprint-env local-fn-symbol? macro-symbol?)
 
 (defn polymorphic-function-reports [config call-flows]
   (doseq [[vname call-ids] call-flows
@@ -4786,6 +4793,10 @@
                            ;; don't spec external functions
                            (remove (comp imported-symbol? key)))
                      (type-env env))
+          get-spec-form (fn [spec-name]
+                          (some-> spec-name
+                                  ((impl/v (symbol (str spec-ns) "get-spec")))
+                                  ((impl/v (symbol (str spec-ns) "form")))))
           ;_ (prn (keys tenv))
           aliases-generated (atom #{})
           prep-alias-map (fn [a-needed a-used]
@@ -4815,23 +4826,31 @@
                                                              (unparse-spec s)))
                                             ;; side effects bindings
                                             s (unparse-spec v)
-                                            current-spec (def-spec
-                                                           (if (keyword? a)
-                                                             a
-                                                             (alias->spec-kw a))
-                                                           s)
-                                            current-spec (if just-in-time?
-                                                           (comment-form
-                                                             "Generated just in time, not recursively traversed"
-                                                             current-spec)
-                                                           current-spec)]
-                                        (conj (vec
+                                            spec-name (if (keyword? a)
+                                                        a
+                                                        (alias->spec-kw a))
+                                            old-spec (get-spec-form spec-name)
+                                            current-spec (def-spec spec-name s)
+                                            out-specs (cond
+                                                        just-in-time?
+                                                        [(comment-form
+                                                          "Generated just in time, not recursively traversed"
+                                                          current-spec)]
+
+                                                        :else
+                                                        (concat
+                                                          (when (and old-spec (:spec-diff? config))
+                                                            [(comment-form
+                                                               "Existing spec:"
+                                                               (def-spec spec-name old-spec))])
+                                                          [current-spec]))]
+                                        (into (vec
                                                 (concat
                                                   (apply concat @multispecs-needed)
                                                   (gen-aliases
                                                     (prep-alias-map @aliases-needed @used-aliases)
                                                     opt)))
-                                              current-spec)))))
+                                              out-specs)))))
                           as))
           qualified-spec-aliases (atom {})
           top-level-types
@@ -4848,25 +4867,29 @@
                                   (let [aliases-needed (atom {})
                                         used-aliases (atom #{})
                                         multispecs-needed (atom #{})
-                                        unparse-spec (fn [s]
-                                                       (binding [*spec-aliases* aliases-needed
-                                                                 *used-aliases* used-aliases
-                                                                 *multispecs-needed* multispecs-needed]
-                                                         (unparse-spec s)))
-                                        s (unparse-spec (assoc v :top-level-def k))
+                                        unparse-spec' (fn [s]
+                                                        (binding [*spec-aliases* aliases-needed
+                                                                  *used-aliases* used-aliases
+                                                                  *multispecs-needed* multispecs-needed]
+                                                          (unparse-spec s)))
+                                        s (unparse-spec' (assoc v :top-level-def k))
                                         sym (if (= (namespace k)
                                                    (str (ns-name (current-ns))))
                                               ;; defs
                                               (symbol (name k))
                                               ;; imports
                                               k)
-                                        def-spec
-                                        (if (and (seq? s)
-                                                 (= (first s) (qualify-spec-symbol 'fspec)))
-                                          (list*-force (qualify-spec-symbol 'fdef)
-                                                       sym
-                                                       (next s))
-                                          (def-spec sym v))
+                                        old-spec (get-spec-form k)
+                                        spec-to-maybe-fdef 
+                                        (fn [sym s]
+                                          (if (and (seq? s)
+                                                   (#{(qualify-spec-symbol 'fspec)}
+                                                    (first s)))
+                                            (list*-force (qualify-spec-symbol 'fdef)
+                                                         sym
+                                                         (next s))
+                                            (def-spec sym s)))
+                                        sdef (spec-to-maybe-fdef sym s)
                                         prefix (vec
                                                  (concat
                                                    (apply concat @multispecs-needed)
@@ -4874,8 +4897,16 @@
                                                      (prep-alias-map
                                                        @aliases-needed
                                                        @used-aliases)
-                                                     {})))]
-                                    (conj prefix def-spec)))))
+                                                     {})))
+                                        suffix (concat
+                                                 (when (and old-spec (:spec-diff? config))
+                                                   [(comment-form
+                                                      "Existing spec:"
+                                                      (list (binding [*verbose-specs* true]
+                                                              (qualify-spec-symbol 'def))
+                                                            sym old-spec))])
+                                                 [sdef])]
+                                    (into prefix suffix)))))
               (sort-by first tenv)))
 
           top-level-types (vec (concat
@@ -5660,7 +5691,7 @@
                        :call-flows (:call-flows infer-results)))))))
 
 (defn infer-with-frontend [front-end {:keys [ns fuel out-dir save-infer-results load-infer-results debug
-                                             no-local-ann? polymorphic?] :as args}]
+                                             no-local-ann? polymorphic? spec-diff?] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
          ((some-fn nil? #{:all :iterations}) debug)]}
   (prn "polymorphic?" polymorphic?)
@@ -5694,7 +5725,8 @@
                                      (init-config)
                                      {:no-local-ann? no-local-ann?
                                       :spec? (= :spec front-end)
-                                      :polymorphic? polymorphic?}
+                                      :polymorphic? polymorphic?
+                                      :spec-diff? spec-diff?}
                                      (when save-infer-results
                                        (assert (string? save-infer-results)
                                                (str ":save-infer-results must be a string, given"
