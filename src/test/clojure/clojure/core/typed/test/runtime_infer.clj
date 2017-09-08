@@ -627,10 +627,6 @@
         (= (get (type-env env) `var1)
            (get (type-env env) `var2)))))
 
-(deftest track-test
-  ;; avoid NPE for list*
-  (is (track (atom {}) '() [])))
-
 (defmacro try-prim [invoke-args & body]
   (let [name (gensym)]
     `(do (defn ~name ~@body)
@@ -737,7 +733,7 @@
          (prs
            (HMap :optional {:a Long}
                  :mandatory {:b Long})))
-       #{#{:a :b} #{:b}}))
+       #{{:req-keyset #{:b}, :opt-keyset #{:a}}}))
   (is (=
        (make-Union
          [(prs
@@ -755,7 +751,8 @@
           (prs
             (HMap :optional {:op ':Foo
                              :opt String}))])
-       (prs (clojure.lang.IPersistentMap Any Any))))
+       (prs (HMap :optional {:op ':Foo
+                             :opt (U Long String)}))))
   (is 
     (= 
       (join-HMaps
@@ -1022,7 +1019,6 @@
   (specs-from-tenv {'config-in t}))
 
 ;; TODO recursive example of this test
-(with-debug
 (let [t (prs
           [(U '{:op ':the-bar
                 :the-foo String
@@ -1034,7 +1030,6 @@
            Any])]
   (anns-from-tenv {'config-in t}
                   {:debug true}))
-)
 
 ; HMap alias naming test
 (let [t (prs
@@ -1049,7 +1044,6 @@
     {'config-in t}))
 
 ; recursive HMaps test
-(with-debug
 (let [t (prs
           [(U
            '{:op ':foo
@@ -1077,7 +1071,6 @@
          anns-from-tenv)
     {'config-in t}
     {:debug true}))
-)
 
 ;; FIXME prefer :op over :type?
 (let [t (prs
@@ -1116,7 +1109,6 @@
    {:fuel 0})
   )
 
-(with-debug
 (let [t (prs
           [':a
            Integer
@@ -1129,7 +1121,6 @@
          anns-from-tenv)
     {'config-in t}
     {:debug true}))
-)
 
 ;; combine maps that look similar
 (let [t (prs
