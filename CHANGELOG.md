@@ -1,3 +1,12 @@
+# 0.4.1 - 8 September 2017
+
+- Upgrade to Clojure 1.9.0-alpha20
+- type/spec generation
+  - lots of small fixes
+  - extensive performance improvements in generation algorithm
+  - support namespaced `s/keys
+  - added configuration options to {runtime,spec}-infer
+
 # 0.4.0 - 6 July 2017
 
 Deprecations
