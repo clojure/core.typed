@@ -107,8 +107,11 @@
 
      '{:op :HVec :vec (Vec Type)}
      '{:op :union :types (Set Type)}
+     '{:op :unresolved-class 
+       ::class-string String
+       :args (Vec Type)}
      '{:op :class 
-       :class Class
+       ::class-instance Class
        :args (Vec Type)}
      '{:op :IFn 
        :arities (Vec '{:op :IFn1
@@ -391,7 +394,7 @@
          (vector? args)
          (every? type? args)]}
   {:op :class
-   :class cls
+   ::class-instance cls
    :args args})
 
 (defn -class? [m]
@@ -436,7 +439,7 @@
 (defn unparse-path-elem [p]
   (case (:op p)
     :val (list 'val (:val p))
-    :class (list 'class (symbol (.getName ^Class (:class p)))
+    :class (list 'class (symbol (.getName ^Class (::class-instance p)))
                  (mapv unparse-type (:args p)))
     :key (list 'key (:kw-entries p) (:keys p) (:key p))
     :fn-range (list 'rng (:arity p))
@@ -619,7 +622,7 @@
                     (do
                       (assert (class? (resolve m)) m)
                       {:op :class
-                       :class (resolve m)
+                       ::class-instance (resolve m)
                        :args []})))
     (list? m) (case (first m)
                 All (let [[vs t :as rst] (second m)
@@ -787,7 +790,7 @@
                                                              clojure.lang.IPersistentVector
                                                              clojure.lang.IPersistentCollection
                                                              clojure.lang.ISeq}
-                                                            (:class t)))))))
+                                                            (::class-instance t)))))))
                                            alts)]
     ;(prn "or-spec" alts)
     (cond
@@ -896,8 +899,10 @@
 (defn uniquify [ss]
   {:pre [(every? keyword? ss)]
    :post [(every? keyword? %)]}
-  (if (distinct? ss)
-    ss
+  (cond
+    (or (empty? ss)
+        (apply distinct? ss)) ss
+    :else
     (let [repeats (into {}
                         (remove (comp #{1} val))
                         (frequencies ss))
@@ -911,7 +916,7 @@
                                    (keyword (str (name s) "-" i))
                                    s))
                                ss)]
-      (if (distinct? optimistic-attempt)
+      (if (apply distinct? optimistic-attempt)
         optimistic-attempt
         (map (fn [s]
                {:pre [(keyword? s)]
@@ -1233,7 +1238,7 @@
                                                      (and
                                                        (#{:class} (:op d))
                                                        (= clojure.lang.IPersistentVector
-                                                          (:class d))))))
+                                                          (::class-instance d))))))
                                                arities)
                                    [:bindings (keyword (str core-specs-ns) "bindings")])
                                  ;; if there is more than one arity,
@@ -1310,7 +1315,7 @@
                                                            macro?
                                                            (#{:class} (:op d))
                                                            (= clojure.lang.IPersistentVector
-                                                              (:class d)))
+                                                              (::class-instance d)))
                                                       (keyword (str core-specs-ns) "bindings")
 
                                                       :else (unparse-spec d))]
@@ -1349,7 +1354,7 @@
                  (first as)
                  (list* (qualify-typed-symbol 'IFn) as)))))
     :class (cond
-             *unparse-spec* (let [^Class cls (:class m)
+             *unparse-spec* (let [^Class cls (::class-instance m)
                                   args (:args m)]
                               (cond
                                 (#{Long Integer Short Byte} cls) (qualify-core-symbol 'int?)
@@ -1417,7 +1422,7 @@
                            (if (seq args)
                              (list*-force cls (map unparse-type args))
                              cls))))]
-               (unparse-class (:class m) (:args m))))
+               (unparse-class (::class-instance m) (:args m))))
     :Top (cond 
            *unparse-spec* (qualify-core-symbol 'any?)
            :else (qualify-typed-symbol 'Any))
@@ -1640,42 +1645,46 @@
         ;_ (prn "hmaps-merged" (map unparse-type hmaps-merged))
         ;; join all common classes by their arguments, regardless of their variance
         non-hmaps (let [{classes true non-classes false} (group-by -class? non-hmaps)
-                        seqables #{clojure.lang.ISeq
-                                   clojure.lang.IPersistentCollection
-                                   clojure.lang.IPersistentList
-                                   clojure.lang.IPersistentVector}
-                        {:keys [seqable] :as classes}
-                        (group-by (fn [{:keys [class]}]
-                                    (cond
-                                      (seqables class) :seqable
-                                      :else class))
-                                  classes)
-
-                        merged-seqables
-                        (when
-                          ;; upcast all to Coll
-                          (some (comp #{clojure.lang.IPersistentList clojure.lang.ISeq
-                                        clojure.lang.IPersistentCollection}
-                                      :class)
-                                seqable)
-                          (-class clojure.lang.IPersistentCollection [(apply join* (map (comp first :args) seqable))]))
-
-                        classes (map (fn [cs]
-                                       {:pre [(seq cs)
-                                              (every? -class? cs)
-                                              (apply = (map (comp count :args) cs))]}
-                                       (-class (-> cs first :class)
-                                               (apply mapv join* (map :args cs))))
-                                     (concat (vals (dissoc classes :seqable))
-                                             (when-not merged-seqables
-                                               (vals (group-by :class seqable)))))]
-                    (into (set classes) (concat non-classes (when merged-seqables [merged-seqables]))))
+                        ;; important invariant: all these classes take 1 argument. This is used in
+                        ;; the upcasting logic below.
+                        relevant-seqables #{clojure.lang.ISeq
+                                            clojure.lang.IPersistentCollection
+                                            clojure.lang.IPersistentList
+                                            clojure.lang.IPersistentVector}
+                        ;; upcast seqables if appropriate
+                        classes (let [{seqable-classes true 
+                                       non-seqable-classes false} 
+                                      (group-by #(contains? relevant-seqables (::class-instance %)) classes)
+                                      seqable-classes
+                                      (if (some (comp #{clojure.lang.IPersistentList
+                                                        clojure.lang.ISeq
+                                                        clojure.lang.IPersistentCollection}
+                                                      ::class-instance)
+                                                seqable-classes)
+                                        ;; upcast all to Coll since we've probably lost too much type information
+                                        ;; to bother keeping seqable-classes around.
+                                        [(-class clojure.lang.IPersistentCollection 
+                                                 [(apply join* 
+                                                         ;; assume all seqable-classes take a collection
+                                                         ;; member type parameter
+                                                         (map (comp first :args) seqable-classes))])]
+                                        seqable-classes)]
+                                  (concat seqable-classes non-seqable-classes))
+                        classes (into #{}
+                                      (map (fn [cs]
+                                             {:pre [(seq cs)
+                                                    (every? -class? cs)
+                                                    (apply = (map (comp count :args) cs))]}
+                                             (-class (-> cs first ::class-instance)
+                                                     (apply mapv join* (map :args cs)))))
+                                     (vals (group-by ::class-instance classes)))]
+                    (into classes non-classes))
 
         ;; delete HMaps if there's already a Map in this union,
         ;; unless it's a (Map Nothing Nothing)
         hmaps-merged (if (some (fn [m]
                                  (and (-class? m)
-                                      (#{clojure.lang.IPersistentMap} (:class m))
+                                      (#{clojure.lang.IPersistentMap} (::class-instance m))
                                       (not-every? nothing? (:args m))))
                                non-hmaps)
                        #{}
@@ -1735,7 +1744,7 @@
                          (every-pred
                            -class?
                            (comp boolean #{clojure.lang.IPersistentVector
-                                           clojure.lang.IPersistentCollection} :class))
+                                           clojure.lang.IPersistentCollection} ::class-instance))
                          non-HVecs)
                        _ (assert (= (count non-HVecs) (+ (count vec-classes) (count non-vecs))))
                        ;; erase HVec's if we have a IPV class
@@ -1743,7 +1752,7 @@
                        (if (seq vec-classes)
                          [[]
                           (cons 
-                            (let [class-name (if (every? (comp boolean #{clojure.lang.IPersistentVector} :class) vec-classes)
+                            (let [class-name (if (every? (comp boolean #{clojure.lang.IPersistentVector} ::class-instance) vec-classes)
                                                clojure.lang.IPersistentVector
                                                clojure.lang.IPersistentCollection)
                                   upcasted-HVecs (map upcast-HVec HVecs)]
@@ -1766,8 +1775,8 @@
         seqable-t? (fn [m]
                      (boolean
                        (when (-class? m)
-                         (or (= clojure.lang.Seqable (:class m))
-                             (contains? (set (supers (:class m))) 
+                         (or (= clojure.lang.Seqable (::class-instance m))
+                             (contains? (set (supers (::class-instance m))) 
                                         clojure.lang.Seqable)))))
         atomic-type? (fn [v]
                        (boolean
@@ -1778,7 +1787,7 @@
                                 (#{clojure.lang.Symbol
                                    String
                                    clojure.lang.Keyword}
-                                  (:class v))))))
+                                  (::class-instance v))))))
         ]
     ;(prn "union ts" ts)
     (assert (set? ts))
@@ -2008,21 +2017,21 @@
 
               (and (#{:class} (:op t1))
                    (#{:class} (:op t2))
-                   (= (:class t1)
-                      (:class t2))
+                   (= (::class-instance t1)
+                      (::class-instance t2))
                    (= (count (:args t1))
                       (count (:args t2))))
-              (-class (:class t1) (mapv join (:args t1) (:args t2)))
+              (-class (::class-instance t1) (mapv join (:args t1) (:args t2)))
 
               (and (#{:class} (:op t1))
                    (= clojure.lang.IFn
-                      (:class t1))
+                      (::class-instance t1))
                    (#{:IFn} (:op t2)))
               t2
 
               (and (#{:class} (:op t2))
                    (= clojure.lang.IFn
-                      (:class t2))
+                      (::class-instance t2))
                    (#{:IFn} (:op t1)))
               t1
 
@@ -5681,9 +5690,25 @@
                            @results-atom)
            _ (assert (infer-results? infer-results))
            _ (when-let [save-infer-results (:save-infer-results config)]
-               (spit save-infer-results (binding [*print-dup* true]
-                                          (pr-str infer-results)))
-               (println (str "Saved inference results to " save-infer-results)))]
+               (let [;; turn :class types into :unresolved-class's
+                     infer-results (update infer-results :infer-results
+                                           (fn [rs]
+                                             (into #{}
+                                                   (map (fn [ir]
+                                                          (update ir :type 
+                                                                  (fn [t]
+                                                                    (postwalk t
+                                                                              (fn [c]
+                                                                                (case (:op c)
+                                                                                  :class 
+                                                                                  {:op :unresolved-class
+                                                                                   ::class-string (let [^Class inst (::class-instance c)]
+                                                                                                    (.getName inst))
+                                                                                   :args (:args c)}
+                                                                                  c)))))))
+                                                   rs)))]
+                 (spit save-infer-results infer-results)
+                 (println (str "Saved inference results to " save-infer-results))))]
        (-> (init-env)
            (generate-tenv config infer-results)
            (populate-envs config)
@@ -5694,7 +5719,7 @@
                                              no-local-ann? polymorphic? spec-diff?] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
          ((some-fn nil? #{:all :iterations}) debug)]}
-  (prn "polymorphic?" polymorphic?)
+  ;(prn "polymorphic?" polymorphic?)
   (binding [*spec* (= :spec front-end)
             *debug* debug
             *preserve-unknown* (if-let [[_ preserve-unknown] (find args :preserve-unknown)]
