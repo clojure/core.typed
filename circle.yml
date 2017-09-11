@@ -6,7 +6,3 @@ dependencies:
   override:
     - mvn install -DskipTests=true
     - mvn dependency:resolve
-
-test:
-  override:
-    - mvn test
