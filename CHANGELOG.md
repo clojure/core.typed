@@ -1,3 +1,7 @@
+# 0.4.2 - SNAPSHOT
+
+- port CLJ-2110 compiler optimizations
+
 # 0.4.1 - 8 September 2017
 
 - Upgrade to Clojure 1.9.0-alpha20
