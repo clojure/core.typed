@@ -1,5 +1,6 @@
 version: 2
 jobs:
+  install_cljs_fork:
   build:
     #working_directory: ~/core.typed
     docker:
@@ -8,32 +9,32 @@ jobs:
       - checkout
 
       # START: ctyp-323-cljs setup
-      - run:
-          filters:
-            branches:
-              only: ctyp-323-cljs
-          name: Install leiningen
-          command: |
-            mkdir ~/bin
-            cd ~/bin
-            wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
-            chmod +x lein
-            ./lein
-      - run:
-          filters:
-            branches:
-              only: ctyp-323-cljs
-          name: Clone CLJS fork
-          command: git clone -b tools.analyzer-ast https://github.com/frenchy64/clojurescript.git ~/cljs
-      - run:
-          filters:
-            branches:
-              only: ctyp-323-cljs
-          name: Install CLJS fork
-          command: |
-            echo $(git branch -v)
-            cd ~/cljs
-            ~/bin/lein install
+      #- run:
+      #    filters:
+      #      branches:
+      #        only: ctyp-323-cljs
+      #    name: Install leiningen
+      #    command: |
+      #      mkdir ~/bin
+      #      cd ~/bin
+      #      wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
+      #      chmod +x lein
+      #      ./lein
+      #- run:
+      #    filters:
+      #      branches:
+      #        only: ctyp-323-cljs
+      #    name: Clone CLJS fork
+      #    command: git clone -b tools.analyzer-ast https://github.com/frenchy64/clojurescript.git ~/cljs
+      #- run:
+      #    filters:
+      #      branches:
+      #        only: ctyp-323-cljs
+      #    name: Install CLJS fork
+      #    command: |
+      #      echo $(git branch -v)
+      #      cd ~/cljs
+      #      ~/bin/lein install
       # END: ctyp-323-cljs setup
 
       - restore_cache:
