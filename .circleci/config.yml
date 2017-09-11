@@ -1,6 +1,5 @@
 version: 2
 jobs:
-  install_cljs_fork:
   build:
     #working_directory: ~/core.typed
     docker:
