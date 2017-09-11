@@ -820,6 +820,7 @@
 
 (deftest TryExpr-test
   ;; body
+  #_ ;; as of CLJ-1793, try's without catches or finally just emit their body
   (is 
     (= 
       #{:no-recur :loop-locals :loop-id :line :once :context :form}
@@ -829,11 +830,13 @@
         (-> (taj (try)) 
             :body))))
   ;; empty catches
+  #_
   (is 
     (= (-> (ast (try)) :fn :methods first :body :ret 
            :catches)
        (-> (taj (try)) 
            :catches)))
+  #_
   (is 
     (= #{:no-recur :loop-locals :loop-id :line :result :once :top-level :context :form :tag :raw-forms}
        (leaf-diff
