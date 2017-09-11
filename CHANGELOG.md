@@ -1,6 +1,6 @@
 # 0.4.2 - SNAPSHOT
 
-- port CLJ-2110 compiler optimizations
+- port CLJ-2110, CLJ-1793, CLJ-1714 Compiler.java changes
 
 # 0.4.1 - 8 September 2017
 
