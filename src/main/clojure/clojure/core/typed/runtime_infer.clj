@@ -18,6 +18,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.walk :as walk]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.dep.potemkin.collections :as pot]
             ))
 
 (def spec-ns (or u/spec-ns 'clojure.spec.alpha))
@@ -359,6 +360,7 @@
 (defn key-path 
   ([keys key] (key-path {} keys key))
   ([kw-entries keys key]
+   {:pre [(keyword? key)]}
    {:op :key
     ;; (Map Kw (ValType Kw)) for constant keyword entries
     :kw-entries kw-entries
@@ -426,7 +428,6 @@
 (defn parse-path-elem [p]
   (case (first p)
     val (-val (second p))
-    class (-class (resolve (second p)) (mapv parse-type (nth p 2)))
     key (do
           (assert (== 3 (count p))
                   "extra argument not supported to key-path")
@@ -439,8 +440,6 @@
 (defn unparse-path-elem [p]
   (case (:op p)
     :val (list 'val (:val p))
-    :class (list 'class (symbol (.getName ^Class (::class-instance p)))
-                 (mapv unparse-type (:args p)))
     :key (list 'key (:kw-entries p) (:keys p) (:key p))
     :fn-range (list 'rng (:arity p))
     :fn-domain (list 'dom (:arity p) (:position p))
@@ -453,7 +452,6 @@
     :seq-entry (list 'seq-entry)
     :transient-vector-entry (list 'transient-vector-entry)
     :atom-contents (list 'atom-contents)))
-
 
 (defn HMap? [t]
   (= :HMap (:op t)))
@@ -597,7 +595,7 @@
 
 (defn parse-type [m]
   (cond
-    (= 'Any m) -any
+    (#{'Any 'clojure.core.typed/Any} m) -any
     (= '? m) {:op :unknown}
 
     (or (= nil m)
@@ -608,8 +606,8 @@
                  :arities [(parse-arity m)]}
 
     (symbol? m) (case m
-                  Nothing -nothing
-                  Sym (-class clojure.lang.Symbol [])
+                  (clojure.core.typed/Nothing Nothing) -nothing
+                  (clojure.core.typed/Sym Sym) (-class clojure.lang.Symbol [])
                   (cond
                     (contains? *type-var-scope* m)
                     {:op :var
@@ -652,9 +650,12 @@
                 HMap (parse-HMap m)
                 Vec (-class clojure.lang.IPersistentVector
                             [(parse-type (second m))])
+                (clojure.core.typed/Map) (let [[_ k v] m]
+                                               (-class clojure.lang.IPersistentMap
+                                                       [(parse-type k)
+                                                        (parse-type v)]))
                 Set (-class clojure.lang.IPersistentSet
                             [(parse-type (second m))])
-                Nothing (make-Union #{})
                 (let [res (resolve (first m))]
                   (cond ;(contains? (alias-env @*envs*) (:name (first m)))
                         ;(-alias (first m))
@@ -930,6 +931,16 @@
 (def ^:dynamic *higher-order-fspec* nil)
 
 (declare join alias-matches-key-for-spec-keys? alternative-arglists)
+
+(def resolve-JVM-primitive
+  {"B" Byte/TYPE
+   "C" Character/TYPE
+   "D" Double/TYPE
+   "F" Float/TYPE
+   "I" Integer/TYPE
+   "J" Long/TYPE
+   "S" Short/TYPE
+   "Z" Boolean/TYPE})
 
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
@@ -1353,6 +1364,25 @@
                (if (== 1 (count as))
                  (first as)
                  (list* (qualify-typed-symbol 'IFn) as)))))
+    :unresolved-class (cond
+                        *unparse-spec* (let [cls-str (::class-string m)
+                                             args (:args m)]
+                                         (list (qualify-core-symbol 'partial)
+                                               (qualify-core-symbol 'instance?)
+                                               (list 'Class/forName cls-str)))
+                        :else (letfn [(unparse-class [^String cstr args]
+                                        {:pre [(string? cstr)]}
+                                        (cond
+                                          (.startsWith cstr "[") (list 'Array (unparse-class (.substring cstr 1) args))
+                                          :else
+                                          (let [cls (if-some [c (resolve-JVM-primitive cstr)]
+                                                      (resolve-class c)
+                                                      (symbol cstr))
+                                                _ (assert (symbol? cls))]
+                                            (if (seq args)
+                                              (list*-force cls (map unparse-type args))
+                                              cls))))]
+                                (unparse-class (::class-string m) (:args m))))
     :class (cond
              *unparse-spec* (let [^Class cls (::class-instance m)
                                   args (:args m)]
@@ -1972,11 +2002,27 @@
     {:op :IFn
      :arities arities}))
 
+(defmacro time-if-slow
+  "Evaluates expr and prints the time it took.  Returns the value of expr."
+  [msg expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr
+         msduration# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
+     (when (< 1000 msduration#)
+       (prn (str "Elapsed time: " msduration# " msecs"))
+       (prn ~msg))
+     ret#))
+
 ; join : Type Type -> Type
 (defn join [t1 t2]
   {:pre [(type? t1)
          (type? t2)]
    :post [(type? %)]}
+  (time-if-slow
+    (binding [*preserve-unknown* true]
+      (str "Join was slow on arguments:" 
+           (:op t1) (:op t2)
+           (unparse-type t1) (unparse-type t2)))
   (let [id (gensym (apply str (map :op [t1 t2])))
         ;_ (prn "join" id (unparse-type t1) (unparse-type t2))
         res (cond
@@ -2055,7 +2101,7 @@
                 ;(prn "join union fall through")
                 (make-Union [t1 t2])))]
     ;(prn "join result" id (unparse-type res))
-    res))
+    res)))
 
 (defn join* [& args]
   (letfn [(merge-type [t as]
@@ -2277,12 +2323,14 @@
 (defn grouped-paths-to-env [env config {:keys [:current-level :inner-level] :as paths}]
   {:pre [(empty? current-level)
          (map? inner-level)]}
+  (prn "grouped-paths-to-env")
+  (time
   (into {}
         (map (fn [[pth next-group]]
                {:pre [(#{:var} (:op pth))]}
                ;(prn "grouped-paths-to-env" (:name pth))
                [(:name pth) (update-grouped-paths env config next-group)]))
-        inner-level))
+        inner-level)))
 
 (defn walk-type-children [v f]
   {:pre [(type? v)]
@@ -2298,7 +2346,8 @@
             (-> v
                 (update ::HMap-req up)
                 (update ::HMap-opt up)))
-    :class (update v :args (fn [m]
+    (:class :unresolved-class)
+           (update v :args (fn [m]
                              (reduce-kv
                                (fn [m k v]
                                  (assoc m k (f v)))
@@ -3023,9 +3072,83 @@
 (defn gen-call-id [paths]
   [paths (swap! stored-call-ids update paths (fnil inc 0))])
 
+(declare track)
+
+(pot/def-map-type PersistentMapProxy [m k-to-track-info config results-atom 
+                                      ;; if started as HMap tracking map, map from kw->Type
+                                      ;; for all keyword keys with keyword values
+                                      current-kw-entries-types
+                                      current-ks current-all-kws?]
+  (get [this key default-value] (if (contains? m key)
+                                  (let [v (get m key)
+                                        track-infos (get k-to-track-info key)]
+                                    (if (empty? track-infos)
+                                      ;; this entry has no relation to paths
+                                      v
+                                      (let [{:keys [paths call-ids]}
+                                            (binding [*should-track* false]
+                                              (reduce (fn [acc [{:keys [ks kw-entries-types all-kws?] :as track-info}
+                                                                {:keys [paths call-ids]}]]
+                                                        {:pre [(boolean? all-kws?)
+                                                               (set? ks)
+                                                               (map? kw-entries-types)
+                                                               (set? paths)
+                                                               (set? call-ids)]}
+                                                        (let [path-extension (if (and (keyword? key)
+                                                                                      all-kws?)
+                                                                               ;; HMap tracking
+                                                                               (key-path kw-entries-types ks key)
+                                                                               ;; homogeneous map tracking
+                                                                               ;; FIXME what about map-keys-path tracking?
+                                                                               (map-vals-path))]
+                                                          (-> acc 
+                                                              (update :call-ids into call-ids)
+                                                              (update :paths into (extend-paths paths path-extension)))))
+                                                      {:paths #{}
+                                                       :call-ids #{}}
+                                                      track-infos))]
+                                        (track config results-atom v paths call-ids))))
+                                  default-value))
+  (assoc [this key value] (PersistentMapProxy. (assoc m key value)
+                                               ;; new value has no relation to paths
+                                               (dissoc k-to-track-info key)
+                                               config
+                                               results-atom
+                                               (if (and (keyword? key)
+                                                        (keyword? value))
+                                                 (assoc current-kw-entries-types key (-val value))
+                                                 current-kw-entries-types)
+                                               (conj current-ks key)
+                                               (and current-all-kws?
+                                                    (keyword? key))))
+  (dissoc [this key] (PersistentMapProxy. (dissoc m key)
+                                          ;; new value has no relation to paths
+                                          (dissoc k-to-track-info key)
+                                          config
+                                          results-atom
+                                          (dissoc current-kw-entries-types key)
+                                          (disj current-ks key)
+                                          (or current-all-kws?
+                                              ;; might have deleted the last non-keyword key
+                                              (every? keyword? (disj current-ks key)))))
+  (keys [this] (keys m))
+  (meta [this] (meta m))
+  ;; don't trigger `track` calls from attempts to compute hash. Way too expensive.
+  (hashCode [this] (.hashCode ^Object m))
+  (hasheq [this] (.hasheq ^clojure.lang.IHashEq m))
+  (with-meta [this meta] (PersistentMapProxy. (with-meta m meta)
+                                              k-to-track-info
+                                              config
+                                              results-atom
+                                              current-kw-entries-types
+                                              current-ks
+                                              current-all-kws?)))
+
 (defn unwrap-value [v]
   (if-some [[_ u] (or (-> v meta (find ::unwrapped-fn))
-                      (-> v meta (find ::unwrapped-seq)))]
+                      (-> v meta (find ::unwrapped-seq))
+                      (when (instance? PersistentMapProxy v)
+                        [nil (.m ^PersistentMapProxy v)]))]
     ;; values are only wrapped one level, no recursion calls needed
     u
     v))
@@ -3036,12 +3159,9 @@
    {:pre [((con/set-c? vector?) paths)
           (seq paths)
           ((con/set-c? vector?) call-ids)]}
-   (let [_ (let [hs ((juxt #(System/identityHashCode %)
-                           #(if (some? %)
-                              (.hashCode ^Object %)
-                              0)
-                           hash
-                           class)
+   (let [_ (let [hs ((juxt 
+                       #(System/identityHashCode %)
+                       class)
                      (unwrap-value v))]
              ;(prn "call-ids" (map (comp #(map (comp :name first) %) first) call-ids))
              (swap! results-atom update :call-flows
@@ -3144,14 +3264,15 @@
            (assert (list? res))
            res))
 
-       (and (seq? v)
+       #_(and (seq? v)
             (not (list? v)))
-       (let [[paths unwrapped-seq paths-where-original-coll-could-be-empty]
+       #_(let [[paths unwrapped-seq paths-where-original-coll-could-be-empty]
              (if (-> v meta ::wrapped-seq?)
                ((juxt ::paths ::unwrapped-seq ::paths-where-original-coll-could-be-empty)
                 ;; combine paths
-                (-> (update (meta v) ::paths into paths)
-                    (update (meta v) ::paths-where-original-coll-could-be-empty into paths)))
+                (-> (meta v)
+                    (update ::paths into paths)
+                    (update ::paths-where-original-coll-could-be-empty into paths)))
                [paths v paths])
              _ (assert (set? paths))
              ;; space efficient wrapping
@@ -3250,6 +3371,34 @@
                                  call-ids))))
                  v)))
 
+       (instance? PersistentMapProxy v)
+       (let [^PersistentMapProxy v v
+             ks (.current-ks v)
+             _ (assert (set? ks))
+             all-kws? (.current-all-kws? v)
+             _ (assert (boolean? all-kws?))
+             kw-entries-types (.current-kw-entries-types v)
+             _ (assert (map? kw-entries-types))
+             track-info {:all-kws? all-kws?
+                         :ks ks
+                         :kw-entries-types kw-entries-types}]
+         ;; TODO do we update the config/results-atom? What if they're different than the proxy's?
+         (PersistentMapProxy. (.m v)
+                              (reduce (fn [m k]
+                                        (update-in m [k track-info]
+                                                   #(merge-with (fnil into #{})
+                                                                %
+                                                                {:paths paths
+                                                                 :call-ids call-ids})))
+                                      (.k-to-track-info v)
+                                      ;; FIXME we should remove known kw entries
+                                      ks)
+                              (.config v)
+                              (.results-atom v)
+                              (.current-kw-entries-types v)
+                              (.current-ks v)
+                              (.current-all-kws? v)))
+
        (or (instance? clojure.lang.PersistentHashMap v)
            (instance? clojure.lang.PersistentArrayMap v)
            (instance? clojure.lang.PersistentTreeMap v))
@@ -3287,11 +3436,24 @@
                                 (extend-paths paths (key-path kw-entries-types ks k)))
                               call-ids)))
                  ]
+             (PersistentMapProxy. v
+                                  (zipmap (apply disj ks with-kw-val)
+                                          (repeat {{:all-kws? true
+                                                    :kw-entries-types kw-entries-types
+                                                    :ks ks}
+                                                   {:paths paths
+                                                    :call-ids call-ids}}))
+                                  config
+                                  results-atom
+                                  kw-entries-types
+                                  ks
+                                  true)
+             #_
              (reduce
                (fn [m [k orig-v]]
                  (let [v (track config results-atom orig-v
                                 (binding [*should-track* false]
-                                  (extend-paths paths (key-path kw-entries-types ks k)))
+                                  (extend-paths paths (key-path-maker k)))
                                 call-ids)]
                    (cond
                      ;; only assoc if needed
@@ -3305,6 +3467,18 @@
 
            :else
            (let [so-far (atom 0)]
+             (PersistentMapProxy. v
+                                  (zipmap ks (repeat {{:all-kws? false
+                                                       :kw-entries-types {}
+                                                       :ks ks}
+                                                      {:paths paths
+                                                       :call-ids call-ids}}))
+                                  config
+                                  results-atom
+                                  {}
+                                  ks
+                                  false)
+             #_
              (reduce
                (fn [m k]
                  (swap! so-far inc)
@@ -3988,7 +4162,9 @@
   [env config {:keys [infer-results :call-flows] :as is}]
   (println "generate-tenv:"
                   (str (count infer-results) " infer-results"))
-  (let [by-path (group-by-path infer-results)
+  (let [_ (prn "start group-by-path")
+        by-path (time (group-by-path infer-results))
+        _ (prn "end group-by-path")
         ;; filter results
         #_#_infer-results (if *root-results*
                         (let [root-count (atom {})
@@ -4648,10 +4824,10 @@
         ;; delete intermediate aliases
         env (follow-all env (assoc config :simplify? false))
 
-        _ (debug-output "before rename-HMap-aliases" env config)
+        ;_ (debug-output "before rename-HMap-aliases" env config)
         ;; rename aliases pointing to HMaps
         env (rename-HMap-aliases env config)
-        _ (debug-output "after rename-HMap-aliases" env config)
+        ;_ (debug-output "after rename-HMap-aliases" env config)
         ]
     env))
 
@@ -4715,13 +4891,13 @@
     (fn [env [v t]]
       (let [;; create graph nodes from HMap types
             [t env] (alias-hmap-type env config t)
-            _ (debug-output (str "after alias-hmap-type for " v) env config)
+            ;_ (debug-output (str "after alias-hmap-type for " v) env config)
             ;; squash local recursive types
             [t env] (squash-all env config t)
-            _ (debug-output (str "after squash-all for" v) env config)
+            ;_ (debug-output (str "after squash-all for" v) env config)
             ;; trim redundant aliases in local types
             [t env] (follow-aliases env (assoc config :simplify? true) t)
-            _ (debug-output (str "after follow-aliases for" v) env config)
+            ;_ (debug-output (str "after follow-aliases for" v) env config)
             ;_ (prn "new type for" v (unparse-spec t))
             ]
         (update-type-env env assoc v t)))
@@ -5099,7 +5275,8 @@
        :union (into []
                     (mapcat fv)
                     (-> v :types))
-       :class (into []
+       (:unresolved-class :class)
+              (into []
                     (mapcat fv)
                     (-> v :args))
        :alias (if (seen-alias v)
@@ -5699,13 +5876,18 @@
                                                                   (fn [t]
                                                                     (postwalk t
                                                                               (fn [c]
-                                                                                (case (:op c)
-                                                                                  :class 
+                                                                                (cond
+                                                                                  (when (= :class (:op c))
+                                                                                    (let [^Class inst (::class-instance c)
+                                                                                          _ (assert (class? inst))
+                                                                                          nme (.getName inst)]
+                                                                                      (and (not (.startsWith nme "clojure.lang"))
+                                                                                           (not (.startsWith nme "java.lang")))))
                                                                                   {:op :unresolved-class
                                                                                    ::class-string (let [^Class inst (::class-instance c)]
                                                                                                     (.getName inst))
                                                                                    :args (:args c)}
-                                                                                  c)))))))
+                                                                                  :else c)))))))
                                                    rs)))]
                  (spit save-infer-results infer-results)
                  (println (str "Saved inference results to " save-infer-results))))]
@@ -5719,6 +5901,8 @@
                                              no-local-ann? polymorphic? spec-diff?] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
          ((some-fn nil? #{:all :iterations}) debug)]}
+  (when (and load-infer-results (symbol? ns))
+    (require ns))
   ;(prn "polymorphic?" polymorphic?)
   (binding [*spec* (= :spec front-end)
             *debug* debug

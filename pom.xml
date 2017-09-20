@@ -186,7 +186,7 @@
       <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
       <version>0.3.443</version>
-      <optional>true</optional>
+      <!--<optional>true</optional>-->
       <exclusions>
         <exclusion>
           <groupId>org.clojure</groupId>
