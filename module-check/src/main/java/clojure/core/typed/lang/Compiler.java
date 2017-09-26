@@ -4312,7 +4312,7 @@ static public class ObjExpr implements Expr{
 	IPersistentVector keywordCallsites;
 	IPersistentVector protocolCallsites;
 	IPersistentSet varCallsites;
-	boolean onceOnly = false;
+	public boolean onceOnly = false;
 
 	public Object src;
 
@@ -6687,8 +6687,8 @@ public static class LetExpr implements Expr, MaybePrimitiveExpr{
 public static class RecurExpr implements Expr, MaybePrimitiveExpr{
 	public final IPersistentVector args;
 	public final IPersistentVector loopLocals;
-	final int line;
-	final int column;
+	public final int line;
+	public final int column;
 	final String source;
 	public final Object form;
 

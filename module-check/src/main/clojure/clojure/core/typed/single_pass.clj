@@ -173,87 +173,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-(defmacro field
-  "Call a private field, must be known at compile time. Throws an error
-  if field is already publicly accessible."
-  ([class-obj field] `(field ~class-obj ~field nil))
-  ([class-obj field obj]
-   (let [{class-flags :flags :keys [members]} (reflect/reflect (resolve class-obj))
-         {field-flags :flags} (some #(and (= (:name %) field) %) members)]
-     (assert field-flags
-             (str "Class " (resolve class-obj) " does not have field " field))
-     (assert (not (and (:public class-flags)
-                       (:public field-flags)))
-             (str "Class " (resolve class-obj) " and field " field " is already public")))
-   `(field-accessor ~class-obj '~field ~obj)))
+(defn form-meta-into-env [env form]
+  (into env
+        (filter (comp integer? val))
+        (select-keys (meta form) [:line :column :end-line :end-column])))
 
-(defn- field-accessor [^Class class-obj field obj]
-  (p/p ::field-accessor
-  (let [^java.lang.reflect.Field
-        field (.getDeclaredField class-obj (name field))]
-    (.setAccessible field true)
-    (let [ret (.get field obj)]
-      (if (instance? Boolean ret)
-        (boolean ret)
-        ret)))))
-
-(defn- method-accessor [^Class class-obj method obj types & args]
-  (p/p ::method-accessor
-  (let [^java.lang.reflect.Method
-        method (.getMethod class-obj (name method) (into-array Class types))]
-    (.setAccessible method true)
-    (try
-      (.invoke method obj (object-array args))
-      (catch java.lang.reflect.InvocationTargetException e
-        (throw (repl/root-cause e)))))))
-
-(defn- when-column-map [expr]
-  (let [field (try (.getDeclaredField (class expr) "column")
-                (catch Exception e))]
-    (when field
-      (let [n (field-accessor (class expr) 'column expr)]
-        (when (integer? n)
-          {:column n})))))
-
-(defn- when-line-map [expr]
-  (let [^java.lang.reflect.Method
-        method (try (.getMethod (class expr) "line" (into-array Class []))
-                 (catch Exception e))
-        field (try (.getDeclaredField (class expr) "line")
-                (catch Exception e))]
-    (cond 
-      method (let [line (method-accessor (class expr) 'line expr [])]
-               (when (integer? line)
-                 {:line line}))
-      field (let [line (field-accessor (class expr) 'line expr)]
-              (when (integer? line)
-                {:line line})))))
-
-(defn- when-source-map [expr]
-  (let [field (try (.getDeclaredField (class expr) "source")
-                (catch Exception e))]
-    (when field
-      {:file (field-accessor (class expr) 'source expr)})))
-
-(defn- when-form-meta [form]
-  (let [m (meta form)]
-    (when (map? m)
-      (into {}
-            (filter
-              (fn [[k v]]
-                (and (#{:line :column
-                        :end-line :end-column} k)
-                     (integer? v))))
-            m))))
-
-(defn- env-location 
-  ([env expr & [form]]
-   (merge env
-          (when-line-map expr)
-          (when-column-map expr)
-          (when-form-meta form)
-          ;; only adds the suffix of the path
-          #_(when-source-map expr))))
+(defmacro merge-env-with-line-column-fields [env expr]
+  `(let [expr# ~expr]
+     (merge ~env
+            {:line (.line expr#)
+             :column (.column expr#)})))
 
 (defn- inherit-env [expr env]
   (merge env
@@ -308,11 +237,11 @@
                      :o-tag tag#
                      :literal? true
                      :type type#
-                     :env (env-location env# expr# form#)
+                     :env (form-meta-into-env env# form#)
                      :val val#}]
          (if quoted?#
            {:op :quote
-            :env (env-location env# expr# form#)
+            :env (form-meta-into-env env# form#)
             :form form#
             :expr inner#
             :literal? true
@@ -374,9 +303,10 @@
                        :type (u/classify the-meta)
                        :tag (class the-meta)
                        :o-tag (class the-meta)
-                       :env (env-location env expr (if quoted?
-                                                     (second form)
-                                                     form))
+                       :env (form-meta-into-env env 
+                                                (if quoted?
+                                                  (second form)
+                                                  form))
                        :literal? true})
           inner (merge
                   {:op :const
@@ -387,16 +317,17 @@
                    :o-tag tag
                    :literal? true
                    :type (u/classify val)
-                   :env (env-location env expr (if quoted?
-                                                 (second form)
-                                                 form))
+                   :env (form-meta-into-env env 
+                                            (if quoted?
+                                              (second form)
+                                              form))
                    :val val}
                   (when meta-expr
                     {:meta meta-expr
                      :children [:meta]}))]
       (if quoted?
         {:op :quote
-         :env (env-location env expr form)
+         :env (form-meta-into-env env form)
          :expr inner
          :literal? true
          :form form
@@ -421,7 +352,11 @@
   (analysis->map
     [expr env opt]
     (let [form (.form expr)
-          env (env-location env expr form)
+          env (merge env
+                     {:line (.line expr)
+                      :column (.column expr)}
+                     ;; {:source (.source expr)}
+                     )
           init? (.initProvided expr)
           init (when init?
                  (analysis->map (.init expr) env opt))
@@ -518,7 +453,7 @@
                                      (map (comp :form :init) binds)))
                            (:form body))
                      (meta (.form expr)))
-             :env (env-location top-env (.form expr))
+             :env (form-meta-into-env top-env (.form expr))
              :bindings binds
              :body body
              :tag (:tag body)
@@ -643,7 +578,7 @@
                            binding-inits)
                      (emit-form/emit-form body))
                (meta (.form expr)))
-       :env (env-location orig-env (.form expr))
+       :env (form-meta-into-env orig-env (.form expr))
        :bindings binding-inits
        :body body
        :tag (:tag body)
@@ -680,7 +615,7 @@
       (assoc b
              :tag tag
              :form form
-             :env (env-location env (.sym expr))
+             :env (form-meta-into-env env (.sym expr))
              :local local-kind)))
 
   ;; Methods
@@ -714,7 +649,7 @@
       (assert (class? c))
       (merge
         {:op :static-call
-         :env (env-location env expr)
+         :env (merge-env-with-line-column-fields env expr)
          :form (with-meta (list '. c (list* method-name (map emit-form/emit-form args)))
                           (meta (.form expr)))
          :method method-name
@@ -774,7 +709,7 @@
                        (list* method-name (map emit-form/emit-form args)))
                  (meta (.form expr)))
          :method method-name
-         :env (env-location env expr)
+         :env (merge-env-with-line-column-fields env expr)
          :args args
          :tag tag
          :o-tag tag}
@@ -817,7 +752,7 @@
                        c #_(emit-form/class->sym c)
                        (symbol (str "-" fstr)))
                  (meta (.form expr)))
-         :env (env-location env expr)
+         :env (merge-env-with-line-column-fields env expr)
          :class c
          :field (symbol fstr)
          :tag tag
@@ -861,7 +796,7 @@
         {:form (with-meta
                  (list (symbol (str "." fstr)) (emit-form/emit-form target))
                  (meta (.form expr)))
-         :env (env-location env expr)
+         :env (merge-env-with-line-column-fields env expr)
          :tag tag
          :o-tag tag}
         (if rfield
@@ -1059,7 +994,7 @@
     [expr env opt]
     (let [fexpr (analysis->map (.fexpr expr) env opt)
           args (mapv #(analysis->map % env opt) (.args expr))
-          env (env-location env expr)
+          env (merge-env-with-line-column-fields env expr)
           tag (.tag expr)
           meta (meta (.form expr))
           form (with-meta (list* (emit-form/emit-form fexpr) (map emit-form/emit-form args))
@@ -1115,7 +1050,7 @@
                           (meta (.form expr)))]
       {:op :keyword-invoke
        :form form
-       :env (env-location env expr)
+       :env (merge-env-with-line-column-fields env expr)
        :keyword kw
        :tag tag
        :o-tag tag
@@ -1136,9 +1071,8 @@
        :o-tag clojure.lang.Var
        :form (with-meta (list 'var (symbol (str (ns-name (.ns var))) (str (.sym var))))
                         (meta (.form expr)))
-       :env (env-location env
-                          expr
-                          (.form expr))
+       ;; FIXME where to get line/column?
+       :env env ;(form-meta-into-env env (.form expr))
        :var var}))
 
   ;; VarExpr
@@ -1155,9 +1089,7 @@
           tag-sym (.tag expr)
           tag (ju/maybe-class tag-sym)]
       {:op :var
-       :env (env-location env
-                          expr
-                          (.form expr))
+       :env (form-meta-into-env env (.form expr))
        :var var
        :tag tag
        :o-tag tag
@@ -1239,7 +1171,8 @@
       (assert (#{:binding} (:op this)))
       {:op :method
        :method method
-       :env (env-location env obm (.form obm))
+       ;; actually line/column methods
+       :env (merge-env-with-line-column-fields env obm)
        :this this
        :bridges ()
        :name name
@@ -1307,7 +1240,8 @@
        :params params-expr
        :fixed-arity (count required-params)
        :body (assoc body :body? true)
-       :env env
+       ;; actually line/column methods
+       :env (merge-env-with-line-column-fields env obm)
        :tag (:tag body)
        :o-tag (:o-tag body)
        ;; Map LocalExpr@xx -> LocalExpr@xx
@@ -1327,8 +1261,8 @@
   Compiler$FnExpr
   (analysis->map
     [expr env opt]
-    (let [once (field-accessor Compiler$ObjExpr 'onceOnly expr)
-          src (field-accessor Compiler$ObjExpr 'src expr)
+    (let [once (.onceOnly expr)
+          src (.src expr)
           ;_ (prn "FnExpr src" src)
           fn-method-forms
           (into {}
@@ -1367,8 +1301,8 @@
           tag (.getJavaClass expr)]
       (merge
         {:op :fn
-         :env (env-location env expr
-                            (.form expr))
+         ;; actually line/column methods here
+         :env (merge-env-with-line-column-fields env expr)
          :form (with-meta
                  (list* 'fn* 
                         (concat
@@ -1448,7 +1382,8 @@
       {:op (if reify? :reify :deftype)
        :form src
        :name name
-       :env (env-location env expr (.form expr))
+       ;; actually line/column methods
+       :env (merge-env-with-line-column-fields env expr)
        :methods methods
        :fields fields
        :class-name class-name
@@ -1480,9 +1415,7 @@
     (let [exp (analysis->map (.expr expr) env opt)
           ^Class cls (.c expr)]
       {:op :instance?
-       :env (env-location env
-                          expr
-                          (.form expr))
+       :env (form-meta-into-env env (.form expr))
        :class cls
        :target exp
        :tag Boolean/TYPE
@@ -1511,9 +1444,7 @@
                     (str "MetaExpr :meta must be a :const or :map node"))
           the-expr (analysis->map (.expr expr) env opt)]
       {:op :with-meta
-       :env (env-location env
-                          expr
-                          (.form expr))
+       :env (form-meta-into-env env (.form expr))
        :form (with-meta (emit-form/emit-form the-expr)
                         (meta (.form expr)))
        :meta meta
@@ -1541,7 +1472,7 @@
                                [statements (analysis->map e env opt)]))
           form (.form expr)]
       {:op :do
-       :env (env-location env expr form)
+       :env (form-meta-into-env env form)
        :form form
        :statements statements
        :ret ret
@@ -1568,7 +1499,7 @@
           tag (when (.hasJavaClass expr)
                 (.getJavaClass expr))]
       {:op :if
-       :env (env-location env expr (.form expr))
+       :env (merge-env-with-line-column-fields env expr)
        :form (with-meta
                (list* 'if (map emit-form/emit-form [test then else]))
                (meta (.form expr)))
@@ -1627,7 +1558,7 @@
           tag (when (.hasJavaClass expr)
                 (.getJavaClass expr))]
       {:op :case
-       :env (env-location env expr (.form expr))
+       :env (merge-env-with-line-column-fields env expr)
        ;; FIXME reconstruct correct form
        :form (.form expr)
        :test (assoc the-expr :case-test true)
@@ -1657,9 +1588,7 @@
     (let [c (.c expr)]
       (assert (string? c))
       {:op :import
-       :env (env-location env
-                          expr
-                          (.form expr))
+       :env (form-meta-into-env env (.form expr))
        :form (with-meta
                (list 'clojure.core/import* c)
                (meta (.form expr)))
@@ -1689,9 +1618,7 @@
                      (emit-form/emit-form target)
                      (emit-form/emit-form val))
                (meta (.form expr)))
-       :env (env-location env
-                          expr
-                          (.form expr))
+       :env (form-meta-into-env env (.form expr))
        :target target
        :val val
        :tag tag
@@ -1740,9 +1667,7 @@
                      (emit-form/emit-form local-binding)
                      (emit-form/emit-form handler))
                (meta (.form ctch)))
-       :env (env-location env
-                          ctch
-                          (.form ctch))
+       :env (form-meta-into-env env (.form ctch))
        :class cls
        :local local-binding
        :body handler
@@ -1776,9 +1701,7 @@
                               (when finally-expr
                                 [(list 'finally (emit-form/emit-form finally-expr))])))
                (meta (.form expr)))
-       :env (env-location env
-                          expr
-                          (.form expr))
+       :env (form-meta-into-env env (.form expr))
        :body try-expr
        :catches catch-exprs
        ;; can be nil like in TA
@@ -1808,7 +1731,7 @@
        :form (with-meta
                (list* 'recur (map emit-form/emit-form args))
                (meta (.form expr)))
-       :env (env-location env expr (.form expr))
+       :env (merge-env-with-line-column-fields env expr)
        ;:loop-locals loop-locals
        :loop-id (:loop-id env)
        :exprs args
