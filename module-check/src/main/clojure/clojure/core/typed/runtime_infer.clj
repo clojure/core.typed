@@ -2451,7 +2451,7 @@
               ;; so it's unique enough for our purposes.
               (symbol "clojure.core.typed.unqualified-keys"
                       (name k)))]
-    (prn "register" sym)
+    ;(prn "register" sym)
     [sym (if true #_qualified?
            (update-alias-env env update sym (fnil join -nothing) t)
            (register-alias env config sym t))]))
