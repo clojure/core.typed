@@ -3259,7 +3259,8 @@
                                  (fn [& args]
                                    (let [blen (bounded-count apply-realize-limit args) ;; apply only realises 20 places
                                          _ (when (= 0 blen)
-                                             (track config results-atom -any
+                                             (track config results-atom 
+                                                    -any ;ignored, just noting this is called with 0-args
                                                     (extend-paths paths (fn-dom-path 0 -1))
                                                     call-ids))
                                          ;; here we throw away arities after 20 places.
