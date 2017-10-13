@@ -2636,6 +2636,8 @@ for checking namespaces, cf for checking individual forms."}
                    Default: nil (modify original file)
     :no-squash-vertically     If true, disable the `squash-vertically` pass.
                               Default: nil
+    :spec-macros   If true, output specs for macros.
+                   Default: nil (elide macro specs)
 
   eg. (spec-infer) ; infer for *ns*
 
