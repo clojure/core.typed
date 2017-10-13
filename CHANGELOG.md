@@ -1,3 +1,7 @@
+# 0.4.3 - 13 October 2017
+
+- add :spec-macros option to `spec-infer`
+
 # 0.4.2 - 12 October 2017
 
 - port CLJ-2110, CLJ-1793, CLJ-1714 Compiler.java changes

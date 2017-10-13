@@ -5057,16 +5057,20 @@
   (not= (str (ns-name (current-ns)))
         (namespace s)))
 
-(defn envs-to-specs [env config]
+(defn envs-to-specs [env {:keys [spec-macros] :as config}]
   ;(prn "envs-to-specs" (keys (alias-env env)))
   (binding [*envs* (atom env)]
-    (let [tenv (into {}
-                     ;; don't spec local functions
-                     (comp (remove (comp local-fn-symbol? key))
-                           ;; don't spec macros
-                           (remove (comp macro-symbol? key))
-                           ;; don't spec external functions
-                           (remove (comp imported-symbol? key)))
+    (let [should-spec-macros? (boolean spec-macros)
+          tenv (into {}
+                     (remove (fn [[k _]]
+                               (or ;; don't spec local functions
+                                    (local-fn-symbol? k)
+                                    ;; macro specs are opt-in
+                                    (if should-spec-macros?
+                                      false
+                                      (macro-symbol? k))
+                                    ;; don't spec external functions
+                                    (imported-symbol? k))))
                      (type-env env))
           get-spec-form (fn [spec-name]
                           (some-> spec-name
@@ -5995,7 +5999,8 @@
                        :call-flows (:call-flows infer-results)))))))
 
 (defn infer-with-frontend [front-end {:keys [ns fuel out-dir save-infer-results load-infer-results debug
-                                             no-local-ann? polymorphic? spec-diff? no-squash-vertically] :as args}]
+                                             no-local-ann? polymorphic? spec-diff? no-squash-vertically
+                                             spec-macros] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
          ((some-fn nil? #{:all :iterations}) debug)]}
   (when (and load-infer-results (symbol? ns))
@@ -6033,7 +6038,8 @@
                                       :no-squash-vertically no-squash-vertically
                                       :spec? (= :spec front-end)
                                       :polymorphic? polymorphic?
-                                      :spec-diff? spec-diff?}
+                                      :spec-diff? spec-diff?
+                                      :spec-macros spec-macros}
                                      (when save-infer-results
                                        (assert (string? save-infer-results)
                                                (str ":save-infer-results must be a string, given"
