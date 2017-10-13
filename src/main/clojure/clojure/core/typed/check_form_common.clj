@@ -80,6 +80,7 @@
            runtime-check-expr
            runtime-infer-expr 
            should-runtime-infer?
+           instrument-infer-config
            unparse-ns]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast no-eval bindings-atom]}]
@@ -113,7 +114,8 @@
             ;_ (prn "should-runtime-infer?" should-runtime-infer?)
             ;_ (prn "ns" *ns*)
             check-expr (or (when should-runtime-infer?
-                             runtime-infer-expr)
+                             #(binding [vs/*instrument-infer-config* instrument-infer-config]
+                                (runtime-infer-expr %1 %2)))
                            (when should-runtime-check?
                              runtime-check-expr)
                            check-expr)

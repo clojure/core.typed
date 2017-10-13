@@ -755,15 +755,11 @@
 
 (def ^:dynamic *spec* false)
 
-(defn resolve-spec-alias [envs a]
-  {:post [(type? %)]}
-  (resolve-alias-or-nil envs a))
-
 (defn simplify-spec-alias [a]
   {:pre [(type? a)]
    :post [(type? %)]}
   (if (alias? a)
-    (let [a-res (resolve-spec-alias @*envs* a)]
+    (let [a-res (resolve-alias @*envs* a)]
       (if (and a-res (#{:class} (:op a-res)))
         a-res
         a))
@@ -930,7 +926,7 @@
 (def ^:dynamic *preserve-unknown* nil)
 (def ^:dynamic *higher-order-fspec* nil)
 
-(declare join alias-matches-key-for-spec-keys? alternative-arglists)
+(declare join alias-matches-key-for-spec-keys? alternative-arglists kw-vals?)
 
 (def resolve-JVM-primitive
   {"B" Byte/TYPE
@@ -1052,11 +1048,20 @@
                                                   {:pre [(keyword? k)]}
                                                   ;; must be aliases
                                                   (cond
-                                                    (and (alias? v)
-                                                         (alias-matches-key-for-spec-keys? v k))
-                                                    (do (when-let [used-aliases *used-aliases*]
-                                                          (swap! used-aliases conj (:name v)))
-                                                        (keyword (:name v)))
+                                                    (or ;; already registered these values in correct spec
+                                                        (kw-vals? v)
+                                                        (and (alias? v)
+                                                             (alias-matches-key-for-spec-keys? v k)))
+                                                    (let [_ (when-let [used-aliases *used-aliases*]
+																															(when (alias? v)
+																																(swap! used-aliases conj (:name v))))
+																													ka (cond 
+																															 (alias? v) (keyword (:name v))
+																															 (namespace k) k
+																															 :else (keyword "clojure.core.typed.unqualified-keys" (name k)))]
+																											(when-let [used-aliases *used-aliases*]
+																												(swap! used-aliases conj (kw->sym ka)))
+                                                      ka)
 
                                                     (namespace k)
                                                     (cond
@@ -1083,6 +1088,12 @@
                                                     ;; an appropriate alias if it's not already mapped
                                                     ;; to one.
                                                     :else
+                                                    ;; punt?
+                                                    (do
+                                                      (when-let [used-aliases *used-aliases*]
+                                                        (swap! used-aliases conj 
+                                                               (symbol "clojure.core.typed.unqualified-keys" (name k))))
+                                                      (keyword "clojure.core.typed.unqualified-keys" (name k)))
                                                     ;; TODO idea to reduce alias names: combine like-named
                                                     ;; keys that are reachable from the root of a type.
                                                     ;; ie. (U (HMap :mandatory {:foo Int})
@@ -1091,6 +1102,7 @@
                                                     ;; an unrelated map has its own.
                                                     ;; Might not work that well with multi-specs that share
                                                     ;; key names that are otherwise unrelated.
+                                                    #_
                                                     (let [maybe-kw
                                                           (when (or (not (alias? v))
                                                                     (let [n (:name v)]
@@ -1503,7 +1515,8 @@
     #{t}))
 
 (defn flatten-unions [ts]
-  {:pre [(every? type? ts)]
+  {:pre [;; very slow
+         #_(every? type? ts)]
    :post [(set? %)]}
   (into #{} 
         (mapcat flatten-union)
@@ -2323,14 +2336,12 @@
 (defn grouped-paths-to-env [env config {:keys [:current-level :inner-level] :as paths}]
   {:pre [(empty? current-level)
          (map? inner-level)]}
-  (prn "grouped-paths-to-env")
-  (time
   (into {}
         (map (fn [[pth next-group]]
                {:pre [(#{:var} (:op pth))]}
                ;(prn "grouped-paths-to-env" (:name pth))
                [(:name pth) (update-grouped-paths env config next-group)]))
-        inner-level)))
+        inner-level))
 
 (defn walk-type-children [v f]
   {:pre [(type? v)]
@@ -2438,9 +2449,10 @@
               (kw->sym k)
               ;; this namespace is unlikely to have qualified keys we care about,
               ;; so it's unique enough for our purposes.
-              (symbol (str (gensym "clojure.core.typed.unqualified-keys"))
+              (symbol "clojure.core.typed.unqualified-keys"
                       (name k)))]
-    [sym (if qualified?
+    (prn "register" sym)
+    [sym (if true #_qualified?
            (update-alias-env env update sym (fnil join -nothing) t)
            (register-alias env config sym t))]))
 
@@ -2450,9 +2462,7 @@
          (symbol? name)]
    :post [(type? %)]}
   ;(prn "resolve-alias" name (keys (alias-env env)))
-  (if *spec*
-    (resolve-spec-alias env a)
-    (get (alias-env env) name)))
+  (get (alias-env env) name))
 
 (defn resolve-alias-or-nil [env {:keys [name] :as a}]
   {:pre [(map? env)
@@ -2496,9 +2506,15 @@
   [t]
   {:pre [(HMap? t)]
    :post [((some-fn nil? vector?) %)]}
-  (let [singles (filter (comp kw-vals? val) (::HMap-req t))]
-    (when-let [[k t] (and (= (count singles) 1)
-                          (first singles))]
+  (let [singles (into {} (filter (comp kw-vals? val) (::HMap-req t)))]
+    (when-let [[k t] (or
+                       ;; TODO extensible hints
+                       (when-let [e (or (find singles :op)
+                                        ;...
+                                        )]
+                         e)
+                       (and (= (count singles) 1)
+                            (first singles)))]
       [k (case (:op t)
            :val #{(:val t)}
            :union (into #{}
@@ -2607,7 +2623,9 @@
          (keyword? k)]}
   (if (namespace k)
     (= (:name a) (kw->sym k))
-    (= (name (:name a)) (name k))))
+    (and (= (name (:name a)) (name k))
+         (= "clojure.core.typed.unqualified-keys"
+            (namespace k)))))
 
 (defn alias-hmap-type
   "Recur up from the leaves of a type and
@@ -2647,7 +2665,9 @@
                                                               sym @sym-atom
                                                               ;_ (prn "created spec s/keys alias" sym (unp v))
                                                               _ (assert (qualified-symbol? sym))]
-                                                          (-alias sym)))])
+                                                          (cond
+                                                            (kw-vals? v) v
+                                                            :else (-alias sym))))])
                                       t (reduce (fn [t k]
                                                   (update t k #(into {} (map update-entry) %)))
                                                 t
@@ -2700,7 +2720,7 @@
                             ;  (println "alias-hmap-type:" (unp-str t))
                             (do-alias t)
                             ;)
-                            #_#_:union (if (and (seq (:types t))
+                            :union (if (and (seq (:types t))
                                             (not-every?
                                               (fn [t]
                                                 (case (:op t)
@@ -3074,11 +3094,26 @@
 
 (declare track)
 
-(pot/def-map-type PersistentMapProxy [m k-to-track-info config results-atom 
+(pot/def-map-type PersistentMapProxy [^clojure.lang.IPersistentMap m k-to-track-info config results-atom 
                                       ;; if started as HMap tracking map, map from kw->Type
                                       ;; for all keyword keys with keyword values
                                       current-kw-entries-types
                                       current-ks current-all-kws?]
+  Object
+  (toString [this] (.toString m))
+  (equals [this obj] (.equals m obj))
+
+  clojure.lang.Counted
+  (count [this] (count m))
+
+  ;; TODO (.seq this), .iterator, .vals
+  java.util.Map
+  (size [this] (.size ^java.util.Map m))
+  (containsKey [this obj] (.containsKey ^java.util.Map m obj))
+
+  (equiv [this obj]
+    (.equiv m obj))
+
   (get [this key default-value] (if (contains? m key)
                                   (let [v (get m key)
                                         track-infos (get k-to-track-info key)]
@@ -3131,9 +3166,10 @@
                                           (or current-all-kws?
                                               ;; might have deleted the last non-keyword key
                                               (every? keyword? (disj current-ks key)))))
+  ;; TODO wrap
   (keys [this] (keys m))
+  ;; TODO vals
   (meta [this] (meta m))
-  ;; don't trigger `track` calls from attempts to compute hash. Way too expensive.
   (hashCode [this] (.hashCode ^Object m))
   (hasheq [this] (.hasheq ^clojure.lang.IHashEq m))
   (with-meta [this meta] (PersistentMapProxy. (with-meta m meta)
@@ -3155,7 +3191,7 @@
 
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
-  ([{:keys [track-depth track-count] :as config} results-atom v paths call-ids]
+  ([{:keys [track-depth track-count track-strategy] :as config} results-atom v paths call-ids]
    {:pre [((con/set-c? vector?) paths)
           (seq paths)
           ((con/set-c? vector?) call-ids)]}
@@ -3187,7 +3223,7 @@
 
        ;; cut off path
        (or
-         (when track-depth
+         (when-let [track-depth track-depth]
            (> (apply min (map count paths)) track-depth))
          (not *should-track*))
        ;(debug
@@ -3201,7 +3237,7 @@
          (let [;; record as unknown so this doesn't
                ;; cut off actually recursive types.
                _ (add-infer-results! results-atom (infer-results paths {:op :unknown}))]
-           v)
+           (unwrap-value v))
        ;)
 
        ;; only accurate up to 20 arguments.
@@ -3264,9 +3300,9 @@
            (assert (list? res))
            res))
 
-       #_(and (seq? v)
+       (and (seq? v)
             (not (list? v)))
-       #_(let [[paths unwrapped-seq paths-where-original-coll-could-be-empty]
+       (let [[paths unwrapped-seq paths-where-original-coll-could-be-empty]
              (if (-> v meta ::wrapped-seq?)
                ((juxt ::paths ::unwrapped-seq ::paths-where-original-coll-could-be-empty)
                 ;; combine paths
@@ -3436,97 +3472,101 @@
                                 (extend-paths paths (key-path kw-entries-types ks k)))
                               call-ids)))
                  ]
-             (PersistentMapProxy. v
-                                  (zipmap (apply disj ks with-kw-val)
-                                          (repeat {{:all-kws? true
-                                                    :kw-entries-types kw-entries-types
-                                                    :ks ks}
-                                                   {:paths paths
-                                                    :call-ids call-ids}}))
-                                  config
-                                  results-atom
-                                  kw-entries-types
-                                  ks
-                                  true)
-             #_
-             (reduce
-               (fn [m [k orig-v]]
-                 (let [v (track config results-atom orig-v
-                                (binding [*should-track* false]
-                                  (extend-paths paths (key-path-maker k)))
-                                call-ids)]
-                   (cond
-                     ;; only assoc if needed
-                     (identical? v orig-v) m
+             (cond
+               (= track-strategy :lazy)
+               (PersistentMapProxy. v
+                                    (zipmap (apply disj ks with-kw-val)
+                                            (repeat {{:all-kws? true
+                                                      :kw-entries-types kw-entries-types
+                                                      :ks ks}
+                                                     {:paths paths
+                                                      :call-ids call-ids}}))
+                                    config
+                                    results-atom
+                                    kw-entries-types
+                                    ks
+                                    true)
+               :else
+               (reduce
+                 (fn [m [k orig-v]]
+                   (let [v (track config results-atom orig-v
+                                  (binding [*should-track* false]
+                                    (extend-paths paths (key-path kw-entries-types ks k)))
+                                  call-ids)]
+                     (cond
+                       ;; only assoc if needed
+                       (identical? v orig-v) m
 
-                     :else
-                     (binding [*should-track* false]
-                       (assoc m k v)))))
-               v
-               no-kw-val))
+                       :else
+                       (binding [*should-track* false]
+                         (assoc m k v)))))
+                 v
+                 no-kw-val)))
 
            :else
            (let [so-far (atom 0)]
-             (PersistentMapProxy. v
-                                  (zipmap ks (repeat {{:all-kws? false
-                                                       :kw-entries-types {}
-                                                       :ks ks}
-                                                      {:paths paths
-                                                       :call-ids call-ids}}))
-                                  config
-                                  results-atom
-                                  {}
-                                  ks
-                                  false)
-             #_
-             (reduce
-               (fn [m k]
-                 (swap! so-far inc)
-                 (let [orig-v (get m k)
-                       [new-k v] 
-                       (cond
-                         ;; We don't want to pollute the HMap-req-ks with
-                         ;; non keywords (yet), disable.
-                         ;(keyword? k)
-                         ;[k (track config results-atom orig-v
-                         ;          (binding [*should-track* false]
-                         ;            (extend-paths paths (key-path {} ks k))))]
+             (cond
+               (= track-strategy :lazy)
+               (PersistentMapProxy. v
+                                    (zipmap ks (repeat {{:all-kws? false
+                                                         :kw-entries-types {}
+                                                         :ks ks}
+                                                        {:paths paths
+                                                         :call-ids call-ids}}))
+                                    config
+                                    results-atom
+                                    {}
+                                    ks
+                                    false)
+               :else
+               (reduce
+                 (fn [m k]
+                   (swap! so-far inc)
+                   (let [orig-v (get m k)
+                         [new-k v] 
+                         (cond
+                           ;; We don't want to pollute the HMap-req-ks with
+                           ;; non keywords (yet), disable.
+                           ;(keyword? k)
+                           ;[k (track config results-atom orig-v
+                           ;          (binding [*should-track* false]
+                           ;            (extend-paths paths (key-path {} ks k))))]
 
-                         :else 
-                         [(track config results-atom k
-                                 (binding [*should-track* false]
-                                   (extend-paths paths (map-keys-path)))
-                                 call-ids)
-                          (track config results-atom orig-v
-                                 (binding [*should-track* false]
-                                   (extend-paths paths (map-vals-path)))
-                                 call-ids)])]
-                   (cond
-                     ; cut off homogeneous map
-                     (when-let [tc *track-count*]
-                       (< tc @so-far))
-                     (reduced
+                           :else 
+                           [(track config results-atom k
+                                   (binding [*should-track* false]
+                                     (extend-paths paths (map-keys-path)))
+                                   call-ids)
+                            (track config results-atom orig-v
+                                   (binding [*should-track* false]
+                                     (extend-paths paths (map-vals-path)))
+                                   call-ids)])]
+                     (cond
+                       ; cut off homogeneous map
+                       (when-let [tc *track-count*]
+                         (< tc @so-far))
+                       (reduced
+                         (binding [*should-track* false]
+                           (-> m
+                               ;; ensure we replace the key
+                               (dissoc k)
+                               (assoc new-k v))))
+
+                       ;; only assoc if needed
+                       (identical? v orig-v) m
+
+                       ;; make sure we replace the key
+                       (not (identical? new-k k))
                        (binding [*should-track* false]
                          (-> m
-                             ;; ensure we replace the key
                              (dissoc k)
-                             (assoc new-k v))))
+                             (assoc new-k v)))
 
-                     ;; only assoc if needed
-                     (identical? v orig-v) m
-
-                     ;; make sure we replace the key
-                     (not (identical? new-k k))
-                     (binding [*should-track* false]
-                       (-> m
-                           (dissoc k)
-                           (assoc new-k v)))
-
-                     :else
-                     (binding [*should-track* false]
-                       (assoc m new-k v)))))
-               v
-               (keys v)))))
+                       :else
+                       (binding [*should-track* false]
+                         (assoc m new-k v)))))
+                 v
+                 (keys v))))))
 
         (instance? clojure.lang.IAtom v)
         (let [old-val (-> v meta ::t/old-val)
@@ -3537,6 +3577,7 @@
               _ (when should-track?
                   (track config results-atom @v new-paths
                          call-ids))
+              #_#_
               _ (binding [*should-track* false]
                   (add-watch
                     v
@@ -3550,9 +3591,6 @@
        :else (do
                (add-infer-results! results-atom (infer-results paths (-class (class v) [])))
                v)))))
-
-(defn diff-spec [new old]
-  )
 
 (def prim-invoke-interfaces
   (into #{}
@@ -3690,9 +3728,12 @@
       :else f)))
 
 (defn gen-track-config []
-  {:track-depth *track-depth*
-   :track-count *track-count*
-   :root-results *root-results*})
+  (merge 
+    {:track-strategy :lazy
+     :track-depth *track-depth*
+     :track-count *track-count*
+     :root-results *root-results*}
+    vs/*instrument-infer-config*))
 
 ; track-var : (IFn [Var -> Value] [(Atom Result) Var Sym -> Value])
 (defn track-var'
@@ -3803,7 +3844,7 @@
    :env env
    :bindings bindings
    :body (assoc body :body? true)
-   :children [:bindings :ret]})
+   :children [:bindings :body]})
 
 ; dummy-sym : Env Sym -> TAExpr
 (defn dummy-sym [env vsym]
@@ -3834,7 +3875,7 @@
   ; about whether this is a :const node, maybe with a :quote
   ; surrounding it?
   {:pre [(every? keyword? (keys m))
-         (every? (some-fn nil? number?) (vals m))]}
+         (every? (some-fn nil? number? boolean? keyword? symbol? string?) (vals m))]}
   {:op :const
    :type :map
    :form m
@@ -3843,31 +3884,37 @@
 
 ; wrap-var-deref : TAExpr Sym Namespace -> TAExpr
 (defn wrap-var-deref [{:keys [env] :as expr} vsym var-ns]
-  (let [var-nsym (ns-name var-ns)]
-    (println
-      (str "Instrumenting " vsym " in " var-nsym
-           #_":" 
-           #_(-> expr :env :line)
-           #_(when-let [col (-> expr :env :column)]
-               ":" col)))
-    {:op :invoke 
-     :children [:fn :args]
-     :form `(track-var' (var ~vsym))
-     :env env
-     :fn {:op :var
-          :var #'track-var'
-          :form `track-var'
-          :env env}
-     :args [(dummy-const-map env (gen-track-config))
-            {:op :var
-             :form `results-atom
-             :env env
-             :var #'results-atom}
-            {:op :the-var
-             :form `(var ~vsym)
-             :env env
-             :var (:var expr)}
-            (dummy-sym env var-nsym)]}))
+  ;(prn "wrap-var-deref")
+  (let [var-nsym (ns-name var-ns)
+        _ (println
+            (str "Instrumenting " vsym " in " var-nsym
+                 #_":" 
+                 #_(-> expr :env :line)
+                 #_(when-let [col (-> expr :env :column)]
+                     ":" col)))
+        invoke-ast {:op :invoke 
+                    :meta (let [^Class cls (-> (:var expr) meta :tag)
+                                tag (if (class? cls) (.getName cls) cls)]
+                            {:tag tag})
+                    :children [:fn :args]
+                    :form `(track-var' (var ~vsym))
+                    :env env
+                    :fn {:op :var
+                         :var #'track-var'
+                         :form `track-var'
+                         :env env}
+                    :args [(dummy-const-map env (gen-track-config))
+                           {:op :var
+                            :form `results-atom
+                            :env env
+                            :var #'results-atom}
+                           {:op :the-var
+                            :form `(var ~vsym)
+                            :env env
+                            :var (:var expr)}
+                           (dummy-sym env var-nsym)]}
+        ]
+    invoke-ast))
 
 ; wrap-def-init : TAExpr Sym Namespace -> TAExpr
 (defn wrap-def-init [{:keys [env] :as expr} vsym def-ns]
@@ -3941,11 +3988,30 @@
         (swap! alternative-arglists assoc (coerce/var->symbol v) arglists)))
     nil))
 
+;; Only wrap library imports so we can infer how they are used.
+;; Also wrap :dynamic vars since they can be rebound at runtime
+;; and lose instrumentation.
+(defn should-wrap-var? [v]
+  (let [vsym (impl/var->symbol v)
+        vns (symbol (namespace vsym))
+        excluded? (contains? (conj ns-exclusions (ns-name *ns*)) vns)
+        ;dynamic? (-> (:var expr) meta :dynamic)
+        no-infer? (-> v meta ::t/no-infer)
+        should-infer? (-> v meta ::t/infer)
+        should-wrap? (or should-infer? (not (or excluded? no-infer?)))]
+    ;(prn "should-wrap-var?" v should-infer? excluded? no-infer? should-wrap?)
+    should-wrap?))
+
+(defn wrap-var-expr [expr]
+  (if (should-wrap-var? (:var expr))
+    (wrap-var-deref expr (impl/var->symbol (:var expr)) *ns*)
+    expr))
+
 ; check : (IFn [TAExpr -> TAExpr] [TAExpr CTType -> TAExpr]
 (defn check
   "Assumes collect-expr is already called on this AST."
-  ([expr] (check expr nil))
-  ([expr expected]
+  ([expr expected] (check expr))
+  ([expr]
    (let [_ (when-let [load-state vs/*typed-load-atom*]
              ;(prn "load-state" (::refreshed? @load-state))
              (when-not (::refreshed? @load-state)
@@ -3975,6 +4041,9 @@
                               ;; would these be off by one?
                               (= (:column coord) (:end-column coord)))))]
      (case (:op expr)
+       ;; never rewrite a target of an assignment, Compiler.java gets angry
+       ;; TODO if `should-wrap-var?` of the target, track the rhs
+       :set! (update expr :val check)
        ;; Wrap def's so we can instrument their usages outside this
        ;; namespace.
        :def (let [v (:var expr)
@@ -3993,20 +4062,22 @@
                               check
                               (wrap-def-init (ast/def-var-name expr) *ns*))))
                 expr))
-       ;; Only wrap library imports so we can infer how they are used.
-       ;; Also wrap :dynamic vars since they can be rebound at runtime
-       ;; and lose instrumentation.
-       :var (let [vsym (impl/var->symbol (:var expr))
-                  vns (symbol (namespace vsym))
-                  excluded? (contains? (conj ns-exclusions (ns-name *ns*)) vns)
-                  ;dynamic? (-> (:var expr) meta :dynamic)
-                  no-infer? (-> vsym meta ::t/no-infer)]
-              (when no-infer?
-                (prn "no-infer" vsym))
-              ;(prn "var" vsym)
-              (if (or excluded? no-infer?)
-                expr
-                (wrap-var-deref expr vsym *ns*)))
+       :invoke (cond
+                 (and (= :var (-> expr :fn :op))
+                      (should-wrap-var? (-> expr :fn :var)))
+                 (let [wrapped (ast/walk-children check expr)
+                       ^Class fclass (-> expr :fn :var meta :tag)
+                       ftag (if (class? fclass)
+                              (.getName fclass)
+                              fclass)]
+                   ;(prn ":invoke wrap")
+                   ;; if we track var v, rewrite (v ...) to ^{:tag ~(-> meta v :tag)} (v ...)
+                   (if ftag
+                     (update-in wrapped [:meta :tag] (fnil identity ftag))
+                     wrapped))
+
+                 :else (ast/walk-children check expr))
+       :var (wrap-var-expr expr)
        :fn 
        (if (not *found-fn*)
          ;; this is a top-level function that's already being wrapped
@@ -4022,6 +4093,8 @@
              out
              (wrap-local-fn :local-fn coord out *ns*))))
 
+       ;; FIXME get this to play nicely with type hints + auto-boxing
+       #_#_
        :loop
        ;; track each loop argument
        (let [expr (ast/walk-children check expr)
@@ -4162,9 +4235,7 @@
   [env config {:keys [infer-results :call-flows] :as is}]
   (println "generate-tenv:"
                   (str (count infer-results) " infer-results"))
-  (let [_ (prn "start group-by-path")
-        by-path (time (group-by-path infer-results))
-        _ (prn "end group-by-path")
+  (let [by-path (group-by-path infer-results)
         ;; filter results
         #_#_infer-results (if *root-results*
                         (let [root-count (atom {})
@@ -4762,6 +4833,23 @@
           env
           (keys (alias-env env))))
 
+(defn remove-unreachable-aliases [env config as]
+  (update-alias-env env
+                    (fn [aenv]
+                      (into {}
+                            (filter (fn [[k v]]
+                                      ;; never remove namespaced keys, because of how kw-vals?
+                                      ;; are accumulated wrt aliasing in spec.
+                                      (or (when (:spec? config)
+                                            (namespace k))
+                                          (contains? as k))))
+                            aenv))))
+
+(defn alias-env-diff-removed [oldaenv newaenv] 
+  (into #{} (filter namespace)
+        (set/difference (set (keys (alias-env oldaenv)))
+                        (set (keys (alias-env newaenv))))))
+
 ; Env Config -> Env
 (defn squash-horizonally
   "Join aliases that refer to exactly
@@ -4792,8 +4880,7 @@
   "
   [env config]
   (let [as (reachable-aliases env)
-        ;; remove unreachable aliases
-        env (update-alias-env env select-keys as)
+        env (remove-unreachable-aliases env config as)
 
         ;; merge HMaps with similar keysets, excluding differently-tagged maps.
         asets (group-similar-HMap-aliases-by-req-keysets env as)
@@ -4819,7 +4906,7 @@
 
         as (reachable-aliases env)
         ;; remove unreachable aliases
-        env (update-alias-env env select-keys as)
+        env (remove-unreachable-aliases env config as)
 
         ;; delete intermediate aliases
         env (follow-all env (assoc config :simplify? false))
@@ -4904,16 +4991,19 @@
     env
     (type-env env)))
 
-(defn populate-envs [env {:keys [spec?] :as config}]
+(defn populate-envs [env {:keys [spec? no-squash-vertically] :as config}]
   (debug "populate-envs:"
   (let [;; create recursive types
         env (if-let [fuel (:fuel config)]
               (assoc env :fuel fuel)
               env)
-        _ (debug-output "top of populate-envs" env config)
-        env (when-fuel env
-              (squash-vertically env config))
-        _ (debug-output "after squash vertically" env config)
+        env (if no-squash-vertically
+              env
+              (let [_ (debug-output "top of populate-envs" env config)
+                    env (when-fuel env
+                                   (squash-vertically env config))
+                    _ (debug-output "after squash vertically" env config)]
+                env))
         ;; ensure all HMaps correspond to an alias
         env (when-fuel env
               (alias-single-HMaps env config))
@@ -4935,8 +5025,7 @@
          _ (println "start remove unreachable aliases")
          env (when-fuel env
                (let [as (reachable-aliases env)]
-                 ;; remove unreachable aliases
-                 (update-alias-env env select-keys as)))
+                 (remove-unreachable-aliases env config as)))
          _ (println "end remove unreachable aliases")
         ]
     (println "done populating")
@@ -4968,7 +5057,7 @@
         (namespace s)))
 
 (defn envs-to-specs [env config]
-  ;(prn "envs-to-specs")
+  ;(prn "envs-to-specs" (keys (alias-env env)))
   (binding [*envs* (atom env)]
     (let [tenv (into {}
                      ;; don't spec local functions
@@ -4991,7 +5080,9 @@
                            (into a-needed
                                  (map (fn [a]
                                         {:pre [(symbol? a)]}
-                                        [a (resolve-spec-alias @*envs* (-alias a))]))
+                                        #_(prn "resolve-alias" a)
+                                        [a (or (resolve-alias-or-nil @*envs* (-alias a))
+                                               -any)]))
                                  a-used))
           gen-aliases (fn gen-aliases 
                         [as {:keys [just-in-time?] :as opt}]
@@ -5261,40 +5352,41 @@
    (let [fv (fn 
               ([v] (fv env v recur? seen-alias))
               ([v recur? seen-alias]
-               (fv env v recur? seen-alias)))]
-     (case (:op v)
-       (:free :Top :unknown :val) []
-       :HMap (into []
-                   (mapcat fv)
-                   (concat
-                     (-> v ::HMap-req vals)
-                     (-> v ::HMap-opt vals)))
-       :HVec (into []
-                   (mapcat fv)
-                   (-> v :vec))
-       :union (into []
-                    (mapcat fv)
-                    (-> v :types))
-       (:unresolved-class :class)
-              (into []
-                    (mapcat fv)
-                    (-> v :args))
-       :alias (if (seen-alias v)
-                []
-                (conj
-                  (if recur?
-                    (fv (resolve-alias env v)
-                        recur?
-                        (conj seen-alias v))
-                    [])
-                  (:name v)))
-       :IFn (into []
-                  (mapcat (fn [f']
-                            (into (into [] 
-                                        (mapcat fv) 
-                                        (:dom f'))
-                                  (fv (:rng f')))))
-                  (:arities v))))))
+               (fv env v recur? seen-alias)))
+         fvs   (case (:op v)
+                 (:free :Top :unknown :val) []
+                 :HMap (into []
+                             (mapcat fv)
+                             (concat
+                               (-> v ::HMap-req vals)
+                               (-> v ::HMap-opt vals)))
+                 :HVec (into []
+                             (mapcat fv)
+                             (-> v :vec))
+                 :union (into []
+                              (mapcat fv)
+                              (-> v :types))
+                 (:unresolved-class :class)
+                 (into []
+                       (mapcat fv)
+                       (-> v :args))
+                 :alias (if (seen-alias v)
+                          []
+                          (conj
+                            (if recur?
+                              (fv (resolve-alias env v)
+                                  recur?
+                                  (conj seen-alias v))
+                              [])
+                            (:name v)))
+                 :IFn (into []
+                            (mapcat (fn [f']
+                                      (into (into [] 
+                                                  (mapcat fv) 
+                                                  (:dom f'))
+                                            (fv (:rng f')))))
+                            (:arities v)))]
+   fvs)))
 
 (defn unmunge [n]
   (when-let [s (first (partition-by #{\_} (str n)))]
@@ -5797,9 +5889,13 @@
   (binding [*print-length* nil
             *print-level* nil]
     (with-out-str
+      ;; print requires outside start/end annotations so we don't
+      ;; delete them between runs
+      (when (seq requires)
+        (println ";; Automatically added requires by core.typed")
+        (doseq [[n a] requires]
+          (pprint (list (qualify-core-symbol 'require) `'[~n :as ~a]))))
       (println generate-ann-start)
-      (doseq [[n a] requires]
-        (pprint (list (qualify-core-symbol 'require) `'[~n :as ~a])))
       (doseq [a top-level]
         (pprint a))
       (print generate-ann-end))))
@@ -5898,7 +5994,7 @@
                        :call-flows (:call-flows infer-results)))))))
 
 (defn infer-with-frontend [front-end {:keys [ns fuel out-dir save-infer-results load-infer-results debug
-                                             no-local-ann? polymorphic? spec-diff?] :as args}]
+                                             no-local-ann? polymorphic? spec-diff? no-squash-vertically] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
          ((some-fn nil? #{:all :iterations}) debug)]}
   (when (and load-infer-results (symbol? ns))
@@ -5933,6 +6029,7 @@
                                    (merge
                                      (init-config)
                                      {:no-local-ann? no-local-ann?
+                                      :no-squash-vertically no-squash-vertically
                                       :spec? (= :spec front-end)
                                       :polymorphic? polymorphic?
                                       :spec-diff? spec-diff?}
@@ -5957,6 +6054,14 @@
 (defn refresh-runtime-infer []
   (reset! results-atom (initial-results))
   nil)
+
+;; Runtime Instrumentation API
+
+;(defn instrument-var [v]
+;  )
+;
+;(defn instrument-ns [v]
+;  )
 
 ;; TESTS
 

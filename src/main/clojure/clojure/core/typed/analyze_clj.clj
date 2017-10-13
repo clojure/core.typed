@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
   (:refer-clojure :exclude [macroexpand-1 get-method eval])
   (:require [clojure.tools.analyzer :as ta]
+            [clojure.pprint :as pp]
             [clojure.tools.analyzer.env :as ta-env]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.utils :as ta-utils]
@@ -484,6 +485,12 @@
   ;  (merge ast {:result result})))
   (let [frm (emit-form/emit-form ast)
         ;_ (prn "form" frm)
+        #_#_
+        _ (binding [*print-meta* true
+                    ;*print-dup* true
+                    ]
+            (prn "form")
+            (pp/pprint frm))
         result (eval' frm)]  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
     (merge ast {:result result})))
 
