@@ -33,6 +33,7 @@
     (ta-env/ensure (p/p :typed-load/global-env
                         (taj/global-env))
      (let [should-runtime-infer? vs/*prepare-infer-ns*
+           instrument-infer-config vs/*instrument-infer-config*
            _ (when should-runtime-infer?
                (println "Refreshing runtime inference")
                (t/refresh-runtime-infer))
@@ -49,7 +50,8 @@
                  *file* filename
                  vs/*in-typed-load* true
                  vs/*typed-load-atom* (atom {})
-                 vs/*prepare-infer-ns* nil]
+                 vs/*prepare-infer-ns* nil
+                 vs/*instrument-infer-config* nil]
          (with-open [rdr (io/reader file-url)]
            (let [pbr (readers/indexing-push-back-reader
                        (java.io.PushbackReader. rdr) 1 filename)
@@ -60,7 +62,8 @@
                         opts)
                  config (assoc (chk-frm-clj/config-map)
                                :env env
-                               :should-runtime-infer? should-runtime-infer?)]
+                               :should-runtime-infer? should-runtime-infer?
+                               :instrument-infer-config instrument-infer-config)]
              (impl/with-full-impl (:impl config)
                (loop []
                  (let [form (p/p :typed-load/read (reader/read opts pbr))]

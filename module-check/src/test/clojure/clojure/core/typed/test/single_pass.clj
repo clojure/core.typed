@@ -7,7 +7,8 @@
             [clojure.data :refer [diff]]
             [clojure.test :refer [deftest is]]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [clojure.core.typed.runtime-infer :as rt]))
 
 (defn leaf-keys [m]
   (cond
@@ -979,6 +980,31 @@
 (deftest case-nil-expr
   (is (ast (case nil
              nil 2))))
+
+(defn ^String ^:clojure.core.typed/infer returns-string [] "a")
+(defn dummy-no-tag-string [] "a")
+
+(defn pprint-meta [f]
+  (binding [*print-meta* true]
+    (prn f)))
+
+#_
+(deftest rt-infer-reflection-test
+  (is (binding [*err* *out*]
+        (eval
+          (emit-form 
+            (rt/check (ast (.toUpperCase (returns-string))))))))
+  (is (binding [*err* *out*]
+        (eval
+          (emit-form 
+            (rt/check (ast (dotimes [i (count [1 2 3])] i)))))))
+  (is (binding [*err* *out*]
+        (eval
+          (emit-form 
+            (rt/check (ast #(loop [i 0] (recur (inc i)))))))))
+  (is (ast (let [a (returns-string)]
+             (.toUpperCase a)))))
+
 
 #_(emit-form
 (ast
