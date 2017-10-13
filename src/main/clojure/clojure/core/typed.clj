@@ -2487,15 +2487,26 @@ for checking namespaces, cf for checking individual forms."}
                - :instrument   wrap top-level vars without recompilation.
                                No support for local annotations, but the default
                                Clojure analyzer is used.
-
                Default: :compile
+    :track-strategy  Choose which track strategy to use.
+                     - :lazy    wrap hash maps and possibly other data structures, and
+                                lazily track values as they are used.
+                     - :eager   eagerly walk over all values, a la clojure.spec checking.
+                     Default: :lazy
   "
-  [& {:keys [ns]}]
+  [& {:keys [ns strategy] :as config
+      :or {strategy :compile
+           ns *ns*}}]
   (load-if-needed)
-  (impl/with-impl impl/clojure
-    (binding [vs/*prepare-infer-ns* true]
-      (typed-load/load-typed-file 
-        (subs (@#'clojure.core/root-resource (ns-name (or ns *ns*))) 1))))
+  (case strategy
+    :compile
+    (impl/with-impl impl/clojure
+      (binding [vs/*prepare-infer-ns* true
+                vs/*instrument-infer-config* (dissoc config :ns)]
+        (typed-load/load-typed-file 
+          (subs (@#'clojure.core/root-resource (if (symbol? ns) ns (ns-name ns))) 1))))
+    :instrument
+    (throw (Exception. ":instrument not yet implemented")))
   :ok)
 
 (defn refresh-runtime-infer 
@@ -2551,6 +2562,8 @@ for checking namespaces, cf for checking individual forms."}
     :out-dir       A classpath-relative directory (string) to which to dump changes to files,
                    instead of modifying the original file.
                    Default: nil (modify original file)
+    :no-squash-vertically     If true, disable the `squash-vertically` pass.
+                              Default: nil
 
   eg. (runtime-infer) ; infer for *ns*
 
@@ -2621,6 +2634,8 @@ for checking namespaces, cf for checking individual forms."}
     :out-dir       A classpath-relative directory (string) to which to dump changes to files,
                    instead of modifying the original file.
                    Default: nil (modify original file)
+    :no-squash-vertically     If true, disable the `squash-vertically` pass.
+                              Default: nil
 
   eg. (spec-infer) ; infer for *ns*
 
