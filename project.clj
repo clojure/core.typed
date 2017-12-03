@@ -21,7 +21,7 @@
                  [rhizome "0.2.5"]
                  ]
 
-  :repl-options {:port 64540
+  :repl-options {:port 64546
                  :timeout 6645464645555}
 
   ; fireplace repl middleware

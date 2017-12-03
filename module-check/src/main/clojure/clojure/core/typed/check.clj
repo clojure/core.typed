@@ -1909,13 +1909,13 @@
         (var-env/add-nocheck-var qsym))))
   (def/check-def check expr expected))
 
-(add-check-method :deftype
-  [{:keys [fields methods env] :as expr} & [expected]]
+(defn check-deftype-or-reify [{:keys [op fields methods env] :as expr} expected]
   {:pre []
    :post [(-> % u/expr-type r/TCResult?)]}
   ;TODO check fields match, handle extra fields in records
   (binding [vs/*current-env* env]
-    (let [compiled-class (:class-name expr)
+    (let [deftype? (= op :deftype)
+          compiled-class (:class-name expr)
           _ (assert (class? compiled-class))
           nme (coerce/Class->symbol compiled-class)
           field-syms (map :name fields)
@@ -1931,24 +1931,30 @@
           expected-fields (when dt
                             (c/DataType-fields* dt))
           expected-field-syms (vec (keys expected-fields))
+          ret-type (case op
+                     :reify (apply c/In
+                                   (or (seq (map c/RClass-of-with-unknown-params (:interfaces expr)))
+                                       [(c/RClass-of Object)]))
+                     :deftype (c/RClass-of Class))
           ret-expr (assoc expr
                           u/expr-type (below/maybe-check-below
-                                        (r/ret (c/RClass-of Class))
+                                        (r/ret ret-type (fo/-true-filter))
                                         expected))]
 
       (cond
-        (not dtp)
+        (and deftype? (not dtp))
         (err/tc-delayed-error (str "deftype " nme " must have corresponding annotation. "
                                  "See ann-datatype and ann-record")
                             :return ret-expr)
 
-        (not ((some-fn r/DataType? r/Record?) dt))
+        (and deftype? (not ((some-fn r/DataType? r/Record?) dt)))
         (err/tc-delayed-error (str "deftype " nme " cannot be checked against: " (prs/unparse-type dt))
                             :return ret-expr)
 
-        (if (r/Record? dt)
-          (c/isa-DataType? compiled-class)
-          (c/isa-Record? compiled-class))
+        (when deftype?
+          (if (r/Record? dt)
+            (c/isa-DataType? compiled-class)
+            (c/isa-Record? compiled-class)))
         (let [datatype? (c/isa-DataType? compiled-class)]
           #_(prn (c/isa-DataType? compiled-class)
                (c/isa-Record? compiled-class)
@@ -1960,11 +1966,12 @@
                                    "See ann-datatype and ann-record")
                               :return ret-expr))
 
-        (not= expected-field-syms 
-              ; remove implicit __meta and __extmap fields
-              (if (c/isa-Record? compiled-class)
-                (remove cu/record-hidden-fields field-syms)
-                field-syms))
+        (when deftype?
+          (not= expected-field-syms 
+                ; remove implicit __meta and __extmap fields
+                (if (c/isa-Record? compiled-class)
+                  (remove cu/record-hidden-fields field-syms)
+                  field-syms)))
         (err/tc-delayed-error (str (if (c/isa-Record? compiled-class)
                                      "Record "
                                      "Datatype ")
@@ -1987,7 +1994,7 @@
                   (do
                     (assert (#{:method} (:op inst-method)))
                     (when vs/*trace-checker*
-                      (println "Checking deftype* method: " (:name inst-method))
+                      (println (str "Checking " (name op) " method: " (:name inst-method)))
                       (flush))
                     (binding [vs/*current-env* env]
                       (let [method-nme (:name inst-method)
@@ -2000,9 +2007,11 @@
                             ; minus the target arg
                             method-sig (:method inst-method)]
                         (if-not method-sig
-                          (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme)
+                          (err/tc-delayed-error (str "Internal error checking " (name op) " " nme " method: " method-nme)
                                                 :return [inst-method])
-                          (let [expected-ifn (cu/datatype-method-expected dt method-sig)]
+                          (let [expected-ifn (case op
+                                               :deftype (cu/datatype-method-expected dt method-sig)
+                                               :reify (cu/reify-method-expected ret-type method-sig))]
                             ;(prn "method expected type" expected-ifn)
                             ;(prn "names" nms)
                             (lex/with-locals expected-fields
@@ -2030,19 +2039,31 @@
                                       {:pre [(r/FnIntersection? fin)]}
                                       (when (some #{:rest :drest :kws} (:types fin))
                                         (err/int-error
-                                          (str "Cannot provide rest arguments to deftype method: "
+                                          (str "Cannot provide rest arguments to " (name op) " method: "
                                                (prs/unparse-type fin))))))))))))))))
 
               methods 
               (binding [fn-method-u/*check-fn-method1-checkfn* check
                         fn-method-u/*check-fn-method1-rest-type* 
                         (fn [& args] 
-                          (err/int-error "deftype method cannot have rest parameter"))]
+                          (err/int-error (str (name op) " method cannot have rest parameter")))]
                 (into []
                       (mapcat maybe-check-method)
                       methods))]
           (assoc ret-expr
                  :methods methods))))))
+
+(add-check-method :deftype
+  [expr & [expected]]
+  {:pre []
+   :post [(-> % u/expr-type r/TCResult?)]}
+  (check-deftype-or-reify expr expected))
+
+(add-check-method :reify
+  [expr & [expected]]
+  {:pre []
+   :post [(-> % u/expr-type r/TCResult?)]}
+  (check-deftype-or-reify expr expected))
 
 (add-check-method :import
   [expr & [expected]]
