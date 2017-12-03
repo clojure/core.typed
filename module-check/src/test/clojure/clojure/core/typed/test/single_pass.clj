@@ -444,6 +444,14 @@
                (fn [] (.toString this))
                "")))))
 
+(deftest reify-test
+  (is (clojure.pprint/pprint
+        (ast (reify
+               Object
+               (toString [this]
+                 (fn [] (.toString this))
+                 ""))))))
+
 (deftest invoke-meta-test
   (is (=
        '(nil)
@@ -559,6 +567,15 @@
 (deftest NewInstanceMethod-test
   (defprotocol Foo
     (bar [this a]))
+  ;; reify interfaces
+  (is
+    (= #{clojure.lang.IObj clojure.core.typed.test.single_pass.Foo clojure.lang.IType}
+       (->
+         (ast (reify
+                Foo
+                (bar [this a])))
+         :expr :interfaces
+         )))
   ; :this
   (is
     ;; :children is nil and absent

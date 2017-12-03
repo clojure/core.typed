@@ -224,8 +224,8 @@
                                (do
                                  (assert (<= 1 (count (:dom ftype))))
                                  (-> ftype
-                                     (update-in [:dom] (fn [dom] 
-                                                         (update-in (vec dom) [0] (partial c/In target-type)))))))))
+                                     (update :dom (fn [dom]
+                                                    (update (vec dom) 0 (partial c/In target-type)))))))))
 
     (r/Poly? expected)
     (let [names (c/Poly-fresh-symbols* expected)
@@ -280,6 +280,11 @@
   {:post [(r/Type? %)]}
   (or (protocol-implementation-type datatype method-sig)
       (extend-method-expected datatype (instance-method->Function method-sig))))
+
+(defn reify-method-expected [reify-type method-sig]
+  {:pre [(r/Type? reify-type)]
+   :post [(r/Type? %)]}
+  (extend-method-expected reify-type (instance-method->Function method-sig)))
 
 ;; TODO integrate reflecte-validated into run-passes
 (defn FieldExpr->Field [expr]

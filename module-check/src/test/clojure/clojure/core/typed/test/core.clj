@@ -5550,6 +5550,48 @@
   ;(is-tc-err (fn [^{:clojure.core.typed/ann t/Bool} a] (inc a)))
 )
 
+(deftest reify-test
+  (is-tc-e (reify) Object)
+  (is-tc-err (reify) (Map Any Any))
+  (is-tc-e (reify clojure.lang.IPersistentMap) (Map Any Any))
+  (is-tc-e (do
+              (defprotocol B
+                (f [this m :- Int] :- Str))
+              (ann-form
+                (reify B
+                  (f [this m] (str (inc m))))
+                B)))
+  (is-tc-err (do
+               (defprotocol B
+                 (f [this m :- Int] :- Str))
+               (ann-form
+                 (reify B
+                   ;; type error in return, ensure method is checked
+                   (f [this m] m))
+                 B)))
+  (is-tc-e 
+    (do
+      (defprotocol
+        [[x :variance :covariant]]
+        IFoo
+        (bar [this] :- x))
+      (ann-form
+        (reify IFoo
+          (bar [this] 1))
+        (IFoo Num))))
+  (is-tc-err
+    (do
+      (defprotocol
+        [[x :variance :covariant]]
+        IFoo
+        (bar [this] :- x))
+      (ann-form
+        (reify IFoo
+          (bar [this] 1))
+        (IFoo Sym))))
+)
+
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
