@@ -27,8 +27,6 @@
             [clojure.core.typed.ast-utils :as ast-u])
   (:import (clojure.lang MultiFn)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ;(t/ann expr-ns [Any -> t/Sym])
 (defn expr-ns [expr]
   {:post [(symbol? %)]}
@@ -440,13 +438,27 @@
   (t/when-let-fail [a vs/*already-checked*]
     (boolean (@a nsym))))
 
+(defn check-deps [nsym {:keys [check-ns check-deps?] :as config}]
+  (when check-deps?
+    (let [deps (u/p :check/ns-immediate-deps 
+                    (ns-deps/typed-deps nsym))]
+      (checked-ns! nsym)
+      ;check deps added with typed-deps
+      (doseq [dep deps]
+        (check-ns dep))
+      ;check normal dependencies
+      (doseq [dep (ns-depsu/deps-for-ns nsym)]
+        ;; ensure namespace actually exists
+        (when (ns-depsu/should-check-ns? nsym)
+          (check-ns dep))))))
+
 (defn check-ns-and-deps*
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
   has already been collected."
   ([nsym {:keys [ast-for-ns
                  check-asts
-                 check-ns]}]
+                 check-ns] :as config}]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (u/p :check/check-ns-and-deps
@@ -458,17 +470,7 @@
                                  nil)
        :else
        ; check deps
-       (let [deps (u/p :check/ns-immediate-deps 
-                    (ns-deps/typed-deps nsym))]
-         (checked-ns! nsym)
-         ;check deps added with typed-deps
-         (doseq [dep deps]
-           (check-ns dep))
-         ;check normal dependencies
-         (doseq [dep (ns-depsu/deps-for-ns nsym)]
-           ;; ensure namespace actually exists
-           (when (ns-depsu/should-check-ns? nsym)
-             (check-ns dep)))
+       (let [_ (check-deps nsym config)]
          ; ignore ns declaration
          (let [ns-form (ns-depsu/ns-form-for-ns nsym)
                check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
