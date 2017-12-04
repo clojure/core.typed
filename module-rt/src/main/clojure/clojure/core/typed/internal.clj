@@ -3,8 +3,6 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.contract-utils :as con]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (defn take-when
   "When pred is true of the head of seq, return [head tail]. Otherwise
   [nil seq]. Used as a helper for parsing optinal typed elements out

@@ -2,7 +2,6 @@
   (:require [clojure.core.typed.profiling :as p]
             [clojure.core.typed.reset-env :as reset-env]
             [clojure.core.typed.reset-caches :as reset-caches]
-            [clojure.core.typed.collect-phase :as collect-clj]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check :as chk-clj]
