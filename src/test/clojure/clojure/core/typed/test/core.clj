@@ -5549,6 +5549,9 @@
   ;(is-tc-err (fn [^{:clojure.core.typed/ann t/Bool} a] (inc a)))
 )
 
+(deftest ann-namespace-alias-test
+  (is (check-ns 'clojure.core.typed.test.ann-qualify.child)))
+
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
 ;                {:pre [(number? a)]} 
