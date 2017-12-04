@@ -1854,11 +1854,8 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro ann 
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
   If varsym has metadata {:no-check true}, ignore definitions of varsym 
-  while type checking.
-
-  If annotating vars in namespaces other than the current one, a fully
-  qualified symbol must be provided. Note that namespace aliases are not
-  recognised: the *full* namespace must be given in the first part of the symbol.
+  while type checking. Supports namespace aliases and fully qualified namespaces
+  to annotate vars in other namespaces.
   
   eg. ; annotate the var foo in this namespace
       (ann foo [Number -> Number])
@@ -1869,19 +1866,14 @@ for checking namespaces, cf for checking individual forms."}
       ; don't check this var
       (ann ^:no-check foobar [Integer -> String])"
   [varsym typesyn]
-  (let [qsym (if (namespace varsym)
-               varsym
+  (let [qsym (if-let [nsym (some-> (namespace varsym) symbol)]
+               (symbol (if-let [ns (get (ns-aliases *ns*) nsym)]
+                         (-> ns ns-name str)
+                         (str nsym))
+                       (name varsym))
                (symbol (-> *ns* ns-name str) (str varsym)))
-        _ (when (contains? (meta varsym) :nocheck)
-            (err/deprecated-macro-syntax
-              &form 
-              (str ":nocheck metadata for ann is renamed :no-check")))
         opts (meta varsym)
-        _ (assert (not (and (contains? opts :nocheck)
-                            (contains? opts :no-check)))
-                  "Cannot provide both :nocheck and :no-check metadata to ann")
-        check? (not (or (:no-check opts)
-                        (:nocheck opts)))]
+        check? (not (:no-check opts))]
     `(tc-ignore (ann* '~qsym '~typesyn '~check? '~&form))))
 
 (defmacro ann-many
