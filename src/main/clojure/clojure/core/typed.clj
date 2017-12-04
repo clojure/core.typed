@@ -2381,6 +2381,8 @@ for checking namespaces, cf for checking individual forms."}
                      added as a dependency. Must use the \"slim\" JAR.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str).
+  - :check-deps      If true, recursively type check namespace dependencies.
+                     Default: nil
 
   Default return map
   - :delayed-errors  A sequence of delayed errors (ex-info instances)"
@@ -2405,6 +2407,8 @@ for checking namespaces, cf for checking individual forms."}
   - :trace         if true, print some basic tracing of the type checker
   - :profile       Use Timbre to profile the type checker. Timbre must be
                    added as a dependency. Must use the \"slim\" JAR.
+  - :check-deps    If true, recursively type check namespace dependencies.
+                   Default: nil
 
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
@@ -2755,7 +2759,7 @@ for checking namespaces, cf for checking individual forms."}
   Then run check-ns like usual, and infer-unannotated-vars
   will return the inferred vars without annotations.
 
-  (t/infer-untyped-vars)
+  (t/infer-unannotated-vars)
   => [(t/ann u/bar t/Int)
       (t/ann u/foo (t/U [t/Any -> t/Any] Int))]
                                 "
