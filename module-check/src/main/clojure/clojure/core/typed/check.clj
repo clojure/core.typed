@@ -176,11 +176,6 @@
           (vector? (:items %))]}
   (vec/check-vector check expr expected))
 
-(defn throw-on-false [pred e]
-  (if pred
-    e
-    (throw (Exception. "Failure"))))
-
 (defn should-infer-vars? [expr]
   (-> (cu/expr-ns expr)
       find-ns
