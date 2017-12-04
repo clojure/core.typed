@@ -86,7 +86,6 @@
 
                  '[clojure.core.typed.parse-ast]
                  '[clojure.core.typed.file-mapping]
-                 '[clojure.core.typed.collect-phase]
                  '[clojure.core.typed.base-env]
                  '[clojure.core.typed.ns-deps]
                  '[clojure.core.typed.reset-env]

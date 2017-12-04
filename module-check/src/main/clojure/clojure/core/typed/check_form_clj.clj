@@ -2,7 +2,6 @@
   (:require [clojure.core.typed.check-form-common :as chk-form]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.check :as chk-clj]
-            [clojure.core.typed.collect-phase :as collect-clj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.runtime-check :as rt-chk]
             [clojure.core.typed.runtime-infer :as rt-infer]
@@ -12,7 +11,7 @@
   {:impl impl/clojure
    :ast-for-form ana-clj/ast-for-form
    :unparse-ns (ns-name *ns*)
-   :collect-expr (fn [_] nil) #_collect-clj/collect-ast
+   :collect-expr (fn [_] nil)
    :check-expr chk-clj/check-expr
    :runtime-check-expr rt-chk/runtime-check-expr
    :runtime-infer-expr rt-infer/runtime-infer-expr

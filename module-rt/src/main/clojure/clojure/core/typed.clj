@@ -2120,7 +2120,6 @@ for checking namespaces, cf for checking individual forms."}
                             "): " (str/join ", " (map first dups))))
               (flush)))
         ; duplicates are checked above.
-        ; duplicate munged methods are checked in collect-phase
         {:as mth} mth]
     `(tc-ignore (ann-protocol* '~vbnd '~varsym '~mth '~&form))))
 
@@ -2173,7 +2172,6 @@ for checking namespaces, cf for checking individual forms."}
                             "): " (str/join ", " (map first dups))))
               (flush)))
         ; duplicates are checked above.
-        ; duplicate munged methods are checked in collect-phase
         {:as mth} mth
         qualsym (if (namespace clsym)
                   clsym

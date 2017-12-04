@@ -33,10 +33,9 @@
             [clojure.core.typed.single-pass :as single])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ; Updated for Clojure 1.8
 ;  https://github.com/clojure/clojure/commit/7f79ac9ee85fe305e4d9cbb76badf3a8bad24ea0
+(T/ann ^:no-check *typed-macros* (T/Map T/Any T/Any))
 (def ^:dynamic *typed-macros*
   {#'clojure.core/ns 
    (fn [&form &env name & references]
@@ -124,10 +123,14 @@
         ~(apply @#'core/defmacro &form &env args)))
    })
 
+(T/ann ^:no-check typed-macro-lookup [T/Any :-> T/Any])
 (defn typed-macro-lookup [var]
   (get *typed-macros* var var))
 
 ;; copied from tools.analyze.jvm to insert `*typed-macros*`
+(T/ann ^:no-check macroexpand-1 
+       (T/IFn [T/Any -> T/Any] 
+              [T/Any (T/Map T/Any T/Any) -> T/Any]))
 (defn macroexpand-1
   "If form represents a macro form or an inlineable function,returns its expansion,
    else returns form."

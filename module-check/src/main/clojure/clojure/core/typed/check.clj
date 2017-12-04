@@ -1,7 +1,5 @@
 (ns clojure.core.typed.check
-  {:skip-wiki true
-   :core.typed {:collect-only true
-                :no-typed-load true}}
+  {:skip-wiki true}
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.debug :refer [dbg]]
