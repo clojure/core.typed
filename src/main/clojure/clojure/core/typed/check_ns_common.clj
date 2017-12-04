@@ -30,7 +30,7 @@
 ;; - :file-mapping      a map from namespace symbols to vectors of AST nodes
 ;;                      Added if true :file-mapping keyword is passed as an option
 (defn check-ns-info
-  [impl ns-or-syms & {:keys [collect-only trace profile file-mapping]}]
+  [impl ns-or-syms & {:keys [collect-only trace profile file-mapping check-deps]}]
   (p/profile-if profile
     (let [start (. System (nanoTime))]
       (reset-caches/reset-caches)
@@ -80,7 +80,8 @@
                 ;-------------------------
                 (when-not collect-only
                   (let [check-ns (impl/impl-case
-                                   :clojure chk-clj/check-ns-and-deps
+                                   :clojure #(chk-clj/check-ns-and-deps 
+                                               % {:check-deps? (boolean check-deps)})
                                    :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
                     (doseq [nsym nsym-coll]
                       (check-ns nsym)))
