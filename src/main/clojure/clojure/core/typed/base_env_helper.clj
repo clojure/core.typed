@@ -13,7 +13,6 @@
             [clojure.core.typed.name-env]
             [clojure.core.typed.var-env]
             [clojure.core.typed.ns-deps]
-            [clojure.core.typed.collect-phase :as coll]
             [clojure.pprint :as pprint]))
 
 (defn qualify-in-cct [as]
