@@ -118,15 +118,16 @@
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
   has already been collected."
-  ([nsym]
+  ([nsym {:keys [check-deps?] :as config}]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (p/p :check-clj/check-ns-and-deps
    (cu/check-ns-and-deps*
      nsym
      {:ast-for-ns ana-clj/ast-for-ns
+      :check-deps? check-deps?
       :check-asts check-asts
-      :check-ns check-ns-and-deps}))))
+      :check-ns #(check-ns-and-deps % config)}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
