@@ -1,3 +1,8 @@
+# 0.4.4 - SNAPSHOT
+
+- support ns aliases in `ann`
+- remove support for deprecated `ann` `:nocheck` syntax
+
 # 0.4.3 - 13 October 2017
 
 - add :spec-macros option to `spec-infer`
