@@ -2369,27 +2369,35 @@ for checking namespaces, cf for checking individual forms."}
    ([form] `(check-form* '~form))
    ([form expected] `(check-form* '~form '~expected)))
 
+
+(defn default-check-config []
+  {:check-ns-dep :recheck
+   :unannotated-def :infer
+   :unannotated-var :error
+   #_#_:unannotated-arg :any})
+
 (defn check-ns-info
   "Same as check-ns, but returns a map of results from type checking the
   namespace.
 
   Options
   - :collect-only    Don't type check the given namespace/s, but collect the 
-                     top level type annotations like ann, ann-record.
+  top level type annotations like ann, ann-record.
   - :type-provided?  If true, use the expected type to check the form
   - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency. Must use the \"slim\" JAR.
+  added as a dependency. Must use the \"slim\" JAR.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
-                     of (Map '{:line Int :column Int :file Str} Str).
+  of (Map '{:line Int :column Int :file Str} Str).
   - :check-deps      If true, recursively type check namespace dependencies.
-                     Default: nil
+  Default: true
 
   Default return map
   - :delayed-errors  A sequence of delayed errors (ex-info instances)"
   ([] (check-ns-info *ns*))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-clj/check-ns-info) ns-or-syms opt)))
+   (let [opt (update opt :check-config #(merge (default-check-config) %))]
+     ((impl/v 'clojure.core.typed.check-ns-clj/check-ns-info) ns-or-syms opt))))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
@@ -2402,13 +2410,39 @@ for checking namespaces, cf for checking individual forms."}
   Suggested idiom for clojure.test: (is (check-ns 'your.ns))
   
   Keyword arguments:
-  - :collect-only  if true, collect type annotations but don't type check code.
+  - :collect-only  If true, collect type annotations but don't type check code.
                    Useful for debugging purposes.
-  - :trace         if true, print some basic tracing of the type checker
-  - :profile       Use Timbre to profile the type checker. Timbre must be
-                   added as a dependency. Must use the \"slim\" JAR.
-  - :check-deps    If true, recursively type check namespace dependencies.
                    Default: nil
+  - :trace         If true, print some basic tracing of the type checker
+                   Default: nil
+  - :profile       If true, use Timbre to profile the type checker. Timbre must be
+                   added as a dependency. Must use the \"slim\" JAR.
+                   Default: nil
+  - :check-config   Configuration map for the type checker.
+    - :check-ns-dep  If `:recheck`, always check dependencies.
+                     If `:never`, ns dependencies are ignored.
+                     #{:recheck :never}
+                     Default: :recheck
+    - :unannotated-def   If `:unchecked`, unannotated defs are checked as
+                         Unchecked (unsound), and their return type is not recorded.
+                         If `:infer`, unannotated defs are inferred and
+                         the type is recorded in the type environment.
+                         #{:unchecked :infer}
+    - :unannotated-var   If `:unchecked`, unannotated vars are given an *unsound*
+                         annotation that is used to statically infer its type
+                         based on usages/definition (see `infer-unannotated-vars`).
+                         If `:any`, usages of unannotated vars are given type `Any` (sound).
+                         If `:error`, unannotated vars are a type error (sound).
+                         #{:unchecked :any :error}
+                         Default: :error
+    - :unannotated-arg   (Not Yet Implemented)
+                         If `:unchecked`, unannotated fn arguments are given an *unsound*
+                         annotation that is used to statically infer its argument types
+                         based on definition.
+                         If `:any`, unannotated fn arguments are give type `Any` (sound).
+                         #{:unchecked :any}
+                         Default: :any
+
 
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
@@ -2426,10 +2460,22 @@ for checking namespaces, cf for checking individual forms."}
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
   ([] (check-ns *ns*))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt)))
+   (let [opt (update opt :check-config #(merge (default-check-config) %))]
+     ((impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt))))
 
+(defn check-ns2 
+  ([] (check-ns2 *ns*))
+  ([ns-or-syms & {:as opt}]
+   (load-if-needed)
+   (let [opt (update opt :check-config
+                     #(merge {:check-ns-dep :never
+                              :unannotated-def :unchecked
+                              :unannotated-var :unchecked
+                              :unannotated-arg :unchecked}
+                             %))]
+     ((impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt))))
 
 ;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
 (defn statistics 

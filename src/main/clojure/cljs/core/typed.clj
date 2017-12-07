@@ -257,10 +257,10 @@
   ([]
    (load-if-needed)
    (check-ns-info ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-cljs/check-ns-info)
-          ns-or-syms opt)))
+   ((impl/v 'clojure.core.typed.check-ns-cljs/check-ns-info)
+    ns-or-syms opt)))
 
 (defn check-ns*
   "Check a Clojurescript namespace, or the current namespace.
@@ -269,10 +269,10 @@
   ([] 
    (load-if-needed)
    (check-ns* ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-cljs/check-ns) 
-          ns-or-syms opt)))
+   ((impl/v 'clojure.core.typed.check-ns-cljs/check-ns) 
+    ns-or-syms opt)))
 
 (defmacro check-ns
   "Check a Clojurescript namespace, or the current namespace. This macro
