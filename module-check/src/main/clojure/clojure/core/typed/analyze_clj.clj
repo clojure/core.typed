@@ -21,6 +21,7 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as T]
+            [clojure.core.typed :as t]
             [clojure.core.cache :as cache]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.profiling :as p]
@@ -189,6 +190,7 @@
    :form form
    ::unanalyzed true})
 
+(T/ann ^:no-check special-form? [T/Any :-> T/Any])
 (defn special-form? [mform]
   (and (seq? mform)
        (= 'do (first mform))
@@ -196,6 +198,8 @@
            (= (second mform) ::T/special-collect))))
 
 (declare eval-ast)
+(T/ann ^:no-check eval-ast [(T/Map T/Any T/Any) (T/Map T/Any T/Any) :-> T/Any])
+(T/ann ^:no-check analyze+eval [T/Any :-> T/Any])
 (defn analyze+eval
   "Like analyze but evals the form after the analysis and attaches the
    returned value in the :result field of the AST node.
@@ -276,10 +280,12 @@
 
 ;; reflect-validated from eastwood
 ;========================
+(T/ann ^:no-check reflect-validated [(T/Map T/Any T/Any) :-> T/Any])
 (defmulti reflect-validated 
   {:pass-info {:walk :any :depends #{#'validate/validate}}}
   :op)
 
+(T/ann ^:no-check arg-type-str [(t/Seqable (t/U nil Class)) :-> t/Str])
 (defn arg-type-str [arg-types]
   (str/join ", "
             (map #(if (nil? %) "nil" (.getName ^Class %)) arg-types)))
@@ -378,9 +384,11 @@
 (defn run-passes [ast]
   (typed-schedule ast))
 
+;; (All [x ...] [-> '{(Var x) x ...})])
 (defn thread-bindings []
-  {#'ta/macroexpand-1 macroexpand-1
-   #'taj/run-passes run-passes})
+  (t/tc-ignore
+    {#'ta/macroexpand-1 macroexpand-1
+     #'taj/run-passes run-passes}))
 
 ;; bindings is an atom that records any side effects during macroexpansion. Useful
 ;; for nREPL middleware.
@@ -423,6 +431,7 @@
   ([form opt]
    (analyze1 form (taj/empty-env) opt)))
 
+(t/ann ^:no-check ast-for-file [t/Str -> t/Any])
 (defn ast-for-file
   "Returns a vector of AST nodes contained
   in the given file"

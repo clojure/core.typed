@@ -438,8 +438,8 @@
   (t/when-let-fail [a vs/*already-checked*]
     (boolean (@a nsym))))
 
-(defn check-deps [nsym {:keys [check-ns check-deps?] :as config}]
-  (when check-deps?
+(defn check-deps [nsym {:keys [check-ns] :as config}]
+  (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
     (let [deps (u/p :check/ns-immediate-deps 
                     (ns-deps/typed-deps nsym))]
       (checked-ns! nsym)

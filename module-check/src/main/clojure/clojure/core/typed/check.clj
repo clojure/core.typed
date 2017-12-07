@@ -118,16 +118,15 @@
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
   has already been collected."
-  ([nsym {:keys [check-deps?] :as config}]
+  ([nsym]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (p/p :check-clj/check-ns-and-deps
    (cu/check-ns-and-deps*
      nsym
      {:ast-for-ns ana-clj/ast-for-ns
-      :check-deps? check-deps?
       :check-asts check-asts
-      :check-ns #(check-ns-and-deps % config)}))))
+      :check-ns check-ns-and-deps}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -221,11 +220,26 @@
 
         ;; :infer-vars are enabled for this namespace, this
         ;; var dereference is the dynamic type
-        (should-infer-vars? expr)
-        (assoc expr
-               u/expr-type (below/maybe-check-below
-                             (r/ret (r/-unchecked vsym))
-                             expected))
+        (or (should-infer-vars? expr)
+            (impl/impl-case
+              :clojure (= :unchecked 
+                          (some-> vs/*check-config* deref :unannotated-var))
+              :cljs nil))
+        (do
+          (println (str "Inferring " vsym " dereference as Unchecked"))
+          (assoc expr
+                 u/expr-type (below/maybe-check-below
+                               (r/ret (r/-unchecked vsym))
+                               expected)))
+        (impl/impl-case
+          :clojure (= :any (some-> vs/*check-config* deref :unannotated-var))
+          :cljs nil)
+        (do
+          (println (str "Inferring " vsym " dereference as Any"))
+          (assoc expr
+                 u/expr-type (below/maybe-check-below
+                               (r/ret r/-any)
+                               expected)))
 
 
         :else
@@ -1299,7 +1313,8 @@
       (or (and (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
                (not (var-env/lookup-Var-nofail mmsym)))
           (not (var-env/check-var? mmsym)))
-      (do (u/tc-warning (str "Not checking defmethod " mmsym " with dispatch value" (ast-u/emit-form-fn dispatch-val-expr)))
+      (do (u/tc-warning (str "Not checking defmethod " mmsym " with dispatch value: " 
+                             (pr-str (ast-u/emit-form-fn dispatch-val-expr))))
           (p/p :check/skip-MultiFn-addMethod)
           ret-expr)
       :else

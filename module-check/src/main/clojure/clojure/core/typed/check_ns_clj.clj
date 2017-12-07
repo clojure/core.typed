@@ -15,9 +15,9 @@
                      added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str)."
-  [ns-or-syms & opt] 
-  (apply chk-ns/check-ns-info impl/clojure ns-or-syms opt))
+  [ns-or-syms opt] 
+  (chk-ns/check-ns-info impl/clojure ns-or-syms opt))
 
 (defn check-ns
-  [ns-or-syms & opt]
-  (apply chk-ns/check-ns impl/clojure ns-or-syms opt))
+  [ns-or-syms opt]
+  (chk-ns/check-ns impl/clojure ns-or-syms opt))

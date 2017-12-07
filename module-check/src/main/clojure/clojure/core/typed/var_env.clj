@@ -55,7 +55,7 @@
     (when (and (delay? old-t)
                (realized? old-t))
       (when (not= (force old-t) (force type))
-        (println "WARNING: Duplicate var annotation: " sym)
+        (println (str "WARNING: Duplicate var annotation: " sym))
         (flush))))
   (env/swap-checker! assoc-in [impl/current-var-annotations-kw sym] type)
   nil)
