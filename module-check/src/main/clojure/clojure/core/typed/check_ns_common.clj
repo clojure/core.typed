@@ -1,5 +1,6 @@
 (ns clojure.core.typed.check-ns-common
-  (:require [clojure.core.typed.profiling :as p]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.reset-env :as reset-env]
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.typed.contract-utils :as con]
@@ -30,7 +31,7 @@
 ;; - :file-mapping      a map from namespace symbols to vectors of AST nodes
 ;;                      Added if true :file-mapping keyword is passed as an option
 (defn check-ns-info
-  [impl ns-or-syms & {:keys [collect-only trace profile file-mapping check-deps]}]
+  [impl ns-or-syms {:keys [collect-only trace profile file-mapping check-config] :as opt}]
   (p/profile-if profile
     (let [start (. System (nanoTime))]
       (reset-caches/reset-caches)
@@ -80,8 +81,8 @@
                 ;-------------------------
                 (when-not collect-only
                   (let [check-ns (impl/impl-case
-                                   :clojure #(chk-clj/check-ns-and-deps 
-                                               % {:check-deps? (boolean check-deps)})
+                                   :clojure #(binding [vs/*check-config* (atom check-config)]
+                                               (chk-clj/check-ns-and-deps %))
                                    :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
                     (doseq [nsym nsym-coll]
                       (check-ns nsym)))
@@ -127,8 +128,8 @@
                                                (get (some-> vs/*checked-asts* deref) (first nsym-coll))))}))))))))))
 
 (defn check-ns
-  ([impl ns-or-syms & opt]
-   (let [{:keys [delayed-errors]} (apply check-ns-info impl ns-or-syms opt)]
+  ([impl ns-or-syms opt]
+   (let [{:keys [delayed-errors]} (check-ns-info impl ns-or-syms opt)]
      (impl/with-full-impl impl
        (if-let [errors (seq delayed-errors)]
          (err/print-errors! errors)

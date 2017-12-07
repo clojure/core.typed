@@ -79,6 +79,8 @@
       ;otherwise try and infer a type
       :else
       (let [_ (assert (not t))
+            unannotated-def (some-> vs/*check-config* deref :unannotated-def)
+            _ (prn "unannotated-def" unannotated-def)
             cinit (when init-provided
                     (check-fn init))
             cmeta (when meta
@@ -88,10 +90,14 @@
                               ;; emit :meta nodes in a :def. Don't
                               ;; try and rewrite it, just type check.
                               vs/*can-rewrite* false]
-                      (check-fn meta)))
+                      (check-fn meta
+                                (case unannotated-def
+                                  :unchecked (r/ret (r/-unchecked vsym))
+                                  nil))))
             inferred (r/ret-t (u/expr-type cinit))
             _ (assert (r/Type? inferred))
-            _ (when cinit
+            _ (when (and (not= unannotated-def :unchecked)
+                         cinit)
                 ; now consider this var as checked
                 (var-env/add-checked-var-def vsym)
                 ; and add the inferred static type (might be Error)

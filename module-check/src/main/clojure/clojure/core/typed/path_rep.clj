@@ -4,10 +4,6 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as t]))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
 
