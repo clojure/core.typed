@@ -1361,7 +1361,10 @@
 (defn unp [t] (prn (unparse-type t)))
 
 (defmethod unparse-type* Top [_] (unparse-Name-symbol-in-ns `t/Any))
-(defmethod unparse-type* Unchecked [_] 'Unchecked)
+(defmethod unparse-type* Unchecked [{:keys [vsym] :as t}]
+  (if vsym
+    (list 'Unchecked vsym)
+    'Unchecked))
 (defmethod unparse-type* TCError [_] 'Error)
 (defmethod unparse-type* Name [{:keys [id]}] (unparse-Name-symbol-in-ns id))
 (defmethod unparse-type* AnyValue [_] (unparse-Name-symbol-in-ns `t/AnyValue))

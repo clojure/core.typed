@@ -1,5 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.lex-env
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
@@ -7,8 +8,6 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.object-rep :as obj]))
-
-(alter-meta! *ns* assoc :skip-wiki true)
 
 (def lex-env? (con/hash-c? con/local-sym? r/Type?))
 (def prop-set? (con/set-c? fr/Filter?))

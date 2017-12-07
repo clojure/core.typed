@@ -353,12 +353,11 @@
 (defn tc-warning [& ss]
   (let [env uvs/*current-env*]
     (binding [*out* *err*]
-      (apply println "WARNING: "
-             (str "(" (:file env) ":" (:line env) 
-                  (when-let [col (:column env)]
-                    (str ":" col))
-                  ") ")
-             ss)
+      (println 
+        (apply str "WARNING (" (:file env) ":" (:line env) 
+               (when-let [col (:column env)]
+                 (str ":" col))
+               "): " ss))
       (flush))))
 
 (defmacro with-tracing [& body]
