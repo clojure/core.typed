@@ -80,7 +80,7 @@
       :else
       (let [_ (assert (not t))
             unannotated-def (some-> vs/*check-config* deref :unannotated-def)
-            _ (prn "unannotated-def" unannotated-def)
+            ;_ (prn "unannotated-def" unannotated-def)
             cinit (when init-provided
                     (check-fn init))
             cmeta (when meta

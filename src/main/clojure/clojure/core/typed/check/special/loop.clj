@@ -11,12 +11,15 @@
 (defn check-special-loop
   [check {[_ _ {{tsyns-quoted :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [tsyns-quoted (impl/impl-case
-                      :clojure tsyns-quoted
-                      :cljs (-> statements rest rest first :form :ann))
-        tsyns (if (seq? tsyns-quoted)
-                (second tsyns-quoted)
-                tsyns-quoted)
+  (let [ ; tools.analyzer preserves quotes
+        _ (impl/impl-case
+            :clojure (assert (and (seq? tsyns-quoted)
+                                  (#{'quote} (first tsyns-quoted)))
+                             (pr-str tsyns-quoted))
+            :cljs nil)
+        tsyns (impl/impl-case
+                :clojure (second tsyns-quoted)
+                :cljs (assert nil "TODO"))
         _ (assert (map? tsyns))
         tbindings (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (mapv (comp prs/parse-type :type) (:params tsyns)))
