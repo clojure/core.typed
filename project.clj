@@ -3,7 +3,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/clojure "1.9.0-alpha17"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
                  ;[org.clojure/clojurescript "0.0-SNAPSHOT"]
                  [org.clojure/clojurescript "1.9.946"]
                  [com.taoensso/timbre "2.1.2"]
