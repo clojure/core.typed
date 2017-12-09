@@ -669,7 +669,7 @@
      (ast-u/dummy-const-expr ::t/ann-form env)
      (ast-u/dummy-const-expr 
        {:type (binding [vs/*verbose-types* true]
-                (prs/unparse-type t))}
+                `(quote ~(prs/unparse-type t)))}
        env)]
     expr
     env))
@@ -2004,9 +2004,13 @@
                             ;_ (prn "inst-method" inst-method)
                             _ (assert (:this inst-method))
                             _ (assert (:params inst-method))
-                            _ (assert (:method inst-method))
                             ; minus the target arg
-                            method-sig (:method inst-method)]
+                            method-sig (first (filter 
+                                                (fn [{:keys [name required-params]}]
+                                                  (and (= (count (:parameter-types inst-method))
+                                                          (count required-params))
+                                                       (#{(munge method-nme)} name)))
+                                                (:methods inst-method)))]
                         (if-not method-sig
                           (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme)
                                                 :return [inst-method])

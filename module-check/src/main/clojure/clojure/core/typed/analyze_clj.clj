@@ -30,8 +30,7 @@
             [clojure.string :as str]
             [clojure.core :as core]
             [clojure.core.typed.ns-deps :as dep]
-            [clojure.core.typed.ns-deps-utils :as dep-u]
-            [clojure.core.typed.single-pass :as single])
+            [clojure.core.typed.ns-deps-utils :as dep-u])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
 ; Updated for Clojure 1.8
@@ -368,6 +367,8 @@
 
 (def typed-passes
   (-> taj/default-passes
+      ; this pass is manually inserted as we check
+      ; in functions like clojure.core.typed.check.utils/FieldExpr->Field
       ;(conj #'reflect-validated)
       (disj
         ;; trim conflicts with current approach of special typed forms implemented
@@ -401,7 +402,7 @@
    (let [old-bindings (or (some-> bindings-atom deref) {})]
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
-       (let [ana (single/analyze+eval form (or env (taj/empty-env))
+       (let [ana (analyze+eval form (or env (taj/empty-env))
                                (merge-with merge opts 
                                            {:bindings (thread-bindings)
                                             :special-form? special-form?}))]
