@@ -130,7 +130,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.reader</artifactId>
-      <version>1.0.0-beta3</version>
+      <version>1.1.1</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -180,7 +180,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
-      <version>0.3.443</version>
+      <version>0.3.465</version>
       <optional>true</optional>
       <exclusions>
         <exclusion>
