@@ -4229,8 +4229,8 @@
                    (binding [*foo* 1]
                      (set! *foo* nil))))
     (is-tc-e (do (t/def ^:dynamic *foo* :- Number 1)
-                   (binding [*foo* 1]
-                     (set! *foo* 2)))
+                 (binding [*foo* 1]
+                   (set! *foo* 2)))
              Num)
     (is-tc-err (do (t/def ^:dynamic *foo* :- Number 1)
                    (binding [*foo* 1]

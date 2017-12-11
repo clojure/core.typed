@@ -92,7 +92,7 @@
           (impl/with-clojure-impl
             (let [{:keys [ret result ex]}
                   (t/check-form-info rcode
-                                     :eval-out-ast (partial ana-clj/eval-ast {})
+                                     :eval-out-ast #(ana-clj/eval-ast % {})
                                      :bindings-atom session)]
               (if ex
                 (let [root-ex (#'clojure.main/root-cause ex)]
@@ -160,7 +160,7 @@
                       ;(prn "before" rcode (@session #'*ns*))
                       (let [{:keys [ret result ex]}
                             (t/check-form-info rcode
-                                               :eval-out-ast (partial ana-clj/eval-ast {})
+                                               :eval-out-ast #(ana-clj/eval-ast % {})
                                                :bindings-atom session)]
                         ;(prn "after" ex result)
                         (if ex

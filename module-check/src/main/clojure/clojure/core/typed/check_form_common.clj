@@ -125,7 +125,7 @@
                                  should-runtime-infer?)
                            nil
                            file-mapping)
-            eval-ast (fn [{:keys [expected] :as opt} ast]
+            eval-ast (fn [ast {:keys [expected] :as opt}]
                        (do (p/p :check-form/collect
                              (collect-expr ast))
                            (let [c-ast (do 
