@@ -30,10 +30,14 @@
 
 (defn map-expr-at [expr key]
   (impl/impl-case
-    :clojure (let [_ (assert (#{:const} (:op expr)))
-                   v (:val expr)]
-               (assert (contains? v key) key)
-               (get v key))
+    :clojure (case (:op expr)
+               :map (let [const (do (require '[clojure.tools.analyzer.passes.jvm.constant-lifter])
+                                    ((impl/v 'clojure.tools.analyzer.passes.jvm.constant-lifter/constant-lift) expr))]
+                      (assert (#{:const} (:op const)))
+                      (map-expr-at const key))
+               :const (let [v (:val expr)]
+                        (assert (contains? v key) key)
+                        (get v key)))
     :cljs (let [_ (assert (#{:map} (:op expr)))
                 m (zipmap (map :form (:keys expr))
                           (:vals expr))
