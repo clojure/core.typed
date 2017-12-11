@@ -11,6 +11,8 @@
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.tools.analyzer.passes.trim :as trim]
             [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-reflect]
+            [clojure.core.typed.analyzer2.jvm :as jana2]
+            [clojure.core.typed.analyzer2 :as ana2]
             [clojure.tools.reader :as tr]
             [clojure.tools.reader.reader-types :as readers]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
@@ -112,13 +114,13 @@
                      (let ~(vec (interleave bs gs))
                        ~@body)))))))
    #'clojure.core/for
-	 (fn [&form &env seq-exprs body-expr]
-		 (@#'T/for &form &env seq-exprs body-expr))
+   (fn [&form &env seq-exprs body-expr]
+     (@#'T/for &form &env seq-exprs body-expr))
 
    ;; setting the :macro metadata on a var is a runtime side effect that
    ;; core.typed cannot see. Here, we tc-ignore the body of macros manually.
    #'clojure.core/defmacro
-	 (fn [&form &env & args]
+   (fn [&form &env & args]
      `(T/tc-ignore
         ~(apply @#'core/defmacro &form &env args)))
    })
@@ -212,7 +214,7 @@
    :expected Takes :expected option, the expected static type or nil.
 
   Optional keyword arguments
-   :eval-fn  Takes :eval-fn option that takes an option map and an AST and returns an 
+   :eval-fn  Takes :eval-fn option that takes an AST and an option map and returns an 
              evaluated and possibly type-checked AST.
    :stop-analysis   an atom that, when set to true, will stop the next form from analysing.
                     This is helpful if in a top-level do and one of the do statements 
@@ -269,12 +271,12 @@
                     (unanalyzed-expr mform)
                     ;; rebinds *ns* during analysis
                     ;; FIXME unclear which map needs to have *ns*, especially post TAJ 0.3.0
-                    (eval-fn opts 
-                             (p/p :analyze-clj/analyze-no-eval
+                    (eval-fn (p/p :analyze-clj/analyze-no-eval
                                (taj/analyze mform (assoc env :ns (ns-name *ns*))
                                             (-> opts 
                                                 (dissoc :bindings-atom)
-                                                (assoc-in [:bindings #'*ns*] *ns*))))))
+                                                (assoc-in [:bindings #'*ns*] *ns*))))
+                             opts))
                   {:raw-forms raw-forms}))))))
 
 ;; reflect-validated from eastwood
@@ -366,13 +368,15 @@
 ;========================
 
 (def typed-passes
-  (-> taj/default-passes
+  (-> jana2/default-passes
       ; this pass is manually inserted as we check
       ; in functions like clojure.core.typed.check.utils/FieldExpr->Field
       ;(conj #'reflect-validated)
       (disj
         ;; trim conflicts with current approach of special typed forms implemented
         ;; as `do` nodes with constants.
+        ;; also, seems to rewrite (let [] ...) as (do ...), which conflicts
+        ;; with the Gilardi scenario, especially in the expansion of (binding [...] ...)
         #'trim/trim
         ;; We either rewrite reflective calls or throw a type error.
         ;; Reflective calls in untyped (tc-ignore'd) code will be signalled
@@ -382,14 +386,20 @@
 (def typed-schedule
   (passes/schedule typed-passes #_{:debug? true}))
 
+(comment
+  (clojure.pprint/pprint
+    (passes/schedule typed-passes {:debug? true}))
+  )
+
 (defn run-passes [ast]
   (typed-schedule ast))
 
 ;; (All [x ...] [-> '{(Var x) x ...})])
 (defn thread-bindings []
   (t/tc-ignore
-    {#'ta/macroexpand-1 macroexpand-1
-     #'taj/run-passes run-passes}))
+    {#'ana2/macroexpand-1 macroexpand-1
+     ;#'jana2/run-passes run-passes
+     }))
 
 ;; bindings is an atom that records any side effects during macroexpansion. Useful
 ;; for nREPL middleware.
@@ -402,10 +412,35 @@
    (let [old-bindings (or (some-> bindings-atom deref) {})]
      (with-bindings old-bindings
        ;(prn "analyze1 namespace" *ns*)
-       (let [ana (analyze+eval form (or env (taj/empty-env))
-                               (merge-with merge opts 
-                                           {:bindings (thread-bindings)
-                                            :special-form? special-form?}))]
+       (let [ana (jana2/analyze+eval 
+                   form (or env (taj/empty-env))
+                   (->
+                     (merge-with merge opts 
+                                 {:bindings (thread-bindings)
+                                  :special-form? special-form?})
+                     (assoc
+                       ;; if this is a typed special form like an ann-form, don't treat like
+                       ;; a top-level do.
+                       :additional-gilardi-condition 
+                       (fn [mform]
+                         (not (special-form? mform)))
+                       ;; propagate inner types to outer `do`
+                       :annotate-do
+                       (fn [a _ ret]
+                         ;; could be nil if ret is unanalyzed
+                         (assoc a u/expr-type (u/expr-type ret)))
+                       ;; don't propagate expected type to `do` statements
+                       :statement-opts-fn
+                       (fn [opts]
+                         (dissoc opts :expected))
+                       :analyze-env-fn
+                       (fn [env]
+                         (assoc env :ns (ns-name *ns*)))
+                       :analyze-opts-fn
+                       (fn [opts]
+                         (-> opts 
+                             (dissoc :bindings-atom)
+                             (assoc-in [:bindings #'*ns*] *ns*))))))]
          ;; only record vars that were already bound
          (when bindings-atom
            (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))
@@ -489,13 +524,13 @@
 (defn eval' [frm]
   (. clojure.lang.Compiler (eval frm)))
 
-(defn eval-ast [opts ast]
+(defn eval-ast [ast opts]
   ;; based on jvm/analyze+eval
   ;(let [frm (emit-form/emit-form ast)
   ;      result (try (eval frm)  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
   ;                  (catch Exception e
   ;                    (ExceptionThrown. e)))]
-  ;  (merge ast {:result result})))
+  ;  (merge ast {:result result}))
   (let [frm (emit-form/emit-form ast)
         ;_ (prn "form" frm)
         #_#_
@@ -504,6 +539,7 @@
                     ]
             (prn "form")
             (pp/pprint frm))
+        ;; TODO support `handle-evaluation-exception`
         result (eval' frm)]  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
     (merge ast {:result result})))
 

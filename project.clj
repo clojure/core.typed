@@ -8,7 +8,7 @@
                  [org.clojure/clojurescript "1.9.946"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
-                 [org.clojure/core.async "0.3.443"]
+                 [org.clojure/core.async "0.3.465"]
                  [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
                  [org.clojure/jvm.tools.analyzer "0.6.2" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.analyzer.jvm "0.7.0"]
