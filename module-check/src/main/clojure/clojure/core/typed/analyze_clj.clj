@@ -114,13 +114,13 @@
                      (let ~(vec (interleave bs gs))
                        ~@body)))))))
    #'clojure.core/for
-	 (fn [&form &env seq-exprs body-expr]
-		 (@#'T/for &form &env seq-exprs body-expr))
+   (fn [&form &env seq-exprs body-expr]
+     (@#'T/for &form &env seq-exprs body-expr))
 
    ;; setting the :macro metadata on a var is a runtime side effect that
    ;; core.typed cannot see. Here, we tc-ignore the body of macros manually.
    #'clojure.core/defmacro
-	 (fn [&form &env & args]
+   (fn [&form &env & args]
      `(T/tc-ignore
         ~(apply @#'core/defmacro &form &env args)))
    })
@@ -214,7 +214,7 @@
    :expected Takes :expected option, the expected static type or nil.
 
   Optional keyword arguments
-   :eval-fn  Takes :eval-fn option that takes an option map and an AST and returns an 
+   :eval-fn  Takes :eval-fn option that takes an AST and an option map and returns an 
              evaluated and possibly type-checked AST.
    :stop-analysis   an atom that, when set to true, will stop the next form from analysing.
                     This is helpful if in a top-level do and one of the do statements 
@@ -422,7 +422,8 @@
                        ;; if this is a typed special form like an ann-form, don't treat like
                        ;; a top-level do.
                        :additional-gilardi-condition 
-                       (fn [mform] (not (special-form? mform)))
+                       (fn [mform]
+                         (not (special-form? mform)))
                        ;; propagate inner types to outer `do`
                        :annotate-do
                        (fn [a _ ret]
@@ -431,7 +432,15 @@
                        ;; don't propagate expected type to `do` statements
                        :statement-opts-fn
                        (fn [opts]
-                         (dissoc opts :expected)))))]
+                         (dissoc opts :expected))
+                       :analyze-env-fn
+                       (fn [env]
+                         (assoc env :ns (ns-name *ns*)))
+                       :analyze-opts-fn
+                       (fn [opts]
+                         (-> opts 
+                             (dissoc :bindings-atom)
+                             (assoc-in [:bindings #'*ns*] *ns*))))))]
          ;; only record vars that were already bound
          (when bindings-atom
            (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))
@@ -530,7 +539,7 @@
                     ]
             (prn "form")
             (pp/pprint frm))
-				;; TODO support `handle-evaluation-exception`
+        ;; TODO support `handle-evaluation-exception`
         result (eval' frm)]  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
     (merge ast {:result result})))
 

@@ -8,16 +8,16 @@
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.tools.analyzer.passes :as passes]
-						[clojure.tools.analyzer.passes.trim :as trim]
+            [clojure.tools.analyzer.passes.trim :as trim]
             [clojure.tools.analyzer.passes.jvm.box :as box]
             [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-on-reflection]
-						[clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
-						[clojure.tools.analyzer.passes.uniquify :as uniquify]
-						[clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
+            [clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
+            [clojure.tools.analyzer.passes.uniquify :as uniquify]
+            [clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
             [clojure.tools.analyzer.passes.jvm.fix-case-test :as fix-case-test]
             [clojure.tools.analyzer.passes.jvm.infer-tag :as infer-tag]
-						[clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-						[clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
+            [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
+            [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
             [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.tools.analyzer.passes.jvm.validate-loop-locals :as validate-loop-locals]
@@ -27,7 +27,7 @@
             [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
             [clojure.tools.analyzer.passes.jvm.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer2 :as ana]
-						[clojure.core.memoize :as memo])
+            [clojure.core.memoize :as memo])
   (:import (clojure.lang IObj RT Var)))
 
 (def specials
@@ -282,7 +282,7 @@
    The atom is put in the :atom field of the node."
   {:pass-info {:walk :pre :depends #{#_#'uniquify-locals}  ;; TODO reincorporate this dependency
                :state (fn [] (atom {}))}}
-	[& args]
+  [& args]
   (apply add-binding-atom/add-binding-atom args))
 
 (defn fix-case-test
@@ -311,12 +311,12 @@
   * :infer-tag/level  If :global, infer-tag will perform Var tag
                       inference"
   {:pass-info {:walk :post :depends #{#'annotate-tag/annotate-tag 
-																			#'annotate-host-info/annotate-host-info 
+                                      #'annotate-host-info/annotate-host-info 
                                       ; use fix-case-test in this namespace
-																			#'fix-case-test 
+                                      #'fix-case-test 
                                       #'analyze-host-expr/analyze-host-expr} 
-							 ; don't care about trim
-							 #_#_:after #{#'trim}}}
+               ; don't care about trim
+               #_#_:after #{#'trim}}}
   [& args]
   (apply infer-tag/infer-tag args))
 
@@ -344,7 +344,7 @@
       those nodes are documented in the tools.analyzer quickref.
       The function must return a valid tools.analyzer.jvm AST node."
   {:pass-info {:walk :post :depends #{#'infer-tag
-																			#'analyze-host-expr/analyze-host-expr
+                                      #'analyze-host-expr/analyze-host-expr
                                       #'validate-recur/validate-recur}}}
   [& args]
   (apply validate/validate args))
@@ -353,8 +353,8 @@
   "Box the AST node tag where necessary"
   {:pass-info {:walk :pre :depends 
                ;; add this namespace's infer-tag
-							 #{#'infer-tag} 
-							 :after #{#'validate}}}
+               #{#'infer-tag} 
+               :after #{#'validate}}}
   [& args]
   (apply box/box args))
 
@@ -362,11 +362,11 @@
   "Returns a pass that validates the loop locals, calling analyze on the loop AST when
    a mismatched loop-local is found"
   {:pass-info {:walk :post :depends #{#'validate} 
-							 :affects #{#'analyze-host-expr/analyze-host-expr 
-													; use our infer-tag
-													#'infer-tag 
-													#'validate} 
-							 :after #{#'classify-invoke/classify-invoke}}}
+               :affects #{#'analyze-host-expr/analyze-host-expr 
+                          ; use our infer-tag
+                          #'infer-tag 
+                          #'validate} 
+               :after #{#'classify-invoke/classify-invoke}}}
   [& args]
   (apply validate-loop-locals/validate-loop-locals args))
 
@@ -383,7 +383,7 @@
      node"
   {:pass-info {:walk :post :depends #{#'validate}}} ;; use this validate
   [& args]
- 	(apply classify-invoke/classify-invoke args))
+   (apply classify-invoke/classify-invoke args))
 
 
 (def default-passes
@@ -393,7 +393,7 @@
   #{;#'warn-on-reflection
     ;#'warn-earmuff
 
-		; TODO reincorporate
+    ; TODO reincorporate
     ;#'uniquify-locals
     #'uniquify/uniquify-locals
 
@@ -405,7 +405,7 @@
 
     ;#'trim/trim
 
-		; FIXME is this needed? introduces another pass
+    ; FIXME is this needed? introduces another pass
     ;#'box
     ;#'box/box
 
@@ -473,7 +473,7 @@
                             #'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    taj/create-var
                             #'ana/parse         parse
-														#'ana/var?          var?
+                            #'ana/var?          var?
                             #'*ns*              (the-ns (:ns env))}
                            (:bindings opts))
        (env/ensure (taj/global-env)
@@ -488,13 +488,13 @@
   (throw (.e ^ExceptionThrown e)))
 
 (defn eval-ast [a {:keys [handle-evaluation-exception] 
-									 :or {handle-evaluation-exception throw!}
-									 :as opts}]
-	(let [frm (emit-form/emit-form a)
-				result (try (eval frm) ;; eval the emitted form rather than directly the form to avoid double macroexpansion
-										(catch Exception e
-											(handle-evaluation-exception (ExceptionThrown. e a))))]
-		(merge a {:result result})))
+                   :or {handle-evaluation-exception throw!}
+                   :as opts}]
+  (let [frm (emit-form/emit-form a)
+        result (try (eval frm) ;; eval the emitted form rather than directly the form to avoid double macroexpansion
+                    (catch Exception e
+                      (handle-evaluation-exception (ExceptionThrown. e a))))]
+    (merge a {:result result})))
 
 (defn analyze+eval
   "Like analyze but evals the form after the analysis and attaches the
@@ -514,13 +514,17 @@
   ([form] (analyze+eval form (taj/empty-env) {}))
   ([form env] (analyze+eval form env {}))
   ([form env {:keys [additional-gilardi-condition
-										 eval-fn
+                     eval-fn
                      annotate-do
-										 statement-opts-fn]
+                     statement-opts-fn
+                     analyze-opts-fn
+                     analyze-env-fn]
               :or {additional-gilardi-condition (fn [_] true)
-									 eval-fn eval-ast
+                   eval-fn eval-ast
                    annotate-do (fn [a _ _] a)
-                   statement-opts-fn identity}
+                   statement-opts-fn identity
+                   analyze-opts-fn identity
+                   analyze-env-fn identity}
               :as opts}]
      (env/ensure (taj/global-env)
        (taj/update-ns-map!)
@@ -528,7 +532,7 @@
              [mform raw-forms] (with-bindings {Compiler/LOADER     (RT/makeClassLoader)
                                                #'*ns*              (the-ns (:ns env))
                                                #'ana/macroexpand-1 (get-in opts [:bindings #'ana/macroexpand-1] 
-																																					 macroexpand-1)}
+                                                                           macroexpand-1)}
                                  (loop [form form raw-forms []]
                                    (let [mform (ana/macroexpand-1 form env)]
                                      (if (= mform form)
@@ -562,6 +566,6 @@
                 :raw-forms  raw-forms}
                statements-expr
                ret-expr))
-           (let [a (analyze mform env opts)
+           (let [a (analyze mform (analyze-env-fn env) (analyze-opts-fn opts))
                  e (eval-fn a opts)]
              (merge e {:raw-forms raw-forms})))))))

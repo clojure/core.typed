@@ -534,9 +534,9 @@
         pred-expr (ana/analyze1 ;; FIXME support CLJS
                     pred-form
                     env
-                    {:eval-fn (fn [opts ast] ast)})]
+                    {:eval-fn (fn [ast _] ast)})]
     (assert (= :do (:op pred-expr))
-            (:op pred-expr))
+            (pr-str (:op pred-expr)))
     (assert (= :invoke (-> pred-expr :ret :op))
             (-> pred-expr :ret :op))
     (assert (== 1 (-> pred-expr :ret :args count))

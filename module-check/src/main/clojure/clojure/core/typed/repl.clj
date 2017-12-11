@@ -154,7 +154,7 @@
                       *source-path* file-name]
               (loop [result nil]
                 (let [rcode (rd/read rdr false eof)]
-                  ;(prn rcode)
+                  ;(prn "rcode" rcode)
                   (if (not= eof rcode)
                     (do
                       ;(prn "before" rcode (@session #'*ns*))
