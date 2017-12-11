@@ -84,7 +84,8 @@
            unparse-ns]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
                   checked-ast no-eval bindings-atom]}]
-  {:pre [((some-fn nil? con/atom?) bindings-atom)]}
+  {:pre [((some-fn nil? con/atom?) bindings-atom)
+         ((some-fn nil? symbol?) unparse-ns)]}
   (assert (not (and expected-ret type-provided?)))
   (p/profile-if profile
     (reset-caches/reset-caches)
@@ -98,7 +99,7 @@
       (let [expected (or
                        expected-ret
                        (when type-provided?
-                         (r/ret (binding [prs/*parse-type-in-ns* (ns-name unparse-ns)]
+                         (r/ret (binding [prs/*parse-type-in-ns* unparse-ns]
                                   (prs/parse-type expected)))))
             stop-analysis (atom nil)
             delayed-errors-fn (fn [] (seq @vs/*delayed-errors*))
@@ -124,7 +125,7 @@
                                  should-runtime-infer?)
                            nil
                            file-mapping)
-            eval-ast (fn [{:keys [expected] :as opt} ast]
+            eval-ast (fn [ast {:keys [expected] :as opt}]
                        (do (p/p :check-form/collect
                              (collect-expr ast))
                            (let [c-ast (do 

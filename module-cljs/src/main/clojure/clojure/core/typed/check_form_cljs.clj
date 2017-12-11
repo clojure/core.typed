@@ -29,7 +29,8 @@
   [form expected expected-provided?]
   (ucljs/with-cljs-typed-env
     (comp/with-core-cljs
-      (let [config (config-map)]
-        (impl/with-full-impl (:impl config)
-          (chk-form/check-form* config
-             form expected expected-provided?))))))
+      nil
+      #(let [config (config-map)]
+         (impl/with-full-impl (:impl config)
+           (chk-form/check-form* config
+              form expected expected-provided?))))))

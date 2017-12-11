@@ -16,11 +16,12 @@
   "Return the raw type annotation from the ann-form expression."
   [{:keys [statements] :as expr}]
   (let [[_ _ texpr] statements
-        tsyn-quoted (ast-u/map-expr-at texpr :type)
-        tsyn (impl/impl-case
-               :clojure tsyn-quoted
-               :cljs tsyn-quoted)]
-    tsyn))
+        tsyns-quoted (ast-u/map-expr-at texpr :type)
+        _ (assert (and (seq? tsyns-quoted)
+                       (= 'quote (first tsyns-quoted)))
+                  (pr-str tsyns-quoted))]
+    ;; always quoted
+    (second tsyns-quoted)))
 
 (defn parse-annotation
   "Parse the raw type annotation tsyn in the context of expr"

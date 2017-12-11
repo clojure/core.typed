@@ -1854,11 +1854,8 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro ann 
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
   If varsym has metadata {:no-check true}, ignore definitions of varsym 
-  while type checking.
-
-  If annotating vars in namespaces other than the current one, a fully
-  qualified symbol must be provided. Note that namespace aliases are not
-  recognised: the *full* namespace must be given in the first part of the symbol.
+  while type checking. Supports namespace aliases and fully qualified namespaces
+  to annotate vars in other namespaces.
   
   eg. ; annotate the var foo in this namespace
       (ann foo [Number -> Number])
@@ -1869,19 +1866,14 @@ for checking namespaces, cf for checking individual forms."}
       ; don't check this var
       (ann ^:no-check foobar [Integer -> String])"
   [varsym typesyn]
-  (let [qsym (if (namespace varsym)
-               varsym
+  (let [qsym (if-let [nsym (some-> (namespace varsym) symbol)]
+               (symbol (if-let [ns (get (ns-aliases *ns*) nsym)]
+                         (-> ns ns-name str)
+                         (str nsym))
+                       (name varsym))
                (symbol (-> *ns* ns-name str) (str varsym)))
-        _ (when (contains? (meta varsym) :nocheck)
-            (err/deprecated-macro-syntax
-              &form 
-              (str ":nocheck metadata for ann is renamed :no-check")))
         opts (meta varsym)
-        _ (assert (not (and (contains? opts :nocheck)
-                            (contains? opts :no-check)))
-                  "Cannot provide both :nocheck and :no-check metadata to ann")
-        check? (not (or (:no-check opts)
-                        (:nocheck opts)))]
+        check? (not (:no-check opts))]
     `(tc-ignore (ann* '~qsym '~typesyn '~check? '~&form))))
 
 (defmacro ann-many
@@ -2120,7 +2112,6 @@ for checking namespaces, cf for checking individual forms."}
                             "): " (str/join ", " (map first dups))))
               (flush)))
         ; duplicates are checked above.
-        ; duplicate munged methods are checked in collect-phase
         {:as mth} mth]
     `(tc-ignore (ann-protocol* '~vbnd '~varsym '~mth '~&form))))
 
@@ -2173,7 +2164,6 @@ for checking namespaces, cf for checking individual forms."}
                             "): " (str/join ", " (map first dups))))
               (flush)))
         ; duplicates are checked above.
-        ; duplicate munged methods are checked in collect-phase
         {:as mth} mth
         qualsym (if (namespace clsym)
                   clsym
@@ -2379,25 +2369,35 @@ for checking namespaces, cf for checking individual forms."}
    ([form] `(check-form* '~form))
    ([form expected] `(check-form* '~form '~expected)))
 
+
+(defn default-check-config []
+  {:check-ns-dep :recheck
+   :unannotated-def :infer
+   :unannotated-var :error
+   #_#_:unannotated-arg :any})
+
 (defn check-ns-info
   "Same as check-ns, but returns a map of results from type checking the
   namespace.
 
   Options
   - :collect-only    Don't type check the given namespace/s, but collect the 
-                     top level type annotations like ann, ann-record.
+  top level type annotations like ann, ann-record.
   - :type-provided?  If true, use the expected type to check the form
   - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency. Must use the \"slim\" JAR.
+  added as a dependency. Must use the \"slim\" JAR.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
-                     of (Map '{:line Int :column Int :file Str} Str).
+  of (Map '{:line Int :column Int :file Str} Str).
+  - :check-deps      If true, recursively type check namespace dependencies.
+  Default: true
 
   Default return map
   - :delayed-errors  A sequence of delayed errors (ex-info instances)"
   ([] (check-ns-info *ns*))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-clj/check-ns-info) ns-or-syms opt)))
+   (let [opt (update opt :check-config #(merge (default-check-config) %))]
+     ((impl/v 'clojure.core.typed.check-ns-clj/check-ns-info) ns-or-syms opt))))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
@@ -2410,11 +2410,39 @@ for checking namespaces, cf for checking individual forms."}
   Suggested idiom for clojure.test: (is (check-ns 'your.ns))
   
   Keyword arguments:
-  - :collect-only  if true, collect type annotations but don't type check code.
+  - :collect-only  If true, collect type annotations but don't type check code.
                    Useful for debugging purposes.
-  - :trace         if true, print some basic tracing of the type checker
-  - :profile       Use Timbre to profile the type checker. Timbre must be
+                   Default: nil
+  - :trace         If true, print some basic tracing of the type checker
+                   Default: nil
+  - :profile       If true, use Timbre to profile the type checker. Timbre must be
                    added as a dependency. Must use the \"slim\" JAR.
+                   Default: nil
+  - :check-config   Configuration map for the type checker.
+    - :check-ns-dep  If `:recheck`, always check dependencies.
+                     If `:never`, ns dependencies are ignored.
+                     #{:recheck :never}
+                     Default: :recheck
+    - :unannotated-def   If `:unchecked`, unannotated defs are checked as
+                         Unchecked (unsound), and their return type is not recorded.
+                         If `:infer`, unannotated defs are inferred and
+                         the type is recorded in the type environment.
+                         #{:unchecked :infer}
+    - :unannotated-var   If `:unchecked`, unannotated vars are given an *unsound*
+                         annotation that is used to statically infer its type
+                         based on usages/definition (see `infer-unannotated-vars`).
+                         If `:any`, usages of unannotated vars are given type `Any` (sound).
+                         If `:error`, unannotated vars are a type error (sound).
+                         #{:unchecked :any :error}
+                         Default: :error
+    - :unannotated-arg   (Not Yet Implemented)
+                         If `:unchecked`, unannotated fn arguments are given an *unsound*
+                         annotation that is used to statically infer its argument types
+                         based on definition.
+                         If `:any`, unannotated fn arguments are give type `Any` (sound).
+                         #{:unchecked :any}
+                         Default: :any
+
 
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
@@ -2432,10 +2460,22 @@ for checking namespaces, cf for checking individual forms."}
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
   ([] (check-ns *ns*))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt)))
+   (let [opt (update opt :check-config #(merge (default-check-config) %))]
+     ((impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt))))
 
+(defn check-ns2 
+  ([] (check-ns2 *ns*))
+  ([ns-or-syms & {:as opt}]
+   (load-if-needed)
+   (let [opt (update opt :check-config
+                     #(merge {:check-ns-dep :never
+                              :unannotated-def :unchecked
+                              :unannotated-var :unchecked
+                              :unannotated-arg :unchecked}
+                             %))]
+     ((impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt))))
 
 ;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
 (defn statistics 
@@ -2765,7 +2805,7 @@ for checking namespaces, cf for checking individual forms."}
   Then run check-ns like usual, and infer-unannotated-vars
   will return the inferred vars without annotations.
 
-  (t/infer-untyped-vars)
+  (t/infer-unannotated-vars)
   => [(t/ann u/bar t/Int)
       (t/ann u/foo (t/U [t/Any -> t/Any] Int))]
                                 "

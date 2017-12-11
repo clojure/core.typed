@@ -13,13 +13,15 @@
             [clojure.core.typed.errors :as err]))
 
 (defn check-ns-info
-  [ns-or-syms & opt]
+  [ns-or-syms opt]
   (ucljs/with-cljs-typed-env
     (comp/with-core-cljs
-      (apply chk-ns/check-ns-info impl/clojurescript ns-or-syms opt))))
+      nil
+      #(chk-ns/check-ns-info impl/clojurescript ns-or-syms opt))))
 
 (defn check-ns
-  [ns-or-syms & opt]
+  [ns-or-syms opt]
   (ucljs/with-cljs-typed-env
     (comp/with-core-cljs
-      (apply chk-ns/check-ns impl/clojurescript ns-or-syms opt))))
+      nil
+      #(chk-ns/check-ns impl/clojurescript ns-or-syms opt))))

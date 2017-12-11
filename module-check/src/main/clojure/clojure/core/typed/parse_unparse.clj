@@ -220,6 +220,7 @@
 
 (defmethod parse-type-list 'CountRange [t] (parse-CountRange t))
 (defmethod parse-type-list 'clojure.core.typed/CountRange [t] (parse-CountRange t))
+(defmethod parse-type-list 'cljs.core.typed/CountRange [t] (parse-CountRange t))
 
 (defn parse-ExactCount [[_ & [n :as args]]]
   (when-not (#{1} (count args))
@@ -230,6 +231,7 @@
 
 (defmethod parse-type-list 'ExactCount [t] (parse-ExactCount t))
 (defmethod parse-type-list 'clojure.core.typed/ExactCount [t] (parse-ExactCount t))
+(defmethod parse-type-list 'cljs.core.typed/ExactCount [t] (parse-ExactCount t))
 
 (defn- RClass-of-var []
   (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'RClass-of)]
@@ -273,11 +275,13 @@
   (err/deprecated-plain-op 'Difference)
   (parse-Difference t))
 (defmethod parse-type-list 'clojure.core.typed/Difference [t] (parse-Difference t))
+(defmethod parse-type-list 'cljs.core.typed/Difference [t] (parse-Difference t))
 
 (defmethod parse-type-list 'Rec [syn] 
   (err/deprecated-plain-op 'Rec)
   (parse-rec-type syn))
 (defmethod parse-type-list 'clojure.core.typed/Rec [syn] (parse-rec-type syn))
+(defmethod parse-type-list 'cljs.core.typed/Rec [syn] (parse-rec-type syn))
 
 (defn parse-Assoc [[_ tsyn & entries :as all]]
   (when-not (<= 1 (count (next all)))
@@ -318,6 +322,7 @@
 
 (defmethod parse-type-list 'Assoc [t] (parse-Assoc t))
 (defmethod parse-type-list 'clojure.core.typed/Assoc [t] (parse-Assoc t))
+(defmethod parse-type-list 'cljs.core.typed/Assoc [t] (parse-Assoc t))
 
 (defn parse-Get [[_ tsyn keysyn & not-foundsyn :as all]]
   (when-not (#{2 3} (count (next all)))
@@ -330,6 +335,7 @@
 
 (defmethod parse-type-list 'Get [t] (parse-Get t))
 (defmethod parse-type-list 'clojure.core.typed/Get [t] (parse-Get t))
+(defmethod parse-type-list 'cljs.core.typed/Get [t] (parse-Get t))
 
 ; convert flattened kw arguments to vectors
 (defn normalise-binder [bnds]
@@ -665,14 +671,17 @@
 
 (defmethod parse-type-list 'HVec [t] (parse-HVec t))
 (defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
+(defmethod parse-type-list 'cljs.core.typed/HVec [t] (parse-HVec t))
 
 (defmethod parse-type-list 'HSequential [t] (parse-HSequential t))
 (defmethod parse-type-list 'clojure.core.typed/HSequential [t] (parse-HSequential t))
+(defmethod parse-type-list 'cljs.core.typed/HSequential [t] (parse-HSequential t))
 
 (defmethod parse-type-list 'HSeq [t] 
   (err/deprecated-plain-op 'HSeq)
   (parse-HSeq t))
 (defmethod parse-type-list 'clojure.core.typed/HSeq [t] (parse-HSeq t))
+(defmethod parse-type-list 'cljs.core.typed/HSeq [t] (parse-HSeq t))
 
 (defn parse-HSet [[_ ts & {:keys [complete?] :or {complete? true}} :as args]]
   (let [bad (seq (remove hset/valid-fixed? ts))]
@@ -681,6 +690,7 @@
     (r/-hset (set (map r/-val ts)) :complete? complete?)))
 
 (defmethod parse-type-list 'clojure.core.typed/HSet [t] (parse-HSet t))
+(defmethod parse-type-list 'cljs.core.typed/HSet [t] (parse-HSet t))
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (when mandatory
@@ -776,10 +786,11 @@
 
 (defmethod parse-type-list 'HMap [t] (parse-HMap t))
 (defmethod parse-type-list 'clojure.core.typed/HMap [t] (parse-HMap t))
+(defmethod parse-type-list 'cljs.core.typed/HMap [t] (parse-HMap t))
 
 (defn- parse-in-ns []
   {:post [(symbol? %)]}
-  (or (some-> *parse-type-in-ns* ns-name)
+  (or *parse-type-in-ns*
       (impl/impl-case
         :clojure (ns-name *ns*)
         :cljs (do
@@ -833,6 +844,8 @@
 (defmethod parse-type-list 'Value [t] (parse-Value t))
 (defmethod parse-type-list 'clojure.core.typed/Val [t] (parse-Value t))
 (defmethod parse-type-list 'clojure.core.typed/Value [t] (parse-Value t))
+(defmethod parse-type-list 'cljs.core.typed/Val [t] (parse-Value t))
+(defmethod parse-type-list 'cljs.core.typed/Value [t] (parse-Value t))
 
 (defmethod parse-type-list 'KeywordArgs
   [[_KeywordArgs_ & {:keys [optional mandatory]}]]
@@ -1348,7 +1361,10 @@
 (defn unp [t] (prn (unparse-type t)))
 
 (defmethod unparse-type* Top [_] (unparse-Name-symbol-in-ns `t/Any))
-(defmethod unparse-type* Unchecked [_] 'Unchecked)
+(defmethod unparse-type* Unchecked [{:keys [vsym] :as t}]
+  (if vsym
+    (list 'Unchecked vsym)
+    'Unchecked))
 (defmethod unparse-type* TCError [_] 'Error)
 (defmethod unparse-type* Name [{:keys [id]}] (unparse-Name-symbol-in-ns id))
 (defmethod unparse-type* AnyValue [_] (unparse-Name-symbol-in-ns `t/AnyValue))

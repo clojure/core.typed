@@ -5,18 +5,19 @@
 
 (defonce ^:private attempted-loading? (atom false))
 (defonce ^:private successfully-loaded? (atom false))
+(defonce ^:private cljs-loaded? (atom false))
 
 (defonce ^:private cljs-present? (atom false))
 
 (defn loaded? []
   @successfully-loaded?)
 
-(defn cljs? []
-  #_@cljs-present?
-  nil
-  )
+(defn has-cljs-loaded? []
+  @cljs-loaded?)
 
-(defn load-impl []
+(defn load-impl 
+  ([] (load-impl false))
+  ([cljs?]
   (cond 
     (and @attempted-loading?
          (not @successfully-loaded?))
@@ -24,7 +25,10 @@
              (str "There was previously an unrecoverable internal error while loading core.typed." 
                   " Please restart your process.")))
 
-    (and @successfully-loaded? @attempted-loading?)
+    (and @successfully-loaded? @attempted-loading?
+         (if cljs?
+           @cljs-loaded?
+           true))
     nil
 
     :else
@@ -78,11 +82,10 @@
                  '[clojure.core.typed.statistics]
                  '[clojure.core.typed.load1]
                  ; used by check-ns-info
-                 ;'[clojure.jvm.tools.analyzer]
+                 '[clojure.jvm.tools.analyzer]
 
                  '[clojure.core.typed.parse-ast]
                  '[clojure.core.typed.file-mapping]
-                 '[clojure.core.typed.collect-phase]
                  '[clojure.core.typed.base-env]
                  '[clojure.core.typed.ns-deps]
                  '[clojure.core.typed.reset-env]
@@ -91,7 +94,7 @@
                  '[clojure.core.typed.rclass-ancestor-env]
                  '[clojure.core.typed.all-envs]
                  '[clojure.reflect])
-        (when nil #_(io/resource "cljs/analyzer.clj")
+        (when cljs?
           (do
             (println "Found ClojureScript, loading ...")
             (flush)
@@ -107,6 +110,7 @@
               '[clojure.core.typed.check-ns-cljs]
               '[clojure.core.typed.base-env-helper-cljs])
             (reset! cljs-present? true)
+            (reset! cljs-loaded? true)
             (println "Finished loading ClojureScript")
             (flush)))
         (catch Exception e
@@ -119,9 +123,10 @@
       ;  ((impl/v 'clojure.core.typed.reset-env/reset-envs!)))
       (impl/with-clojure-impl
         ((impl/v 'clojure.core.typed.reset-env/load-core-envs!)))
-      (when (cljs?)
+      (when cljs?
         (impl/with-cljs-impl
-          ((impl/v 'clojure.core.typed.reset-env/load-core-envs!))))
+          ;; FIXME should be load-core-envs!
+          ((impl/v 'clojure.core.typed.reset-env/reset-envs!) cljs?)))
       (println "Finished building base environments")
       (flush)
-      nil)))
+      nil))))

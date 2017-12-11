@@ -22,6 +22,7 @@
   </parent>
 
   <modules>
+    <!--<module>module-cljs</module>-->
     <module>module-check</module>
     <module>module-rt</module>
   </modules>
@@ -30,7 +31,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.9.0-alpha20</version>
+      <version>1.9.0</version>
     </dependency>
   </dependencies>
 

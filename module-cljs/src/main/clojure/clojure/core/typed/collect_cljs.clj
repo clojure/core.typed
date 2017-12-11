@@ -20,7 +20,6 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.collect-phase :as coll-clj]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.datatype-env :as dt-env]
             [clojure.core.typed.base-env-helper-cljs :as beh-cljs]

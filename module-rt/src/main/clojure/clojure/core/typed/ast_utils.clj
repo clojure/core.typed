@@ -18,9 +18,9 @@
             ((impl/v 'clojure.core.typed.util-cljs/emit-form) expr))))
 
 (defn constant-expr [expr]
-  {:pre [(#{:quote} (:op expr))]}
-  (do (assert (#{:const} (:op (:expr expr))))
-      (-> expr :expr :val)))
+  {:pre [(#{:quote} (:op expr))
+         (#{:const} (:op (:expr expr)))]}
+  (-> expr :expr :val))
 
 (defn do-statements-value [cexprs]
   ((impl/impl-case
@@ -110,9 +110,10 @@
    :form val})
 
 (defn method-body-kw []
-  (impl/impl-case
-    :clojure :body
-    :cljs :expr))
+  #_(impl/impl-case
+   :clojure :body
+   :cljs :expr)
+  :body)
 
 (defn method-required-params [method]
   (impl/impl-case
@@ -156,9 +157,7 @@
                                         [rest-param]))))))
 
 (defn let-body-kw []
-  (impl/impl-case
-    :clojure :body
-    :cljs :expr))
+  :body)
 
 (defn def-var-name [expr]
   {:post [(symbol? %)]}
@@ -233,3 +232,14 @@
                   (check ce)))))
     expr
     children))
+
+(defn strip-extra-info [expr]
+  (cond (map? expr)
+        (into {} (sort (reduce (fn [acc [k x]]
+                             (if (some #(= k %) [:env :line :column :info :shadow])
+                               acc
+                               (assoc acc k (strip-extra-info x))))
+                           {} expr)))
+        (seqable? expr)
+        (mapv strip-extra-info (seq expr))
+        :else expr))

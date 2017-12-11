@@ -27,8 +27,6 @@
             [clojure.core.typed.ast-utils :as ast-u])
   (:import (clojure.lang MultiFn)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ;(t/ann expr-ns [Any -> t/Sym])
 (defn expr-ns [expr]
   {:post [(symbol? %)]}
@@ -47,11 +45,8 @@
   (r/-val (:val k)))
 
 (defn fn-self-name [{:keys [op] :as fexpr}]
-  (impl/impl-case
-    :clojure (do (assert (#{:fn} op))
-                 (-> fexpr :local :name))
-    :cljs (do (assert (#{:fn} op))
-              (-> fexpr :name :name))))
+  (assert (#{:fn} op))
+  (-> fexpr :local :name))
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]
@@ -443,13 +438,27 @@
   (t/when-let-fail [a vs/*already-checked*]
     (boolean (@a nsym))))
 
+(defn check-deps [nsym {:keys [check-ns] :as config}]
+  (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
+    (let [deps (u/p :check/ns-immediate-deps 
+                    (ns-deps/typed-deps nsym))]
+      (checked-ns! nsym)
+      ;check deps added with typed-deps
+      (doseq [dep deps]
+        (check-ns dep))
+      ;check normal dependencies
+      (doseq [dep (ns-depsu/deps-for-ns nsym)]
+        ;; ensure namespace actually exists
+        (when (ns-depsu/should-check-ns? nsym)
+          (check-ns dep))))))
+
 (defn check-ns-and-deps*
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
   has already been collected."
   ([nsym {:keys [ast-for-ns
                  check-asts
-                 check-ns]}]
+                 check-ns] :as config}]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (u/p :check/check-ns-and-deps
@@ -461,17 +470,7 @@
                                  nil)
        :else
        ; check deps
-       (let [deps (u/p :check/ns-immediate-deps 
-                    (ns-deps/typed-deps nsym))]
-         (checked-ns! nsym)
-         ;check deps added with typed-deps
-         (doseq [dep deps]
-           (check-ns dep))
-         ;check normal dependencies
-         (doseq [dep (ns-depsu/deps-for-ns nsym)]
-           ;; ensure namespace actually exists
-           (when (ns-depsu/should-check-ns? nsym)
-             (check-ns dep)))
+       (let [_ (check-deps nsym config)]
          ; ignore ns declaration
          (let [ns-form (ns-depsu/ns-form-for-ns nsym)
                check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
@@ -535,9 +534,9 @@
         pred-expr (ana/analyze1 ;; FIXME support CLJS
                     pred-form
                     env
-                    {:eval-fn (fn [opts ast] ast)})]
+                    {:eval-fn (fn [ast _] ast)})]
     (assert (= :do (:op pred-expr))
-            (:op pred-expr))
+            (pr-str (:op pred-expr)))
     (assert (= :invoke (-> pred-expr :ret :op))
             (-> pred-expr :ret :op))
     (assert (== 1 (-> pred-expr :ret :args count))

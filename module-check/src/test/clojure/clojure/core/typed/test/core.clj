@@ -20,7 +20,6 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.update :as update :refer [env+ update]]
             [clojure.core.typed.tc-equiv :refer [tc-equiv]]
-            [clojure.core.typed.collect-phase :as collect]
             [clojure.core.typed.collect-utils :as collect-u]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
@@ -4230,8 +4229,8 @@
                    (binding [*foo* 1]
                      (set! *foo* nil))))
     (is-tc-e (do (t/def ^:dynamic *foo* :- Number 1)
-                   (binding [*foo* 1]
-                     (set! *foo* 2)))
+                 (binding [*foo* 1]
+                   (set! *foo* 2)))
              Num)
     (is-tc-err (do (t/def ^:dynamic *foo* :- Number 1)
                    (binding [*foo* 1]
@@ -5549,6 +5548,20 @@
   ;(is-tc-e (fn [^{:clojure.core.typed/ann t/Num} a] (inc a)))
   ;(is-tc-err (fn [^{:clojure.core.typed/ann t/Bool} a] (inc a)))
 )
+
+(deftest ann-namespace-alias-test
+  (is (check-ns 'clojure.core.typed.test.ann-qualify.child)))
+
+(deftest multimethod-no-expected-test
+  (is-tc-e (do (ann f [Any :-> Any])
+               (defmulti f identity)
+               (defmethod f :foo [a]
+                 1)))
+  (is-tc-e (defmulti f identity))
+  (is-tc-e (do (defmulti f identity)
+               ;(ann-form f Nothing)
+               (defmethod f :foo [a]
+                 1))))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 

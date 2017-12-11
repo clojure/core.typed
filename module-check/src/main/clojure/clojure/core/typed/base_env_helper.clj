@@ -13,7 +13,6 @@
             [clojure.core.typed.name-env]
             [clojure.core.typed.var-env]
             [clojure.core.typed.ns-deps]
-            [clojure.core.typed.collect-phase :as coll]
             [clojure.pprint :as pprint]))
 
 (defn qualify-in-cct [as]
@@ -47,7 +46,7 @@
            _# (assert (instance? clojure.lang.Namespace this-ns#))
            ts# (partition 2 '~args)
            conveyed-parse# (fn [s#]
-                             (binding [prs/*parse-type-in-ns* this-ns#]
+                             (binding [prs/*parse-type-in-ns* (ns-name this-ns#)]
                                (prs/parse-type s#)))]
        (into {}
              (doall

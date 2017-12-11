@@ -18,7 +18,7 @@
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   []
-  (load/load-if-needed))
+  (load/load-if-needed true))
 
 (defn reset-caches
   "Reset internal type caches."
@@ -172,8 +172,8 @@
     `(cljs.core/letfn ~(vec inits)
        ;unquoted to allow bindings to resolve with hygiene
        ~init-syn
-       ;preserve letfn empty body
-       nil
+       ;;preserve letfn empty body
+       ;;nil
        ~@body)))
 
 (defmacro 
@@ -257,10 +257,10 @@
   ([]
    (load-if-needed)
    (check-ns-info ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-cljs/check-ns-info)
-          ns-or-syms opt)))
+   ((impl/v 'clojure.core.typed.check-ns-cljs/check-ns-info)
+    ns-or-syms opt)))
 
 (defn check-ns*
   "Check a Clojurescript namespace, or the current namespace.
@@ -269,10 +269,10 @@
   ([] 
    (load-if-needed)
    (check-ns* ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
-  ([ns-or-syms & opt]
+  ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns-cljs/check-ns) 
-          ns-or-syms opt)))
+   ((impl/v 'clojure.core.typed.check-ns-cljs/check-ns) 
+    ns-or-syms opt)))
 
 (defmacro check-ns
   "Check a Clojurescript namespace, or the current namespace. This macro

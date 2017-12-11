@@ -1,3 +1,11 @@
+# 0.5.0 - SNAPSHOT
+
+- support ns aliases in `ann`
+- remove support for deprecated `ann` `:nocheck` syntax
+- `check-ns` et. al no longer recursively check file
+  dependencies. Use `(check-ns *ns* :check-deps true)`
+  to recursively check dependencies.
+
 # 0.4.3 - 13 October 2017
 
 - add :spec-macros option to `spec-infer`

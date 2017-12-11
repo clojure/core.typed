@@ -1,7 +1,5 @@
 (ns clojure.core.typed.check
-  {:skip-wiki true
-   :core.typed {:collect-only true
-                :no-typed-load true}}
+  {:skip-wiki true}
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.debug :refer [dbg]]
@@ -177,11 +175,6 @@
           (vector? (:items %))]}
   (vec/check-vector check expr expected))
 
-(defn throw-on-false [pred e]
-  (if pred
-    e
-    (throw (Exception. "Failure"))))
-
 (defn should-infer-vars? [expr]
   (-> (cu/expr-ns expr)
       find-ns
@@ -227,11 +220,26 @@
 
         ;; :infer-vars are enabled for this namespace, this
         ;; var dereference is the dynamic type
-        (should-infer-vars? expr)
-        (assoc expr
-               u/expr-type (below/maybe-check-below
-                             (r/ret (r/-unchecked vsym))
-                             expected))
+        (or (should-infer-vars? expr)
+            (impl/impl-case
+              :clojure (= :unchecked 
+                          (some-> vs/*check-config* deref :unannotated-var))
+              :cljs nil))
+        (do
+          (println (str "Inferring " vsym " dereference as Unchecked"))
+          (assoc expr
+                 u/expr-type (below/maybe-check-below
+                               (r/ret (r/-unchecked vsym))
+                               expected)))
+        (impl/impl-case
+          :clojure (= :any (some-> vs/*check-config* deref :unannotated-var))
+          :cljs nil)
+        (do
+          (println (str "Inferring " vsym " dereference as Any"))
+          (assoc expr
+                 u/expr-type (below/maybe-check-below
+                               (r/ret r/-any)
+                               expected)))
 
 
         :else
@@ -661,7 +669,7 @@
      (ast-u/dummy-const-expr ::t/ann-form env)
      (ast-u/dummy-const-expr 
        {:type (binding [vs/*verbose-types* true]
-                (prs/unparse-type t))}
+                `(quote ~(prs/unparse-type t)))}
        env)]
     expr
     env))
@@ -1305,7 +1313,8 @@
       (or (and (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
                (not (var-env/lookup-Var-nofail mmsym)))
           (not (var-env/check-var? mmsym)))
-      (do (u/tc-warning (str "Not checking defmethod " mmsym " with dispatch value" (ast-u/emit-form-fn dispatch-val-expr)))
+      (do (u/tc-warning (str "Not checking defmethod " mmsym " with dispatch value: " 
+                             (pr-str (ast-u/emit-form-fn dispatch-val-expr))))
           (p/p :check/skip-MultiFn-addMethod)
           ret-expr)
       :else
@@ -1713,8 +1722,6 @@
 
 (add-new-special-method 'clojure.lang.MultiFn
   [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
-  (when-not expected
-    (err/int-error "clojure.lang.MultiFn constructor requires an expected type"))
   (when-not (== 4 (count args))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
   (when-not (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
@@ -1725,21 +1732,21 @@
         _ (when-not (string? mm-name)
             (err/int-error "MultiFn name must be a literal string"))
         mm-qual (symbol (str (cu/expr-ns expr)) mm-name)
-        ;_ (prn "mm-qual" mm-qual)
-        ;_ (prn "expected r/ret-t" (prs/unparse-type (r/ret-t expected)))
-        ;_ (prn "expected r/ret-t class" (class (r/ret-t expected)))
-        expected-mm-disp (multi/expected-dispatch-type (r/ret-t expected))
         cdisp (check dispatch-expr)
+        expected-mm-disp (multi/expected-dispatch-type (or (when expected
+                                                             (r/ret-t expected))
+                                                           (r/ret-t (u/expr-type cdisp))))
+        ;; use the dispatch expected type when expected not available,
+        ;; this way the type of the entire multimethod must correspond
+        ;; to the inputs accepted by the dispatch function.
+        expected-t (or (when expected
+                         (r/ret-t expected))
+                       expected-mm-disp)
+        _ (assert (r/Type? expected-t))
         _ (when-not (sub/subtype? (-> cdisp u/expr-type r/ret-t) expected-mm-disp)
             (binding [vs/*current-expr* cdisp
                       vs/*current-env* (:env cdisp)]
               (cu/expected-error (-> cdisp u/expr-type r/ret-t) expected-mm-disp)))
-        ; jamming this here to make sure filters/objects are consistent.
-        ; FIXME This entire function uses expected in strange ways, should probably rethink.
-        _ (binding [vs/*current-expr* expr]
-            (below/maybe-check-below
-              (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected)))
-              expected))
         cargs [(check nme-expr)
                cdisp
                (check default-expr)
@@ -1749,7 +1756,8 @@
     (assoc expr
            :args cargs
            u/expr-type (below/maybe-check-below
-                         (r/ret (c/In (c/RClass-of clojure.lang.MultiFn) (r/ret-t expected)))
+                         (r/ret (c/In #_(c/RClass-of clojure.lang.MultiFn) 
+                                      expected-t))
                          expected))))
 
 (defmethod new-special :default [expr & [expected]] cu/not-special)
@@ -1996,9 +2004,13 @@
                             ;_ (prn "inst-method" inst-method)
                             _ (assert (:this inst-method))
                             _ (assert (:params inst-method))
-                            _ (assert (:method inst-method))
                             ; minus the target arg
-                            method-sig (:method inst-method)]
+                            method-sig (first (filter 
+                                                (fn [{:keys [name required-params]}]
+                                                  (and (= (count (:parameter-types inst-method))
+                                                          (count required-params))
+                                                       (#{(munge method-nme)} name)))
+                                                (:methods inst-method)))]
                         (if-not method-sig
                           (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme)
                                                 :return [inst-method])

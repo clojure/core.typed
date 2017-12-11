@@ -1,5 +1,6 @@
 (ns clojure.core.typed.check-below
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
@@ -19,10 +20,11 @@
 (defn subtype? [t1 t2]
   (let [s (sub/subtype? t1 t2)]
     (when (r/Unchecked? t1)
-      (infer-vars/add-inferred-type
-        (cu/expr-ns vs/*current-expr*)
-        (:vsym t1)
-        t2))
+      (when-some [vsym (:vsym t1)]
+        (infer-vars/add-inferred-type
+          (cu/expr-ns vs/*current-expr*)
+          vsym
+          t2)))
     s))
 
 ;; apply f1 to the current environment, and if the type filter
