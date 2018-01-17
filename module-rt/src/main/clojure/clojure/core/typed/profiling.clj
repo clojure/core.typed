@@ -2,8 +2,6 @@
   (:refer-clojure :exclude [defn])
   (:require [clojure.core :as core]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (defmacro
  ^{:doc "Same as (def name (fn [params* ] exprs*)) or (def
     name (fn ([params* ] exprs*)+)) with any doc-string or attrs added
@@ -198,8 +196,9 @@
          ~@body)))
 
 (defmacro profile-if
-  "Usage (profile-if p? :info :foo)"
+  "Usage (profile-if p? :info :foo)."
   [p? & body]
-  `(if ~p?
-     (profile :info :foo ~@body)
-     (do ~@body)))
+  `(let [f# (fn [] (do ~@body))]
+     (if ~p?
+       (profile :info :foo (f#))
+       (f#))))

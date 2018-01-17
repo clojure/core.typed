@@ -1,3 +1,16 @@
+(defn find-file [d f]
+  (.trim (:out (clojure.java.shell/sh
+                "bash" "-c" (format "find %s -name %s" d f)))))
+
+(defn yjp-file [f]
+  (find-file "/Applications/YourKit*" f))
+
+(defn libyjp-jar-path []
+  (yjp-file "yjp-controller-api-redist.jar"))
+
+(defn libyjp-agent-path []
+  (yjp-file "libyjpagent.jnilib"))
+
 (defproject org.clojure/core.typed "0.2.90-SNAPSHOT" ;; ignore this version, see pom.xml
   :description "Gradual typing for Clojure"
   :license {:name "Eclipse Public License"
@@ -12,10 +25,10 @@
                  [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
                  [org.clojure/jvm.tools.analyzer "0.6.2" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.analyzer.jvm "0.7.0"]
-                 [org.clojure/tools.reader "1.0.0-beta3"]
+                 [org.clojure/tools.reader "1.1.1"]
                  [org.clojure/math.combinatorics "0.1.3" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.namespace "0.3.0-alpha3"]
-                 [org.clojure/core.cache "0.6.4"]
+                 [org.clojure/core.cache "0.6.5"]
                  [com.gfredericks/test.chuck "0.2.6"]
                  [org.clojure/test.check "0.9.0"]
                  [rhizome "0.2.5"]
@@ -57,8 +70,9 @@
                "module-check/src/test/resources"
                "module-rt/test/clojure"
                "module-rt/test/cljs"]
+	:resource-paths [~(libyjp-jar-path)]
 
-  :jvm-opts ["-Xss4m"]
+  :jvm-opts ["-Xss4m" ~(str "-agentpath:" (libyjp-agent-path))]
   :cljsbuild {:builds {}})
 
 
