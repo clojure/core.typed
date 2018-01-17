@@ -2907,7 +2907,7 @@
                                   ;; also try and merge with parents
                                   seen-parents
                                   next-immediate-aliases)))
-                            env)
+                            [[] env])
             ; recalculate with new env
             new-next-immediate-aliases (fv env (resolve-alias env t))
             add-to-worklist (set/difference
