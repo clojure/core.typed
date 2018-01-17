@@ -622,7 +622,7 @@
                       {:op :class
                        ::class-instance (resolve m)
                        :args []})))
-    (list? m) (case (first m)
+    (seq? m) (case (first m)
                 All (let [[vs t :as rst] (second m)
                           _ (assert (= 2 (count rst)))]
                       {:op :poly
@@ -2036,18 +2036,16 @@
       (str "Join was slow on arguments:" 
            (:op t1) (:op t2)
            (unparse-type t1) (unparse-type t2)))
-  (let [id (gensym (apply str (map :op [t1 t2])))
+  (let [;id (gensym (apply str (map :op [t1 t2])))
         ;_ (prn "join" id (unparse-type t1) (unparse-type t2))
         res (cond
               (= t1 t2) t1
 
               ;; annihilate unknown
-              (#{:unknown} (:op t1)) t2
-              (#{:unknown} (:op t2)) t1
+              (unknown? t1) t2
+              (unknown? t2) t1
 
-              ((some-fn #{:union})
-               (:op t1)
-               (:op t2))
+              (or (union? t1) (union? t2))
               (apply join* (flatten-unions [t1 t2]))
 
               (and (#{:poly} (:op t1))
@@ -2094,8 +2092,8 @@
                    (#{:IFn} (:op t1)))
               t1
 
-              (and (#{:HMap} (:op t1))
-                   (#{:HMap} (:op t2))
+              (and (HMap? t1)
+                   (HMap? t2)
                    (should-join-HMaps? t1 t2))
               (join-HMaps t1 t2)
 
@@ -2117,6 +2115,8 @@
     res)))
 
 (defn join* [& args]
+  #_(when (< 5 (count args))
+    (prn "join* large arguments" (count args)))
   (letfn [(merge-type [t as]
             {:pre [(type? t)
                    (not (union? t))
@@ -2741,14 +2741,23 @@
                             t)))]
         [t @env-atom]))))
 
-(declare fv)
+(declare fv unparse-defalias-entry)
+
+(defmacro debug-squash [msg]
+  `(when (and (set? *debug*)
+              (contains? *debug* :squash))
+     (let [msg# ~msg]
+       (println)
+       (println (str "SQUASH ITERATION:\n" msg#)))))
 
 ; try-merge-aliases : Env Config Sym Alias -> Env
 (defn try-merge-aliases [env config f t]
   {:pre [(map? env)
          (symbol? f)
          (alias? t)]
-   :post [(map? env)]}
+   :post [((con/hvector-c? (con/vec-c? (con/hmap-c? :old symbol? :new symbol?))
+                           map?)
+           %)]}
   ;(prn "Try merging" f
   ;     "with" (:name t))
   (let [tks (keysets env t)
@@ -2760,7 +2769,8 @@
       ;; identical in both, collapse the entire thing.
       ;; TODO is this too aggresssive? Shouldn't the keysets
       ;; be exactly identical?
-      (and (some (fn [fk]
+      (and (not= (:name t) f)
+           (some (fn [fk]
                    (some (fn [tk]
                            (or
                              (seq (set/intersection (set/union (:req-keyset fk)
@@ -2773,24 +2783,81 @@
                  fks)
            (not (alias? (resolve-alias env (-alias f))))
            (not (alias? (resolve-alias env t))))
-      (let [;_ (prn "Merging" f
-            ;       "with" (:name t)
-            ;       "with intersection" (set/intersection tks fks))
-            ]
-        (update-alias-env env
-                          (fn [m]
-                            (-> m 
-                                (assoc f t)
-                                (update (:name t)
-                                        (fn [oldt]
-                                          {:pre [(type? oldt)]}
-                                          (let [new-type (join
-                                                           (get m f)
-                                                           (subst-alias oldt (-alias f) t))]
-                                            ;(prn "new-type" (unparse-type new-type))
-                                            new-type)))))))
+      (let [old-env env
+            env (update-alias-env env
+                           (fn [m]
+                             (-> m 
+                                 (assoc f t)
+                                 (update (:name t)
+                                         (fn [oldt]
+                                           {:pre [(type? oldt)]}
+                                           ;; Rename both old aliases to point to t
+                                           ;;
+                                           ;; eg. Say we're merging B into A.
+                                           ;;
+                                           ;;  (defalias A (U nil B))
+                                           ;;  (defalias B (U nil B))
+                                           ;;
+                                           ;;  First we rewrite *both* aliases to have occurrences
+                                           ;;  of B renamed to A.
+                                           ;;
+                                           ;;  (defalias A (U nil A))
+                                           ;;                     ^
+                                           ;;
+                                           ;;  (defalias B (U nil A))
+                                           ;;                     ^
+                                           ;;
+                                           ;; Then join like usual into A:
+                                           ;;
+                                           ;;  (defalias A (U nil A))
+                                           ;;
+                                           ;; If we don't first rewrite, we'll have extra references
+                                           ;; to B in our types which will increase the width of our
+                                           ;; unions unnecessarily, which is a major 
+                                           ;;
+                                           ;; eg. if we only rewrote references to B in A:
+                                           ;;
+                                           ;;  (defalias A (U nil A))
+                                           ;;                     ^
+                                           ;;  (defalias B (U nil B))
+                                           ;;
+                                           ;;  then joining gives us:
+                                           ;;
+                                           ;;  (defalias A (U nil B A))
+                                           (let [new-type (join
+                                                            (subst-alias (get m f) (-alias f) t)
+                                                            (subst-alias oldt (-alias f) t))]
+                                             ;(prn "new-type" (unparse-type new-type))
+                                             new-type))))))
+            _ (debug-squash (str "Merging " f " into " (:name t)
+                                 "\nOld aliases:\n"
+                                 (with-out-str
+                                   (pprint (mapv unparse-defalias-entry (select-keys (alias-env old-env) [f (:name t)]))))
+                                 "\nNew alias:\n"
+                                 (with-out-str 
+                                   (pprint (unparse-defalias-entry (find (alias-env env) (:name t)))))))]
+        [[{:new (:name t)
+           :old f}]
+         env])
 
-      :else env)))
+      :else [[] env])))
+
+(defn print-pretty-tree
+  ([lvl env ptree]
+   (doseq [[k ptree] ptree]
+     (println (str (apply str (repeat lvl " "))
+                   (when-not (zero? lvl)
+                     "\\")
+                   "+" k
+                   " " #_(keysets env (-alias k))))
+     (print-pretty-tree (inc lvl) env ptree))))
+
+; (defalias PrettyTree '{:root Sym :nodes (Map Sym (Vec Sym))})
+;
+; [Sym -> PrettyTree]
+(defn empty-pretty-tree [root]
+  {:pre [(symbol? root)]}
+  {root {}})
 
 ; squash : Env Config Alias -> Env
 (defn squash
@@ -2802,8 +2869,8 @@
          (map? config)
          (alias? t)]
    :post [(map? %)]}
-  ;(prn "top squash aliases" (keys (alias-env env))
-  ;     #_(fv env t true))
+  #_(prn "top squash aliases" (keys (alias-env env))
+       #_(fv env t true))
   ;; config is constant
   (loop [env env
          worklist [t]
@@ -2820,25 +2887,38 @@
             ;_ (prn "squash" (unp t))
             ;; find all keysets for downstream (and upstream) aliases
             ;; and merge.
-            env (if-not (done t)
-                  (reduce 
-                    (fn [env f]
-                      (try-merge-aliases env config f t))
-                    env
-                    (set 
-                      (concat
-                        (fv env (resolve-alias env t))
-                        ;; also try and merge with parents
-                        (map :name done))))
-                  env)]
+            next-immediate-aliases (fv env (resolve-alias env t))
+            seen-parents (map :name done)
+            [renames env] (if-not (done t)
+                            (reduce 
+                              (fn [[renames env] f]
+                                (let [[rs env] (try-merge-aliases env config f t)]
+                                  ;; this debug doesn't work too well because the root alias
+                                  ;; is not referred to in the env yet
+                                  #_(when-first [{:keys [new old]} rs]
+                                    (debug-squash
+                                      (str "New env after merging " old " into " new "\n"
+                                           (with-out-str
+                                             (pprint-env env config)))))
+                                  [(into renames rs) env]))
+                              [[] env]
+                              (set 
+                                (concat
+                                  ;; also try and merge with parents
+                                  seen-parents
+                                  next-immediate-aliases)))
+                            env)
+            ; recalculate with new env
+            new-next-immediate-aliases (fv env (resolve-alias env t))
+            add-to-worklist (set/difference
+                              (into #{}
+                                    (map -alias)
+                                    new-next-immediate-aliases)
+                              done
+                              #{t})
+            next-worklist (into (subvec worklist 1) add-to-worklist)]
         (recur env
-               (into (subvec worklist 1)
-                     (set/difference
-                       (into #{}
-                             (map -alias)
-                             (fv env (resolve-alias env t)))
-                       done
-                       #{t}))
+               next-worklist
                (conj done t))))))
 
 ; inline-alias? : Env Config Alias -> Bool
@@ -4737,7 +4817,7 @@
     ;(prn "HMap-as" HMap-as)
     (vec HMap-as)))
 
-;; group all aliases by their probably tag key.
+;; group all aliases by their likely tag key.
 (defn group-aliases-by-likely-tag-key [env as]
   (let [tagk->tagv->HMap-as (group-HMap-aliases-by-likely-tag* env as)
         HMap-a->tagk (into {}
@@ -4789,7 +4869,26 @@
         ]
     (vals tagk->as)))
 
-(declare debug-output)
+(defmacro debug-output [msg env config]
+  `(when (or (= :iterations *debug*)
+             (when (set? *debug*)
+               (contains? *debug* :iterations)))
+     (let [env# ~env
+           config# ~config
+           msg# ~msg]
+       (println)
+       (println (str "ITERATION: " msg#))
+       (pprint-env env# config#))))
+
+(defmacro debug-output-when [debug-state msg env config]
+  `(when (and (set? *debug*)
+              (contains? *debug* ~debug-state))
+     (let [env# ~env
+           config# ~config
+           msg# ~msg]
+       (println)
+       (println (str "ITERATION: " msg#))
+       (pprint-env env# config#))))
 
 (defn rename-HMap-aliases [env config]
   (reduce (fn [env a]
@@ -4887,11 +4986,30 @@
         asets (group-similar-HMap-aliases-by-req-keysets env as)
         ;; merge-aliases does not introduce new aliases, so `as`
         ;; is still the set of reachable aliases after this line.
-        env (reduce merge-aliases env asets)
+        env (reduce (fn [env as]
+                      (let [env (merge-aliases env as)]
+                        (when (seq (next as))
+                          (debug-output-when :squash-horizontally
+                                             (str "Merged aliases " (vec (rest as))
+                                                  " into " (first as))
+                                             env
+                                             config))
+                        env))
+                    env asets)
 
         ;; merge HMaps on their tags key/val pairs.
         asets (group-HMap-aliases-by-likely-tag env as)
-        env (reduce merge-aliases env asets)
+        env (reduce (fn [env as]
+                      (let [env (merge-aliases env as)]
+                        (when (seq (next as))
+                          (debug-output-when :squash-horizontally
+                                             (str "Merged aliases " (vec (rest as))
+                                                  " into " (first as)
+                                                  " since they have the same likely tag values")
+                                             env
+                                             config))
+                        env))
+                    env asets)
 
         ;; collect and group all HMaps with the
         ;; same tag key. This is pretty aggressive ---
@@ -4899,7 +5017,17 @@
         ;; HMap to its "parent" (the union of all maps
         ;; with the same tag key).
         asets (group-aliases-by-likely-tag-key env as)
-        env (reduce merge-aliases env asets)
+        env (reduce (fn [env as]
+                      (let [env (merge-aliases env as)]
+                        (when (seq (next as))
+                          (debug-output-when :squash-horizontally
+                                             (str "Merged aliases " (vec (rest as))
+                                                  " into " (first as)
+                                                  " since they have the same likely tag keys")
+                                             env
+                                             config))
+                        env))
+                    env asets)
 
         ;; merge HMaps on their tags key/val pairs.
         ;asets (group-HMap-aliases-by-overlapping-qualified-keys env as)
@@ -4912,10 +5040,10 @@
         ;; delete intermediate aliases
         env (follow-all env (assoc config :simplify? false))
 
-        ;_ (debug-output "before rename-HMap-aliases" env config)
+        _ (debug-output-when :squash-horizontally "before rename-HMap-aliases" env config)
         ;; rename aliases pointing to HMaps
         env (rename-HMap-aliases env config)
-        ;_ (debug-output "after rename-HMap-aliases" env config)
+        _ (debug-output-when :squash-horizontally "after rename-HMap-aliases" env config)
         ]
     env))
 
@@ -4928,10 +5056,6 @@
              envs-to-annotations)
            env config)))
 
-(defn debug-output [msg env config]
-  (when (= :iterations *debug*)
-    (println (str "ITERATION: " msg))
-    (pprint-env env config)))
 
 (defn dec-fuel [env]
   (if (contains? env :fuel)
@@ -4979,13 +5103,19 @@
     (fn [env [v t]]
       (let [;; create graph nodes from HMap types
             [t env] (alias-hmap-type env config t)
-            ;_ (debug-output (str "after alias-hmap-type for " v) env config)
+            _ (debug-output (str "squash-vertically step 1: alias-hmap-type for " v)
+                            (update-type-env env assoc v t)
+                            config)
             ;; squash local recursive types
             [t env] (squash-all env config t)
-            ;_ (debug-output (str "after squash-all for" v) env config)
+            _ (debug-output (str "squash-vertically step 2: squash-all for " v) 
+                            (update-type-env env assoc v t)
+                            config)
             ;; trim redundant aliases in local types
             [t env] (follow-aliases env (assoc config :simplify? true) t)
-            ;_ (debug-output (str "after follow-aliases for" v) env config)
+            _ (debug-output (str "squash-vertically step 3: follow-aliases for " v) 
+                            (update-type-env env assoc v t)
+                            config)
             ;_ (prn "new type for" v (unparse-spec t))
             ]
         (update-type-env env assoc v t)))
@@ -5203,6 +5333,12 @@
 
 (def ^:dynamic *new-aliases* nil)
 
+(defn unparse-defalias-entry [[k v :as e]]
+  {:pre [e]}
+  (list (qualify-typed-symbol 'defalias)
+        (symbol (name k))
+        (unparse-type v)))
+
 (defn envs-to-annotations [env {:keys [no-local-ann? polymorphic? :call-flows] :as config}]
   (let [full-type-env (type-env env)
         local-fn-env (if no-local-ann?
@@ -5246,10 +5382,7 @@
               ;; disable for now
               *new-aliases* nil #_(atom (init-env))]
       (letfn [(unp-defalias-env [as]
-                (mapv (fn [[k v]]
-                        (list (qualify-typed-symbol 'defalias)
-                              (symbol (name k))
-                              (unparse-type v)))
+                (mapv unparse-defalias-entry
                       (sort-by (comp name first) as)))
               (declares-for-aliases [as]
                 (list* (if (= (ns-resolve (current-ns) 'declare)
@@ -5352,7 +5485,8 @@
    {:pre [(map? env)
           (type? v)]
     :post [(vector? %)
-           (every? symbol? %)]}
+					 ;expensive
+           #_(every? symbol? %)]}
    ;(prn "fv" v)
    (let [fv (fn 
               ([v] (fv env v recur? seen-alias))
@@ -6002,7 +6136,7 @@
                                              no-local-ann? polymorphic? spec-diff? no-squash-vertically
                                              spec-macros] :as args}]
   {:pre [((some-fn nil? string?) out-dir)
-         ((some-fn nil? #{:all :iterations}) debug)]}
+         ((some-fn nil? #{:all :iterations} set?) debug)]}
   (when (and load-infer-results (symbol? ns))
     (require ns))
   ;(prn "polymorphic?" polymorphic?)
@@ -6086,6 +6220,13 @@
              '~(symbol (str (ns-name *ns*)) (str n))
              '~(ns-name *ns*)
              (fn ~@args))))
+
+(defmacro mapmacro []
+  `(do {}))
+
+(defntrack usemap-macro 
+  [a]
+  (mapmacro))
 
 (defntrack foo 
   [a]

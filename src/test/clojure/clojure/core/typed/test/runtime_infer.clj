@@ -623,7 +623,7 @@
                                      `var2 (prs bar))))
             env (squash-horizonally env config)
             env (follow-all env (assoc config :simplify? false))]
-        (prn env)
+        (pprint env)
         (= (get (type-env env) `var1)
            (get (type-env env) `var2)))))
 
@@ -773,7 +773,7 @@
   (let [ns (create-ns (gensym))]
     (binding [*ann-for-ns* (constantly ns)
               *ns* ns
-              *debug* (if-let [[debug] (find config :debug)]
+              *debug* (if-let [[_ debug] (find config :debug)]
                         debug
                         *debug*)]
       ;; set up ns refers
@@ -879,7 +879,52 @@
    :->
    Any])]
 (anns-from-tenv {;'unparse-prop1 t
-                 'unparse-prop2 t}))
+                 'unparse-prop2 t}
+                {:debug :iterations}))
+
+(let [t (prs
+  ['{:P ':or
+     :ps
+     (Set
+       '{:P ':and
+         :ps
+         (Set
+           '{:P ':Top})})}
+   :->
+   Any])]
+(anns-from-tenv {;'unparse-prop1 t
+                 'unparse-prop2 t}
+                {:debug #{:iterations :squash}}))
+
+(let [t (prs
+  ['{:P ':or
+     :ps
+     (Set
+       (U '{:P ':Top}
+       '{:P ':and
+         :ps
+         (Set
+           '{:P ':Top})}))}
+   :->
+   Any])]
+(anns-from-tenv {;'unparse-prop1 t
+                 'unparse-prop2 t}
+                {:debug #{:iterations :squash}}))
+
+(let [t (prs
+  '{:P ':or
+     :ps
+     (Set
+       '{:P ':and
+         :ps
+         (Set
+           (U '{:P ':Top}
+              '{:P ':Bottom}))})}
+   )]
+(anns-from-tenv {;'unparse-prop1 t
+                 'unparse-prop2 t}
+                {:debug #{:squash :iterations
+                          :squash-horizontally}}))
 
 ;; collapse maps with completely disjoint keys
 (let [t (prs
@@ -1138,3 +1183,18 @@
          anns-from-tenv)
     {'config-in t}
     ))
+
+;; performance tests
+(defn gen-height [n]
+  {:pre [(not (neg? n))]}
+  (if (zero? n)
+    `'{:P ':Top}
+    `'{:P ':or :ps ~(gen-height (dec n))}))
+
+(comment
+(let [t (parse-type (gen-height 300))]
+(anns-from-tenv {'prop t}
+                {}
+                #_{:debug #{:squash :iterations
+                          :squash-horizontally}}))
+)
