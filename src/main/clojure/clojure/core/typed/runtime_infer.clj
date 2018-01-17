@@ -2743,12 +2743,16 @@
 
 (declare fv unparse-defalias-entry)
 
-(defmacro debug-squash [msg]
+(defmacro debug-when [state msg]
   `(when (and (set? *debug*)
-              (contains? *debug* :squash))
+              (contains? *debug* ~state))
      (let [msg# ~msg]
        (println)
        (println (str "SQUASH ITERATION:\n" msg#)))))
+
+(defmacro debug-squash [msg]
+  `(debug-when :squash 
+               (str "\nSQUASH ITERATION:\n" ~msg "\n")))
 
 ; try-merge-aliases : Env Config Sym Alias -> Env
 (defn try-merge-aliases [env config f t]
@@ -2932,7 +2936,12 @@
            (not (namespace (:name a)))
            true)
          (let [a-res (resolve-alias env a)
-               res (not (contains? (set (fv env a-res true)) (:name a)))]
+               ;; don't inline if it refers to other aliases (and so, might be recursive).
+               ;; too expensive to fully determine.
+               res (empty? (fv env a-res))
+               ;extremely slow
+               #_(not (contains? (set (fv env a-res true)) (:name a)))
+               ]
            ;(prn "inline-alias?" (:name a) res)
            res))))
 
@@ -5051,10 +5060,12 @@
          envs-to-specs)
 
 (defn pprint-env [env {:keys [spec?] :as config}]
-  (pprint ((if spec?
+  (let [m ((if spec?
              envs-to-specs
              envs-to-annotations)
-           env config)))
+           env config)
+        m (update m :local-fns #(mapv (fn [f] (update f :type unparse-type)) %))]
+    (pprint m)))
 
 
 (defn dec-fuel [env]
@@ -5101,21 +5112,28 @@
 (defn squash-vertically [env config]
   (reduce
     (fn [env [v t]]
+      (debug-when :iterations (str "squash-horizonally: " v))
       (let [;; create graph nodes from HMap types
             [t env] (alias-hmap-type env config t)
-            _ (debug-output (str "squash-vertically step 1: alias-hmap-type for " v)
-                            (update-type-env env assoc v t)
-                            config)
+            _ (debug-output-when
+                :squash-vertically
+                (str "squash-vertically step 1: alias-hmap-type for " v)
+                (update-type-env env assoc v t)
+                config)
             ;; squash local recursive types
             [t env] (squash-all env config t)
-            _ (debug-output (str "squash-vertically step 2: squash-all for " v) 
-                            (update-type-env env assoc v t)
-                            config)
+            _ (debug-output-when
+                :squash-vertically
+                (str "squash-vertically step 2: squash-all for " v) 
+                (update-type-env env assoc v t)
+                config)
             ;; trim redundant aliases in local types
             [t env] (follow-aliases env (assoc config :simplify? true) t)
-            _ (debug-output (str "squash-vertically step 3: follow-aliases for " v) 
-                            (update-type-env env assoc v t)
-                            config)
+            _ (debug-output-when
+                :squash-vertically
+                (str "squash-vertically step 3: follow-aliases for " v) 
+                (update-type-env env assoc v t)
+                config)
             ;_ (prn "new type for" v (unparse-spec t))
             ]
         (update-type-env env assoc v t)))
@@ -5369,15 +5387,7 @@
                                  ;; or loop variables
                                  (loop-var-symbol? k)))))
                    full-type-env)
-        tfvs (into #{}
-                   (mapcat
-                     (fn [t]
-                       (fv env t true)))
-                   (concat (vals tenv)
-                           (vals local-fn-env)))
-        as (into {}
-                 (filter (comp tfvs key))
-                 (alias-env env))]
+        as (alias-env env)]
     (binding [*envs* (atom env)
               ;; disable for now
               *new-aliases* nil #_(atom (init-env))]
@@ -5389,7 +5399,7 @@
                               #'clojure.core/declare)
                          'declare
                          'clojure.core/declare)
-                       (sort (map (comp symbol name key) as))))
+                       (sort (map (comp symbol name) as))))
               (unp-anns [tenv]
                 (vec
                   (mapcat (fn [[k v]]
@@ -5438,9 +5448,30 @@
                                                            (binding [*preserve-unknown* true]
                                                              (unparse-type (assoc v :top-level-def k))))))])))))))))
                           (sort-by first tenv))))]
-        (let [declares (declares-for-aliases as)
-              defaliases (unp-defalias-env as)
-              anns (unp-anns tenv)]
+        (let [used-aliases-in-anns (atom #{})
+              anns (binding [*used-aliases* used-aliases-in-anns]
+                     (unp-anns tenv))
+              [declares defaliases] (loop [worklist (vec @used-aliases-in-anns)
+                                           done #{}
+                                           declares []
+                                           defaliases []]
+                                      (if (empty? worklist)
+                                        [(declares-for-aliases declares) defaliases]
+                                        (let [a (nth worklist 0)]
+                                          (if (done a)
+                                            (recur (subvec worklist 1)
+                                                   done
+                                                   declares
+                                                   defaliases)
+                                            (let [add-to-worklist (atom #{})
+                                                  e (binding [*used-aliases* add-to-worklist]
+                                                      (unparse-defalias-entry (find as a)))]
+                                              (recur (into (subvec worklist 1) 
+                                                           (remove done)
+                                                           @add-to-worklist)
+                                                     (conj done a)
+                                                     (conj declares a)
+                                                     (conj defaliases e)))))))]
           {:requires (when-let [requires (:explicit-require-needed config)]
                        [requires])
            :top-level
