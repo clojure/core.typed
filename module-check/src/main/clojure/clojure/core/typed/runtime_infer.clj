@@ -4988,7 +4988,8 @@
   Finally, we combine aliases with the same dispatch keys.
   "
   [env config]
-  (let [as (reachable-aliases env)
+  (let [;; FIXME reachable-aliases is very slow, refactor it away
+        as (reachable-aliases env)
         env (remove-unreachable-aliases env config as)
 
         ;; merge HMaps with similar keysets, excluding differently-tagged maps.
