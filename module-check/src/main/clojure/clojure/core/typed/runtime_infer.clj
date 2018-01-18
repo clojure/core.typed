@@ -114,10 +114,12 @@
      '{:op :class 
        ::class-instance Class
        :args (Vec Type)}
-     '{:op :IFn 
-       :arities (Vec '{:op :IFn1
-                       :dom (Vec Type)
-                       :rng Type})}
+     '{:op :IFn
+       :arities (Vec (HMap
+                       :mandatory {:op :IFn1
+                                   :dom (Vec Type)
+                                   :rng Type}
+                       :optional {:rest Type}))}
      '{:op :unknown}
      '{:op :poly
        :known-params (Vec Sym)
@@ -468,10 +470,15 @@
 
 (defn parse-arity [a]
   (let [[doms [_->_ rng :as rng-arrow]] (split-with (complement #{:->}) a)
+        [doms [_ rst :as has-rst]] (split-with (complement #{'&}) doms)
+        _ (assert (#{0 2} (count has-rst)))
         _ (assert (= 2 (count rng-arrow)))]
-    {:op :IFn1
-     :dom (mapv parse-type doms)
-     :rng (parse-type rng)}))
+    (merge
+      {:op :IFn1
+       :dom (mapv parse-type doms)
+       :rng (parse-type rng)}
+      (when (seq has-rst)
+        {:rest (parse-type rst)}))))
 
 (defn parse-HVec [v]
   {:op :HVec 
@@ -938,6 +945,25 @@
    "S" Short/TYPE
    "Z" Boolean/TYPE})
 
+(defn find-top-level-var [top-level-def]
+  (when (and (symbol? top-level-def)
+             (namespace top-level-def)) ;; testing purposes
+    (some-> top-level-def find-var)))
+
+(defn arglists-for-top-level-var [top-level-var]
+  (when top-level-var
+    (or (-> top-level-var meta :arglists)
+        (->> top-level-var coerce/var->symbol (get @alternative-arglists)))))
+
+(defn separate-fixed-from-rest-arglists [arglists]
+  (group-by (fn [v]
+              {:pre [(vector? v)]}
+              (if (and (<= 2 (count v))
+                       (#{'&} (get v (- (count v) 2))))
+                :rest
+                :fixed))
+            arglists))
+
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
   (assert (type? m) m)
@@ -1164,7 +1190,8 @@
                            [:mandatory req])
                          [:optional (unp-map HMap-opt)]))
                 :else `'~req)))
-    :IFn1 (let [{:keys [dom rng fixed-name-lookup]} m
+    :IFn1 (let [_ (assert (not *unparse-spec*))
+                {:keys [dom rest rng fixed-name-lookup]} m
                 these-names (get fixed-name-lookup (count dom))
                 these-names (when (= (count dom) (count these-names))
                               these-names)
@@ -1175,35 +1202,26 @@
             (assert (or (nil? these-names)
                         (and (vector? these-names)
                              (= (count dom) (count these-names)))))
-            (conj (mapv (fn [t nme]
-                          (if (and nme *new-aliases*
-                                   (should-gen-just-in-time-alias? t))
-                            (let [sym (register-just-in-time-alias (camel-case nme) t)]
-                              (unparse-type (-alias sym)))
-                            (unparse-type t)))
-                        dom
-                        (or these-names
-                            (repeat (count dom) nil)))
-                  :->
-                  (unparse-type rng)))
+            (into (mapv (fn [t nme]
+                                (if (and nme *new-aliases*
+                                         (should-gen-just-in-time-alias? t))
+                                  (let [sym (register-just-in-time-alias (camel-case nme) t)]
+                                    (unparse-type (-alias sym)))
+                                  (unparse-type t)))
+                              dom
+                              (or these-names
+                                  (repeat (count dom) nil)))
+                  (concat (when rest
+                            ;; TODO lookup for rest names
+                            [(unparse-type rest) '*])
+                          [:-> (unparse-type rng)])))
     :IFn (let [{:keys [arities top-level-def]} m
-               top-level-var (when (and (symbol? top-level-def)
-                                        (namespace top-level-def)) ;; testing purposes
-                               (some-> top-level-def find-var))
+               top-level-var (find-top-level-var top-level-def)
                ;_ (prn "top-level-var" top-level-def top-level-var)
-               arglists (when top-level-var
-                          (or (-> top-level-var meta :arglists)
-                              (->> top-level-var coerce/var->symbol (get @alternative-arglists))))
+               arglists (arglists-for-top-level-var top-level-var)
                ;_ (prn "arglists" arglists)
                macro? (some-> top-level-var meta :macro)
-               {fixed-arglists :fixed [rest-arglist] :rest}
-               (group-by (fn [v]
-                           {:pre [(vector? v)]}
-                           (if (and (<= 2 (count v))
-                                    (#{'&} (get v (- (count v) 2))))
-                             :rest
-                             :fixed))
-                         arglists)
+               {fixed-arglists :fixed [rest-arglist] :rest} (separate-fixed-from-rest-arglists arglists)
                _ (assert ((some-fn nil? (every-pred vector? #(<= 2 (count %)))) rest-arglist))
                ;; expand varargs into extra fixed arguments
                fixed-arglists (into (or fixed-arglists [])
@@ -1273,8 +1291,10 @@
                                     (qualify-core-symbol 'any?))]))]
                             :else
                             (mapv
-                              (fn [{:keys [dom]}]
-                                {:pre [dom]}
+                              (fn [{:keys [dom] :as ifn}]
+                                {:pre [dom
+                                       ;TODO
+                                       (not (:rest ifn))]}
                                 ;(prn "doms" (count dom) (keyword (get fixed-name-lookup (count dom))))
                                 (let [knames (let [[matching-fixed-names rest-arg-name]
                                                    (or (when-let [f (get fixed-name-lookup (count dom))]
@@ -1549,27 +1569,6 @@
                    (kw-vals? (get (::HMap-req m) k)))
                  hmaps)
      k)))
-
-#_
-(defmacro let-debug [bnd & body]
-  (let [bnds (partition 2 bnd)
-        split (first
-                (first
-                  (filter
-                    #(= :debug (-> % second first))
-                    (map-indexed vector bnds))))
-        [before-debug
-         [the-debug & [:as after-debug]]] 
-        (if split
-          (split-at split bnds)
-          [bnds nil])
-        ]
-    `(let [~@(apply concat before-debug)]
-       ~(if (seq after-debug)
-          `(debug ~(second the-debug)
-             (let-debug [~@(apply concat after-debug)]
-               ~@body))
-          `(do ~@body)))))
 
 (defn upcast-HVec [h]
   {:pre [(#{:HVec} (:op h))]
@@ -1888,7 +1887,7 @@
                       (:arities t2)))))
 
 ; should-join-HMaps? : HMap HMap -> Bool
-(defn should-join-HMaps? [t1 t2]
+(defn default-should-join-HMaps? [t1 t2]
   {:pre [(HMap? t1)
          (HMap? t2)]}
   ;; join if the required keys are the same,
@@ -1926,8 +1925,7 @@
     res
     ))
 
-
-(defn join-HMaps [t1 t2]
+(defn default-join-HMaps [t1 t2]
   {:pre [(HMap? t1)
          (HMap? t2)
          ;(should-join-HMaps? t1 t2)
@@ -1985,33 +1983,47 @@
     res
     ))
 
+(def HMap-join-strategies
+  {:default {:should-join-HMaps? #'default-should-join-HMaps?
+             :join-HMaps #'default-join-HMaps}})
+
+(def current-HMap-join-strategy :default)
+
+(defn should-join-HMaps? [t1 t2]
+  ((get-in HMap-join-strategies [current-HMap-join-strategy :should-join-HMaps?])
+   t1 t2))
+
+(defn join-HMaps [t1 t2]
+  ((get-in HMap-join-strategies [current-HMap-join-strategy :join-HMaps])
+   t1 t2))
+
+;; `as` is a list of :IFn1 nodes with the same arity
+(defn join-IFn1 [as]
+  {:pre [(seq as)
+         (every? #{[:IFn1 (-> as first :dom count)]}
+                 (map (juxt :op (comp count :dom))
+                      as))]
+   :post [(#{:IFn1} (:op %))]}
+  {:op :IFn1
+   :dom (apply mapv
+               (fn [& [dom & doms]]
+                 {:pre [dom]}
+                 ;(prn "join IFn IFn dom" (map :op (cons dom doms)))
+                 (apply join* dom doms))
+               (map :dom as))
+   :rest (let [all-rests (keep :rest as)]
+           (when (seq all-rests)
+             (apply join* all-rests)))
+   :rng (let [[rng & rngs] (map :rng as)]
+          (assert rng)
+          (apply join* rng rngs))})
+
 (defn join-IFn [t1 t2]
   {:pre [(#{:IFn} (:op t1))
          (#{:IFn} (:op t2))]
    :post [(type? %)]}
-  (let [;_ (apply prn "join IFn" (map unparse-type [t1 t2]))
-        grouped (group-arities t1 t2)
-        ;_ (prn "grouped" grouped)
-        arities
-        (mapv
-          ;; each `as` is a list of :IFn1 nodes
-          ;; with the same arity
-          (fn [as]
-            {:pre [(every? #{[:IFn1 (-> as first :dom count)]}
-                           (map (juxt :op (comp count :dom))
-                                as))]
-             :post [(#{:IFn1} (:op %))]}
-            {:op :IFn1
-             :dom (apply mapv
-                         (fn [& [dom & doms]]
-                           {:pre [dom]}
-                           ;(prn "join IFn IFn dom" (map :op (cons dom doms)))
-                           (apply join* dom doms))
-                         (map :dom as))
-             :rng (let [[rng & rngs] (map :rng as)]
-                    (assert rng)
-                    (apply join* rng rngs))})
-          grouped)]
+  (let [grouped (group-arities t1 t2)
+        arities (mapv join-IFn1 grouped)]
     {:op :IFn
      :arities arities}))
 
@@ -2141,150 +2153,6 @@
               (flatten-unions args)))))
 
 
-(declare update-path)
-
-(defn update-var-down-paths [envs ps new-var]
-  {:pre [(map? envs)]
-   :post [(map? %)]}
-  #_
-  (doseq [p ps]
-    (update-path p new-var))
-  envs)
-
-(defn update-equiv [env ps tpe]
-  {:pre [(map? env)
-         (set? ps)
-         (= 2 (count ps))
-         (every? vector? ps)
-         (every? (comp #{:var} :op first) ps)
-         ; vars must be the same
-         (apply = (map (comp :name :op first) ps))
-         (keyword? tpe)]
-   :post [(map? %)]}
-  ;(prn "update-equiv")
-  ;(pprint (mapv unparse-path ps))
-  (let [nme (-> ps first first :name)
-        _ (assert (symbol? nme))
-        t (get (type-env env) nme)
-        _ (assert (type? t) (pr-str nme))]
-    (case (:op t)
-      :poly (let [; find existing path that overlaps with any
-                  ; of the current paths
-                  vs (remove (fn [[s _]]
-                               (assert (set? s) s)
-                               (empty? 
-                                 (set/intersection s ps)))
-                             (:params t))]
-              (case (count vs)
-                ;; no matches
-                0 (let [new-sym (gensym "var")
-                        new-var (make-free new-sym)
-                        env ;(prn "Found no matching poly, extending with " new-sym)
-                        ;; first add the variable to the parameter list
-                        (-> env
-                            (update-type-env assoc-in [nme :params ps] 
-                                             ; weight of 1
-                                             {:weight 1 
-                                              :name new-sym
-                                              :types #{tpe}})
-                            ;; then update the variable down each path
-                            (update-var-down-paths ps new-var))]
-                    env)
-                ;; process results
-                (reduce 
-                  (fn [env [vps {vsym :name}]]
-                    (let [var (make-free vsym)
-                          env 
-                          (-> env
-                              (update-type-env (fn [m]
-                                                 (-> m
-                                                     (update-in [nme :params vps :weight] 
-                                                                (fn [i]
-                                                                  ;(prn "adding i" i)
-                                                                  (inc i)))
-                                                     (update-in [nme :params vps :types] conj tpe))))
-                              ;(prn "Found many matching poly, " vsym)
-                              ;; update var down each path
-                              (update-var-down-paths ps var))]
-                      env))
-                  env
-                  vs))
-      (let [new-sym (gensym "var")
-            new-var (make-free new-sym)
-            env (->
-                  ;(prn "No polymorphic type found, creating new poly with " new-sym)
-                  ;; first construct a poly type that wraps the original type
-                  (update-type-env assoc nme
-                                   {:op :poly
-                                    :params {ps {:weight 1 
-                                                 :name new-sym
-                                                 :types #{tpe}}} ; weight of 1
-                                    :type t})
-                  ;; then update the var down each path
-                  (update-var-down-paths ps new-var))]
-        env)))))
-
-; update-path : Env Config Path Type -> AliasTypeEnv
-(defn update-path [env config path type]
-  {:pre [(map? env)
-         (vector? path)]}
-  (cond 
-    (empty? path) (throw (Exception. "Cannot update empty path"))
-    (= 1 (count path)) (let [x (nth path 0)]
-                         (case (:op x)
-                           :var (let [n (:name x)
-                                      t (if-let [t (get (type-env env) n)]
-                                          (join t type)
-                                          type)]
-                                  (assert (#{:var} (:op x))
-                                          (str "First element of path must be a variable or local-fn " x))
-                                  (update-type-env-in-ns env (or (:ns x) (current-ns))
-                                                         assoc n t))))
-    :else 
-    (let [cur-pth (peek path)
-          nxt-pth (pop path)]
-      (assert (:op cur-pth) (str "What is this? " cur-pth
-                                 " full path: " path))
-      (case (:op cur-pth)
-        :var (throw (Exception. "Var path element must only be first path element"))
-        :key (let [{:keys [kw-entries keys key]} cur-pth]
-               (recur env config
-                      nxt-pth
-                      {:op :HMap
-                       ::HMap-req (merge (zipmap keys (repeat {:op :unknown}))
-                                         ;; immediately associate kw->kw entries
-                                         ;; to distinguish in merging algorithm
-                                         kw-entries
-                                         {key type})}))
-        :set-entry (recur env config nxt-pth (-class clojure.lang.IPersistentSet [type]))
-        :seq-entry (recur env config nxt-pth (-class clojure.lang.ISeq [type]))
-        :vec-entry (recur env config nxt-pth (-class clojure.lang.IPersistentVector [type]))
-        :map-keys (recur env config nxt-pth (-class clojure.lang.IPersistentMap [type {:op :unknown}]))
-        :map-vals (recur env config nxt-pth (-class clojure.lang.IPersistentMap [{:op :unknown} type]))
-        :transient-vector-entry (recur env config nxt-pth (-class clojure.lang.ITransientVector [type]))
-        :atom-contents (recur env config nxt-pth (-class clojure.lang.IAtom [type]))
-        :index (recur env config nxt-pth
-                      (if true #_(= 2 (:count cur-pth))
-                        {:op :HVec
-                         :vec (assoc (vec (repeat (:count cur-pth) -unknown)) (:nth cur-pth) type)}
-                        #_(-class clojure.lang.IPersistentVector [type])))
-        :fn-domain (let [{:keys [arity position]} cur-pth]
-                     (recur env config nxt-pth
-                            {:op :IFn
-                             :arities [{:op :IFn1
-                                        :dom (let [dom (into [] 
-                                                             (repeat (:arity cur-pth) {:op :unknown}))]
-                                               (if (zero? arity)
-                                                 dom
-                                                 (assoc dom position type)))
-                                        :rng {:op :unknown}}]}))
-        :fn-range (let [{:keys [arity]} cur-pth]
-                    (recur env config nxt-pth
-                           {:op :IFn
-                            :arities [{:op :IFn1
-                                       :dom (into [] (repeat (:arity cur-pth) {:op :unknown}))
-                                       :rng type}]}))))))
-
 (defn update-grouped-paths [env config {:keys [:current-level :inner-level] :as paths}]
   {:pre [(map? env)
          (set? current-level)
@@ -2333,14 +2201,56 @@
                                            :dom (into [] (repeat (:arity cur-pth) {:op :unknown}))
                                            :rng type}]})))))))))
 
+(defn collapse-likely-rest-arguments [t]
+  {:pre [(type? t)]
+   :post [(type? t)]}
+  ;; no :rest arguments at this point
+  (or
+    (when (and (#{:IFn} (:op t))
+               (not-any? :rest (:arities t)))
+      (let [{:keys [top-level-def]} t
+            top-level-var (find-top-level-var top-level-def)]
+        (when top-level-var
+          (let [rest-arglist (-> top-level-var
+                                 arglists-for-top-level-var
+                                 separate-fixed-from-rest-arglists
+                                 :rest
+                                 first)]
+            (when rest-arglist
+              (let [fixed-arglist (subvec rest-arglist 0 (- (count rest-arglist) 2))
+                    rst-arg (peek rest-arglist)
+                    {:keys [separate collapse]} (group-by (fn [{:keys [dom] :as a}]
+                                                            (if (<= (count fixed-arglist) (count dom))
+                                                              :collapse
+                                                              :separate))
+                                                          (:arities t))
+                    trimmed-collapsed (mapv (fn [{:keys [dom] :as a}]
+                                              {:pre [(<= (count fixed-arglist) (count dom))]}
+                                              (let [[fixed rst] (split-at (count fixed-arglist) dom)]
+                                                (assoc a
+                                                       :dom (vec fixed)
+                                                       :rest (when (seq rst)
+                                                               (apply join* rst)))))
+                                            collapse)]
+                (merge t
+                       {:arities (into (vec separate)
+                                       (when (seq trimmed-collapsed)
+                                         [(join-IFn1 trimmed-collapsed)]))})))))))
+    t))
+
 (defn grouped-paths-to-env [env config {:keys [:current-level :inner-level] :as paths}]
   {:pre [(empty? current-level)
          (map? inner-level)]}
   (into {}
         (map (fn [[pth next-group]]
                {:pre [(#{:var} (:op pth))]}
-               ;(prn "grouped-paths-to-env" (:name pth))
-               [(:name pth) (update-grouped-paths env config next-group)]))
+               (let [v (:name pth)
+                     t (update-grouped-paths env config next-group)
+                     t (collapse-likely-rest-arguments
+                         (merge t
+                                (when (#{:IFn} (:op t))
+                                  {:top-level-def v})))]
+                 [v t])))
         inner-level))
 
 (defn walk-type-children [v f]
@@ -2378,6 +2288,7 @@
               (update :dom
                       (fn [ds]
                         (mapv f ds)))
+              (update :rest (fn [a] (some-> a f)))
               (update :rng f))))
 
 ; tools.analyzer
@@ -4263,16 +4174,6 @@
 
 (def runtime-infer-expr check)
 
-; generate : InferResultEnv -> TypeEnv
-(defn generate [is]
-  (let [env (update-type-env (init-env) generate-tenv is)]
-    (pprint
-      (into {}
-            (map (fn [[name t]]
-                   ;(prn "generate" t)
-                   [name (unparse-type t)]))
-            (type-env env)))))
-
 (defn group-by-path
   ([infer-results] (group-by-path 0 infer-results))
   ([path-index infer-results]
@@ -4325,163 +4226,9 @@
   [env config {:keys [infer-results :call-flows] :as is}]
   (println "generate-tenv:"
                   (str (count infer-results) " infer-results"))
-  (let [by-path (group-by-path infer-results)
-        ;; filter results
-        #_#_infer-results (if *root-results*
-                        (let [root-count (atom {})
-                              _ (println "Filtering results...")
-                              infer-results (reduce (fn [infer-results {:keys [path] :as res}]
-                                                      (let [;; to get a good spread of annotations, pick
-                                                            ;; *root-results* number of infer-results from
-                                                            ;; each (possibly nested) function position.
-                                                            ;; This way, we avoid annotations where any one
-                                                            ;; position hogs
-                                                            path-fn-prefix (cons (path-root path)
-                                                                                 (take-while
-                                                                                   (comp #{:fn-domain :fn-range} :op)
-                                                                                   (next path)))
-                                                            _ (swap! root-count update path-fn-prefix (fnil inc 0))]
-                                                        (if (>= *root-results* (get @root-count path-fn-prefix 0))
-                                                          (conj infer-results res)
-                                                          infer-results)))
-                                                    #{}
-                                                    infer-results)]
-                          (println "generate-tenv:"
-                                   "Filtered to"
-                                   (str (count infer-results) " infer-results"))
-                          infer-results)
-                        infer-results)
-        ]
+  (let [by-path (group-by-path infer-results)]
     (as-> (init-env) env 
       (update-env env assoc :type-env (grouped-paths-to-env env config by-path)))))
-
-(defn gen-current1
-  "Print the currently inferred type environment"
-  []
-  (generate @results-atom))
-
-(defn gen-current2 
-  "Turn the currently inferred type environment
-  into type aliases. Also print the alias environment."
-  []
-  (let [env (generate-tenv (init-env) @results-atom)
-        _ (assert false)
-        env (reduce
-              (fn [env [v t]]
-                (let [[t' env] (alias-hmap-type env t)]
-                  (update-type-env env assoc v t')))
-              env
-              (type-env env))]
-    (ppenv (type-env env))
-    (ppenv (alias-env env))))
-
-(declare visualize unmunge
-         view-graph
-         graph->svg)
-
-(def viz-configs
-  {:vfn {:spit (fn [& args]
-                 (spit "visualize.svg" (apply graph->svg args)))
-         :viz view-graph}
-   :options {:small {:dpi 50
-                     ;:fixedsize false
-                     :fontname "Courier"
-                     :vertical? true}
-             :projector {:dpi 80
-                         ;:fixedsize false
-                         :fontname "Courier"
-                         :vertical? true}}
-   :node->cluster {:unmunge (fn [n]
-                              (when-not (namespace n)
-                                (unmunge n))
-                              #_
-                              (let [t (-> n meta :type)]
-                                (case (:op t)
-                                  :HMap
-                                  (let [singles (filter (comp #{:val} :op val) (::HMap-req t))]
-                                    (when-let [[k v] (and (= (count singles) 1)
-                                                          (first singles))]
-                                      (str k "-" (pr-str (:val v)))))
-                                  nil)))
-                   :HMaps
-                   (fn [n]
-                     (let [t (-> n meta :type)]
-                       (case (:op t)
-                         :HMap (apply str (interpose "-" (sort (map name (keys (::HMap-req t))))))
-                         nil)))}
-   :cluster->descriptor 
-   {:random-color (fn [c]
-                    {:color (rand-nth [:red :blue :green :yellow :black])})
-    :known-colors (fn [c]
-                    {:color 
-                     #_(case (first c)
-                         \P "#EDA985"
-                         \E "#D0E84A"
-                         \T :lightblue
-                         :black)
-                     (rand-nth [;:lightgrey 
-                                "#44C7F2"
-                                ;:red 
-                                "#129AC7"
-                                "#126E8C"
-                                "#7AD7F5"
-                                "#5CA1B8"
-                                "#9DBBC4"
-                                ;:turquoise 
-                                #_:blue 
-                                #_:green 
-                                ;:yellow
-                                ])
-                     :style :filled
-                     :label c
-                     })
-    }
-   :edge->descriptor {:bold (fn [n1 n2]
-                              {:style :bold})}
-   :node->descriptor 
-   {:just-label 
-    (fn [n]
-      (let [t (-> n meta :type)]
-        {:label (str n ":\n" 
-                     (with-out-str 
-                       (binding [*unparse-abbrev-alias* true
-                                 *unparse-abbrev-class* true]
-                         (pprint (unparse-type t)))))}))
-    :label-with-keyset
-    (fn [n]
-      (let [t (-> n meta :type)]
-        {:label (str n ":\n" 
-                     (keysets @*envs* t)
-                     "\n" 
-                     (with-out-str 
-                       (binding [*unparse-abbrev-alias* true
-                                 *unparse-abbrev-class* true]
-                         (pprint (unparse-type t)))))}))
-    :default
-    (fn [n] 
-      (let [t (-> n meta :type)]
-        {;:color (case (:op t)
-         ;         :union :blue
-         ;         :HMap :red
-         ;         :IFn :yellow
-         ;         :black)
-         :color (if (namespace n)
-                  :green
-                  #_(case (:op t)
-                      :union :blue
-                      :HMap :red
-                      :IFn :yellow
-                      :black))
-         :style (when (namespace n)
-                  :filled)
-
-         ;:shape :box
-         :label (cond true #_(namespace n) (str n ":\n" 
-                                                (with-out-str 
-                                                  (binding [*unparse-abbrev-alias* true
-                                                            *unparse-abbrev-class* true]
-                                                    (pprint (unparse-type t)))))
-                      :else (unmunge n))}))}})
 
 (defn reachable-aliases 
   "Returns all referenced aliases from the type
@@ -4490,6 +4237,9 @@
   {:pre [(map? env)]
    :post [(set? %)
           (every? symbol? %)]}
+  (set (keys (alias-env env)))
+  ;; way too expensive
+  #_
   (reduce
     (fn [as [v t]]
       (into as (fv env t true)))
@@ -4587,7 +4337,7 @@
             (let [as (set as)
                   ts (map #(resolve-alias env (-alias %)) as)
                   ;_ (prn "ts with anew" (mapv unp ts))
-                  ;; remove all top-level aliase refs to as, otherwise
+                  ;; remove all top-level alias refs to as, otherwise
                   ;; we'll create infinite aliases.
                   ts (map (fn remove-top-level-alias [t]
                             {:pre [(type? t)]
@@ -5483,29 +5233,6 @@
                             local-fn-env)})))))
 
 
-(defn gen-current3 
-  "Turn the currently inferred type environment
-  into type aliases. Also print the alias environment."
-  []
-  (let [ns 'clojure.core.typed.test.mini-occ]
-    (binding [*ann-for-ns* (fn [] ns)]
-      (let [env (populate-envs (init-env) (init-config))]
-        (visualize
-          env
-          {:current-ns ns
-           :top-levels 
-           #{;`take-map
-             ; `a-b-nested
-             ;'clojure.core.typed.test.mini-occ/parse-exp
-             'clojure.core.typed.test.mini-occ/parse-prop
-             ;`mymapv
-             ;`pprint
-             }
-           :viz-args {:options (-> viz-configs :options :projector)
-                      :node->descriptor (-> viz-configs
-                                            :node->descriptor
-                                            :label-with-keyset)}})))))
-
 ; Env Type -> (Vec Sym)
 (defn fv
   "Returns the aliases referred in this type, in order of
@@ -5558,85 +5285,6 @@
                                             (fv (:rng f')))))
                             (:arities v)))]
    fvs)))
-
-(defn unmunge [n]
-  (when-let [s (first (partition-by #{\_} (str n)))]
-    (apply str s)))
-
-;https://github.com/ToBeReplaced/mapply/blob/master/src/org/tobereplaced/mapply.cl
-(defn mapply
-  "Applies a function f to the argument list formed by concatenating
-  everything but the last element of args with the last element of
-  args.  This is useful for applying a function that accepts keyword
-  arguments to a map."
-  [f & args]
-  (apply f (apply concat (butlast args) (last args))))
-
-(defn view-graph [& args]
-  (require '[rhizome.viz])
-  (apply (impl/v 'rhizome.viz/view-graph) args))
-
-(defn graph->svg [& args]
-  (require '[rhizome.viz])
-  (apply (impl/v 'rhizome.viz/graph->svg) args))
-
-(defn visualize [env {:keys [top-levels current-ns] 
-                      :or {current-ns (#'current-ns)}
-                      :as config}]
-  (binding [*ann-for-ns* (fn [] current-ns)]
-    ;(prn (#'current-ns))
-    (let [type-env-edge-map 
-          (reduce
-            (fn [g [v t]]
-              (if (or (= :all top-levels)
-                      (contains? top-levels v))
-                (let [fvs (fv env t)]
-                  ;(prn (unparse-type t))
-                  ;(prn fvs)
-                  (assoc g v fvs))
-                g))
-            {}
-            (type-env env))
-
-          ;_ (prn "type-env-edge-map" type-env-edge-map)
-
-          alias-env-edge-map
-          (loop [g {}
-                 wl (select-keys (alias-env env) 
-                                 (apply concat (vals type-env-edge-map)))]
-            (if (empty? wl)
-              g
-              (let [[v t] (first wl)
-                    ;_ (prn "get fv of" t)
-                    fvs (fv env t)]
-                (recur (assoc g v fvs)
-                       (merge
-                         (dissoc wl v)
-                         (select-keys (alias-env env)
-                                      (set/difference
-                                        (set fvs)
-                                        (set (keys g))
-                                        (set (keys wl))
-                                        #{v})))))))
-
-          edge-map (merge-with 
-                     (fn [& args]
-                       (assert nil "Overlap?"))
-                     type-env-edge-map
-                     alias-env-edge-map)
-
-          ;_ (prn edge-map)
-
-          nodes (into #{}
-                      (map (fn [[v t]]
-                             (with-meta v {:type t})))
-                      (select-keys (merge (alias-env env)
-                                          (type-env env))
-                                   (keys edge-map)))]
-      (mapply view-graph
-              nodes
-              edge-map
-              (:viz-args config)))))
 
 (defn var-constraints 
   "Return the bag of constraints in the current results-atom

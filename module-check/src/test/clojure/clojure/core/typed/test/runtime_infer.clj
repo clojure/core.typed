@@ -1198,3 +1198,51 @@
                 #_{:debug #{:squash :iterations
                           :squash-horizontally}}))
 )
+
+; TODO
+; other types don't collapse tagged maps
+; should combining tagged and untagged maps upcast to (Map Any Any)?
+(let [t (prs
+          (U nil
+             '{:a ':b}
+             '{:op ':foo
+               :b Long
+               :c Long
+               :d Long}
+             '{:op ':bar
+               :e Long
+               :w Long
+               :q Long}))]
+         
+  ((juxt #_specs-from-tenv ;; FIXME
+         anns-from-tenv)
+    {'config-in t}
+    ))
+
+; merging sufficiently similar maps
+(let [t (prs
+          (U nil
+             (HMap
+               :mandatory {:name Sym}
+               :optional {:blah Sym})
+             (HMap
+               :mandatory {:name Sym
+                           :ns Sym}
+               :optional {:tag Sym
+                          :tag1 Sym
+                          :tag2 Sym
+                          :tag3 Sym
+                          :tag4 Sym
+                          :tag5 Sym
+                          :tag6 Sym
+                          :tag7 Sym
+                          :tag8 Sym
+                          :tag9 Sym
+                          :tag10 Sym
+                          :tag11 Sym
+                          })))]
+         
+  ((juxt #_specs-from-tenv ;; FIXME
+         anns-from-tenv)
+    {'config-in t}
+    ))
