@@ -3363,7 +3363,7 @@
                      ;; some kind of issue, we should remember which paths we've already noted.
                      _ (add-infer-results! results-atom (infer-results paths (-class clojure.lang.IFn [])))
                      call-ids (conj call-ids (gen-call-id paths))
-                     ;; space efficient function wrapping
+                     ;; space-efficient function wrapping
                      wrap-fn (fn [paths unwrapped-fn]
                                (with-meta
                                  (fn [& args]
@@ -3422,7 +3422,7 @@
                     (update ::paths-where-original-coll-could-be-empty into paths)))
                [paths v paths])
              _ (assert (set? paths))
-             ;; space efficient wrapping
+             ;; space-efficient wrapping
              wrap-lseq 
              (fn wrap-lseq [unwrapped-seq paths-where-original-coll-could-be-empty]
                (with-meta

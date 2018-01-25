@@ -187,11 +187,10 @@
 ;; testing only
 (defn update-path' [env infer-results]
   (let [config (init-config)
-        env (reduce 
-              (fn [env {:keys [path type]}]
-                (update-path env config path type))
+        env (generate-tenv
               env
-              infer-results)]
+              config
+              {:infer-results infer-results})]
     (type-env env)))
 
 (deftest update-path-test
@@ -769,6 +768,8 @@
               :optional {:opt Sym}))))
 )
 
+(def ^:dynamic *print-anns* true)
+
 (defn *-from-tenv [f tenv config]
   (let [ns (create-ns (gensym))]
     (binding [*ann-for-ns* (constantly ns)
@@ -790,7 +791,8 @@
                   (update-type-env env merge tenv))
             env (populate-envs env config)
             anns (f env config)]
-        (pprint anns)))))
+        (when *print-anns*
+          (pprint anns))))))
 
 (defn anns-from-tenv [tenv & [config]]
   (*-from-tenv envs-to-annotations
@@ -1188,15 +1190,71 @@
 (defn gen-height [n]
   {:pre [(not (neg? n))]}
   (if (zero? n)
-    `'{:P ':Top}
-    `'{:P ':or :ps ~(gen-height (dec n))}))
+    `'{:tag ':null}
+    `'{:tag ':cons :cdr ~(gen-height (dec n))}))
+
+(defn gen-tagged-union [n]
+  {:pre [(not (neg? n))]}
+  (if (zero? n)
+    `'{:tag ':null}
+    `'{:tag '~(keyword (str "cons" n)) :cdr ~(gen-tagged-union (dec n))}))
+
+(defmacro bench
+  "Evaluates expr and returns the time it took."
+  [expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr
+         msduration# (/ (double (- (. System (nanoTime)) start#)) 1000000.0)]
+     [ret# msduration#]))
+
+(defn bench-iteratively 
+  ([f n] (bench-iteratively f 0 n))
+  ([f start n]
+   (loop [times []
+          i start]
+     (if (< n i)
+       times
+       (let [[_ t] (f i)]
+         (recur (conj times t)
+                (inc i)))))))
+
+(defn write-csv [n v]
+  {:pre [(vector? v)]}
+  (spit n (apply str (interpose "," v))))
 
 (comment
-(let [t (parse-type (gen-height 300))]
-(anns-from-tenv {'prop t}
-                {}
-                #_{:debug #{:squash :iterations
-                          :squash-horizontally}}))
+(def bench-height
+  (write-csv "height-bench.csv"
+             (bench-iteratively
+               #(let [t (parse-type (gen-height %))]
+                  (binding [*print-anns* false]
+                    (bench
+                      (anns-from-tenv {'prop t}
+                                      {}))))
+               120)))
+
+(let [t (parse-type (gen-height 5))]
+  (anns-from-tenv {'prop t}
+                  {}))
+(pprint (gen-tagged-union 5))
+
+(let [t (parse-type (gen-tagged-union 10))]
+  (anns-from-tenv {'prop t}
+                  {}))
+
+(def bench-tagged
+  (write-csv
+    "tagged-bench-past110.csv"
+    (bench-iteratively
+      #(let [t (parse-type (gen-tagged-union %))]
+         (binding [*print-anns* false]
+           (bench
+             (anns-from-tenv {'prop t}
+                             {}
+                             #_{:debug #{:squash :iterations
+                                         :squash-horizontally}}))))
+      111 
+      120)))
 )
 
 ; TODO
