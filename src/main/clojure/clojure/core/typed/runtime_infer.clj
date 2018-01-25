@@ -2755,13 +2755,14 @@
   ([env t self seen]
    {:pre [(symbol? self)]}
    (cond
-     (alias? t) (and (= (:name t) self)
-                     (or (seen (:name t))
-                         (top-level-self-reference?
-                           env
-                           (resolve-alias env t)
-                           self
-                           (conj seen (:name t)))))
+     (alias? t) (or (= (:name t) self)
+                    (if (seen (:name t))
+                      false
+                      (top-level-self-reference?
+                        env
+                        (resolve-alias env t)
+                        self
+                        (conj seen (:name t)))))
      (union? t) (boolean (some #(top-level-self-reference? env % self seen) (:types t)))
      :else false)))
 
