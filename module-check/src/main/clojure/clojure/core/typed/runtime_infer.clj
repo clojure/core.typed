@@ -2753,7 +2753,7 @@
 (defn top-level-self-reference? [t self]
   {:pre [(symbol? self)]}
   (cond
-    (alias? t) (not= (:name t) self)
+    (alias? t) (= (:name t) self)
     (union? t) (boolean (some #(top-level-self-reference? % self) (:types t)))
     :else false))
 
