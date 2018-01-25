@@ -567,8 +567,7 @@
          (type? new)]
    :post [(type? %)]}
   ;(prn "subst-alias t" (unparse-type t))
-  ;(prn "old" (unparse-type old))
-  ;(prn "new" (unparse-type new))
+  ;(prn "old" (unparse-type old)) ;(prn "new" (unparse-type new))
   (if (= old new)
     t
     (do 
@@ -578,15 +577,27 @@
       (postwalk t
                 (fn [c]
                   (case (:op c)
-                    :alias (if (= c old)
+                    :alias (if (= (:name c) (:name old))
                              new
                              c)
                     c))))))
+
+(defmacro debug-when [state msg]
+  `(when (and (set? *debug*)
+              (contains? *debug* ~state))
+     (let [msg# ~msg]
+       (println)
+       (println (str "SQUASH ITERATION:\n" msg#)))))
+
+(defmacro debug-squash [msg]
+  `(debug-when :squash 
+               (str "\nSQUASH ITERATION:\n" ~msg "\n")))
 
 (defn rename-alias [env old new]
   {:pre [(symbol? old)
          (symbol? new)]}
   ;(prn "rename-alias" old "->" new)
+  (debug-when :squash-horizontally (str "squash-vertically: renaming alias " old " -> " new))
   (let [tenv (into {}
                    (map (fn [[k t]]
                           [k (subst-alias t (-alias old) (-alias new))]))
@@ -2320,12 +2331,15 @@
   "Shorthand for (walk ast identity f reversed?)"
   ([ast f] (walk ast identity f)))
 
+(declare top-level-self-reference?)
+
 (defn register-alias [env config name t]
   {:pre [(map? env)
          (symbol? name)
          (type? t)]
    :post [(map? %)]}
   ;(prn "register" name)
+  (assert (not (top-level-self-reference? t name)))
   (update-alias-env env assoc name t))
 
 (defn register-just-in-time-alias [sym t]
@@ -2528,6 +2542,88 @@
                 (alias-env env))]
       env)))
 
+(defn alias+merge-single-HMaps
+  "Traverse the type and alias environments
+  and ensure all HMaps are aliased. Reuse
+  existing aliases when :mandatory keysets are identical.
+  Never merge HMaps with different likely tag values."
+  [env config]
+  (letfn [(do-alias [env-atom t]
+            {:pre [(HMap? t)]}
+            (let [a-atom (atom nil)
+                  _ (swap! env-atom 
+                           (fn [env]
+                             (let [existing-aliases (get-in env [::alias-keyset-cache (HMap-req-keyset t)])
+                                   compatible-tag? (fn [[_ existing-t]]
+                                                     (if-let [likely-tag
+                                                              (when existing-t
+                                                                (HMap-likely-tag-key [existing-t t]))]
+                                                       (= (get-in existing-t [::HMap-req likely-tag])
+                                                          (get-in t [::HMap-req likely-tag]))
+                                                       true))
+                                   compatible-alias-entry 
+                                   (first (filter compatible-tag?
+                                                  (zipmap
+                                                    existing-aliases
+                                                    (map #(resolve-alias env (-alias %)) existing-aliases))))
+                                   [a env] (if-let [[a a-t] compatible-alias-entry]
+                                             [a (register-alias env config a (join t a-t))]
+                                             (let [n (gensym 'HMap)]
+                                               [n
+                                                (register-alias env config n t)]))
+                                   new-t (resolve-alias env (-alias a))
+                                   _ (assert (not (top-level-self-reference? new-t a)))
+                                   ;; don't care if retried
+                                   _ (reset! a-atom a)]
+                               ;; update alias cache
+                               (-> env
+                                   (update-in [::alias-keyset-cache (HMap-req-keyset new-t)] (fnil conj #{}) a)))))]
+              (-alias @a-atom)))
+          (single-HMap [env t]
+            {:pre [(type? t)]}
+            (let [env-atom (atom env)
+                  t (postwalk 
+                      t
+                      (fn [t]
+                        (case (:op t)
+                          :HMap (do-alias env-atom t)
+                          t)))]
+              [t @env-atom]))]
+    (let [env (reduce
+                (fn [env [v t]]
+                  (let [[t env] (single-HMap env t)]
+                    (update-type-env env assoc v t)))
+                (assoc env
+                       ::alias-keyset-cache {}
+                       ::alias-tag-val-cache {})
+                (type-env env))
+          env (reduce
+                (fn [env [a t]]
+                  (let [[t env] (if (HMap? t)
+                                  ;; don't re-alias top-level HMap
+                                  (let [env-atm (atom env)
+                                        t (walk-type-children
+                                            t
+                                            (fn [t]
+                                              {:post [(type? %)]}
+                                              (let [t-atom (atom nil)
+                                                    _ (swap! env-atm
+                                                             (fn [env]
+                                                               (let [[t env] (single-HMap env t)]
+                                                                 ;; don't care if this is retried
+                                                                 (reset! t-atom t)
+                                                                 env)))
+                                                    t @t-atom]
+                                                t)))]
+                                    [t @env-atm])
+                                  (single-HMap env t))]
+                    (update-alias-env env assoc a t)))
+                env
+                (alias-env env))]
+      (dissoc env
+              ::alias-keyset-cache
+              ::alias-tag-val-cache))))
+
 ;; Answers: is this a good alias to generate `s/keys`?
 (defn alias-matches-key-for-spec-keys? [a k]
   {:pre [(alias? a)
@@ -2654,16 +2750,12 @@
 
 (declare fv unparse-defalias-entry)
 
-(defmacro debug-when [state msg]
-  `(when (and (set? *debug*)
-              (contains? *debug* ~state))
-     (let [msg# ~msg]
-       (println)
-       (println (str "SQUASH ITERATION:\n" msg#)))))
-
-(defmacro debug-squash [msg]
-  `(debug-when :squash 
-               (str "\nSQUASH ITERATION:\n" ~msg "\n")))
+(defn top-level-self-reference? [t self]
+  {:pre [(symbol? self)]}
+  (cond
+    (alias? t) (not= (:name t) self)
+    (union? t) (boolean (some #(top-level-self-reference? % self) (:types t)))
+    :else false))
 
 ; try-merge-aliases : Env Config Sym Alias -> Env
 (defn try-merge-aliases [env config f t]
@@ -2680,24 +2772,12 @@
     ;(prn "merging keysets?"
     ;     tks fks)
     (cond
-      ;; if there's some subset of keysets that are
-      ;; identical in both, collapse the entire thing.
-      ;; TODO is this too aggresssive? Shouldn't the keysets
-      ;; be exactly identical?
       (and (not= (:name t) f)
-           (some (fn [fk]
-                   (some (fn [tk]
-                           (or
-                             (seq (set/intersection (set/union (:req-keyset fk)
-                                                               (:opt-keyset fk))
-                                                    (:req-keyset tk)))
-                             (seq (set/intersection (set/union (:req-keyset tk)
-                                                               (:opt-keyset tk))
-                                                    (:req-keyset fk)))))
-                         tks))
-                 fks)
-           (not (alias? (resolve-alias env (-alias f))))
-           (not (alias? (resolve-alias env t))))
+           (let [ft (resolve-alias env (-alias f))
+                 tt (resolve-alias env t)]
+             (and (HMap? ft)
+                  (HMap? tt)
+                  (some? (HMap-likely-tag-key [ft tt])))))
       (let [old-env env
             env (update-alias-env env
                            (fn [m]
@@ -2750,7 +2830,11 @@
                                    (pprint (mapv unparse-defalias-entry (select-keys (alias-env old-env) [f (:name t)]))))
                                  "\nNew alias:\n"
                                  (with-out-str 
-                                   (pprint (unparse-defalias-entry (find (alias-env env) (:name t)))))))]
+                                   (pprint (unparse-defalias-entry (find (alias-env env) (:name t)))))))
+            _ (assert (not (top-level-self-reference? (resolve-alias env t) (:name t)))
+                      (str (unparse-type t " refers to an infinite type: " (unparse-type (resolve-alias env t)))))
+            _ (assert (not (top-level-self-reference? (resolve-alias env (-alias f)) f))
+                      (str f " refers to an infinite type: " (unparse-type (resolve-alias env (-alias f)))))]
         [[{:new (:name t)
            :old f}]
          env])
@@ -2912,6 +2996,11 @@
                             (if (inline-alias? env config real)
                               real-res
                               real)]
+                        (prn "follow-aliases-in-alias-env"
+                             (str "rewriting " f
+                                  ": " "originally " (unparse-type (resolve-alias env (-alias f)))
+                                  ", now replacing " inner " with " 
+                                  (unparse-type substt)))
                         (register-alias env config
                                         f
                                         (subst-alias
@@ -4863,7 +4952,7 @@
 (defn squash-vertically [env config]
   (reduce
     (fn [env [v t]]
-      (debug-when :iterations (str "squash-horizonally: " v))
+      (debug-when :iterations (str "squash-vertically: " v))
       (let [;; create graph nodes from HMap types
             [t env] (alias-hmap-type env config t)
             _ (debug-output-when
@@ -4897,6 +4986,12 @@
         env (if-let [fuel (:fuel config)]
               (assoc env :fuel fuel)
               env)
+        ;; give all HMaps an alias, and eagerly merge aliases
+        ;; with identical :mandatory keysets. Don't merge HMaps
+        ;; with different likely tag values.
+        env (when-fuel env
+              (alias+merge-single-HMaps env config))
+           _ (debug-output "after alias+merge-single-HMaps" env config)
         env (if no-squash-vertically
               env
               (let [_ (debug-output "top of populate-envs" env config)
