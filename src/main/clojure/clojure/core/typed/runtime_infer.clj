@@ -3008,7 +3008,9 @@
                              (str "rewriting " f
                                   ": " "originally " (unparse-type (resolve-alias env (-alias f)))
                                   ", now replacing " inner " with " 
-                                  (unparse-type substt)))
+                                  (unparse-type substt)
+                                  (when (top-level-self-reference? env (resolve-alias env (-alias f)) f))
+                                    " (the original binding is also infinite, so this happened somewhere else)"))
                         (register-alias env config
                                         f
                                         (subst-alias
@@ -4470,6 +4472,7 @@
               [anew aolds] (rewrite-to as)
               newtyp (join*-aliases env anew as)
               ;; update new alias
+              _ (assert (not (top-level-self-reference? env newtyp anew)))
               env (update-alias-env env assoc anew newtyp)
               ;; point old aliases to the new alias
               env (point-old-aliases-to-new env anew aolds)]
