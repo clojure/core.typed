@@ -905,6 +905,9 @@
   (assert (even? (count args)))
   (list*-force (qualify-spec-symbol 'cat) args))
 
+(defn spec-star [arg]
+  (list (qualify-spec-symbol '*) arg))
+
 (declare fully-resolve-alias HMap-likely-tag-key
          register-just-in-time-alias)
 
@@ -1303,80 +1306,86 @@
                             :else
                             (mapv
                               (fn [{:keys [dom] :as ifn}]
-                                {:pre [dom
-                                       ;TODO
-                                       (not (:rest ifn))]}
+                                {:pre [dom]}
                                 ;(prn "doms" (count dom) (keyword (get fixed-name-lookup (count dom))))
-                                (let [knames (let [[matching-fixed-names rest-arg-name]
-                                                   (or (when-let [f (get fixed-name-lookup (count dom))]
-                                                         [f nil])
-                                                       (when rest-arglist
-                                                         (assert (vector? rest-arglist))
-                                                         (when (>= (count dom) (dec (count rest-arglist)))
-                                                           [(subvec rest-arglist 0 (- (count rest-arglist) 2))
-                                                            (peek rest-arglist)])))
-                                                   keywordify-arg 
-                                                   (fn [arg]
-                                                     ;; here we can improve naming by examining destructuring
-                                                     (cond
-                                                       ;; simple argument name
-                                                       (symbol? arg) (keyword (namespace arg) (name arg))
+                                (let [dom-knames 
+                                      (let [[matching-fixed-names rest-arg-name]
+                                            (or (when-let [f (get fixed-name-lookup (count dom))]
+                                                  [f nil])
+                                                (when rest-arglist
+                                                  (assert (vector? rest-arglist))
+                                                  (when (>= (count dom) (dec (count rest-arglist)))
+                                                    [(subvec rest-arglist 0 (- (count rest-arglist) 2))
+                                                     (peek rest-arglist)])))
+                                            keywordify-arg 
+                                            (fn [arg]
+                                              ;; here we can improve naming by examining destructuring
+                                              (cond
+                                                ;; simple argument name
+                                                (symbol? arg) (keyword (namespace arg) (name arg))
 
-                                                       ;; {:as foo} map destructuring
-                                                       (and (map? arg)
-                                                            (symbol? (:as arg)))
-                                                       (keyword (namespace (:as arg)) 
-                                                                (name (:as arg)))
+                                                ;; {:as foo} map destructuring
+                                                (and (map? arg)
+                                                     (symbol? (:as arg)))
+                                                (keyword (namespace (:as arg)) 
+                                                         (name (:as arg)))
 
-                                                       ;; [:as foo] vector destructuring
-                                                       (and (vector? arg)
-                                                            (<= 2 (count arg))
-                                                            (#{:as} (nth arg (- (count arg) 2)))
-                                                            (symbol? (peek arg)))
-                                                       (keyword (namespace (peek arg))
-                                                                (name (peek arg)))))
-                                                   combined-kws 
-                                                   (let [fixed-kws (map-indexed (fn [n arg]
-                                                                                  (or (keywordify-arg arg)
-                                                                                      (let [s (or #_(some-> top-level-def name)
-                                                                                                  "arg")]
-                                                                                        (keyword (str s "-" n)))))
-                                                                                matching-fixed-names)
-                                                         rest-kws (when rest-arg-name
-                                                                    (let [dom-remain (- (count dom) (count fixed-kws))
-                                                                          kw-arg (keywordify-arg rest-arg-name)
-                                                                          prefix (if kw-arg
-                                                                                   (str (when-let [n (namespace kw-arg)]
-                                                                                          (str n "/"))
-                                                                                        (name kw-arg))
-                                                                                   (str "rest-arg"))]
-                                                                      (map (fn [n]
-                                                                             (keyword (str prefix "-" n)))
-                                                                           (range dom-remain))))
-                                                         combined-kws (vec (uniquify (concat fixed-kws rest-kws)))]
-                                                     (if (= (count dom) (count combined-kws))
-                                                       combined-kws
-                                                       (mapv (fn [n] (keyword (str "arg-" n)))
-                                                             (range (count dom)))))]
-                                               (assert (= (count dom) (count combined-kws)))
-                                               combined-kws)]
+                                                ;; [:as foo] vector destructuring
+                                                (and (vector? arg)
+                                                     (<= 2 (count arg))
+                                                     (#{:as} (nth arg (- (count arg) 2)))
+                                                     (symbol? (peek arg)))
+                                                (keyword (namespace (peek arg))
+                                                         (name (peek arg)))))
+                                            combined-kws 
+                                            (let [fixed-kws (map-indexed (fn [n arg]
+                                                                           (or (keywordify-arg arg)
+                                                                               (let [s (or #_(some-> top-level-def name)
+                                                                                           "arg")]
+                                                                                 (keyword (str s "-" n)))))
+                                                                         matching-fixed-names)
+                                                  rest-kws (when rest-arg-name
+                                                             (let [dom-remain (- (count dom) (count fixed-kws))
+                                                                   kw-arg (keywordify-arg rest-arg-name)
+                                                                   prefix (if kw-arg
+                                                                            (str (when-let [n (namespace kw-arg)]
+                                                                                   (str n "/"))
+                                                                                 (name kw-arg))
+                                                                            (str "rest-arg"))]
+                                                               (map (fn [n]
+                                                                      (keyword (str prefix "-" n)))
+                                                                    (range dom-remain))))
+                                                  combined-kws (vec (uniquify (concat fixed-kws rest-kws)))]
+                                              (if (= (count dom) (count combined-kws))
+                                                combined-kws
+                                                (mapv (fn [n] (keyword (str "arg-" n)))
+                                                      (range (count dom)))))]
+                                        (assert (= (count dom) (count combined-kws)))
+                                        combined-kws)]
                                   (spec-cat
-                                    (mapcat (fn [n k d]
-                                              {:pre [(keyword? k)]}
-                                              (let [spec 
-                                                    (cond
-                                                      (and (zero? n)
-                                                           macro?
-                                                           (#{:class} (:op d))
-                                                           (= clojure.lang.IPersistentVector
-                                                              (::class-instance d)))
-                                                      (keyword (str core-specs-ns) "bindings")
+                                    (concat
+                                      (mapcat (fn [n k d]
+                                                {:pre [(keyword? k)]}
+                                                (let [spec 
+                                                      (cond
+                                                        (and (zero? n)
+                                                             macro?
+                                                             (#{:class} (:op d))
+                                                             (= clojure.lang.IPersistentVector
+                                                                (::class-instance d)))
+                                                        (keyword (str core-specs-ns) "bindings")
 
-                                                      :else (unparse-spec d))]
-                                                [k spec]))
-                                            (range)
-                                            knames
-                                            dom))))
+                                                        :else (unparse-spec d))]
+                                                  [k spec]))
+                                              (range)
+                                              dom-knames
+                                              dom)
+                                      (when-let [rest (:rest ifn)]
+                                        [(or (when-let [[_ n] (seq rest-arglist)]
+                                               (when (symbol? n)
+                                                 (keyword (name n))))
+                                             :rest-arg)
+                                         (spec-star (unparse-spec rest))])))))
                               arities))
                      rngs (if macro?
                             (qualify-core-symbol 'any?)
@@ -2841,7 +2850,7 @@
                                  (with-out-str 
                                    (pprint (unparse-defalias-entry (find (alias-env env) (:name t)))))))
             _ (assert (not (top-level-self-reference? env (resolve-alias env t) (:name t)))
-                      (str (unparse-type t " refers to an infinite type: " (unparse-type (resolve-alias env t)))))
+                      (str (unparse-type t) " refers to an infinite type: " (unparse-type (resolve-alias env t))))
             _ (assert (not (top-level-self-reference? env (resolve-alias env (-alias f)) f))
                       (str f " refers to an infinite type: " (unparse-type (resolve-alias env (-alias f)))))]
         [[{:new (:name t)
@@ -3005,13 +3014,14 @@
                             (if (inline-alias? env config real)
                               real-res
                               real)]
-                        (prn "follow-aliases-in-alias-env"
-                             (str "rewriting " f
-                                  ": " "originally " (unparse-type (resolve-alias env (-alias f)))
-                                  ", now replacing " inner " with " 
-                                  (unparse-type substt)
-                                  (when (top-level-self-reference? env (resolve-alias env (-alias f)) f))
-                                    " (the original binding is also infinite, so this happened somewhere else)"))
+                        ;(prn "follow-aliases-in-alias-env"
+                        ;     (str "rewriting " f
+                        ;          ": " "originally " (unparse-type (resolve-alias env (-alias f)))
+                        ;          ", now replacing " inner " with " 
+                        ;          (unparse-type substt)
+                        ;          (when (top-level-self-reference? env (resolve-alias env (-alias f)) f))
+                        ;            " (the original binding is also infinite, so this happened somewhere else)"))
+                        ;; FIXME often inner == substt, avoid this
                         (register-alias env config
                                         f
                                         (subst-alias
@@ -4435,7 +4445,7 @@
              :post [(type? %)]}
             ;(prn "join*-aliases" anew as)
             (let [as (set as)
-                  ts (map #(resolve-alias env (-alias %)) as)
+                  ts (map #(fully-resolve-alias env (-alias %)) as)
                   ;_ (prn "ts with anew" (mapv unp ts))
                   ;; remove all top-level alias refs to as, otherwise
                   ;; we'll create infinite aliases.
@@ -4473,7 +4483,8 @@
               [anew aolds] (rewrite-to as)
               newtyp (join*-aliases env anew as)
               ;; update new alias
-              _ (assert (not (top-level-self-reference? env newtyp anew)))
+              _ (assert (not (top-level-self-reference? env newtyp anew))
+                        (str anew " refers to an infinite type: " (unparse-type anew)))
               env (update-alias-env env assoc anew newtyp)
               ;; point old aliases to the new alias
               env (point-old-aliases-to-new env anew aolds)]
@@ -4768,7 +4779,7 @@
                                    (if every-hmap?
                                      (let [k (HMap-likely-tag-key ts)]
                                        (if (every? #(HMap-has-tag-key? % k) ts)
-                                         (let [new-a (gen-unique-alias-name env config (symbol (name k)))]
+                                         (let [new-a (gen-unique-alias-name env config (symbol (camel-case (name k))))]
                                            (rename-alias env a new-a))
                                          env))
                                      env))
@@ -4785,7 +4796,7 @@
                                               (symbol
                                                 (if (empty? relevant-names)
                                                   "EmptyMap"
-                                                  (apply str (concat (take 3 relevant-names) ["Map"])))))]
+                                                  (apply str (concat (map camel-case (take 3 relevant-names)) ["Map"])))))]
                                   (rename-alias env a a-new))
                           env)]
                 ;(debug-output (str "after rename-HMap-aliases " a) env config)
