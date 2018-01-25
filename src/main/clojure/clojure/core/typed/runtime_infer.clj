@@ -978,6 +978,8 @@
                 :fixed))
             arglists))
 
+(defn unq-spec-nstr [] (str (current-ns)))
+
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
   (assert (type? m) m)
@@ -1020,9 +1022,10 @@
                  ;; if we have a bunch of maps with a similar key,
                  ;; generate a multispec
                  (let [multispecs *multispecs-needed*
-                       nme (gensym (str (when-let [nstr (namespace tag)]
-                                          (str nstr "-"))
-                                        (name tag) "-multi-spec"))
+                       nme (symbol #_gensym  ;; looks nicer without gensym, but could clash
+                             (str (when-let [nstr (namespace tag)]
+                                    (str nstr "-"))
+                                  (name tag) "-multi-spec"))
                        dmulti (list
                                 (qualify-core-symbol 'defmulti)
                                 (with-meta nme
@@ -1098,7 +1101,7 @@
 																													ka (cond 
 																															 (alias? v) (keyword (:name v))
 																															 (namespace k) k
-																															 :else (keyword "clojure.core.typed.unqualified-keys" (name k)))]
+																															 :else (keyword (unq-spec-nstr) (name k)))]
 																											(when-let [used-aliases *used-aliases*]
 																												(swap! used-aliases conj (kw->sym ka)))
                                                       ka)
@@ -1130,10 +1133,11 @@
                                                     :else
                                                     ;; punt?
                                                     (do
+                                                      (println (str "WARNING: Generating unq spec alias for " k " just-in-time."))
                                                       (when-let [used-aliases *used-aliases*]
                                                         (swap! used-aliases conj 
-                                                               (symbol "clojure.core.typed.unqualified-keys" (name k))))
-                                                      (keyword "clojure.core.typed.unqualified-keys" (name k)))
+                                                               (symbol (unq-spec-nstr) (name k))))
+                                                      (keyword (unq-spec-nstr) (name k)))
                                                     ;; TODO idea to reduce alias names: combine like-named
                                                     ;; keys that are reachable from the root of a type.
                                                     ;; ie. (U (HMap :mandatory {:foo Int})
@@ -1163,8 +1167,7 @@
                                                                   kw))))]
                                                       (or
                                                         maybe-kw
-                                                        (let [gk (keyword (gensym "clojure.core.typed.unqualified-keys")
-                                                                          (name k))
+                                                        (let [gk (keyword (gensym (unq-spec-nstr)) (name k))
                                                               _ (when-not maybe-kw
                                                                   (println "WARNING: Cannot generate just-in-time alias "
                                                                            "for unqualified key " k ", using "
@@ -2381,10 +2384,9 @@
   (let [qualified? (boolean (namespace k))
         sym (if qualified?
               (kw->sym k)
-              ;; this namespace is unlikely to have qualified keys we care about,
-              ;; so it's unique enough for our purposes.
-              (symbol "clojure.core.typed.unqualified-keys"
-                      (name k)))]
+              ;; not a truly unique namespace prefix, but let's see if it
+              ;; works in practice.
+              (symbol (unq-spec-nstr) (name k)))]
     ;(prn "register" sym)
     [sym (if true #_qualified?
            (update-alias-env env update sym (fnil join -nothing) t)
@@ -2639,9 +2641,7 @@
          (keyword? k)]}
   (if (namespace k)
     (= (:name a) (kw->sym k))
-    (and (= (name (:name a)) (name k))
-         (= "clojure.core.typed.unqualified-keys"
-            (namespace k)))))
+    (= (name (:name a)) (name k))))
 
 (defn alias-hmap-type
   "Recur up from the leaves of a type and
