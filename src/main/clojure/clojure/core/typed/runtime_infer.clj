@@ -2339,7 +2339,7 @@
          (type? t)]
    :post [(map? %)]}
   ;(prn "register" name)
-  (assert (not (top-level-self-reference? t name)))
+  (assert (not (top-level-self-reference? env t name)))
   (update-alias-env env assoc name t))
 
 (defn register-just-in-time-alias [sym t]
@@ -2572,7 +2572,7 @@
                                                [n
                                                 (register-alias env config n t)]))
                                    new-t (resolve-alias env (-alias a))
-                                   _ (assert (not (top-level-self-reference? new-t a)))
+                                   _ (assert (not (top-level-self-reference? env new-t a)))
                                    ;; don't care if retried
                                    _ (reset! a-atom a)]
                                ;; update alias cache
@@ -2750,12 +2750,20 @@
 
 (declare fv unparse-defalias-entry)
 
-(defn top-level-self-reference? [t self]
-  {:pre [(symbol? self)]}
-  (cond
-    (alias? t) (= (:name t) self)
-    (union? t) (boolean (some #(top-level-self-reference? % self) (:types t)))
-    :else false))
+(defn top-level-self-reference? 
+  ([env t self] (top-level-self-reference? env t self #{}))
+  ([env t self seen]
+   {:pre [(symbol? self)]}
+   (cond
+     (alias? t) (and (= (:name t) self)
+                     (or (seen (:name t))
+                         (top-level-self-reference?
+                           env
+                           (resolve-alias env t)
+                           self
+                           (conj seen (:name t)))))
+     (union? t) (boolean (some #(top-level-self-reference? env % self seen) (:types t)))
+     :else false)))
 
 ; try-merge-aliases : Env Config Sym Alias -> Env
 (defn try-merge-aliases [env config f t]
@@ -2831,9 +2839,9 @@
                                  "\nNew alias:\n"
                                  (with-out-str 
                                    (pprint (unparse-defalias-entry (find (alias-env env) (:name t)))))))
-            _ (assert (not (top-level-self-reference? (resolve-alias env t) (:name t)))
+            _ (assert (not (top-level-self-reference? env (resolve-alias env t) (:name t)))
                       (str (unparse-type t " refers to an infinite type: " (unparse-type (resolve-alias env t)))))
-            _ (assert (not (top-level-self-reference? (resolve-alias env (-alias f)) f))
+            _ (assert (not (top-level-self-reference? env (resolve-alias env (-alias f)) f))
                       (str f " refers to an infinite type: " (unparse-type (resolve-alias env (-alias f)))))]
         [[{:new (:name t)
            :old f}]
