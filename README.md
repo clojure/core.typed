@@ -48,7 +48,7 @@ This is how to start with Leiningen.
 
 ```clojure
 :injections [(require 'clojure.core.typed)
-             (clojure.core.typed/install)])
+             (clojure.core.typed/install)]
 ```
 
 Next add the following `ns` metadata to the file you are working with.
