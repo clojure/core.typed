@@ -114,6 +114,10 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 [vim-typedclojure](https://github.com/typedclojure/vim-typedclojure)
 
+## Emacs Mode
+
+[typed-clojure-mode](https://github.com/typedclojure/typed-clojure-mode)
+
 ## Quickstart
 
 `(clojure.core.typed/ann v t)` gives var `v` the static type `t`.
