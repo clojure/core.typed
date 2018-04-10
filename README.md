@@ -98,15 +98,6 @@ in your file, or `(clojure.core.typed/spec-infer)` for clojure.spec annotations.
 Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion, 
 or try #typed-clojure on Freenode (the main developer is ambrosebs).
 
-This used to point to the logs for the typed-clojure IRC channel,
-provided by [Anthony Grimes](https://twitter.com/StRaynes).
-Anthony was an amazing human being,
-and the programming community will never be the same without him.
-His creativity, work ethic, and ability to engage with anyone around him
-was second to none. We miss him dearly.
-
-RIP Anthony. You live on in your work and our hearts.
-
 ## Documentation
 
 See [wiki](https://github.com/clojure/core.typed/wiki).
