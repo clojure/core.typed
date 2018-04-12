@@ -1,10 +1,20 @@
-# 0.5.0 - SNAPSHOT
+# 0.5.0 - 12 April 2018
+
+Breaking changes:
+
+- `check-ns` et. al no longer recursively checks file
+  dependencies. Use `(check-ns *ns* :check-deps true)`
+  to recursively check dependencies.
+
+Features:
 
 - support ns aliases in `ann`
 - remove support for deprecated `ann` `:nocheck` syntax
-- `check-ns` et. al no longer recursively check file
-  dependencies. Use `(check-ns *ns* :check-deps true)`
-  to recursively check dependencies.
+- CTYP-297: Allow defmulti without expected type
+
+Internal:
+
+- Use custom single pass variant of tools.analyzer (`clojure.core.typed.analyzer2.jvm`)
 
 # 0.4.3 - 13 October 2017
 
