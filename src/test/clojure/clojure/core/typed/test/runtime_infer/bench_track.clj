@@ -26,7 +26,7 @@
 (defn call-if-zero [i f]
   (if (= 0 i)
     (f)
-    (call-if-one (dec i) f)))
+    (call-if-zero (dec i) f)))
 
 (comment
 (defmacro bench
@@ -63,5 +63,5 @@
     3000
     {:a 1})
 
-  (call-if-one 1000 (fn [] (prn "called")))
+  (call-if-zero 1000 (fn [] (prn "called")))
   )
