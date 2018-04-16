@@ -191,6 +191,11 @@
   (without [this k]
     (clojure.core.typed.dep.potemkin.collections/dissoc* this k))
 
+  clojure.lang.IEditableCollection
+  (asTransient [this]
+    (let [^clojure.lang.IEditableCollection t (clojure.lang.PersistentHashMap/create this)]
+      (.asTransient t)))
+
   clojure.core.typed.dep.potemkin.collections/PotemkinFn
 
   (invoke [this k]
