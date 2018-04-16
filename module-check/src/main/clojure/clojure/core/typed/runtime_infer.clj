@@ -473,12 +473,11 @@
         [doms [_ rst :as has-rst]] (split-with (complement #{'&}) doms)
         _ (assert (#{0 2} (count has-rst)))
         _ (assert (= 2 (count rng-arrow)))]
-    (merge
-      {:op :IFn1
-       :dom (mapv parse-type doms)
-       :rng (parse-type rng)}
-      (when (seq has-rst)
-        {:rest (parse-type rst)}))))
+    {:op :IFn1
+     :dom (mapv parse-type doms)
+     :rng (parse-type rng)
+     :rest (when (seq has-rst)
+             (parse-type rst))}))
 
 (defn parse-HVec [v]
   {:op :HVec 
@@ -2027,19 +2026,20 @@
                  (map (juxt :op (comp count :dom))
                       as))]
    :post [(#{:IFn1} (:op %))]}
-  {:op :IFn1
-   :dom (apply mapv
-               (fn [& [dom & doms]]
-                 {:pre [dom]}
-                 ;(prn "join IFn IFn dom" (map :op (cons dom doms)))
-                 (apply join* dom doms))
-               (map :dom as))
-   :rest (let [all-rests (keep :rest as)]
-           (when (seq all-rests)
-             (apply join* all-rests)))
-   :rng (let [[rng & rngs] (map :rng as)]
-          (assert rng)
-          (apply join* rng rngs))})
+  (merge 
+    {:op :IFn1
+     :dom (apply mapv
+                 (fn [& [dom & doms]]
+                   {:pre [dom]}
+                   ;(prn "join IFn IFn dom" (map :op (cons dom doms)))
+                   (apply join* dom doms))
+                 (map :dom as))
+     :rng (let [[rng & rngs] (map :rng as)]
+            (assert rng)
+            (apply join* rng rngs))
+     :rest (let [all-rests (keep :rest as)]
+             (when (seq all-rests)
+               (apply join* all-rests)))}))
 
 (defn join-IFn [t1 t2]
   {:pre [(#{:IFn} (:op t1))
@@ -2197,7 +2197,8 @@
                                              ;; immediately associate kw->kw entries
                                              ;; to distinguish in merging algorithm
                                              kw-entries
-                                             {key type})})
+                                             {key type})
+                           ::HMap-opt {}})
                    :set-entry (-class clojure.lang.IPersistentSet [type])
                    :seq-entry (-class clojure.lang.ISeq [type])
                    :vec-entry (-class clojure.lang.IPersistentVector [type])
@@ -2217,11 +2218,13 @@
                                                    (if (zero? arity)
                                                      dom
                                                      (assoc dom position type)))
+                                            :rest nil
                                             :rng {:op :unknown}}]})
                    :fn-range (let [{:keys [arity]} cur-pth]
                                {:op :IFn
                                 :arities [{:op :IFn1
                                            :dom (into [] (repeat (:arity cur-pth) {:op :unknown}))
+                                           :rest nil
                                            :rng type}]})))))))))
 
 (defn collapse-likely-rest-arguments [t]

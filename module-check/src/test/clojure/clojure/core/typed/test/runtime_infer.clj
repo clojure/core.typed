@@ -154,6 +154,7 @@
            (prs '{:f [[java.lang.Long :-> java.lang.Long] :-> java.lang.Long]})))))
 
 (deftest squash-test
+  #_
   (let [config (init-config)
         env (init-env)
         env (update-alias-env env merge
@@ -237,7 +238,7 @@
                              (parse-type 'Long))
                (infer-result [(var-path 'foo) (fn-dom-path 1 0)]
                              (parse-type 'Long))])]
-    (is (= (update-path' (init-env) infers)
+    (is (= (update (update-path' (init-env) infers) 'foo dissoc :top-level-def)
            {'foo (prs [Long :-> Long])})))
   (checking
     "unknown with function"
@@ -245,7 +246,7 @@
     [infers (gen/shuffle
               [(infer-result [(var-path 'foo)] (prs ?))
                (infer-result [(var-path 'foo)] (prs [Long :-> ?]))])]
-    (is (= (update-path' (init-env) infers)
+    (is (= (update (update-path' (init-env) infers) 'foo dissoc :top-level-def)
            {'foo (prs [java.lang.Long :-> ?])})))
 
   (checking
