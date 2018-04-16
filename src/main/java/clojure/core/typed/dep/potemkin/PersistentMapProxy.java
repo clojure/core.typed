@@ -5,7 +5,7 @@ import clojure.lang.*;
 import java.util.Iterator;
 import java.util.Set;
 
-public class PersistentMapProxy extends APersistentMap {
+public class PersistentMapProxy extends APersistentMap implements IEditableCollection, IObj {
 
   public interface IMap {
     Object get(Object k, Object defaultValue);
@@ -18,6 +18,10 @@ public class PersistentMapProxy extends APersistentMap {
   public interface IEquality {
     boolean eq(Object o);
     int hash();
+  }
+
+  public ITransientCollection asTransient() {
+    return ((IEditableCollection)PersistentHashMap.create(this)).asTransient();
   }
 
   public static class MapEntry extends clojure.lang.MapEntry {
@@ -57,7 +61,7 @@ public class PersistentMapProxy extends APersistentMap {
     return _meta;
   }
 
-  public IPersistentMap withMeta(IPersistentMap meta) {
+  public IObj withMeta(IPersistentMap meta) {
     return new PersistentMapProxy(_map, meta);
   }
 
