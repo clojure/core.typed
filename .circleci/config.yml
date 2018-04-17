@@ -1,42 +1,34 @@
 version: 2
+
 jobs:
-  build:
-    working_directory: ~/core.typed
+  # ctyp-323-cljs setup
+  #cljs_setup:
+  #  docker:
+  #    - image: circleci/openjdk:8-jdk
+  #  working_directory: ~/core.typed
+  #  steps:
+  #    - install_lein
+  #    - run:
+  #        filters:
+  #          branches:
+  #            only: ctyp-323-cljs
+  #        name: Clone CLJS fork
+  #        command: git clone -b tools.analyzer-ast https://github.com/frenchy64/clojurescript.git ~/cljs
+  #    - run:
+  #        filters:
+  #          branches:
+  #            only: ctyp-323-cljs
+  #        name: Install CLJS fork
+  #        command: |
+  #          echo $(git branch -v)
+  #          cd ~/cljs
+  #          ~/bin/lein install
+  core_typed_dependencies:
     docker:
       - image: circleci/openjdk:8-jdk
-    #parallelism: 2
+    working_directory: ~/core.typed
     steps:
       - checkout
-
-      # START: ctyp-323-cljs setup
-      - run:
-          filters:
-            branches:
-              only: ctyp-323-cljs
-          name: Install leiningen
-          command: |
-            mkdir ~/bin
-            cd ~/bin
-            wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
-            chmod +x lein
-            ./lein
-      - run:
-          filters:
-            branches:
-              only: ctyp-323-cljs
-          name: Clone CLJS fork
-          command: git clone -b tools.analyzer-ast https://github.com/frenchy64/clojurescript.git ~/cljs
-      - run:
-          filters:
-            branches:
-              only: ctyp-323-cljs
-          name: Install CLJS fork
-          command: |
-            echo $(git branch -v)
-            cd ~/cljs
-            ~/bin/lein install
-      # END: ctyp-323-cljs setup
-
       - restore_cache:
           keys:
             - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
@@ -53,7 +45,76 @@ jobs:
           paths:
             - "~/.m2"
 
-      #Actually run our tests
+  core_typed_tests:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    working_directory: ~/core.typed
+    #Actually run our tests
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}
+            - core-typed-{{ .Branch }}
+            - core-typed-
       - run:
           name: Unit Tests
           command: mvn -o test
+
+  rti_tests:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    working_directory: ~/core.typed
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}
+            - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}
+            - core-typed-{{ .Branch }}
+            - core-typed-
+      - run:
+          name: Install leiningen
+          command: |
+            mkdir ~/bin
+            cd ~/bin
+            wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
+            chmod +x lein
+            ./lein
+      - run:
+          name: Clone tests
+          command: git clone https://github.com/frenchy64/runtime-type-inference-lein.git ~/rti-tests
+      - run:
+          name: Run tests
+          command: |
+            cd ~/core.typed
+            export CORETYPEDVERSION="$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
+            mvn -DskipTests clean install
+            cd ~/rti-tests
+            echo "Using core.typed version: $CORETYPEDVERSION"
+            PATH=$PATH:~/bin ./infer-types.sh "$CORETYPEDVERSION"
+      #- save_cache:
+      #    key: rti-tests-{{ .Branch }}-{{ ??? }}
+      #    paths:
+      #      - "~/.m2"
+      - store_artifacts:
+          path: ~/rti-tests/out
+          destination: rti
+
+workflows:
+  version: 2
+  #parallelism: 2
+  build_and_test:
+    jobs:
+      - core_typed_dependencies
+      - core_typed_tests:
+          requires:
+            - core_typed_dependencies
+      - rti_tests:
+          requires:
+            - core_typed_dependencies
