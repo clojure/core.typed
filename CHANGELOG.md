@@ -1,3 +1,11 @@
+# 0.5.1 - 18 April 2018
+
+- Add circleci workflow to generate annotations
+- Fix auto annotation bug
+  - types now are generally smaller throughout the inference algorithm, instead of just
+    at the end.
+  - described [here](http://frenchy64.github.io/2018/04/13/how-to-merge-recursive-specs.html)
+
 # 0.5.0 - 12 April 2018
 
 Breaking changes:
