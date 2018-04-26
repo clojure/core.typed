@@ -1,9 +1,6 @@
 ;; adapted from tools.analyzer
 (ns clojure.core.typed.analyzer2
-  (:refer-clojure :exclude [macroexpand-1 macroexpand var? record? boolean?])
-  (:require [clojure.tools.analyzer.utils :as u]
-            [clojure.tools.analyzer.env :as env])
-  (:import (clojure.lang Symbol IPersistentVector IPersistentMap IPersistentSet ISeq IType IRecord)))
+  (:refer-clojure :exclude [macroexpand-1 var?]))
 
 (def ^{:dynamic  true
        :arglists '([form env])

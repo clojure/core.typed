@@ -16,7 +16,7 @@
       <plugin>
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
+        <version>1.8.1</version>
         <executions>
           <execution>
             <id>clojure-compile</id>
@@ -28,7 +28,7 @@
           </execution>
         </executions>
         <configuration>
-          <vmargs>-Xmx2048m -XX:MaxPermSize=512M</vmargs>
+          <vmargs>-Xmx2048m</vmargs>
           <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
           <!--<vmargs>-verbose:class</vmargs>-->
           <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
@@ -46,8 +46,6 @@
             <!-- depends on tools.nrepl -->
             <!--<namespace>!clojure.core.typed.repl</namespace>
             <namespace>!clojure.core.typed.load</namespace>-->
-            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </namespaces>
           <testNamespaces>
             <namespace>clojure.core.typed.test.*</namespace>
@@ -56,8 +54,6 @@
             <namespace>!clojure.core.typed.test.load-file2</namespace>
             <!-- depends on tools.nrepl -->
             <!-- <namespace>!clojure.core.typed.test.repl</namespace>-->
-            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
@@ -119,13 +115,13 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>tools.analyzer.jvm</artifactId>
-      <version>0.7.0</version>
+      <artifactId>core.typed.infer</artifactId>
+      <version>0.5.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>jvm.tools.analyzer</artifactId>
-      <version>0.6.2</version>
+      <artifactId>core.typed.analyzer.jvm</artifactId>
+      <version>0.5.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -167,18 +163,6 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>tools.trace</artifactId>
-      <version>0.7.5</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
       <version>0.3.465</version>
       <optional>true</optional>
@@ -191,15 +175,27 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
+      <artifactId>tools.trace</artifactId>
+      <version>0.7.5</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>clojure</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
       <artifactId>test.check</artifactId>
       <version>0.9.0</version>
-      <optional>true</optional>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.gfredericks</groupId>
       <artifactId>test.chuck</artifactId>
       <version>0.2.6</version>
-      <optional>true</optional>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

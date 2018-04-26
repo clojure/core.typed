@@ -5,7 +5,6 @@
             [com.gfredericks.test.chuck.generators :as gen']
             [clojure.test.check.generators :as gen]
             [clojure.core.typed :as t]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.runtime-infer :refer :all]))
 
 (defn add-tmp-aliases [env as]
@@ -784,8 +783,8 @@
                  :as t 
                  :refer [defalias ann Str Any U Vec Map
                          Sym HMap Nothing]])
-      (when u/spec-ns
-        (require [u/spec-ns :as 's]))
+      (when spec-ns
+        (require [spec-ns :as 's]))
 
       (let [_ (prn "Current ns:" (current-ns))
             env (as-> (init-env) env

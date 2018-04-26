@@ -2,27 +2,43 @@
   (:refer-clojure :exclude [any?])
   (:require [clojure.pprint :as pp]
             [clojure.core :as core]
-            [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.core.typed.ast-utils :as ast]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.debug :as d :refer [dbg]]
             [clojure.tools.reader.reader-types :as rdrt]
             [clojure.tools.namespace.parse :as nprs]
             [clojure.math.combinatorics :as comb]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.utils :as u]
             [clojure.walk :as walk]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.dep.potemkin.collections :as pot]
             ))
 
-(def spec-ns (or u/spec-ns 'clojure.spec.alpha))
-(def core-specs-ns (or u/core-specs-ns 'clojure.core.specs.alpha))
+(create-ns 'clojure.core.typed)
+(alias 't 'clojure.core.typed)
+
+;; START copied from clojure.core.typed.utils
+(defn ^:private try-resolve-nsyms [nsyms]
+  (reduce (fn [_ s]
+            (try
+              (require [s])
+              (reduced s)
+              (catch Throwable e
+                nil)))
+          nil
+          nsyms))
+(def spec-ns'
+  (try-resolve-nsyms '[clojure.spec clojure.spec.alpha]))
+(def core-specs-ns'
+  (try-resolve-nsyms '[clojure.core.specs clojure.core.specs.alpha]))
+;; END copied from clojure.core.typed.utils
+
+(def spec-ns (or spec-ns' 'clojure.spec.alpha))
+(def core-specs-ns (or core-specs-ns' 'clojure.core.specs.alpha))
 
 ;; https://github.com/r0man/inflections-clj/blob/master/src/inflections/core.cljc
 (defn str-name

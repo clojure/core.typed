@@ -23,6 +23,7 @@
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.3.465"]
                  [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
+                 ;; for module-cljs
                  [org.clojure/jvm.tools.analyzer "0.6.2" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.analyzer.jvm "0.7.0"]
                  [org.clojure/tools.reader "1.1.1"]
@@ -56,15 +57,22 @@
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 
-  :java-source-paths ["module-check/src/main/java"]
+  :java-source-paths ["module-check/src/main/java"
+                      "module-infer/src/main/java"]
   :source-paths [#_"module-cljs/src/main/clojure"
                  #_"module-cljs/src/main/cljs"
+                 "module-analyzer-jvm/src/main/clojure"
+                 "module-infer/src/main/clojure"
+                 "module-infer/src/main/cljs"
                  "module-check/src/main/clojure"
                  "module-check/src/main/cljs"
                  "module-rt/src/main/clojure"
                  "module-rt/src/main/cljs"]
   :test-paths [#_"module-cljs/src/test/clojure"
                #_"module-cljs/src/test/cljs"
+               "module-analyzer-jvm/src/test/clojure"
+               "module-infer/src/test/clojure"
+               "module-infer/src/test/cljs"
                "module-check/src/test/clojure"
                "module-check/src/test/cljs"
                "module-check/src/test/resources"

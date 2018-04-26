@@ -10,9 +10,9 @@
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.tools.analyzer.passes :as passes]
             [clojure.tools.analyzer.passes.trim :as trim]
-            [clojure.tools.analyzer.passes.jvm.box :as box]
-            [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-on-reflection]
-            [clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
+            #_[clojure.tools.analyzer.passes.jvm.box :as box]
+            #_[clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-on-reflection]
+            #_[clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
             [clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
             [clojure.tools.analyzer.passes.jvm.fix-case-test :as fix-case-test]
             [clojure.tools.analyzer.passes.jvm.infer-tag :as infer-tag]
@@ -20,7 +20,7 @@
             [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
             [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.tools.analyzer.passes.jvm.validate-loop-locals :as validate-loop-locals]
+            #_[clojure.tools.analyzer.passes.jvm.validate-loop-locals :as validate-loop-locals]
             [clojure.tools.analyzer.passes.jvm.validate-recur :as validate-recur]
             [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
             [clojure.tools.analyzer.passes.source-info :as source-info]
@@ -160,14 +160,14 @@
   [& args]
   (apply validate/validate args))
 
-(defn box
+#_(defn box
   "Box the AST node tag where necessary"
   {:pass-info {:walk :pre :depends #{#'infer-tag} 
                :after #{#'validate}}}
   [& args]
   (apply box/box args))
 
-(defn validate-loop-locals
+#_(defn validate-loop-locals
   "Returns a pass that validates the loop locals, calling analyze on the loop AST when
    a mismatched loop-local is found"
   {:pass-info {:walk :post :depends #{#'validate} 
