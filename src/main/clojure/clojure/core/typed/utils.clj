@@ -427,6 +427,7 @@
   [ns]
   (ns-has-feature? ns :runtime-infer))
 
+;; START copied to clojure.core.typed.runtime-infer
 (defn ^:private try-resolve-nsyms [nsyms]
   (reduce (fn [_ s]
             (try
@@ -442,5 +443,6 @@
 
 (def core-specs-ns 
   (try-resolve-nsyms '[clojure.core.specs clojure.core.specs.alpha]))
+;; END copied to clojure.core.typed.runtime-infer
 
 )

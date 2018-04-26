@@ -4,7 +4,6 @@
             [clojure.core.typed.check :as chk-clj]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.runtime-check :as rt-chk]
-            [clojure.core.typed.runtime-infer :as rt-infer]
             [clojure.core.typed.current-impl :as impl]))
 
 (defn config-map []
@@ -14,7 +13,9 @@
    :collect-expr (fn [_] nil)
    :check-expr chk-clj/check-expr
    :runtime-check-expr rt-chk/runtime-check-expr
-   :runtime-infer-expr rt-infer/runtime-infer-expr
+   :runtime-infer-expr (fn [& args]
+                         (require 'clojure.core.typed.runtime-infer)
+                         (apply (impl/v 'clojure.core.typed.runtime-infer/runtime-infer-expr) args))
    :eval-out-ast (fn eval-out-ast
                    ([ast] (eval-out-ast ast {}))
                    ([ast opts] (ana-clj/eval-ast ast opts)))

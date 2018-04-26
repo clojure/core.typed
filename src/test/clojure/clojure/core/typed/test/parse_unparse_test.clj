@@ -9,19 +9,20 @@
   (is-clj (= (second
                (unparse-type 
                  (parse-type 
-                   `(t/All ~'[a b] (t/IFn [t/Any t/Any ~'-> t/Any])))))
+                   `(t/All ~'[a b] [t/Any t/Any :-> t/Any]))))
              '[a b]))
-  (is-clj (= (unparse-type (parse-type `(t/TFn ~'[[a :variance :covariant]] ~'a)))
-             '(t/TFn [[a :variance :covariant]] a)))
+  (is-clj (= (rest (unparse-type (parse-type `(t/TFn ~'[[a :variance :covariant]] ~'a))))
+             '([[a :variance :covariant]] a)))
   (is-clj (= (do
-               '(t/All [a b] [t/Any t/Any -> [a b -> nil :filters {:then ff :else tt}]
+               '([a b] [a b -> [a b -> nil :filters {:then ff :else tt}]
                               :filters {:then tt :else ff}]))
              (->
                (tc-e
                  (fn :forall [a b]
-                   [f coll]
+                   [f :- a, coll :- b]
                    (fn
                      [x :- a
                       y :- b])))
                :t
-               unparse-type))))
+               unparse-type
+               rest))))
