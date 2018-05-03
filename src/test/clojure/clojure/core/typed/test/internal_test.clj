@@ -5,50 +5,51 @@
             [clojure.core.typed.internal :as internal]))
 
 (deftest parse-fn-test
-  (is (= (:fn (internal/parse-fn* '([a b c] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any b c] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any b :- clojure.core.typed/Any c] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any b c :- clojure.core.typed/Any] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any b :- clojure.core.typed/Any c :- clojure.core.typed/Any] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any b :- clojure.core.typed/Any c :- clojure.core.typed/Any] :- clojure.core.typed/Any a)))
+  (is (= (:fn (internal/parse-fn* '(fn [a b c] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any b c] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any b :- clojure.core.typed/Any c] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any b c :- clojure.core.typed/Any] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any b :- clojure.core.typed/Any c :- clojure.core.typed/Any] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any b :- clojure.core.typed/Any c :- clojure.core.typed/Any] :- clojure.core.typed/Any a)))
          '(clojure.core/fn ([a b c] a))))
-  (is (= (:fn (internal/parse-fn* '([a] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any] :- clojure.core.typed/Any a)))
-         (:fn (internal/parse-fn* '([a] :- clojure.core.typed/Any a)))
+  (is (= (:fn (internal/parse-fn* '(fn [a] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any] :- clojure.core.typed/Any a)))
+         (:fn (internal/parse-fn* '(fn [a] :- clojure.core.typed/Any a)))
          '(clojure.core/fn ([a] a))))
-  (is (= (internal/parse-fn* '(name [a] :- clojure.core.typed/Any a))
+  (is (= (select-keys (internal/parse-fn* '(fn name [a] :- clojure.core.typed/Any a)) [:fn :ann :poly])
          {:fn '(clojure.core/fn name ([a] a))
           :ann [{:dom [{:default true :type 'clojure.core.typed/Any}]
                  :rng {:type 'clojure.core.typed/Any}}]
           :poly nil}))
-  (is (= (:fn (internal/parse-fn* '([a :- Number] a)))
-         (:fn (internal/parse-fn* '([a :- Number] :- clojure.core.typed/Any a)))
+  (is (= (:fn (internal/parse-fn* '(fn [a :- Number] a)))
+         (:fn (internal/parse-fn* '(fn [a :- Number] :- clojure.core.typed/Any a)))
          '(clojure.core/fn ([a] a))))
-  (is (= (internal/parse-fn* '(name [a :- Number] :- clojure.core.typed/Any a))
+  (is (= (select-keys (internal/parse-fn* '(fn name [a :- Number] :- clojure.core.typed/Any a))
+                      [:fn :ann :poly])
          {:fn '(clojure.core/fn name ([a] a))
           :ann [{:dom [{:type 'Number}]
                  :rng {:type 'clojure.core.typed/Any}}]
           :poly nil}))
-  (is (= (internal/parse-fn* '([a :- Number] :- Number a))
+  (is (= (select-keys (internal/parse-fn* '(fn [a :- Number] :- Number a)) [:fn :ann :poly])
          {:fn '(clojure.core/fn ([a] a))
           :ann [{:dom [{:type 'Number}]
                  :rng {:type 'Number}}]
           :poly nil}))
-  (is (= (:fn (internal/parse-fn* '([a & b] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any & b] a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any & b :- clojure.core.typed/Any *] :- clojure.core.typed/Any a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any & b] :- clojure.core.typed/Any a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any & b] :- clojure.core.typed/Any a)))
-         (:fn (internal/parse-fn* '([a :- clojure.core.typed/Any & b] :- clojure.core.typed/Any a)))
+  (is (= (:fn (internal/parse-fn* '(fn [a & b] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b] a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b :- clojure.core.typed/Any *] :- clojure.core.typed/Any a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b] :- clojure.core.typed/Any a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b] :- clojure.core.typed/Any a)))
+         (:fn (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b] :- clojure.core.typed/Any a)))
          '(clojure.core/fn ([a & b] a))))
-  (is (= (internal/parse-fn* '([a :- Number & b :- Number *] :- Number b))
+  (is (= (select-keys (internal/parse-fn* '(fn [a :- Number & b :- Number *] :- Number b)) [:fn :ann :poly])
          {:fn '(clojure.core/fn ([a & b] b))
           :ann [{:dom [{:type 'Number}]
                  :rest {:type 'Number}
                  :rng {:type 'Number}}]
           :poly nil}))
-  (is (= (internal/parse-fn* '([a & b :- Number ... x] a))
+  (is (= (select-keys (internal/parse-fn* '(fn [a & b :- Number ... x] a)) [:fn :ann :poly])
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:default true :type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
@@ -56,21 +57,22 @@
                  :rng {:default true :type 'clojure.core.typed/Any}}]
           :poly nil}))
 
-  (is (= (internal/parse-fn* '([a :- clojure.core.typed/Any & b :- Number ... x] a))
+  (is (= (select-keys (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b :- Number ... x] a)) [:fn :ann :poly])
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
                  :rng {:default true :type 'clojure.core.typed/Any}}]
           :poly nil}))
-  (is (= (internal/parse-fn* '([a :- clojure.core.typed/Any & b :- Number ... x] :- clojure.core.typed/Any a))
+  (is (= (select-keys (internal/parse-fn* '(fn [a :- clojure.core.typed/Any & b :- Number ... x] :- clojure.core.typed/Any a))
+                      [:fn :ann :poly])
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
                  :rng {:type 'clojure.core.typed/Any}}]
           :poly nil}))
-  (is (= (-> (internal/parse-fn* '(^long [b]))
+  (is (= (-> (internal/parse-fn* '(fn ^long [b]))
              :fn second first meta)
          '{:tag long})))
 

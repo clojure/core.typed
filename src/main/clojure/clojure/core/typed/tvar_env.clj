@@ -6,9 +6,6 @@
             [clojure.core.typed :as t])
   (:import (clojure.core.typed.type_rep F)))
 
-(alter-meta! *ns* assoc :skip-wiki true
-             :core.typed {:collect-only true})
-
 ;; this implements the Delta environment from the TOPLAS paper
 ;; (as well as every other paper on System F)
 

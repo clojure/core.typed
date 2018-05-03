@@ -43,6 +43,7 @@
 ;; - :runtime-infer-expr    function taking AST and expected type and returns an AST with inserted
 ;;                          runtime instrumentation.
 ;; - :should-runtime-infer?  If true, instrument this expression for runtime inference.
+;; - :custom-expansions?     If true, we are using custom expansions to type check forms.
 ;;
 ;;  (From here, copied from clojure.core.typed/check-form-info)
 ;; Keyword arguments
@@ -74,6 +75,7 @@
   [{:keys [ast-for-form 
            check-expr 
            collect-expr
+           custom-expansions?
            emit-form 
            env
            eval-out-ast 
@@ -95,7 +97,8 @@
               vs/*analyze-ns-cache* (cache/soft-cache-factory {})
               vs/*in-check-form* true
               vs/*lexical-env* (lex-env/init-lexical-env)
-              vs/*can-rewrite* true]
+              ;; custom expansions might not even evaluate
+              vs/*can-rewrite* (not custom-expansions?)]
       (let [expected (or
                        expected-ret
                        (when type-provided?
@@ -134,7 +137,7 @@
                                            (check-expr ast expected)))
                                  eval-cexp (or (when-not no-eval
                                                  eval-out-ast)
-                                               identity)
+                                               (fn [ast _] ast))
                                  _ (when file-mapping
                                      (p/p :check-form/file-mapping
                                        (swap! file-mapping-atom
@@ -145,7 +148,7 @@
                              (or (some-> (seq (delayed-errors-fn)) 
                                          err/print-errors!)
                                  (p/p :check-form/eval-ast
-                                   (eval-cexp c-ast))))))
+                                   (eval-cexp c-ast opt))))))
             terminal-error (atom nil)
             c-ast (try
                     (p/p :check-form/ast-for-form

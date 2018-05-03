@@ -31,14 +31,19 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core :as core]
+            [clojure.core.typed.rules :as rules]
+            [clojure.core.typed.expand :as expand]
             [clojure.core.typed.ns-deps :as dep]
             [clojure.core.typed.ns-deps-utils :as dep-u])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
+
+(def custom-expansions? false)
 
 ; Updated for Clojure 1.8
 ;  https://github.com/clojure/clojure/commit/7f79ac9ee85fe305e4d9cbb76badf3a8bad24ea0
 (T/ann ^:no-check *typed-macros* (T/Map T/Any T/Any))
 (def ^:dynamic *typed-macros*
+ (merge
   {#'clojure.core/ns 
    (fn [&form &env name & references]
      (let [process-reference
@@ -113,9 +118,6 @@
               (loop* ~(vec (interleave gs gs))
                      (let ~(vec (interleave bs gs))
                        ~@body)))))))
-   #'clojure.core/for
-   (fn [&form &env seq-exprs body-expr]
-     (@#'T/for &form &env seq-exprs body-expr))
 
    ;; setting the :macro metadata on a var is a runtime side effect that
    ;; core.typed cannot see. Here, we tc-ignore the body of macros manually.
@@ -123,18 +125,29 @@
    (fn [&form &env & args]
      `(T/tc-ignore
         ~(apply @#'core/defmacro &form &env args)))
-   })
+   }
+  (when-not custom-expansions?
+    {#'clojure.core/for
+     (fn [&form &env seq-exprs body-expr]
+       (@#'T/for &form &env seq-exprs body-expr))})))
 
 (T/ann ^:no-check typed-macro-lookup [T/Any :-> T/Any])
 (defn typed-macro-lookup [var]
-  (get *typed-macros* var var))
+  {:post [(ifn? %)]}
+  (or (get *typed-macros* var)
+      (when custom-expansions?
+        (when (expand/custom-expansion? (coerce/var->symbol var))
+          (fn [form locals & _args_]
+            (expand/expand-macro form {:vsym (coerce/var->symbol var)
+                                       :locals locals}))))
+      var))
 
 ;; copied from tools.analyze.jvm to insert `*typed-macros*`
 (T/ann ^:no-check macroexpand-1 
        (T/IFn [T/Any -> T/Any] 
               [T/Any (T/Map T/Any T/Any) -> T/Any]))
 (defn macroexpand-1
-  "If form represents a macro form or an inlineable function,returns its expansion,
+  "If form represents a macro form or an inlinable function, returns its expansion,
    else returns form."
   ([form] (macroexpand-1 form (taj/empty-env)))
   ([form env]
@@ -151,10 +164,17 @@
                   local? (-> env :locals (get op))
                   macro? (and (not local?) (:macro m)) ;; locals shadow macros
                   inline-arities-f (:inline-arities m)
-                  inline? (and (not local?)
-                               (or (not inline-arities-f)
-                                   (inline-arities-f (count args)))
-                               (:inline m))
+                  inline? (or
+                            (when custom-expansions?
+                              (when (and (not local?) (var? v))
+                                (let [vsym (coerce/var->symbol v)]
+                                  (when (expand/custom-inline? vsym)
+                                    (fn [& _args_]
+                                      (expand/expand-inline form {:vsym vsym}))))))
+                            (and (not local?)
+                                 (or (not inline-arities-f)
+                                     (inline-arities-f (count args)))
+                                 (:inline m)))
                   t (:tag m)]
               (cond
 
@@ -531,11 +551,15 @@
   ;                  (catch Exception e
   ;                    (ExceptionThrown. e)))]
   ;  (merge ast {:result result}))
-  (let [frm (emit-form/emit-form ast)
+  (let [frm (if custom-expansions?
+              (:original-form opts)
+              (emit-form/emit-form ast))
         ;_ (prn "form" frm)
         #_#_
-        _ (binding [*print-meta* true
+        _ (binding [;*print-meta* true
                     ;*print-dup* true
+                    ;*print-length* 6
+                    ;*print-level* 6
                     ]
             (prn "form")
             (pp/pprint frm))

@@ -38,7 +38,7 @@
                                                (str "\n  "
                                                     (apply str (interpose " " (map name flags)))
                                                     (when (seq flags) " ")
-                                                    (reflect-u/pprint-reflection-sym ctor-name) " "
+                                                    (reflect-u/pprint-reflection-sym ctor-name)
                                                     "("
                                                     (apply str 
                                                            (interpose 

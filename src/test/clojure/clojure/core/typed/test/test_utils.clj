@@ -37,7 +37,8 @@
     `(let [expected-ret# ~expected-ret]
        (binding [*ns* *ns*
                  *file* *file*]
-         (t/check-form-info '~ns-form)
+         (let [{:keys [ex#]} (t/check-form-info '~ns-form)]
+           (assert (nil? ex#) ex#))
          (t/check-form-info 
            '~frm
            :expected-ret expected-ret#

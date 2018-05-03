@@ -4,9 +4,12 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.profiling :as p]
+            [clojure.core.typed.rules :as rules]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
+            [clojure.core.typed.analyzer2.jvm :as jana2]
+            [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.array-ops :as arr-ops]
@@ -637,6 +640,88 @@
                              (r/ret r/-nil)
                              expected)))))
 
+(defn typing-rule-opts [expr]
+  (second (:form (nth (:statements expr) 2))))
+
+(defn typing-rule-expr [expr]
+  (:ret expr))
+
+(defn invoke-typing-rule
+  [vsym {:keys [env] :as expr} expected]
+  (let [unparse-type-verbose #(binding [vs/*verbose-types* false]
+                                (prs/unparse-type %))
+        maybe-map->TCResult #(some-> % cu/map->TCResult)
+        subtype? (fn [s t]
+                   (let [s (prs/parse-type s)
+                         t (prs/parse-type t)]
+                     (sub/subtype? s t)))
+        solve-subtype (fn [vs f]
+                        {:pre [(apply distinct? vs)
+                               (every? symbol? vs)]}
+                        (let [gvs (map gensym vs)
+                              gvs->vs (zipmap gvs vs)
+                              syns (apply f gvs)
+                              [lhs rhs] (tvar-env/with-extended-tvars gvs
+                                          (mapv prs/parse-type syns))
+                              substitution
+                              (cgen/handle-failure
+                                (cgen/infer
+                                  (zipmap gvs (repeat r/no-bounds))
+                                  {}
+                                  [lhs]
+                                  [rhs]
+                                  r/-any))]
+                          (when substitution
+                            (into {}
+                                  (comp (filter (comp crep/t-subst? val))
+                                        (map (fn [[k v]]
+                                               [(gvs->vs k)
+                                                (unparse-type-verbose (:type v))])))
+                                  (select-keys substitution gvs)))))
+        rule-args {:vsym vsym
+                   :opts (typing-rule-opts expr)
+                   :expr (typing-rule-expr expr)
+                   :locals (:locals env)
+                   :expected (some-> expected cu/TCResult->map)
+                   :maybe-check-expected (fn [actual expected]
+                                           {:pre [(map? actual)
+                                                  ((some-fn nil? map?) expected)]
+                                            :post [(map? %)]}
+                                           (->
+                                             (below/maybe-check-below
+                                               (cu/map->TCResult actual)
+                                               (maybe-map->TCResult expected))
+                                             cu/TCResult->map))
+                   :check (fn check-fn
+                            ([expr] (check-fn expr nil))
+                            ([expr expected]
+                             {:pre [((some-fn nil? map?) expected)]}
+                             (let [ret (some-> expected cu/map->TCResult)
+                                   cexpr (check expr ret)]
+                               (assoc cexpr ::rules/expr-type (cu/TCResult->map (u/expr-type cexpr))))))
+                   :solve-subtype solve-subtype
+                   :subtype? subtype?
+                   :emit-form ast-u/emit-form-fn
+                   :abbreviate-type (fn [t]
+                                      (let [m (prs/parse-type t)]
+                                        (binding [vs/*verbose-types* false]
+                                          (prs/unparse-type m))))
+                   :expected-error (fn [s t opts]
+                                     (let [opts (update opts :expected maybe-map->TCResult)]
+                                       (apply cu/expected-error (prs/parse-type s) (prs/parse-type t)
+                                              (apply concat opts))))
+                   :delayed-error (fn [s opts]
+                                    (let [opts (update opts :expected maybe-map->TCResult)]
+                                      (apply err/tc-delayed-error s (apply concat opts))))
+                   :internal-error (fn [s opts]
+                                     ;; TODO args
+                                     (let [opts (update opts :expected maybe-map->TCResult)]
+                                       (apply err/int-error s (apply concat opts))))}
+
+        ; throw away checked expr
+        {out-expr-type ::rules/expr-type} (rules/typing-rule rule-args)]
+    (assoc expr u/expr-type (cu/map->TCResult out-expr-type))))
+
 (defn swap!-dummy-arg-expr [env [target-expr & [f-expr & args]]]
   (assert f-expr)
   (assert target-expr)
@@ -1129,9 +1214,9 @@
 
         ctarget (check target)
         targetun (-> ctarget u/expr-type r/ret-t)
-        ckeyvals (doall (map check keyvals))
+        ckeyvals (mapv check keyvals)
         keypair-types (partition 2 (map u/expr-type ckeyvals))
-        cargs (vec (cons ctarget ckeyvals))]
+        cargs (into [ctarget] ckeyvals)]
     (if-let [new-hmaps (apply assoc-u/assoc-type-pairs targetun keypair-types)]
       (-> expr
         (update-in [:fn] check)
@@ -1139,22 +1224,20 @@
           :args cargs
           u/expr-type (below/maybe-check-below
                         (r/ret new-hmaps
-                               (fo/-true-filter) ;assoc never returns nil
-                               obj/-empty)
+                               (fo/-true-filter)) ;assoc never returns nil
                         expected)))
       
       ;; to do: improve this error message
-      (err/tc-delayed-error (str "Cannot assoc args `"
-                               (clojure.string/join " "
-                                 (map (comp prs/unparse-type u/expr-type) ckeyvals))
-                               "` on "
-                               (prs/unparse-type targetun))
-                          :return (-> expr
-                                      (update-in [:fn] check)
-                                      (assoc
-                                        :args cargs
-                                        u/expr-type (cu/error-ret expected)))))
-    ))
+      (err/tc-delayed-error (str "A call to assoc failed to type check with target expression of type:\n\t" (prs/unparse-type targetun)
+                                 "\nand key/value pairs of types: \n\t"
+                                 (clojure.string/join " " (map (comp pr-str prs/unparse-type :t u/expr-type) ckeyvals)))
+                            ;; first argument is to blame, gather any blame information from there
+                            :expected (u/expr-type ctarget)
+                            :return (-> expr
+                                        (update-in [:fn] check)
+                                        (assoc
+                                          :args cargs
+                                          u/expr-type (cu/error-ret expected)))))))
 
 (add-invoke-special-method 'clojure.core/dissoc
   [{fexpr :fn :keys [args] :as expr} & [expected]]
@@ -1463,7 +1546,8 @@
 
 (defmethod internal-special-form :default
   [expr expected]
-  (err/int-error (str "No such internal form: " (ast-u/emit-form-fn expr))))
+  (binding [vs/*current-expr* expr]
+    (invoke-typing-rule (coerce/kw->symbol (u/internal-dispatch-val expr)) expr expected)))
 
 (add-check-method :do
   [expr & [expected]]
@@ -1527,7 +1611,7 @@
 (defn check-host
   [{:keys [m-or-f target args] :as expr} expected]
   {:post [(-> % u/expr-type r/TCResult?)]}
-  ;(prn "host-interop")
+  ;(prn "host-interop" (:op expr))
   (let [ctarget (check target)
         cargs (when args
                 (mapv check args))
@@ -1766,6 +1850,7 @@
   [{cls :class :keys [args env] :as expr} & [expected]]
   {:post [(vector? (:args %))
           (-> % u/expr-type r/TCResult?)]}
+  ;(prn ":new" (mapv (juxt :op :tag) args))
   (u/trace 
     (let [inline? (-> expr
                       ast-u/new-op-class 
@@ -1862,6 +1947,14 @@
   [{args :exprs :keys [env] :as expr} & [expected]]
   {:post [(vector? (:exprs %))]}
   (recur/check-recur args env expr expected check))
+
+(add-check-method :binding
+  [{:keys [init] :as expr} & [expected]]
+  (let [cinit (binding [vs/*current-expr* init]
+                (check init expected))]
+    (assoc expr
+           :init cinit
+           u/expr-type (u/expr-type cinit))))
 
 (add-check-method :loop
   [{binding-inits :bindings :keys [body] :as expr} & [expected]]
@@ -2108,6 +2201,7 @@
                      ;(prn "env-default" env-default)
                      (var-env/with-lexical-env env-default
                        (check default expected)))
+          ;; FIXME this is a duplicated expected test, already done able
           case-result (let [type (apply c/Un (map (comp :t u/expr-type) (cons cdefault cthens)))
                             ; TODO
                             filter (fo/-FS fl/-top fl/-top)

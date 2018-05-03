@@ -11,7 +11,23 @@
 
 (defn uniquify [name]
   (swap! *locals-counter* #(update-in % [name] (fnil inc -1)))
-  (swap! *locals-frame* #(assoc-in % [name] (symbol (str name "__#" (@*locals-counter* name))))))
+  (swap! *locals-frame* #(assoc-in % [name] (symbol (str
+                                                      ;; Add extra gensym so bindings
+                                                      ;; don't get clobbered when they
+                                                      ;; travel between `do` expressions.
+                                                      ;; eg. 
+                                                      ;;   (do (let [m (ann-form 1 Any)]
+                                                      ;;         (assert (number? m))
+                                                      ;;         m)
+                                                      ;;       (let [m (ann-form 1 Any)]
+                                                      ;;         (ann-form m Number)))
+                                                      ;;
+                                                      ;; Actually, unsure if this is possible in practice.
+                                                      ;; I don't have a test case to prove it, so better
+                                                      ;; safe than sorry.
+                                                      ;; - Ambrose
+                                                      (identity #_gensym name)
+                                                      "__#" (@*locals-counter* name))))))
 
 (defmulti -uniquify-locals :op)
 
