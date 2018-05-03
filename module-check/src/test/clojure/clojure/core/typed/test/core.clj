@@ -3623,6 +3623,14 @@
                    y :- Any]
                   :- Any nil)))
         (parse-clj `[Any Any :-> Any :filters {:then ~'ff :else ~'tt}])))
+  (is (both-subtype?
+        (ret-t
+          (tc-t (fn
+                  [x :- Any 
+                   y :- Any]
+                  :- Any
+                  (throw (Exception. "a")))))
+        (parse-clj `[Any Any :-> Nothing :filters {:then ~'ff :else ~'ff} :flow ~'ff])))
   )
 
 (deftest pfn-test

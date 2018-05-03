@@ -49,6 +49,12 @@
 (def -top (TopFilter-maker))
 (def -bot (BotFilter-maker))
 
+(def -infer-top (with-meta -top {:clojure.core.typed/infer true}))
+
+(defn infer-top? [t]
+  (and (= -infer-top t)
+       (-> t meta :clojure.core.typed/infer boolean)))
+
 (defn -top-fn []
   -top)
 

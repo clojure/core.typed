@@ -18,6 +18,7 @@
                                          (comp r/FnIntersection? r/Poly-body-unsafe*))
                              (every-pred r/PolyDots?
                                          (comp r/FnIntersection? r/PolyDots-body-unsafe*))
+                             r/TCError?
                              r/FnIntersection?))
 
 (def method? (some-fn ast-u/fn-method? ast-u/deftype-method?))
@@ -33,6 +34,7 @@
 
 (def method-return?
   (con/hmap-c?
+    :ifn function-type?
     :methods methods?
     :cmethods methods?))
 
@@ -99,6 +101,7 @@
         _ (when validate-expected-fn
             (validate-expected-fn fin))
 
+        out-fn-matches (atom (vec (repeat (count (:types fin)) nil)))
         ;; cmethodss is a vector in the same order as the passed in methods,
         ;; but each method replaced with a vector of type checked methods."
         cmethodss
@@ -114,9 +117,9 @@
             (dvar-env/with-dotted-mappings (case poly?
                                              :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                              {})
-              (let [;; map from function type to a set of matching methods (integers).
+              (let [;; ordered pairs from function type to a set of matching methods (integers).
                     fn-matches
-                    (into {}
+                    (into []
                           (map (fn [t]
                                  (let [ms (into #{}
                                                 (comp
@@ -140,18 +143,49 @@
                 ;; checked twice, so we disable rewriting for that method.
                 (into []
                       (map-indexed
-                        (fn [i m]
-                          (let [expecteds (keep 
-                                            (fn [[t es]]
-                                              (when (es i)
-                                                t))
-                                            fn-matches)]
-                            (u/rewrite-when (== 1 (count expecteds))
-                              (mapv (comp
-                                      :cmethod
-                                      #(fn-method1/check-fn-method1 m % :recur-target-fn recur-target-fn))
-                                    expecteds)))))
-                      mthods)))))]
+                        (fn [method-index m]
+                          (let [expecteds
+                                (keep
+                                  (fn [[ifn-index [ifn-arity relevant-method-idxs]]]
+                                    (when (contains? relevant-method-idxs method-index)
+                                      [ifn-index ifn-arity]))
+                                  (map-indexed vector fn-matches))
+                                cmethods
+                                (u/rewrite-when (== 1 (count expecteds))
+                                  (mapv (fn [[ifn-index ifn-arity]]
+                                          {:pre [(integer? ifn-index)
+                                                 (r/Function? ifn-arity)]}
+                                          (let [{:keys [cmethod ftype]}
+                                                (fn-method1/check-fn-method1 m ifn-arity :recur-target-fn recur-target-fn)
+                                                _ (assert (r/Function? ftype))
+                                                union-Functions (fn [f1 f2]
+                                                                  {:pre [(r/Function? f1)
+                                                                         (r/Function? f2)]}
+                                                                  (update f1 :rng c/union-Results (:rng f2)))
+                                                _ (swap! out-fn-matches update ifn-index
+                                                         (fn [old]
+                                                           {:pre [(or (nil? old) (r/Function? old))]
+                                                            :post [(r/Function? %)]}
+                                                           (if old
+                                                             (union-Functions old ftype)
+                                                             ftype)))]
+                                            cmethod))
+                                        expecteds))]
+                            cmethods)))
+                      mthods)))))
+
+        out-fn-matches @out-fn-matches
+        ;; if we infer the body of any return types, we now gather those inferred types.
+        inferred-ifn (apply r/make-FnIntersection 
+                            (map-indexed (fn [i match]
+                                           {:post [(r/Function? %)]}
+                                           (or match
+                                               (get (:types fin) i)))
+                                           out-fn-matches))
+        maybe-poly-inferred-ifn (case poly?
+                                  :Poly (c/Poly* (map :name inst-frees) bnds inferred-ifn)
+                                  :PolyDots (c/PolyDots* (map :name inst-frees) bnds inferred-ifn)
+                                  nil inferred-ifn)]
      ;; if a method is checked only once, then it could have
      ;; been rewritten, so propagate it up to the rest of the
      ;; AST.
@@ -162,6 +196,7 @@
                     m))
                 cmethodss
                 mthods)
+     :ifn maybe-poly-inferred-ifn
      ;; flatten out all checked methods
      :cmethods (into []
                      (mapcat identity)
@@ -198,6 +233,7 @@
       (prs/with-unparse-ns (cu/expr-ns (first mthods))
         (err/tc-delayed-error (str (prs/unparse-type expected) " is not a function type")
                               :return {:methods mthods
+                                       :ifn r/-error
                                        :cmethods []}))
       
       (== 1 (count ts))
@@ -206,8 +242,9 @@
       ;; disable rewriting in case we recheck a method arity
       :else
       (binding [vs/*can-rewrite* nil]
-        {:methods mthods
-         :cmethods
-         (into []
-               (mapcat (fn [t] (check-fni t mthods opt)))
-               ts)}))))
+        (let [method-returns (into []
+                                   (map (fn [t] (check-fni t mthods opt)))
+                                   ts)]
+          {:methods mthods
+           :ifn (apply c/Un (map :ifn method-returns))
+           :cmethods (mapcat :cmethods method-returns)})))))

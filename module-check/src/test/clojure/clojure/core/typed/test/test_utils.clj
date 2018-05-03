@@ -29,7 +29,7 @@
         `(ns ~(gensym 'clojure.core.typed.test.temp)
            (:refer-clojure :exclude 
                            ~'[type defprotocol #_letfn fn loop dotimes let for doseq
-                              #_def filter remove defn atom ref cast])
+                              #_def #_filter #_remove defn atom ref cast])
            (:require ~@'[[clojure.core.typed :refer :all :as t]
                          [clojure.core.typed.unsafe :as unsafe]
                          [clojure.core :as core]]
@@ -109,7 +109,9 @@
     (apply sub/subtype? rs)))
 
 (defn both-subtype? [s t]
-  (and (subtype? s t)
+  (and (not= r/-error s)
+       (not= r/-error t)
+       (subtype? s t)
        (subtype? t s)))
 
 (defmacro both-sub? [s t]

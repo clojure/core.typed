@@ -7,15 +7,20 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.debug :as dbg]
             [clojure.core.typed.infer-vars :as infer-vars]))
 
+;; returns true when f1 <: f2
 (defn simple-filter-better? [f1 f2]
-  (or (fl/NoFilter? f2)
-      (sub/subtype-filter? f1 f2)))
+  {:pre [(fl/Filter? f1)
+         (fl/Filter? f2)]}
+  (cond (fl/NoFilter? f2) true
+        (fl/NoFilter? f1) false
+        :else (sub/subtype-filter? f1 f2)))
 
 (defn subtype? [t1 t2]
   (let [s (sub/subtype? t1 t2)]
@@ -49,7 +54,7 @@
    :post [(cond
             (r/TCResult? tr1) (r/TCResult? %)
             (r/Type? tr1) (r/Type? %))]}
-  (letfn [;; Try and use subtyping, otherwise 
+  (letfn [;; returns true when f1 <: f2
           (filter-better? [{f1+ :then f1- :else :as f1}
                            {f2+ :then f2- :else :as f2}]
             {:pre [(fl/FilterSet? f1)
@@ -58,9 +63,10 @@
             (cond
               (= f1 f2) true
               :else
-              (let [f1-better? (simple-filter-better? f1+ f2+)
-                    f2-better? (simple-filter-better? f1- f2-)] 
-                (and f1-better? f2-better?))))
+              (let [f+-better? (simple-filter-better? f1+ f2+)
+                    f--better? (simple-filter-better? f1- f2-)] 
+                (and f+-better? f--better?))))
+          ;; returns true when o1 <: o2
           (object-better? [o1 o2]
             {:pre [(obj/RObject? o1)
                    (obj/RObject? o2)]
@@ -69,6 +75,7 @@
               (= o1 o2) true
               ((some-fn obj/NoObject? obj/EmptyObject?) o2) true
               :else false))
+          ;; returns true when f1 <: f2
           (flow-better? [{flow1 :normal :as f1}
                          {flow2 :normal :as f2}]
             {:pre [((every-pred r/FlowSet?) f1 f2)]
@@ -78,18 +85,62 @@
               (fl/NoFilter? flow2) true
               (sub/subtype-filter? flow1 flow2) true
               :else false))
+          (choose-result-type [t1 t2]
+            {:pre [(r/Type? t1)
+                   (r/Type? t2)]
+             :post [(r/Type? %)]}
+            #_
+            (prn "choose-result-type"
+                 t1 t2
+                 (r/infer-any? t1)
+                 (r/infer-any? t2))
+            (cond
+              (r/infer-any? t2) t1
+              (and (r/FnIntersection? t2)
+                   (= 1 (count (:types t2)))
+                   (r/infer-any? (-> t2 :types first :rng :t)))
+              (let [rng-t (cgen/unify-or-nil
+                            {:fresh [x]
+                             :out x}
+                            t1
+                            (r/make-FnIntersection
+                              (r/make-Function
+                                (-> t2 :types first :dom)
+                                x)))]
+                (prn "rng-t" rng-t)
+                (if rng-t
+                  (assoc-in t2 [:types 0 :rng :t] rng-t)
+                  t2))
+              :else t2))
+          (choose-result-filter [f1 f2]
+            {:pre [(fl/Filter? f1)
+                   (fl/Filter? f2)]
+             :post [(fl/Filter? %)]}
+            ;(prn "check-below choose-result-filter"
+            ;     f1 f2
+            ;     (fl/infer-top? f1)
+            ;     (fl/infer-top? f2))
+            (cond
+              (and (fl/infer-top? f2)
+                   (not (fl/NoFilter? f1)))
+              f1
+              :else f2))
           (construct-ret [tr1 expected]
             {:pre [((every-pred r/TCResult?) tr1 expected)]
              :post [(r/TCResult? %)]}
-            (r/ret (r/ret-t expected)
+            (r/ret (choose-result-type
+                     (r/ret-t tr1)
+                     (r/ret-t expected))
                    (let [exp-f (r/ret-f expected)
                          tr-f (r/ret-f tr1)]
-                     (fo/-FS (if-not (fl/NoFilter? (:then exp-f))
-                               (:then exp-f)
-                               (:then tr-f))
-                             (if-not (fl/NoFilter? (:else exp-f))
-                               (:else exp-f)
-                               (:else tr-f))))
+                     ;(prn "check-below exp-f" exp-f)
+                     ;(prn "check-below tr-f" tr-f)
+                     (fo/-FS (choose-result-filter
+                               (:then tr-f)
+                               (:then exp-f))
+                             (choose-result-filter
+                               (:else tr-f)
+                               (:else exp-f))))
                    (let [exp-o (r/ret-o expected)
                          tr-o (r/ret-o tr1)]
                      (if (obj/NoObject? exp-o)
@@ -97,9 +148,9 @@
                        exp-o))
                    (let [exp-flow (r/ret-flow expected)
                          tr-flow (r/ret-flow tr1)]
-                     (if (fl/NoFilter? (:normal exp-flow))
-                       tr-flow
-                       exp-flow))))]
+                     ;(prn "choose flow" tr-flow exp-flow (fl/infer-top? (:normal exp-flow)))
+                     (cond ((some-fn fl/infer-top? fl/NoFilter?) (:normal exp-flow)) tr-flow
+                           :else exp-flow))))]
     ;tr1 = arg
     ;expected = dom
     (cond
@@ -140,7 +191,7 @@
             t2 expected]
         (when-not (subtype? t1 t2)
           (cu/expected-error t1 t2))
-        (r/ret t2 f o))
+        (r/ret (choose-result-type t1 t2) f o))
 
       ;FIXME
       ;; erm.. ? What is (FilterSet: (list) (list))
@@ -166,7 +217,7 @@
             t2 expected]
         (when-not (subtype? t1 t2)
           (cu/expected-error t1 t2))
-        expected)
+        (choose-result-type t1 t2))
 
       :else (let [a tr1
                   b expected]

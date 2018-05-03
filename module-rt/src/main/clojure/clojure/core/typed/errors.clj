@@ -101,7 +101,7 @@
           (throw (Exception. (str "*delayed-errors* not rebound"))))
         (or (when (contains? opt :return)
               return)
-            (impl/v 'clojure.core.typed.type-rep/-nothing))))))
+            (impl/v 'clojure.core.typed.type-rep/-error))))))
 
 (defn tc-error
   [estr]

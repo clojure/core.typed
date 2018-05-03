@@ -59,6 +59,13 @@
 (t/ann -any Type)
 (def -any (Top-maker))
 
+(t/ann -infer-any Type)
+(def -infer-any (with-meta -any {::t/infer true}))
+
+(defn infer-any? [t]
+  (and (= -infer-any t)
+       (boolean (-> t meta ::t/infer))))
+
 (u/ann-record Unchecked [vsym :- (U nil t/Sym)])
 (u/def-type Unchecked [vsym]
   "The unchecked type, like bottom and only introduced 
@@ -806,11 +813,11 @@
   :methods
   [p/TCType])
 
-(u/ann-record FnIntersection [types :- (t/NonEmptySeqable Function)])
+(u/ann-record FnIntersection [types :- (t/NonEmptyVec Function)])
 (u/def-type FnIntersection [types]
   "An ordered intersection of Functions."
   [(seq types)
-   (sequential? types)
+   (vector? types)
    (every? Function? types)]
   :methods
   [p/TCType])
@@ -857,7 +864,7 @@
 (t/ann ^:no-check make-FnIntersection [Function * -> FnIntersection])
 (defn make-FnIntersection [& fns]
   {:pre [(every? Function? fns)]}
-  (FnIntersection-maker fns))
+  (FnIntersection-maker (vec fns)))
 
 (u/ann-record NotType [type :- Type])
 (u/def-type NotType [type]

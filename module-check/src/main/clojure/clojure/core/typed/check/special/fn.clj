@@ -111,18 +111,18 @@
                 :drests [nil]})))))
 
 (defn all-defaults? [fn-anns poly]
-  (let [defaults (concat
-                   (map (fn [{:keys [dom]}]
-                          (map :default dom))
-                        fn-anns)
-                   (map (comp :default :rng) fn-anns)
-                   (map (fn [{:keys [rest]}]
-                          (or (:default rest)
-                              (nil? rest)))
-                        fn-anns)
-                   (map (comp not :drest) fn-anns))]
+  (let [defaults (and
+                   (every? (fn [{:keys [dom]}]
+                             (every? :default dom))
+                           fn-anns)
+                   (every? (comp :default :rng) fn-anns)
+                   (every? (fn [{:keys [rest]}]
+                             (or (:default rest)
+                                 (nil? rest)))
+                           fn-anns)
+                   (every? (comp not :drest) fn-anns))]
     (and (not poly)
-         (every? identity defaults))))
+         defaults)))
 
 (defn prepare-expecteds [expr fn-anns]
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
@@ -138,10 +138,10 @@
                 (mapv (fn [{:keys [type default]}]
                         (when-not default
                           (r/make-Result (prs/parse-type type)
-                                         (fo/-FS fl/-no-filter
-                                                 fl/-no-filter)
+                                         (fo/-FS fl/-infer-top
+                                                 fl/-infer-top)
                                          or/-no-object
-                                         (r/-flow fl/-no-filter))))))
+                                         (r/-flow fl/-infer-top))))))
      :rests (->> fn-anns
                  (map :rest)
                  (mapv (fn [{:keys [type default] :as has-rest}]
@@ -211,6 +211,7 @@
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
     (let [fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
           poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)
+          ;_ (prn "poly" poly)
           ;_ (prn "fn-anns-quoted" fn-anns-quoted)
           ;_ (prn "poly-quoted" poly-quoted)
           fn-anns (impl/impl-case
@@ -263,7 +264,7 @@
                                  flat-expecteds
                                  {:frees-with-bnds frees-with-bnds
                                   :dvar dvar}))))]
-              (update-in cfexpr [u/expr-type] below/maybe-check-below expected)))]
+              (update cfexpr u/expr-type below/maybe-check-below expected)))]
       (assoc expr
              :ret cfexpr
              u/expr-type (u/expr-type cfexpr)))))

@@ -351,7 +351,7 @@
                            (:without t))
                  ;lhs explicitly disallows same types as rhs
                  ; Each negative t should be a supertype of some negative s
-                 (every? (fn extends-without-t[not-t*]
+                 (every? (fn extends-without-t [not-t*]
                            (some #(subtype? % not-t*) (:without s)))
                          (:without t)))
           *sub-current-seen*
