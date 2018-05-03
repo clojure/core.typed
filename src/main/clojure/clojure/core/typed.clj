@@ -1433,7 +1433,7 @@ for checking namespaces, cf for checking individual forms."}
         (declare ~sym)
         (def-alias* '~qsym '~t '~&form)))))
 
-(def ^{:doc "Any is the top type that contains all types."
+(def ^{:doc "Any is the top type that contains all possible values."
        :forms '[Any]
        ::special-type true}
   Any)
@@ -1448,8 +1448,7 @@ for checking namespaces, cf for checking individual forms."}
        ::special-type true}
   U)
 
-(def ^{:doc "Nothing is the bottom type that inhabits no types
-            except itself."
+(def ^{:doc "Nothing is the bottom type that has no values."
        :forms '[Nothing]
        ::special-type true}
   Nothing)
