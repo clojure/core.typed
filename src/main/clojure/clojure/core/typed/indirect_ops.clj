@@ -10,4 +10,5 @@
                      -top-fn
                      -empty-fn
                      infer
-                     PropEnv?)
+                     PropEnv?
+                     -or)

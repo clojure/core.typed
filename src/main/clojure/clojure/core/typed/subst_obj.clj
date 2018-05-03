@@ -49,8 +49,9 @@
                           (apply fo/-and (map ap fs)))
       (fl/OrFilter? f) (let [fs (:fs f)]
                          (apply fo/-or (map ap fs)))
-      (fl/BotFilter? f) fl/-bot
-      (fl/TopFilter? f) fl/-top
+      (fl/BotFilter? f) f
+      ;; preserve -infer-top
+      (fl/TopFilter? f) f
 
       (fl/TypeFilter? f) 
       (let [{t :type p :path i :id} f]

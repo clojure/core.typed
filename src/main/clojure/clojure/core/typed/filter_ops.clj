@@ -321,6 +321,8 @@
                     :else
                     (recur (next fs) (cons t result)))))))))
 
+(ind-u/add-indirection ind/-or -or)
+
 (defn -imp [a c]
   {:pre [(fr/Filter? a)
          (fr/Filter? c)]

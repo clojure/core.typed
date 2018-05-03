@@ -50,9 +50,11 @@
     ; is there a better :op check here?
     :cljs (assert method))
   #_(prn "checking syntax:" (ast-u/emit-form-fn method))
-  ;(prn "check-fn-method1" "ignore-rng" ignore-rng)
   (u/p :check/check-fn-method1
-  (let [body ((ast-u/method-body-kw) method)
+  (let [ignore-rng (or ignore-rng
+                       (r/infer-any? (-> expected :rng :t)))
+        ;_ (prn "ignore-rng" ignore-rng)
+        body ((ast-u/method-body-kw) method)
         required-params (ast-u/method-required-params method)
         rest-param (ast-u/method-rest-param method)
 
@@ -81,7 +83,8 @@
                                 (map param-obj
                                      (concat required-params 
                                              (when rest-param [rest-param]))))))
-        ;_ (prn "expected-rng" expected-rng)
+        ;_ (prn "open-result expected-rng" expected-rng)
+        ;_ (prn "open-result expected-rng filters" (some->> expected-rng :fl ((juxt :then :else)) (map fl/infer-top?)))
         ;ensure Function fits method
         _ (when-not ((if (or rest drest kws prest pdot) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"

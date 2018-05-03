@@ -111,10 +111,12 @@
      (err/int-error (str "Non-matching vars in c-meet:" X X*)))
    (when-not (= bnds bnds*)
      (err/int-error (str "Non-matching bounds in c-meet:" bnds bnds*)))
-   (let [S (join S S*)
-         ;_ (prn "S" (prs/unparse-type S))
+   (let [;_ (prn "joining" S S* (mapv r/infer-any? [S S*]))
+         S (join S S*)
+         ;_ (prn "joined:" S)
+         ;_ (prn "meeting" T T* (mapv r/infer-any? [T T*]))
          T (meet T T*)
-         ;_ (prn "T" (prs/unparse-type S))
+         ;_ (prn "meet:" T)
          ]
      (when-not (subtype? S T)
        (fail! S T))
@@ -389,7 +391,7 @@
          (r/AnyType? S)
          (r/AnyType? T)]
    :post [(cr/cset? %)]}
-  ;(prn "cs-gen" (prs/unparse-type S) (prs/unparse-type T))
+  ;(prn "cs-gen" S T)
   (u/p :cs-gen/cs-gen
   (if (or (u/p :cs-gen/cs-gen-current-seen-lookup (*cs-current-seen* [S T]) )
           (subtype? S T))
@@ -2269,11 +2271,39 @@
 
 (ind-u/add-indirection ind/infer infer)
 
+(defmacro unify-or-nil [{:keys [fresh out]} s t]
+  (assert (every? simple-symbol? fresh))
+  (assert (apply distinct? fresh))
+  (assert (some #{out} fresh))
+  (let [fresh-names (map (juxt identity gensym) fresh)
+        name-lookup (into {} fresh-names)]
+    `(let [[lhs# rhs#] (let ~(vec
+                               (mapcat (fn [[fresh name]]
+                                         [fresh `(r/make-F '~name)])
+                                       fresh-names))
+                         [~s ~t])
+           _# (assert (r/Type? lhs#))
+           _# (assert (r/Type? rhs#))
+           substitution#
+           (handle-failure
+             (infer
+               (zipmap '~(map second fresh-names) (repeat r/no-bounds))
+               {}
+               [lhs#]
+               [rhs#]
+               r/-any))
+           res# (when substitution#
+                  (when-let [s# (get substitution# '~(name-lookup out))]
+                    (:type s#)))
+           _# (assert ((some-fn nil? r/Type?) res#))]
+       res#)))
+
 (comment
+  (impl/with-clojure-impl
          (let [x (gensym)]
            (infer {x r/no-bounds} {} 
                   [(c/RClass-of clojure.lang.IPersistentCollection [(c/RClass-of Number)])]
                   [(c/RClass-of clojure.lang.Seqable [(r/make-F x)])]
-                  r/-any))
+                  r/-any)))
   (map prs/unparse-type (c/RClass-supers* (c/RClass-of clojure.lang.IPersistentCollection [(c/RClass-of Number)])))
   )
