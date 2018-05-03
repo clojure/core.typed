@@ -1,5 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.check.utils
   (:require [clojure.core.typed :as t]
+            [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.analyze-clj :as ana]
             [clojure.core.typed.profiling :as p]
@@ -58,13 +59,14 @@
     (symbol (str (coerce/Class->symbol c)) (str method))))
 
 ;(t/ann expected-error [r/Type r/Type -> nil])
-(defn expected-error [actual expected]
+(defn expected-error [actual expected & opt]
   (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                            (when vs/*current-expr*
                              (expr-ns vs/*current-expr*)))
-    (err/tc-delayed-error (str "Type mismatch:"
-                             "\n\nExpected: \t" (pr-str (prs/unparse-type expected))
-                             "\n\nActual: \t" (pr-str (prs/unparse-type actual))))))
+    (apply err/tc-delayed-error (str "Type mismatch:"
+                                     "\n\nExpected: \t" (pr-str (prs/unparse-type expected))
+                                     "\n\nActual: \t" (pr-str (prs/unparse-type actual)))
+           opt)))
 
 
 ;(t/ann error-ret [(U nil TCResult) -> TCResult])
@@ -548,3 +550,42 @@
     (update-in pred-expr
                [:ret :args 0]
                (constantly expr))))
+
+(defn TCResult->map [ret]
+  {:pre [(r/TCResult? ret)]
+   :post [(map? %)]}
+  (binding [vs/*verbose-types* true]
+    {:type (prs/unparse-type (:t ret))
+     :filters (prs/unparse-filter-set (:fl ret))
+     :object (prs/unparse-object (:o ret))
+     :flow (prs/unparse-filter (-> ret :flow :normal))
+     :opts (not-empty (:opts ret))}))
+                                   
+(defn map->TCResult [expected]
+  {:pre [(not (r/TCResult? expected))
+         (map? expected)
+         ;; Should at least contain a :type entry (I think?)
+         (contains? expected :type)]
+   :post [(r/TCResult? %)]}
+  (->
+    (r/ret (if-let [[_ t] (find expected :type)]
+             (prs/parse-type t)
+             (throw (Exception. "Must provide type")))
+           (if-let [[_ fl] (find expected :filters)]
+             (fo/-FS
+               (if-let [[_ f] (find fl :then)]
+                 (prs/parse-filter f)
+                 fl/-top)
+               (if-let [[_ f] (find fl :else)]
+                 (prs/parse-filter f)
+                 fl/-top))
+             (fo/-simple-filter))
+           (if-let [[_ o] (find expected :object)]
+             (prs/parse-object o)
+             obj/-empty)
+           (r/-flow
+             (if-let [[_ flow] (find expected :flow)]
+               (prs/parse-filter flow)
+               fl/-top)))
+    (assoc :opts (or (:opts expected) {}))))
+

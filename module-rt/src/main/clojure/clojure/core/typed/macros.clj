@@ -53,8 +53,8 @@
           `(ann-form ~body ~t)
           body))))
 
-(core/defn expand-typed-fn [is-poly forms]
-  (core/let [{:keys [poly fn ann]} (internal/parse-fn* forms)]
+(core/defn expand-typed-fn [form]
+  (core/let [{:keys [poly fn ann]} (internal/parse-fn* form)]
     `(do ~spec/special-form
          ~(core-kw :fn)
          {:ann '~ann
@@ -97,7 +97,7 @@
         ([a :- String, b :- Number] :- String ...))
   "
   [& forms]
-  (expand-typed-fn false forms))
+  (expand-typed-fn &form))
 
 (defmacro 
   ^{:forms '[(loop [binding :- type?, init*] exprs*)]}

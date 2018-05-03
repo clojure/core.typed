@@ -38,6 +38,13 @@
     (symbol (str (ns-name ns))
             (str (.sym var)))))
 
+;(t/ann ^:no-check kw->symbol [Kw -> Symbol])
+(defn kw->symbol [kw]
+  {:pre [(keyword? kw)]
+   :post [(symbol? %)]}
+  (symbol (namespace kw)
+          (name kw)))
+
 (defn ns->file 
   ([nsym] (ns->file nsym true))
   ([nsym suffix?]

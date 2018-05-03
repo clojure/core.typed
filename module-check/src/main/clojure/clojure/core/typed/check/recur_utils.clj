@@ -2,8 +2,6 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (u/def-type RecurTarget [dom rest drest kws]
   "A target for recur"
   [(every? r/Type? dom)

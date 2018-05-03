@@ -224,8 +224,8 @@
         m
         (err/int-error (str "Bad path element syntax: " syn))))))
 
-(t/ann parse-object [t/Any -> FObject])
-(defn parse-object [syn]
+(t/ann parse-object-path [t/Any -> FObject])
+(defn parse-object-path [syn]
   (when-not (map? syn)
     (err/int-error (str "Object must be a map")))
   (let [id (:id syn)
@@ -242,6 +242,11 @@
        :id id}
       (when path
         {:path-elems (mapv parse-path-elem path)}))))
+
+(defn parse-object [syn]
+  (case syn
+    empty {:op :empty-object}
+    (parse-object-path syn)))
 
 (t/defalias RestDrest
   (HMap :mandatory {:types (t/U nil (t/Coll Type))}
@@ -314,7 +319,7 @@
         (when filter-sets
           {:filter-sets (mapv parse-filter-set filter-sets)})
         (when objects
-          {:objects (mapv parse-object filter-sets)})
+          {:objects (mapv parse-object objects)})
         (when (true? repeat) {:repeat true})))))
 
 (def parse-HVec (parse-h* :HVec "Invalid heterogeneous vector syntax:"))
@@ -823,7 +828,13 @@
     :drest Type
     :name t/Sym})
 
-(t/defalias FObject t/Any)
+(t/defalias FObject
+  (t/U '{:op ':empty-object}
+       (t/HMap :mandatory
+               {:op ':object
+                :id (t/U t/Sym t/Int)}
+               :optional
+               {:path-elems (t/Vec PathElem)})))
 
 (t/defalias Function
   (t/HMap :mandatory

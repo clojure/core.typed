@@ -27,6 +27,17 @@
   (apply every-pred vector?
          (map (fn [p i] #(p (nth % i false))) ps (range))))
 
+(defn reduced-c? [c]
+  (fn [r]
+    (and (reduced? r)
+         (c @r))))
+
+(defn maybe-reduced-c? [c]
+  (fn [r]
+    (if (reduced? r)
+      (c @r)
+      (c r))))
+
 (defn array-map-c? [ks-c? vs-c?]
   (every-pred #(instance? clojure.lang.PersistentArrayMap %)
               #(every? ks-c? (keys %))

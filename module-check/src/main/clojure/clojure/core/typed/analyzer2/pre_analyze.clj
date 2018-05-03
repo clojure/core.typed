@@ -209,6 +209,7 @@
 
 (defn pre-analyze-seq
   [form env]
+  ;(prn "pre-analyze-seq" form)
   (let [op (first form)]
     (when (nil? op)
       (throw (ex-info "Can't call nil"
@@ -218,8 +219,8 @@
       (if (= form mform) ;; function/special-form invocation
         (pre-parse mform env)
         (-> (pre-analyze-form mform env)
-          (update-in [:raw-forms] (fnil conj ())
-                     (vary-meta form assoc ::resolved-op (u/resolve-sym op env))))))))
+            (update-in [:raw-forms] (fnil conj ())
+                       (vary-meta form assoc ::resolved-op (u/resolve-sym op env))))))))
 
 (defn pre-parse-do
   [[_ & exprs :as form] env]

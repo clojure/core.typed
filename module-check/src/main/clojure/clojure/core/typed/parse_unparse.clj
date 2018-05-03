@@ -1028,13 +1028,20 @@
   (cond
     (= 'tt f) f/-top
     (= 'ff f) f/-bot
+    (= 'no-filter f) f/-no-filter
     (not ((some-fn seq? list?) f)) (err/int-error (str "Malformed filter expression: " (pr-str f)))
     :else (parse-filter* f)))
 
-(defn parse-object [{:keys [id path]}]
+(defn parse-object-path [{:keys [id path]}]
   (when-not (f/name-ref? id)
     (err/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
   (orep/-path (when path (mapv parse-path-elem path)) id))
+
+(defn parse-object [obj]
+  (case obj
+    empty orep/-empty
+    no-object orep/-no-object
+    (parse-object-path obj)))
 
 (defn parse-filter-set [{:keys [then else] :as fsyn}]
   (when-not (map? fsyn)
@@ -1738,7 +1745,7 @@
 (declare unparse-path-elem)
 
 (defmulti unparse-object class)
-(defmethod unparse-object EmptyObject [_] 'empty-object)
+(defmethod unparse-object EmptyObject [_] 'empty)
 (defmethod unparse-object NoObject [_] 'no-object)
 (defmethod unparse-object Path [{:keys [path id]}] (conj {:id id} (when (seq path) [:path (mapv unparse-path-elem path)])))
 

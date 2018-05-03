@@ -99,16 +99,20 @@
       :children (into [:this] (:children method-expr)))))
 
 ;; HACK
-(defn -deftype [name class-name args interfaces]
+(defn -deftype [cname class-name args interfaces]
 
-  (doseq [arg [class-name name]]
+  (doseq [arg [class-name cname]]
     (memo/memo-clear! ju/members* [arg])
     (memo/memo-clear! ju/members* [(str arg)]))
 
   (let [interfaces (mapv #(symbol (.getName ^Class %)) interfaces)]
     (eval (list 'let []
-                (list 'deftype* name class-name args :implements interfaces)
-                (list 'import class-name)))))
+                (list 'deftype* cname class-name args :implements interfaces)
+                (list 'import class-name))))
+  
+  (when-let [env env/*env*]
+    (swap! env update-in [:namespaces (ns-name *ns*) :mappings]
+           merge (select-keys (ns-map *ns*) [(symbol (name cname))]))))
 
 (defn pre-parse-reify*
   [[_ interfaces & methods :as form] env]

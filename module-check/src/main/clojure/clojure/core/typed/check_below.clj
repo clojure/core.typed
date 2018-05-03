@@ -159,7 +159,7 @@
       (let [{t1 :t f1 :fl o1 :o flow1 :flow} tr1
             {t2 :t f2 :fl o2 :o flow2 :flow} expected]
         (cond
-          (not (subtype? t1 t2)) (cu/expected-error t1 t2)
+          (not (subtype? t1 t2)) (cu/expected-error t1 t2 :expected expected)
 
           :else
           (let [better-fs? (filter-better? f1 f2)
@@ -170,19 +170,23 @@
                 ]
             (cond
               (not better-flow?) (err/tc-delayed-error (str "Expected result with flow filter " (pr-str flow2) 
-                                                            ", got flow filter "  (pr-str flow1)))
+                                                            ", got flow filter "  (pr-str flow1))
+                                                       :expected expected)
               (and (not better-fs?)
                    better-obj?)
-              (err/tc-delayed-error (str "Expected result with filter " (pr-str f2) ", got filter "  (pr-str f1)))
+              (err/tc-delayed-error (str "Expected result with filter " (pr-str f2) ", got filter "  (pr-str f1))
+                                    :expected expected)
 
               (and better-fs? 
                    (not better-obj?))
-              (err/tc-delayed-error (str "Expected result with object " (pr-str o2) ", got object " (pr-str o1)))
+              (err/tc-delayed-error (str "Expected result with object " (pr-str o2) ", got object " (pr-str o1))
+                                    :expected expected)
 
               (and (not better-fs?)
                    (not better-obj?))
               (err/tc-delayed-error (str "Expected result with object " (pr-str o2) ", got object"  o1 " and filter "
-                                         (pr-str f2) " got filter " (pr-str f1))))))
+                                         (pr-str f2) " got filter " (pr-str f1)))
+                                    :expected expected)))
         (construct-ret tr1 expected))
 
       (and (r/TCResult? tr1)
@@ -193,21 +197,13 @@
           (cu/expected-error t1 t2))
         (r/ret (choose-result-type t1 t2) f o))
 
-      ;FIXME
-      ;; erm.. ? What is (FilterSet: (list) (list))
-      ;; TODO this case goes here, but not sure what it means 
-      ;
-      ;[((? r/Type? t1) (tc-result1: t2 (FilterSet: (list) (list)) (Empty:)))
-      ; (unless (sub/subtype t1 t2)
-      ;   (tc-error/expr "Expected ~a, but got ~a" t2 t1))
-      ; t1]
-
       (and (r/Type? tr1)
            (r/TCResult? expected))
       (let [t1 tr1
             {t2 :t f :fl o :o} expected]
         (if (subtype? t1 t2)
-          (err/tc-delayed-error (str "Expected result with filter " (pr-str f) " and object " (pr-str o) ", got trivial filter and empty object."))
+          (err/tc-delayed-error (str "Expected result with filter " (pr-str f) " and object " (pr-str o)
+                                     ", got trivial filter and empty object."))
           (cu/expected-error t1 t2))
         t1)
 
@@ -228,7 +224,7 @@
   {:pre [(r/TCResult? tr1)
          ((some-fn nil? r/TCResult?) expected)]
    :post [(r/TCResult? %)]}
-  (or (when expected
-        (check-below tr1 expected))
-      tr1))
+  (if expected
+    (check-below tr1 expected)
+    tr1))
 

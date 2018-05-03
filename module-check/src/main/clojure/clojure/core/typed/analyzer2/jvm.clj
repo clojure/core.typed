@@ -28,8 +28,8 @@
             [clojure.tools.analyzer.passes.jvm.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
             [clojure.core.typed.analyzer2 :as ana]
-            [clojure.core.typed.analyzer2.pre-analyze :as preana]
-            [clojure.core.typed.analyzer2.jvm.pre-analyze :as pre]
+            [clojure.core.typed.analyzer2.pre-analyze :as pre]
+            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.memoize :as memo])
   (:import (clojure.lang IObj RT Var)))
 
@@ -39,7 +39,7 @@
         '#{monitor-enter monitor-exit clojure.core/import* reify* deftype* case*}))
 
 (defn macroexpand-1
-  "If form represents a macro form or an inlineable function,returns its expansion,
+  "If form represents a macro form or an inlineable function, returns its expansion,
    else returns form."
   ([form] (macroexpand-1 form (taj/empty-env)))
   ([form env]
@@ -221,10 +221,10 @@
                                          :else
                                          (fn [_ _ ast] 
                                            ;(prn (str "before normal " direction " pass" p))
-                                           ;(clojure.pprint/pprint ast)
+                                           ;(prn (:op ast) (emit-form/emit-form ast))
                                            (let [ast (p ast)]
                                              ;(prn (str "after normal " direction " pass" p))
-                                             ;(clojure.pprint/pprint ast)
+                                             ;(prn (:op ast) (emit-form/emit-form ast))
                                              ast)))]
                                  (fn [a s ast]
                                    (p a s (f a s ast)))))
@@ -281,7 +281,7 @@
              {post-passes :passes :as post}
              :as ps]
             (-> (passes/schedule-passes info)
-                (update-in [0 :passes] #(vec (cons #'pre/pre-analyze %))))
+                (update-in [0 :passes] #(vec (cons #'jpre/pre-analyze %))))
 
             _ (assert (= 2 (count ps)))
             _ (assert (= :pre (:walk pre)))
@@ -374,15 +374,13 @@
      (with-bindings (merge {Compiler/LOADER     (RT/makeClassLoader)
                             #'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    taj/create-var
-                            ;#'ana/parse         parse
-                            #'preana/pre-parse  pre/pre-parse
+                            #'pre/pre-parse  jpre/pre-parse
                             #'ana/var?          var?
                             #'*ns*              (the-ns (:ns env))}
                            (:bindings opts))
        (env/ensure (taj/global-env)
-         (doto (env/with-env (u/mmerge (env/deref-env)
-                                     {:passes-opts (get opts :passes-opts default-passes-opts)})
-                 (run-passes (preana/pre-analyze-child form env)))
+         (doto (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
+                 (run-passes (pre/pre-analyze-child form env)))
            (do (taj/update-ns-map!)))))))
 
 (deftype ExceptionThrown [e ast])
@@ -397,10 +395,10 @@
     (do (assert (not (#{:hygienic :qualified-symbols} opts))
                 "Cannot support emit-form options on unanalyzed form")
         #_(throw (Exception. "Cannot emit :unanalyzed form"))
-        (prn (str "WARNING: emit-form: did not analyze:" form))
+        (prn (str "WARNING: emit-form: did not analyze: " form))
         form)))
 
-(defn eval-ast [a {:keys [handle-evaluation-exception] 
+(defn eval-ast [a {:keys [handle-evaluation-exception]
                    :or {handle-evaluation-exception throw!}
                    :as opts}]
   (let [frm (emit-form/emit-form a)
@@ -481,5 +479,5 @@
                statements-expr
                ret-expr))
            (let [a (analyze mform (analyze-env-fn env) (analyze-opts-fn opts))
-                 e (eval-fn a opts)]
+                 e (eval-fn a (assoc opts :original-form mform))]
              (merge e {:raw-forms raw-forms})))))))

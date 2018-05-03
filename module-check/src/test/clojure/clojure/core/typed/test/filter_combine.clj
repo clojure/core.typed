@@ -7,6 +7,7 @@
             (symbol? a))
     (ann-form a (t/U t/Sym String))))
 
+;exceptional control flow
 (fn [a]
   {:pre [(or (string? a)
              (symbol? a))]}

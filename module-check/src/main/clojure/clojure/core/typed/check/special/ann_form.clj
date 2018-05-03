@@ -41,11 +41,8 @@
         cret (check frm 
                     (or (when expected
                           (assoc expected :t parsed-t))
-                        (r/ret parsed-t
-                               ;; TODO let users add expected filters
-                               (fo/-FS fl/-top fl/-top)
-                               obj/-empty
-                               (r/-flow fl/-top))))]
+                        ;; TODO let users add expected filters etc
+                        (r/ret parsed-t)))]
     (assoc expr
            :ret cret
            u/expr-type (binding [vs/*current-expr* expr

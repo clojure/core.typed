@@ -929,7 +929,8 @@
 (u/ann-record TCResult [t :- Type
                         fl :- p/IFilterSet
                         o :- p/IRObject
-                        flow :- FlowSet])
+                        flow :- FlowSet
+                        opts :- (t/Map t/Any t/Any)])
 
 (t/ann Result->TCResult [Result -> TCResult])
 (defn Result->TCResult [{:keys [t fl o flow] :as r}]
@@ -988,12 +989,13 @@
   :methods
   [p/IFilter])
 
-(u/def-type TCResult [t fl o flow]
+(u/def-type TCResult [t fl o flow opts]
   "This record represents the result of typechecking an expression"
   [(Type? t)
    (p/IFilterSet? fl)
    (p/IRObject? o)
-   (FlowSet? flow)]
+   (FlowSet? flow)
+   (map? opts)]
   ;:methods
   ;[p/TCAnyType]
   )
@@ -1021,7 +1023,7 @@
           (p/IRObject? o)
           (FlowSet? flow)]
     :post [(TCResult? %)]}
-   (TCResult-maker t f o flow)))
+   (TCResult-maker t f o flow {})))
 
 (t/ann ret-t [TCResult -> Type])
 (defn ret-t [r]

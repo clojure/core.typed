@@ -6,10 +6,6 @@
             [clojure.core.typed :as t])
   (:import (clojure.core.typed.type_rep Bounds F)))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 (u/ann-record t-subst [type :- r/Type,
                        bnds :- Bounds])
 (u/def-type t-subst [type bnds]
