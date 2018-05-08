@@ -1,3 +1,16 @@
+# 0.5.2 - 8 May 2018
+
+- Split namespaces into maven submodules
+  - automatic annotation work in `module-infer`
+    - with artifact id `org.clojure/core.typed.infer`
+  - tools.analyzer fork in `module-analyzer-jvm`
+    - with artifact id `org.clojure/core.typed.analyzer.jvm`
+- merge WIP custom typing rules
+- refactor checking logic
+  - eg. `let` and `if`
+- support propagation of `fn` argument types while still
+  inferring the body
+
 # 0.5.1 - 18 April 2018
 
 - Add circleci workflow to generate annotations
