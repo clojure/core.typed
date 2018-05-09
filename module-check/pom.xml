@@ -28,7 +28,8 @@
           </execution>
         </executions>
         <configuration>
-          <vmargs>-Xmx2048m</vmargs>
+          <!-- need to set perm gen size for build.clojure.org CI -->
+          <vmargs>-Xmx2048m -XX:MaxPermSize=512M</vmargs>
           <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
           <!--<vmargs>-verbose:class</vmargs>-->
           <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
