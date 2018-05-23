@@ -546,12 +546,9 @@
 
 (defn eval-ast [ast opts]
   ;; based on jvm/analyze+eval
-  ;(let [frm (emit-form/emit-form ast)
-  ;      result (try (eval frm)  ;; eval the emitted form rather than directly the form to avoid double macroexpansion
-  ;                  (catch Exception e
-  ;                    (ExceptionThrown. e)))]
-  ;  (merge ast {:result result}))
-  (let [frm (if custom-expansions?
+  (let [; FIXME don't allow mixing of runtime inference and custom expansions,
+        ; since we want to evaluate the modified AST in runtime inference.
+        frm (if custom-expansions?
               (:original-form opts)
               (emit-form/emit-form ast))
         ;_ (prn "form" frm)

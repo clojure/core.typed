@@ -1,11 +1,19 @@
+;; FIXME this file is in module-check because it uses clojure.core.typed.check-form-clj,
+;; refactor it back into module-infer
 (ns clojure.core.typed.test.runtime-infer
   (:require [clojure.test :refer :all]
+            [clojure.pprint :as pp]
+            [clojure.repl :as repl]
+            [clojure.set :as set]
             [com.gfredericks.test.chuck :as chuck]
             [com.gfredericks.test.chuck.clojure-test :refer [checking]]
             [com.gfredericks.test.chuck.generators :as gen']
             [clojure.test.check.generators :as gen]
             [clojure.core.typed :as t]
-            [clojure.core.typed.runtime-infer :refer :all]))
+            [clojure.core.typed.runtime-infer :refer :all :as infer]
+            [clojure.core.typed.check-form-clj :as chk-clj]
+            [clojure.core.typed.coerce-utils :as coerce])
+  (:import (clojure.lang IExceptionInfo)))
 
 (defn add-tmp-aliases [env as]
   (update-alias-env env merge (zipmap as (repeat nil))))
@@ -1304,3 +1312,281 @@
          anns-from-tenv)
     {'config-in t}
     ))
+
+(defmacro infer-test
+  "Given a vector of definitions :defs and a vector of tests :tests, then
+  does these steps in order. Short-circuits and returns a false value if previous steps fail.
+  Returns a true value on success.
+
+  1. Generates specs and types for the definitions
+  2. Ensure generated specs and types are identical to :expected-types and :expected-specs, respectively (when provided).
+     These are either vectors of annotations, or a string that contains vectors
+     of annotations that will be `read` in the correct namespace (useful to aid keyword namespace
+     resolution in specs).
+     If one of these is not provided, the respective annotations are pprint'ed so they can
+     be easily copied into the test.
+  3. Evaluates generated specs.
+  4. Exercises spec aliases.
+  5. Exercises spec'd functions.
+  6. Instruments all spec'd functions.
+  7. Runs :test code again under spec instrumentation."
+  [& {:keys [defs tests expected-specs expected-types] :as opts}]
+  (assert (vector? defs))
+  (assert (vector? tests))
+  `(let [ns# (create-ns (gensym))]
+     (binding [*ns* ns#
+               *ann-for-ns* (constantly ns#)]
+       (refer-clojure)
+       (require '~'[clojure.core.typed :as t])
+       (when spec-ns
+         (require [spec-ns :as '~'s]))
+       (let [result# (atom :ok)
+             run-until-bad-result!# (fn [f# c#]
+                                      (loop [c# c#]
+                                        (when @result#
+                                          (when (seq c#)
+                                            (do (f# (first c#))
+                                                (recur (rest c#)))))))
+             defs# '~defs
+             tests# '~tests
+             _# (t/refresh-runtime-infer)
+             _# (run-until-bad-result!#
+                  (fn [f#]
+                    (let [{ex# :ex} (chk-clj/check-form-info-with-config
+                                      f#
+                                      (assoc (chk-clj/config-map) :should-runtime-infer? true)
+                                      {})]
+                      (when ex#
+                        (println (str "Form " f# " failed to evaluate, with error: " ex#))
+                        (reset! result# nil))))
+                  (concat defs# tests#))]
+         (when @result#
+           (let [expected-specs# (let [s# '~expected-specs]
+                                   (if (string? s#)
+                                     (read-string s#)
+                                     s#))
+                 _# (assert ((some-fn nil? vector?) expected-specs#))
+                 expected-types# (let [t# '~expected-types]
+                                   (if (string? t#)
+                                     (read-string t#)
+                                     t#))
+                 _# (assert ((some-fn nil? vector?) expected-types#))
+                 specs# (*-from-infer-results *ns* {:spec? true})
+                 types# (*-from-infer-results *ns* {})
+                 assert-equal# (fn [actual# expected# msg#]
+                                 (when-not (= actual# expected#)
+                                   (println msg#)
+                                   (println "Actual:")
+                                   (pprint actual#)
+                                   (println "Expected:")
+                                   (pprint expected#)
+                                   (reset! result# nil)))
+                 ]
+             (if expected-specs#
+               (assert-equal# (:top-level specs#) expected-specs#
+                              "Actual specs didn't match expected specs")
+               (do (println "Here are the generated specs:")
+                   (infer/pprint (:top-level specs#))))
+             (if expected-types#
+               (assert-equal# (:top-level types#) expected-types#
+                              "Actual types didn't match expected types")
+               (do (println "Here are the generated types:")
+                   (infer/pprint (:top-level types#))))
+             (when spec-ns
+               (let [instrumentable-syms# (set
+                                            (keep (fn [spc#]
+                                                    (when (seq? spc#)
+                                                      (when (= '~'s/fdef (first spc#))
+                                                        (let [^clojure.lang.Var v# (resolve (second spc#))]
+                                                          (when (var? v#)
+                                                            (coerce/var->symbol v#))))))
+                                                  (:top-level specs#)))
+                     spec-defs# (set
+                                  (keep (fn [spc#]
+                                          (when (seq? spc#)
+                                            (when (= '~'s/def (first spc#))
+                                              (let [kw# (second spc#)]
+                                                (when (keyword? kw#)
+                                                  (when (namespace kw#)
+                                                    kw#))))))
+                                        (:top-level specs#)))
+                     _# (require ['~'clojure.spec.test.alpha])
+                     instrument# (resolve '~'clojure.spec.test.alpha/instrument)
+                     _# (assert instrument#)
+                     exercise# (resolve '~'clojure.spec.alpha/exercise)
+                     _# (assert exercise#)
+                     exercise-fn# (resolve '~'clojure.spec.alpha/exercise-fn)
+                     _# (assert exercise-fn#)
+                     exercise-fn-or-fail# (fn [sym#]
+                                            (try (doall (exercise-fn# sym#))
+                                                 (catch Throwable e#
+                                                   (println "Function failed to exercise:" sym#)
+                                                   (println "With the following error:")
+                                                   (binding [*err* *out*]
+                                                     (repl/pst e#))
+                                                   (when (instance? IExceptionInfo e#)
+                                                     (pp/pprint (ex-data e#)))
+                                                   (reset! result# nil))))
+                     exercise-or-fail# (fn [spc#]
+                                         (try (doall (exercise# spc#))
+                                              (catch Throwable e#
+                                                (println "Spec failed to exercise")
+                                                (pp/pprint spc#)
+                                                (println "With the following error:")
+                                                (binding [*err* *out*]
+                                                  (repl/pst e#))
+                                                (when (instance? IExceptionInfo e#)
+                                                  (pp/pprint (ex-data e#)))
+                                                (reset! result# nil))))
+                     eval-or-fail# (fn [form#]
+                                     (try (eval form#)
+                                          (catch Throwable e#
+                                            (println "Expression failed to evaluate:")
+                                            (pp/pprint form#)
+                                            (println "With the following error:")
+                                            (repl/pst e#)
+                                            (reset! result# nil))))]
+                 (testing "spec declarations should evaluate"
+                   (run-until-bad-result!# eval-or-fail# (concat (:requires specs#) (:top-level specs#))))
+                 (testing "should be able to exercise spec defs"
+                   (run-until-bad-result!# exercise-or-fail# spec-defs#))
+                 (testing "should be able to exercise fns"
+                   (run-until-bad-result!# exercise-fn-or-fail# instrumentable-syms#))
+                 (when @result#
+                   (testing "specs should instrument"
+                     (when-not (= instrumentable-syms#
+                                  (set (instrument# instrumentable-syms#)))
+                       (println "Expected to instrument "
+                                (set/difference
+                                  instrumentable-syms#
+                                  (set (instrument# instrumentable-syms#)))
+                                " but didn't")
+                       (reset! result# nil))))
+                 (testing "tests should evaluate under instrumentation"
+                   (run-until-bad-result!# eval-or-fail# tests#))))
+             @result#))))))
+
+(defn *-from-infer-results [ns config]
+  (binding [*ann-for-ns* (constantly *ns*)
+            *debug* (if-let [[_ debug] (find config :debug)]
+                      debug
+                      *debug*)]
+    (infer/infer-anns *ns* config)))
+
+(deftest test-infer-test
+  (is (infer-test :defs [(defn blah [a] (inc a))]
+                  :tests [(blah 1)]
+                  :expected-specs [(s/fdef blah :args (s/cat :a int?) :ret int?)]
+                  :expected-types [(declare) (t/ann blah [t/Int :-> t/Int])]))
+  (testing "detects Exception always thrown in :defs"
+    (is (not
+          (infer-test :defs [(throw (Exception.))]
+                      :tests []
+                      :expected-specs [(s/fdef blah :args (s/cat :a int?) :ret int?)]
+                      :expected-types [(declare) (t/ann blah [t/Int :-> t/Int])]))))
+  (testing "detects Exception always thrown in :tests"
+    (is (not
+          (infer-test :defs [(defn blah [a] (inc a))]
+                      :tests [(throw (Exception.))]
+                      :expected-specs [(s/fdef blah :args (s/cat :a int?) :ret int?)]
+                      :expected-types [(declare) (t/ann blah [t/Int :-> t/Int])]))))
+  (testing "detects bad exercise-fn"
+    (is (not
+          (infer-test :defs [(defn blah [a]
+                               (assert (zero? a)))]
+                      :tests [(blah 0)]
+                      :expected-specs [(s/fdef blah :args (s/cat :a int?) :ret nil?)]
+                      :expected-types [(declare) (t/ann blah [t/Int :-> nil])]))))
+  (testing "detects bad exercise-fn"
+    (is (not
+          (infer-test :defs [(defn blah [f]
+                               (f))]
+                      :tests [(blah (constantly nil))]
+                      :expected-specs [(s/fdef blah :args (s/cat :f ifn?) :ret nil?)]
+                      :expected-types [(declare) (t/ann blah [[:-> nil] :-> nil])]))))
+  (testing "detects bad provided specs"
+    (is (not
+          (infer-test :defs [(defn blah [f])]
+                      :tests [(blah identity)]
+                      :expected-specs [(s/fdef blah :args (s/cat :asdf ifn?) :ret nil?)]
+                      :expected-types [(declare) (t/ann blah [AnyFunction :-> nil])]))))
+  (testing "detects bad provided specs (wrong quantity)"
+    (is (not
+          (infer-test :defs [(defn blah [f]
+                               (f))]
+                      :tests [(blah (constantly nil))]
+                      :expected-specs [(s/fdef food :args (s/cat :asdf ifn?) :ret nil?)
+                                       (s/fdef blah :args (s/cat :f ifn?) :ret nil?)]
+                      :expected-types [(declare) (t/ann blah [[:-> nil] :-> nil])]))))
+  (testing "detects bad provided types"
+    (is (not
+          (infer-test :defs [(defn blah [f]
+                               (f))]
+                      :tests [(blah (constantly nil))]
+                      :expected-specs [(s/fdef blah :args (s/cat :f ifn?) :ret nil?)]
+                      :expected-types [(declare) (t/ann blah [t/Int :-> nil])]))))
+  (testing "detects bad provided types (wrong quantity)"
+    (is (not
+          (infer-test :defs [(defn blah [f]
+                               (f))]
+                      :tests [(blah (constantly nil))]
+                      :expected-specs [(s/fdef blah :args (s/cat :f ifn?) :ret nil?)]
+                      :expected-types [(declare) (t/ann blah [[:-> nil] :-> nil])
+                                       (t/ann food [t/Int :-> nil])]))))
+)
+
+(deftest HMap-infer-test
+  (is (infer-test :defs [(defn takes-map [m]
+                           {:pre [(or (some-> m :a #{1})
+                                      true)]}
+                           (mapv identity m))]
+                  :tests [(takes-map {})
+                          (takes-map {:a 1})
+                          (takes-map {:b 1})]
+                  :expected-specs "[(s/def ::ABMap (s/keys :opt-un [::a ::b]))
+                                    (s/def ::a int?)
+                                    (s/def ::b int?)
+                                    (s/fdef
+                                      takes-map
+                                      :args
+                                      (s/cat :m ::ABMap)
+                                      :ret
+                                      (s/coll-of (s/tuple #{:b :a} int?) :into vector?))]"
+                  :expected-types [(declare ABMap)
+                                   (t/defalias ABMap (t/HMap :optional {:a t/Int, :b t/Int}))
+                                   (t/ann
+                                     takes-map
+                                     [ABMap
+                                      :->
+                                      (t/Vec '[(t/U ':a ':b) t/Int])])]))
+  (is (infer-test :defs [(defn gives-map []
+                           {:a 1})]
+                  :tests [(require '[clojure.walk :as w])
+                          (w/prewalk identity (gives-map))]))
+  (is (infer-test :defs [(require '[clojure.walk :as w])
+                         (defn takes-map [m]
+                           (w/prewalk identity m))]
+                  :tests [(takes-map {})
+                          (takes-map {:a {:b 1}})
+                          (takes-map {:b {:a 1}})]
+                  ))
+  ;; clashes detected between :req-un keys and normal aliases
+  (is (infer-test :defs [(require '[clojure.walk :as w])
+                         (defn takes-op [a]
+                           (w/prewalk identity a))]
+                  :tests [(takes-op {:Op :val :val 'blah})
+                          (takes-op {:Op :if
+                                     :test {:Op :val :val 'blah}
+                                     :then {:Op :val :val 'blah}
+                                     :else {:Op :val :val 'blah}})]))
+  ;; clashes detected for multi-specs
+  (is (infer-test :defs [(require '[clojure.walk :as w])
+                         (def Op-multi-spec nil)
+                         (defn takes-op [a]
+                           (w/prewalk identity a))]
+                  :tests [(takes-op {:Op :val :val 'blah})
+                          (takes-op {:Op :if
+                                     :test {:Op :val :val 'blah}
+                                     :then {:Op :val :val 'blah}
+                                     :else {:Op :val :val 'blah}})]))
+)

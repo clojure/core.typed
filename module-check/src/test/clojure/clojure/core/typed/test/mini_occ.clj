@@ -1,3 +1,4 @@
+;; FIXME this file is in module-check because it's used by clojure.core.typed.test.runtime-infer
 (ns clojure.core.typed.test.mini-occ
   #_{:lang :core.typed
    :core.typed {:features #{:runtime-infer}

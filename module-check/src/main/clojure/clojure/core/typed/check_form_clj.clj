@@ -29,6 +29,13 @@
       (apply chk-form/check-form-info config
              form opt))))
 
+(defn check-form-info-with-config
+  [form config opt]
+  {:pre [(map? config)]}
+  (impl/with-full-impl (:impl config)
+    (apply chk-form/check-form-info config
+           form opt)))
+
 (defn check-form*
   [form expected type-provided?]
   (let [config (config-map)]
