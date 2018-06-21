@@ -1,3 +1,7 @@
+# 0.5.3 - SNAPSHOT
+
+- fix `s/keys` generation
+
 # 0.5.2 - 8 May 2018
 
 - Split namespaces into maven submodules
