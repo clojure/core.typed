@@ -1,4 +1,4 @@
-# 0.5.3 - SNAPSHOT
+# 0.5.3 - 21 June 2018
 
 - fix `s/keys` generation
 
