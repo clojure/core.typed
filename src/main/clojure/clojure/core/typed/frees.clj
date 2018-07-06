@@ -18,7 +18,8 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
-                                        HeterogeneousSeq Scope TCError Extends AssocType HSequential HSet)
+                                        HeterogeneousSeq Scope TCError Extends AssocType HSequential HSet
+                                        JSObj)
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
@@ -268,6 +269,10 @@
   (apply combine-frees (mapv frees (concat (keys types) (vals types)
                                            (keys optional) (vals optional)))))
 
+(add-frees-method [::any-var JSObj]
+  [{:keys [types]}]
+  (apply combine-frees (mapv frees (vals types))))
+
 (defn heterogeneous*-frees-any-var
   [{:keys [types fs objects rest drest]}]
   (apply combine-frees (concat (mapv frees (concat types fs objects))
@@ -445,13 +450,16 @@
     (frees scope)))
 
 ;;js types
-(add-frees-method [::any-var clojure.core.typed.type_rep.BooleanCLJS] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.ObjectCLJS] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.StringCLJS] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.NumberCLJS] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.IntegerCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSBoolean] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSObject] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSString] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSSymbol] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSNumber] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.CLJSInteger] [t] {})
 (add-frees-method [::any-var clojure.core.typed.type_rep.ArrayCLJS] [t] {})
 (add-frees-method [::any-var clojure.core.typed.type_rep.FunctionCLJS] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSUndefined] [t] {})
+(add-frees-method [::any-var clojure.core.typed.type_rep.JSNull] [t] {})
 
 (comment
 (u/profile :info :foo (t/check-ns))

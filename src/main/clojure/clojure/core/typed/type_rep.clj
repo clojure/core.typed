@@ -253,9 +253,13 @@
   (coerce/symbol->Class (.the-class rcls)))
 
 (u/ann-record JSNominal [variances :- (t/U nil (t/NonEmptySeqable Variance))
+                         kind :- (t/U ':interface ':class)
                          poly? :- (t/U nil (t/NonEmptySeqable Type))
-                         name :- t/Sym])
-(u/def-type JSNominal [variances poly? name]
+                         name :- t/Sym
+                         ctor :- (t/U nil MaybeScopedType)
+                         instance-properties :- (t/Map t/Sym MaybeScopedType)
+                         static-properties :- (t/Map t/Sym Type)])
+(u/def-type JSNominal [variances kind poly? name ctor instance-properties static-properties]
   "A Javascript nominal type"
   [(or (nil? variances)
        (and (seq variances)
@@ -266,6 +270,10 @@
        (and (seq poly?)
             (sequential? poly?)
             (every? Type? poly?)))
+   ((some-fn nil? Type?) ctor)
+   (#{:interface :class} kind)
+   ((con/hash-c? symbol? (some-fn Scope? Type?)) instance-properties)
+   ((con/hash-c? symbol? Type?) static-properties)
    (symbol? name)]
   :methods
   [p/TCType])
@@ -440,16 +448,18 @@
 (def -val Value-maker)
 
 (t/ann-many Type 
-            -false -true -nil)
+            -false -true -nil -falsy)
 (def -false (-val false))
 (def -true (-val true))
 (def -nil (-val nil))
+(def -falsy (Un -nil -false))
 
 (t/ann-many [t/Any -> Boolean]
             Nil? False? True?)
 (defn Nil? [a] (= -nil a))
 (defn False? [a] (= -false a))
 (defn True? [a] (= -true a))
+
 
 (declare Result?)
 
@@ -469,6 +479,13 @@
              (set (keys optional))
              absent-keys))
    (con/boolean? other-keys?)]
+  :methods
+  [p/TCType])
+
+(u/ann-record JSObj [types :- (t/Map t/Kw Type)])
+(u/def-type JSObj [types]
+  "A JavaScript structural object"
+  [((con/hash-c? keyword? Type?) types)]
   :methods
   [p/TCType])
 
@@ -1114,43 +1131,66 @@
 ;;;;;;;;;;;;;;;;;
 ;; Clojurescript types
 
-(u/ann-record BooleanCLJS [])
-(u/def-type BooleanCLJS []
-  "Primitive boolean in CLJS"
+(u/ann-record JSUndefined [])
+(u/def-type JSUndefined []
+  "JavaScript undefined"
   []
   :methods
   [p/TCType])
 
-(u/ann-record ObjectCLJS [])
-(u/def-type ObjectCLJS []
-  "Primitive object in CLJS"
+(u/ann-record JSNull [])
+(u/def-type JSNull []
+  "JavaScript null"
   []
   :methods
   [p/TCType])
 
-(u/ann-record StringCLJS [])
-(u/def-type StringCLJS []
-  "Primitive string in CLJS"
+(u/ann-record JSBoolean [])
+(u/def-type JSBoolean []
+  "JavaScript primitive boolean"
   []
   :methods
   [p/TCType])
 
-(u/ann-record NumberCLJS [])
-(u/def-type NumberCLJS []
-  "Primitive number in CLJS"
+(u/ann-record JSObject [])
+(u/def-type JSObject []
+  "Any JavaScript object"
   []
   :methods
   [p/TCType])
 
-(u/ann-record IntegerCLJS [])
-(u/def-type IntegerCLJS []
-  "Primitive integer in CLJS"
+(u/ann-record JSString [])
+(u/def-type JSString []
+  "JavaScript primitive string"
+  []
+  :methods
+  [p/TCType])
+
+(u/ann-record JSSymbol [])
+(u/def-type JSSymbol []
+  "JavaScript primitive symbol"
+  []
+  :methods
+  [p/TCType])
+
+(u/ann-record JSNumber [])
+(u/def-type JSNumber []
+  "JavaScript number"
+  []
+  :methods
+  [p/TCType])
+
+(u/ann-record CLJSInteger [])
+(u/def-type CLJSInteger []
+  "ClojureScript integer. Represents a primitive
+  JavaScript number with no decimal places (values
+  that pass `cljs.core/integer?`)."
   []
   :methods
   [p/TCType])
 
 (t/ann -integer-cljs Type)
-(def -integer-cljs (IntegerCLJS-maker))
+(def -integer-cljs (CLJSInteger-maker))
 
 (u/ann-record ArrayCLJS [input-type :- Type
                          output-type :- Type])

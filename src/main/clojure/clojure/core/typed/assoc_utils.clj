@@ -51,7 +51,7 @@
   Value
   (-assoc-pair
    [v [kt vt]]
-   (when (r/Nil? v)
+   (when (ind/subtype? v r/-nil)
      (let [rkt (-> kt :t c/fully-resolve-type)]
        (if (c/keyword-value? rkt)
          (c/-complete-hmap {rkt (:t vt)})
@@ -153,7 +153,7 @@
   (c/union-or-nil
    (for [rtype (c/resolved-type-vector k)]
      (cond
-      (r/Nil? t)
+      (ind/subtype? t r/-nil)
       t
       
       (and (r/HeterogeneousMap? t) (c/keyword-value? rtype))
@@ -344,18 +344,18 @@
                                             :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any])))]
     (cond
      ; preserve the rhand alias when possible
-     (and (r/Nil? left) right-map)
+     (and (ind/subtype? left r/-nil) right-map)
      (r/ret-t right)
      
      :else
      (c/union-or-nil
       (for [rtype (c/resolved-type-vector (r/ret-t right))]
         (cond
-         (and (or left-map (r/Nil? left))
-              (r/Nil? rtype))
+         (and (or left-map (ind/subtype? left r/-nil))
+              (ind/subtype? rtype r/-nil))
            left
          
-         (and (r/Nil? left) 
+         (and (ind/subtype? left r/-nil) 
               (ind/subtype? rtype (impl/impl-case
                                 :clojure (c/RClass-of IPersistentMap [r/-any r/-any])
                                 :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))))
@@ -395,7 +395,7 @@
    (assoc-type-pairs left [(r/ret (r/-val (count (:types left))))
                            right])
    
-   (r/Nil? left)
+   (ind/subtype? left r/-nil)
    (r/-hvec [(:t right)]
             :filters [(:fl right)]
             :objects [(:o right)])
@@ -412,7 +412,7 @@
          (err/int-error "Need vector of length 2 to conj to map"))
        
        (and (r/HeterogeneousMap? left)
-            (r/Nil? rtype))
+            (ind/subtype? rtype r/-nil))
        left
        )))))
 

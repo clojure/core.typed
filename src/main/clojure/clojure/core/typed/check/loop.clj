@@ -10,7 +10,8 @@
    :post [(or (nil? %)
               (and (seq %)
                    (every? r/Type? %)))]}
-  (let [names (map :form (:bindings expr))
+  (let [;; cljs.analyzer :binding's don't have forms yet
+        names (map (some-fn :form :name) (:bindings expr))
         _ (assert (every? symbol? names))
         maybe-anns (map (comp (fn [m]
                                 ;(prn "meta" m)

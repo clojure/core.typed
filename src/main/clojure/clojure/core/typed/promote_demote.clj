@@ -14,14 +14,12 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
                                         HeterogeneousSeq TCError Extends JSNominal
-                                        StringCLJS BooleanCLJS NumberCLJS IntegerCLJS ObjectCLJS
+                                        JSString JSBoolean JSNumber CLJSInteger JSObject
                                         ArrayCLJS FunctionCLJS KwArgsSeq HSequential HSet LTRange
                                         AnyValue TopFunction Scope DissocType AssocType
-                                        GetType GTRange)
+                                        GetType GTRange JSUndefined JSNull JSSymbol JSObj)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)))
-
-(alter-meta! *ns* assoc :skip-wiki true)
 
 ;FIXME use fold!
 ;TODO automatically check for completeness
@@ -135,6 +133,11 @@
   (-> T
     (update-in [:types] handle-kw-map promote V)
     (update-in [:optional] handle-kw-map promote V)))
+
+(promote-demote JSObj
+  [T V]
+  (-> T
+    (update-in [:types] handle-kw-map promote V)))
 
 (promote-demote HSequential
   [T V]
@@ -255,9 +258,10 @@
                 `(promote-demote ~c [T# V#] T#))
               cs)))
 
-(promote-demote-id B Name Top Unchecked TCError CountRange StringCLJS
-                   BooleanCLJS NumberCLJS ObjectCLJS IntegerCLJS
-                   FunctionCLJS LTRange GTRange AnyValue TopFunction)
+(promote-demote-id B Name Top Unchecked TCError CountRange JSString
+                   JSBoolean JSNumber JSObject CLJSInteger
+                   FunctionCLJS LTRange GTRange AnyValue TopFunction JSUndefined
+                   JSNull JSSymbol)
 
 (promote-demote GetType
   [T V]

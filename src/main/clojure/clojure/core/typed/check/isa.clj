@@ -13,8 +13,6 @@
             [clojure.core.typed.tc-equiv :as equiv])
   (:import (clojure.core.typed.type_rep TCResult)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ;(t/ann tc-isa? [TCResult TCResult -> TCResult])
 (defn tc-isa? 
   "Type check a call to isa?. Assumes global hierarchy.
@@ -50,9 +48,9 @@
                      ;;   so the filters just claim the child1 is of type parent1.
                      (and (r/Value? ty)
                           (not (class? (:val ty)))
-                          (equiv/equivable? ty))
-                     {:then (fo/-filter-at ty obj)
-                      :else (fo/-not-filter-at ty obj)}
+                          (equiv/equivable ty))
+                     {:then (fo/-filter-at (equiv/equivable ty) obj)
+                      :else (fo/-not-filter-at (equiv/equivable ty) obj)}
 
                      ;; - otherwise, give up
                      :else

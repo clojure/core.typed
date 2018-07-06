@@ -218,7 +218,7 @@
       ; nil returns nil on keyword lookups
       (and (not pos?)
            (pe/KeyPE? (first lo))
-           (r/Nil? t))
+           (sub/subtype? t r/-nil))
       (update* r/-nil ft pos? (next lo))
 
       ; update count information based on a call to `count`

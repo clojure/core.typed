@@ -211,17 +211,10 @@
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
     (let [fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
           poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)
-          ;_ (prn "poly" poly)
-          ;_ (prn "fn-anns-quoted" fn-anns-quoted)
-          ;_ (prn "poly-quoted" poly-quoted)
-          fn-anns (impl/impl-case
-                    ;; always quoted
-                    :clojure (second fn-anns-quoted)
-                    :cljs fn-anns-quoted)
-          poly (impl/impl-case
-                 ;; always quoted
-                 :clojure (second poly-quoted)
-                 :cljs poly-quoted)
+          ;; always quoted
+          fn-anns (second fn-anns-quoted)
+          ;; always quoted
+          poly (second poly-quoted)
           _ (assert (vector? fn-anns) (pr-str fn-anns))
           self-name (cu/fn-self-name fexpr)
           _ (assert ((some-fn nil? symbol?) self-name)

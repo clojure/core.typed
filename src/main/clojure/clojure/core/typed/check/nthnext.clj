@@ -3,6 +3,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.check.utils :as cu]))
 
 (defn ^:private shift-hsequential [target-t num]
@@ -49,7 +50,7 @@
                 :args cargs
                 u/expr-type (r/ret (apply c/Un ts)
                                    (cond
-                                     (every? r/Nil? ts) (fo/-false-filter)
+                                     (every? #(ind/subtype? % r/-nil) ts) (fo/-false-filter)
                                      (every? c/AnyHSequential? ts) (fo/-true-filter)
                                      :else (fo/-simple-filter))))))
         cu/not-special))))

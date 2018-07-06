@@ -35,16 +35,16 @@
 
              ;; FIXME can we push this optimisation further into
              ;; the machinery? like, check-below?
-             (not (c/overlap t (c/Un r/-nil r/-false))) [then]
+             (not (c/overlap t r/-falsy)) [then]
 
-             ;; TODO (c/overlap t (NOT (c/Un r/-nil r/-false))) case,
+             ;; TODO (c/overlap t (NOT r/-falsy)) case,
              ;; which requires thorough testing of Not + (overlap, In, Un)
 
              ;; init does not have an object so remember new binding `sym`
              ;; in our propositions
-             :else [(fo/-or (fo/-and (fo/-not-filter (c/Un r/-nil r/-false) sym)
+             :else [(fo/-or (fo/-and (fo/-not-filter r/-falsy sym)
                                      then)
-                            (fo/-and (fo/-filter (c/Un r/-nil r/-false) sym) 
+                            (fo/-and (fo/-filter r/-falsy sym) 
                                      else))])
         new-env (-> env
                     ;update binding type
@@ -71,6 +71,8 @@
           syms))
 
 (defn check-let [check {:keys [body bindings] :as expr} expected & [{is-loop :loop? :keys [expected-bnds]}]]
+  {:post [(-> % u/expr-type r/TCResult?)
+          (vector? (:bindings %))]}
   (cond
     (and is-loop (seq bindings) (not expected-bnds))
     (do

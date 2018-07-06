@@ -271,17 +271,17 @@
 (deftest equiv-test
   ; 1 arity :else filter is always bot
   (is-clj (= (tc-t (= 1))
-         (ret (Un -true -false) (-FS -top -bot) -empty)))
+             (ret (Un -true -false) (-FS -top -bot) -empty)))
   (is-clj (= (tc-t (= 1 1))
-         (tc-t (= 1 1 1 1 1 1 1 1 1 1))
-         (ret (Un -true -false) (-FS -top -top) -empty)))
+             (tc-t (= 1 1 1 1 1 1 1 1 1 1))
+             (ret (Un -true -false) (-FS -top -top) -empty)))
   (is-clj (= (tc-t (= 'a 'b))
-         (tc-t (= 1 2))
-         (tc-t (= :a :b))
-         (tc-t (= :a 1 'a))
-         (ret (Un -true -false) (-FS -top -top) -empty)))
+             (tc-t (= 1 2))
+             (tc-t (= :a :b))
+             (tc-t (= :a 1 'a))
+             (ret (Un -true -false) (-FS -top -top) -empty)))
   (is-clj (= (tc-t (= :Val (-> {:a :Val} :a)))
-         (ret (Un -true -false) (-FS -top -top) -empty))))
+             (ret (Un -true -false) (-FS -top -top) -empty))))
 
 (deftest name-to-param-index-test
   ;a => 0
@@ -2213,11 +2213,11 @@
   )
 
 (deftest CTYP-62-equiv-test
-  (is (tc-equiv := 
-                [(ret (-val "a"))
-                 (ret -any)]
-                nil)
-      (ret (Un -false -true)))
+  (is-clj (tc-equiv := 
+                    [(ret (-val "a"))
+                     (ret -any)]
+                    nil)
+          (ret (Un -false -true)))
   (is (= (eret (= "a" (clojure.core.typed/ann-form 1 clojure.core.typed/Any)))
          (ret (Un -false -true))))
   (is (= (eret (= "a" (clojure.core.typed/ann-form 1 clojure.core.typed/Any)))
@@ -5680,6 +5680,34 @@
   (is (= ((clojure.core.typed/fn [] :- clojure.core.typed/Any)) nil))
   (is (= ((clojure.core.typed/fn [] :- clojure.core.typed/Any, nil)) nil))
   (is (= ((clojure.core.typed/fn [] :- nil, nil)) nil)))
+
+#_
+(deftest nil-branch-test
+  (is-tc-e (fn [a :- false]
+             (when (false? a)
+               :kw))
+           [false :-> ':kw])
+  (is-tc-e (fn [a :- false]
+             (when (= false a)
+               :kw))
+           [false :-> ':kw])
+  (is-tc-e (fn [a :- (U Num nil)]
+             (if (= nil a)
+               :kw
+               a))
+           [(U Num nil) :-> (U Num ':kw)])
+  (is-tc-e (fn [a :- nil]
+             (when (= nil a)
+               :kw))
+           [nil :-> ':kw])
+  (is-tc-e (fn [a :- nil]
+             (when (identical? nil a)
+               :kw))
+           [nil :-> ':kw])
+  (is-tc-e (fn [a :- nil]
+             (when (nil? a)
+               :kw))
+           [nil :-> ':kw]))
 
 ;    (is-tc-e 
 ;      (let [f (fn [{:keys [a] :as m} :- '{:a (U nil Num)}] :- '{:a Num} 
