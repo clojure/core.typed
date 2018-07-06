@@ -110,20 +110,20 @@
             (str "Must provide name symbol: " dname))
     `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
 
-(defmacro def-alias 
+(defmacro defalias 
   "Define a type alias. Takes an optional doc-string as a second
   argument.
 
   Updates the corresponding var with documentation.
   
-  eg. (def-alias MyAlias
+  eg. (defalias MyAlias
         \"Here is my alias\"
         (U nil String))"
   ([sym doc-str t]
-   (assert (string? doc-str) "Doc-string passed to def-alias must be a string")
-   `(def-alias ~sym ~t))
+   (assert (string? doc-str) "Doc-string passed to defalias must be a string")
+   `(defalias ~sym ~t))
   ([sym t]
-   (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
+   (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
    `(do (def-alias* '~sym '~t)
         ~(when-not (namespace sym)
            `(def ~sym)))))

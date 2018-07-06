@@ -24,7 +24,7 @@
 
 (defn ^:skip-wiki
   def-alias* 
-  "Internal use only. Use def-alias."
+  "Internal use only. Use defalias."
   [sym type]
   nil)
 

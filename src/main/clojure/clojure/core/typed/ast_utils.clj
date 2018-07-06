@@ -22,12 +22,6 @@
          (#{:const} (:op (:expr expr)))]}
   (-> expr :expr :val))
 
-(defn do-statements-value [cexprs]
-  ((impl/impl-case
-     :clojure vec
-     :cljs seq)
-   (butlast cexprs)))
-
 (defn map-expr-at [expr key]
   (impl/impl-case
     :clojure (case (:op expr)
@@ -113,35 +107,23 @@
    :env env
    :form val})
 
+;; FIXME delete
 (defn method-body-kw []
-  #_(impl/impl-case
-   :clojure :body
-   :cljs :expr)
   :body)
 
 (defn method-required-params [method]
-  (impl/impl-case
-    ; :variadic? in tools.analyzer
-    :clojure (case (:op method)
-               (:fn-method) ((if (:variadic? method) butlast identity)
-                             (:params method))
-               ;include deftype's 'this' param
-               (:method) (concat [(:this method)] (:params method)))
-    ; :variadic in CLJS
-    :cljs ((if (:variadic method) butlast identity)
-           (:params method))))
+  (case (:op method)
+    (:fn-method) ((if (:variadic? method) butlast identity)
+                  (:params method))
+    ;include deftype's 'this' param
+    (:method) (concat [(:this method)] (:params method))))
 
 (defn method-rest-param [method]
-  (impl/impl-case
-    ; :variadic? in tools.analyzer
-    :clojure (case (:op method)
-               ;deftype methods are never variadic
-               (:method) nil
-               (:fn-method) ((if (:variadic? method) last (constantly nil))
-                             (:params method)))
-    ; :variadic in CLJS
-    :cljs ((if (:variadic method) last (constantly nil))
-           (:params method))))
+  (case (:op method)
+    ;deftype methods are never variadic
+    (:method) nil
+    (:fn-method) ((if (:variadic? method) last (constantly nil))
+                  (:params method))))
 
 (defn reconstruct-arglist [method required-params rest-param]
   (impl/impl-case
@@ -188,10 +170,8 @@
                          :cljs (assert nil "Method for CLJS"))))
 
 (def fn-method? (fn [m]
-                  (impl/impl-case
-                    :clojure ((every-pred map? (comp #{:fn-method} :op))
-                              m)
-                    :cljs (map? m))))
+                  ((every-pred map? (comp #{:fn-method} :op))
+                   m)))
 (def fn-methods? (fn [ms]
                    (impl/impl-case
                      :clojure ((con/vec-c? fn-method?) ms)
@@ -203,12 +183,7 @@
   {:pre [((some-fn fn-method? deftype-method?) m)]
    :post [(con/boolean? %)]}
   (cond
-    (fn-method? m)
-    (impl/impl-case
-      :clojure (do (contains? m :variadic?)
-                   (:variadic? m))
-      :cljs (do (assert (contains? m :variadic))
-                (boolean (:variadic m))))
+    (fn-method? m) (:variadic? m)
     ; :method does not have :variadic? field
     :else false))
 
@@ -218,13 +193,9 @@
   [m]
   {:pre [((some-fn fn-method? deftype-method?) m)]
    :post [(integer? %)]}
-  (impl/impl-case
-    :clojure (let [fixed (:fixed-arity m)]
-               (assert (integer? fixed))
-               ((if (fn-method? m) identity inc) fixed))
-    :cljs (do (assert (fn-method? m))
-              (assert (contains? m :params))
-              (count (:params m)))))
+  (let [fixed (:fixed-arity m)]
+    (assert (integer? fixed))
+    ((if (fn-method? m) identity inc) fixed)))
 
 (defn walk-children [check {:keys [children] :as expr}]
   (reduce
@@ -236,14 +207,3 @@
                   (check ce)))))
     expr
     children))
-
-(defn strip-extra-info [expr]
-  (cond (map? expr)
-        (into {} (sort (reduce (fn [acc [k x]]
-                             (if (some #(= k %) [:env :line :column :info :shadow])
-                               acc
-                               (assoc acc k (strip-extra-info x))))
-                           {} expr)))
-        (seqable? expr)
-        (mapv strip-extra-info (seq expr))
-        :else expr))

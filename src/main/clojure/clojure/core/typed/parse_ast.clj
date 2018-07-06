@@ -396,11 +396,8 @@
    'void     {:op :singleton :val nil}})
 
 (def cljs-primitives
-  {'number  {:op :cljs-prim :name 'number}
-   'int     {:op :cljs-prim :name 'int}
-   'boolean {:op :cljs-prim :name 'boolean}
-   'object  {:op :cljs-prim :name 'object}
-   'string  {:op :cljs-prim :name 'string}})
+  {'int     {:op :cljs-prim :name 'int}
+   'object  {:op :cljs-prim :name 'object}})
 
 (defn parse-free [f gsym]
   (if (symbol? f)
