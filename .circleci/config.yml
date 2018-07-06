@@ -1,28 +1,6 @@
 version: 2
 
 jobs:
-  # ctyp-323-cljs setup
-  #cljs_setup:
-  #  docker:
-  #    - image: circleci/openjdk:8-jdk
-  #  working_directory: ~/core.typed
-  #  steps:
-  #    - install_lein
-  #    - run:
-  #        filters:
-  #          branches:
-  #            only: ctyp-323-cljs
-  #        name: Clone CLJS fork
-  #        command: git clone -b tools.analyzer-ast https://github.com/frenchy64/clojurescript.git ~/cljs
-  #    - run:
-  #        filters:
-  #          branches:
-  #            only: ctyp-323-cljs
-  #        name: Install CLJS fork
-  #        command: |
-  #          echo $(git branch -v)
-  #          cd ~/cljs
-  #          ~/bin/lein install
   core_typed_dependencies:
     docker:
       - image: circleci/openjdk:8-jdk
@@ -37,6 +15,21 @@ jobs:
             - core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}
             - core-typed-{{ .Branch }}
             - core-typed-
+      - run:
+          filters:
+            branches:
+              only: cljs
+          name: Clone CLJS fork
+          command: git clone https://github.com/frenchy64/clojurescript.git ~/cljs
+      - run:
+          filters:
+            branches:
+              only: cljs
+          name: Install CLJS fork
+          command: |
+            echo $(git branch -v)
+            cd ~/cljs
+            ./script/build
       - run:
           name: Resolve dependencies
           command: mvn -DskipTests clean install dependency:resolve-plugins dependency:go-offline
@@ -115,6 +108,6 @@ workflows:
       - core_typed_tests:
           requires:
             - core_typed_dependencies
-      - rti_tests:
-          requires:
-            - core_typed_dependencies
+      #- rti_tests:
+      #    requires:
+      #      - core_typed_dependencies

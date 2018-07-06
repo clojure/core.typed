@@ -13,14 +13,14 @@
         resolved (let [t (c/fully-resolve-type target-t)]
                    ;TODO DataType
                    (when ((some-fn r/JSNominal? 
-                                   r/StringCLJS?
+                                   r/JSString?
                                    #_r/DataType?) t)
                      t))]
     (if resolved
       (cond
         field
         (let [field-type (cond
-                           (r/StringCLJS? resolved)
+                           (r/JSString? resolved)
                            (jsnom/get-field 'string nil field)
                            (r/JSNominal? resolved)
                            (jsnom/get-field (:name resolved) (:poly? resolved) field))
@@ -30,7 +30,7 @@
                  u/expr-type (r/ret field-type)))
         :else
         (let [method-type (cond
-                            (r/StringCLJS? resolved)
+                            (r/JSString? resolved)
                             (jsnom/get-method 'string nil method)
                             (r/JSNominal? resolved)
                             (jsnom/get-method (:name resolved) (:poly? resolved) method))

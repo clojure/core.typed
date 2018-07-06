@@ -9,8 +9,6 @@
             [clojure.core.typed.type-ctors :as c])
   (:import (clojure.lang APersistentMap)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
 (defn expected-vals
   "Returns a sequence of (Nilable TCResults) to use as expected types for type
@@ -83,6 +81,9 @@
       :else no-expecteds)))
 
 (defn check-map [check {keyexprs :keys valexprs :vals :as expr} expected]
+  {:post [(-> % u/expr-type r/TCResult?)
+          (vector? (:keys %))
+          (vector? (:vals %))]}
   (let [ckeyexprs (mapv check keyexprs)
         key-types (map (comp r/ret-t u/expr-type) ckeyexprs)
 

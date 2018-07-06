@@ -14,8 +14,9 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top Unchecked TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
-                                        NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
-                                        BooleanCLJS AssocType GetType KwArgsSeq HSequential HSet)
+                                        JSNumber CLJSInteger JSObject JSString ArrayCLJS
+                                        JSBoolean AssocType GetType KwArgsSeq HSequential HSet
+                                        JSUndefined JSNull JSSymbol JSObj)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -218,6 +219,11 @@
                            (update-in [:types] visit-type-map type-rec)
                            (update-in [:optional] visit-type-map type-rec))))
 
+(add-default-fold-case JSObj
+                       (fn [ty _]
+                         (-> ty 
+                           (update-in [:types] #(zipmap (keys %) (map type-rec (vals %)))))))
+
 (add-default-fold-case KwArgsSeq
                        (fn [ty _]
                          (-> ty 
@@ -281,7 +287,8 @@
 
 ; CLJS types
 
-(ret-first-many NumberCLJS IntegerCLJS ObjectCLJS StringCLJS BooleanCLJS)
+(ret-first-many JSNumber CLJSInteger JSObject JSString JSBoolean JSUndefined
+                JSNull JSSymbol)
 
 (add-default-fold-case ArrayCLJS
                        (fn [ty _]

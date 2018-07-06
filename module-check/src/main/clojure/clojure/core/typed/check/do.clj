@@ -19,6 +19,8 @@
   (u/internal-form? expr spec/special-form))
 
 (defn check-do [check internal-special-form expr expected]
+  {:post [(-> % u/expr-type r/TCResult?)
+          (vector? (:statements %))]}
   (u/enforce-do-folding expr spec/special-form)
   (cond
     (internal-form? expr)
@@ -77,6 +79,6 @@
           _ (assert ((every-pred (con/every-c? r/TCResult?) seq) actual-types))]
       ;(prn "do actual-types" actual-types)
       (assoc expr
-             :statements (ast-u/do-statements-value cexprs)
+             :statements (vec (butlast cexprs))
              :ret (peek cexprs)
              u/expr-type (peek actual-types))))) ;should be a r/ret already

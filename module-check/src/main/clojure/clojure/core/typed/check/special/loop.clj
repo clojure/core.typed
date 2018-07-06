@@ -9,17 +9,25 @@
 ; Extra the :ann annotations for loop variables and propagate to actual loop construct checking
 ; via `recur-u/*loop-bnd-anns*`.
 (defn check-special-loop
-  [check {[_ _ {{tsyns-quoted :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  [check {[_ _ vexpr :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [ ; tools.analyzer preserves quotes
-        _ (impl/impl-case
-            :clojure (assert (and (seq? tsyns-quoted)
-                                  (#{'quote} (first tsyns-quoted)))
-                             (pr-str tsyns-quoted))
-            :cljs nil)
-        tsyns (impl/impl-case
-                :clojure (second tsyns-quoted)
-                :cljs (assert nil "TODO"))
+  (let [ ; tools.analyzer does constanst folding
+        tsyns (case (:op vexpr)
+                :const (let [{{tsyns-quoted :ann} :val} vexpr
+                             _ (assert (and (seq? tsyns-quoted)
+                                            (#{'quote} (first tsyns-quoted)))
+                                       (pr-str tsyns-quoted))
+                             tsyns (second tsyns-quoted)]
+                         tsyns)
+                :map (let [{ks :keys vs :vals} vexpr
+                           tsyns (reduce (fn [_ [k v]]
+                                           (when (= :const (:op k))
+                                             (when (= :ann (:val k))
+                                               (assert (= :quote (:op v)))
+                                               (reduced (get-in v [:expr :val])))))
+                                         nil
+                                         (map vector ks vs))]
+                       tsyns))
         _ (assert (map? tsyns))
         tbindings (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (mapv (comp prs/parse-type :type) (:params tsyns)))

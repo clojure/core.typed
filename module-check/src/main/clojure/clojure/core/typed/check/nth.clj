@@ -14,7 +14,8 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check.method :as method]
             [clojure.core.typed.debug :refer [dbg]]
-            [clojure.core.typed.check.utils :as cu])
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.indirect-ops :as ind])
   (:import (clojure.lang ISeq Seqable)))
 
 (defn ^:private expr->type [expr]
@@ -35,7 +36,7 @@
          (doall
           (for [t types]
             (if-let [res-t (cond
-                            (r/Nil? t) (or default-t r/-nil)
+                            (ind/subtype? t r/-nil) (or default-t r/-nil)
                             ;; nil on out-of-bounds and no default-t
                             :else (nth (:types t) idx default-t))]
               res-t
@@ -48,7 +49,7 @@
    :post [(fl/Filter? %)]}
   (fo/-and (fo/-filter-at (c/Un r/-nil (c/RClass-of ISeq [r/-any]))
                           target-o)
-           (fo/-not-filter-at (c/Un r/-false r/-nil)
+           (fo/-not-filter-at r/-falsy
                               default-o)))
 
 (defn ^:private nth-positive-filter-default-falsy [target-o default-o idx]
@@ -59,7 +60,7 @@
   (fo/-and (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
                                 (r/make-CountRange (inc idx)))
                           target-o)
-           (fo/-filter-at (c/Un r/-false r/-nil)
+           (fo/-filter-at r/-falsy
                           default-o)))
 
 (defn ^:private nth-positive-filter-default [target-o default-o idx]
@@ -137,7 +138,7 @@
         default-t (expr->type de)]
     (cond
       (and (nat-value? num-t)
-           (every? (some-fn r/Nil?
+           (every? (some-fn #(ind/subtype? % r/-nil)
                             r/HeterogeneousVector?
                             r/HeterogeneousList?
                             r/HeterogeneousSeq?)

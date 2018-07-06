@@ -28,16 +28,15 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
-                                        HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
-                                        IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
-                                        GetType HSequential HSet)
+                                        HeterogeneousSeq KwArgsSeq TCError Extends JSNumber JSBoolean
+                                        CLJSInteger ArrayCLJS JSNominal JSString TCResult AssocType
+                                        GetType HSequential HSet JSUndefined JSNull JSSymbol JSObject
+                                        JSObj)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter NoFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE KeywordPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
-
-(alter-meta! *ns* assoc :skip-wiki true)
 
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol? con/namespace?))
@@ -243,7 +242,7 @@
     (r/make-FnIntersection
       (r/make-Function [r/-any] (impl/impl-case
                                   :clojure (RClass-of Boolean)
-                                  :cljs    (r/BooleanCLJS-maker))
+                                  :cljs    (r/JSBoolean-maker))
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
 
@@ -788,6 +787,17 @@
 (defmethod parse-type-list 'clojure.core.typed/HMap [t] (parse-HMap t))
 (defmethod parse-type-list 'cljs.core.typed/HMap [t] (parse-HMap t))
 
+(defn parse-JSObj [[_JSObj_ types :as all]]
+  (let [_ (when-not (= 2 (count all))
+            (err/int-error (str "Bad syntax to JSObj: " (pr-str all))))
+        _ (when-not (every? keyword? (keys types))
+            (err/int-error (str "JSObj requires keyword keys, given " (pr-str (class (first (remove keyword? (keys types))))))))
+        parsed-types (zipmap (keys types)
+                             (map parse-type (vals types)))]
+    (r/JSObj-maker parsed-types)))
+
+(defmethod parse-type-list 'cljs.core.typed/JSObj [t] (parse-JSObj t))
+
 (defn- parse-in-ns []
   {:post [(symbol? %)]}
   (or *parse-type-in-ns*
@@ -819,7 +829,6 @@
   (let [nsym (parse-in-ns)
         _ (require '[clojure.core.typed.util-cljs])
         res ((impl/v 'clojure.core.typed.util-cljs/resolve-var) nsym sym)]
-    ;(prn "res" res)
     res))
 
 (defn parse-RClass [cls-sym params-syn]
@@ -915,11 +924,14 @@
 
 (defmethod parse-type-symbol 'AnyFunction [_] (r/TopFunction-maker))
 
-(defmethod parse-type-symbol 'cljs.core.typed/Int [_] (r/IntegerCLJS-maker))
-(defmethod parse-type-symbol 'cljs.core.typed/Num [_] (r/NumberCLJS-maker))
-(defmethod parse-type-symbol 'cljs.core.typed/Bool [_] (r/BooleanCLJS-maker))
-(defmethod parse-type-symbol 'cljs.core.typed/Object [_] (r/ObjectCLJS-maker))
-(defmethod parse-type-symbol 'cljs.core.typed/Str [_] (r/StringCLJS-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/CLJSInteger [_] (r/CLJSInteger-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSNumber [_] (r/JSNumber-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSBoolean [_] (r/JSBoolean-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSObject [_] (r/JSObject-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSString [_] (r/JSString-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSUndefined [_] (r/JSUndefined-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSNull [_] (r/JSNull-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/JSSymbol [_] (r/JSSymbol-maker))
 
 (defn clj-primitives-fn []
   (let [RClass-of @(RClass-of-var)]
@@ -932,13 +944,6 @@
      'boolean (RClass-of 'boolean)
      'char (RClass-of 'char)
      'void r/-nil}))
-
-(defn cljs-primitives-fn []
-  {'number (r/NumberCLJS-maker)
-   'int (r/IntegerCLJS-maker)
-   'boolean (r/BooleanCLJS-maker)
-   'object (r/ObjectCLJS-maker)
-   'string (r/StringCLJS-maker)})
 
 ;[Any -> (U nil Type)]
 (defmulti deprecated-clj-symbol identity)
@@ -976,29 +981,30 @@
   [sym]
   (let [primitives (impl/impl-case
                      :clojure (clj-primitives-fn)
-                     :cljs (cljs-primitives-fn))
-        rsym (impl/impl-case
-               :clojure (let [res (when (symbol? sym)
-                                    (resolve-type-clj sym))]
-                          (cond 
-                            (class? res) (coerce/Class->symbol res)
-                            (var? res)   (coerce/var->symbol res)
-                            ;; name doesn't resolve, try declared protocol or datatype
-                            ;; in the current namespace
-                            :else (let [ns (parse-in-ns)
-                                        dprotocol (if (namespace sym)
-                                                    sym
-                                                    (symbol (str ns) (str sym)))
-                                        ddatatype (if (some #{\.} (str sym))
-                                                    sym
-                                                    (symbol (str (munge ns)) (str sym)))]
-                                    (cond
-                                      (nme-env/declared-protocol? dprotocol) dprotocol
-                                      (nme-env/declared-datatype? ddatatype) ddatatype))))
-               :cljs (when (symbol? sym)
-                       (resolve-type-cljs sym)))
+                     :cljs {})
         free (when (symbol? sym) 
                (free-ops/free-in-scope sym))
+        rsym (when-not free
+               (impl/impl-case
+                 :clojure (let [res (when (symbol? sym)
+                                      (resolve-type-clj sym))]
+                            (cond 
+                              (class? res) (coerce/Class->symbol res)
+                              (var? res)   (coerce/var->symbol res)
+                              ;; name doesn't resolve, try declared protocol or datatype
+                              ;; in the current namespace
+                              :else (let [ns (parse-in-ns)
+                                          dprotocol (if (namespace sym)
+                                                      sym
+                                                      (symbol (str ns) (str sym)))
+                                          ddatatype (if (some #{\.} (str sym))
+                                                      sym
+                                                      (symbol (str (munge ns)) (str sym)))]
+                                      (cond
+                                        (nme-env/declared-protocol? dprotocol) dprotocol
+                                        (nme-env/declared-datatype? ddatatype) ddatatype))))
+                 :cljs (when (symbol? sym)
+                         (resolve-type-cljs sym))))
         _ (assert ((some-fn symbol? nil?) rsym))]
     (cond
       free free
@@ -1276,7 +1282,7 @@
 
 (defn unparse-in-ns []
   {:post [((some-fn nil? symbol?) %)]}
-  (or (some-> *unparse-type-in-ns* ns-name)
+  (or *unparse-type-in-ns*
       (impl/impl-case
         :clojure (ns-name *ns*)
         :cljs (do
@@ -1722,10 +1728,17 @@
 
 ; CLJS Types
 
-(defmethod unparse-type* NumberCLJS [_] 'number)
-(defmethod unparse-type* BooleanCLJS [_] 'boolean)
-(defmethod unparse-type* IntegerCLJS [_] 'int)
-(defmethod unparse-type* StringCLJS [_] 'string)
+(defmethod unparse-type* JSNumber [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSNumber))
+(defmethod unparse-type* JSBoolean [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSBoolean))
+(defmethod unparse-type* JSObject [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSObject))
+(defmethod unparse-type* CLJSInteger [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/CLJSInteger))
+(defmethod unparse-type* JSString [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSString))
+(defmethod unparse-type* JSSymbol [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSSymbol))
+(defmethod unparse-type* JSUndefined [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSUndefined))
+(defmethod unparse-type* JSNull [_] (unparse-Name-symbol-in-ns 'cljs.core.typed/JSNull))
+(defmethod unparse-type* JSObj [t] (list (unparse-Name-symbol-in-ns 'cljs.core.typed/JSObj)
+                                         (zipmap (keys (:types t))
+                                                 (map unparse-type (vals (:types t))))))
 
 (defmethod unparse-type* ArrayCLJS
   [{:keys [input-type output-type]}]

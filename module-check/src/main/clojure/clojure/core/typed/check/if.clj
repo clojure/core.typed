@@ -78,21 +78,20 @@
       (var-env/with-lexical-env lex-env
         (check-fn expr expected)))))
 
-;[TCResult Expr Expr (Option Type) -> TCResult]
-(defn check-if [check-fn expr ctest thn els expected]
-  {:pre [(-> ctest u/expr-type r/TCResult?)
-         ((some-fn r/TCResult? nil?) expected)]
+(defn check-if [check-fn {:keys [test then else] :as expr} expected]
+  {:pre [((some-fn r/TCResult? nil?) expected)]
    :post [(-> % u/expr-type r/TCResult?)]}
-  (let [tst (u/expr-type ctest)
+  (let [ctest (check-fn test)
+        tst (u/expr-type ctest)
         {fs+ :then fs- :else :as tst-f} (r/ret-f tst)
 
         [env-thn reachable+] (update-lex+reachable fs+)
         [env-els reachable-] (update-lex+reachable fs-)
 
-        cthen (check-if-reachable check-fn thn env-thn reachable+ expected)
+        cthen (check-if-reachable check-fn then env-thn reachable+ expected)
         then-ret (u/expr-type cthen)
 
-        celse (check-if-reachable check-fn els env-els reachable- expected)
+        celse (check-if-reachable check-fn else env-els reachable- expected)
         else-ret (u/expr-type celse)]
     (let [if-ret (combine-rets tst-f then-ret env-thn else-ret env-els)]
       (assoc expr

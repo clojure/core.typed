@@ -11,6 +11,8 @@
   (:import (clojure.lang PersistentHashSet)))
 
 (defn check-set [check {:keys [items] :as expr} expected]
+  {:post [(-> % u/expr-type r/TCResult?)
+          (vector? (:items %))]}
   (let [cargs (mapv check items)
         ts (map (comp c/fully-resolve-type r/ret-t u/expr-type) cargs)
         res-type (if (every? r/Value? ts)

@@ -15,42 +15,46 @@
             [clojure.core.typed.array-ops :as arr-ops]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.assoc-utils :as assoc-u]
+            [clojure.core.typed.constant-type :as constant-type]
             [clojure.core.typed.check.apply :as apply]
+            [clojure.core.typed.check.binding :as binding]
             [clojure.core.typed.check.case :as case]
-            [clojure.core.typed.check.set-bang :as set!]
+            [clojure.core.typed.check.catch :as catch]
             [clojure.core.typed.check.cli :as cli]
+            [clojure.core.typed.check.const :as const]
             [clojure.core.typed.check.def :as def]
             [clojure.core.typed.check.do :as do]
+            [clojure.core.typed.check.fn :as fn]
+            [clojure.core.typed.check.fn-method-utils :as fn-method-u]
+            [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.get :as get]
-            [clojure.core.typed.check.nth :as nth]
-            [clojure.core.typed.check.nthnext :as nthnext]
-            [clojure.core.typed.check.fn :as fn]
-            [clojure.core.typed.check.fn-methods :as fn-methods]
-            [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.check.if :as if]
             [clojure.core.typed.check.invoke :as invoke]
             [clojure.core.typed.check.invoke-kw :as invoke-kw]
             [clojure.core.typed.check.isa :as isa]
             [clojure.core.typed.check.let :as let]
-            [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
-            [clojure.core.typed.check.set :as set]
-            [clojure.core.typed.check.vector :as vec]
+            [clojure.core.typed.check.local :as local]
+            [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.map :as map]
+            [clojure.core.typed.check.method :as method]
             [clojure.core.typed.check.monitor :as monitor]
             [clojure.core.typed.check.multi :as multi]
             [clojure.core.typed.check.multi-utils :as multi-u]
-            [clojure.core.typed.check.method :as method]
+            [clojure.core.typed.check.nth :as nth]
+            [clojure.core.typed.check.nthnext :as nthnext]
             [clojure.core.typed.check.print-env :as print-env]
+            [clojure.core.typed.check.quote :as quote]
             [clojure.core.typed.check.recur :as recur]
             [clojure.core.typed.check.recur-utils :as recur-u]
-            [clojure.core.typed.check.type-hints :as type-hints]
+            [clojure.core.typed.check.set :as set]
+            [clojure.core.typed.check.set-bang :as set!]
+            [clojure.core.typed.check.throw :as throw]
             [clojure.core.typed.check.try :as try]
-            [clojure.core.typed.check.catch :as catch]
-            [clojure.core.typed.local-result :as local-result]
+            [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.check.value :as value]
+            [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.check.special.cast :as cast]
             [clojure.core.typed.check.special.fn :as special-fn]
@@ -150,33 +154,22 @@
       (check expr expected))))
 
 (add-check-method :const [expr & [expected]] 
-  (value/check-value expr expected false))
+  (const/check-const constant-type/constant-type false expr expected))
 
-(add-check-method :quote [{:keys [expr] :as quote-expr} & [expected]] 
-  (let [cexpr (value/check-value expr expected true)]
-    (assoc quote-expr
-           :expr cexpr
-           u/expr-type (u/expr-type cexpr))))
-
+(add-check-method :quote [expr & [expected]] 
+  (quote/check-quote check-expr constant-type/constant-type expr expected))
 
 (add-check-method :map
   [expr & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:keys %))
-          (vector? (:vals %))]}
-  (map/check-map check expr expected))
+  (map/check-map check-expr expr expected))
 
 (add-check-method :set
-  [{:keys [items] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:items %))]}
-  (set/check-set check expr expected))
+  [expr & [expected]]
+  (set/check-set check-expr expr expected))
 
 (add-check-method :vector
-  [{:keys [items] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:items %))]}
-  (vec/check-vector check expr expected))
+  [expr & [expected]]
+  (vec/check-vector check-expr expr expected))
 
 (defn should-infer-vars? [expr]
   (-> (cu/expr-ns expr)
@@ -832,7 +825,7 @@
   (let [cargs (mapv check args)]
     (assoc expr
            :args cargs
-           u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected))))
+           u/expr-type (equiv/tc-equiv :identical? (map u/expr-type cargs) expected))))
 
 ;equiv
 (add-static-method-special-method 'clojure.lang.Util/equiv
@@ -1564,9 +1557,8 @@
   (monitor/check-monitor check expr expected))
 
 (add-check-method :local
-  [{sym :name :as expr} & [expected]]
-  (assoc expr
-         u/expr-type (local-result/local-result expr sym expected)))
+  [expr & [expected]]
+  (local/check-local expr expected))
 
 ;; from clojure.tools.analyzer.passes.jvm.emit-form
 (defn class->sym [class]
@@ -1929,19 +1921,8 @@
             :else (give-up expr cargs)))))))
 
 (add-check-method :throw
-  [{:keys [exception] :as expr} & [expected]]
-  (let [cexception (check exception (r/ret (c/RClass-of Throwable)))
-        ret (below/maybe-check-below
-              (r/ret (c/Un)
-                     (fo/-FS fl/-bot fl/-bot) 
-                     obj/-empty
-                     ;never returns normally
-                     (r/-flow fl/-bot))
-              expected)]
-    ;(prn "throw ret" ret)
-    (assoc expr
-           :exception cexception
-           u/expr-type ret)))
+  [expr & [expected]]
+  (throw/check-throw check-expr expr expected (r/ret (c/RClass-of Throwable))))
 
 (add-check-method :recur
   [{args :exprs :keys [env] :as expr} & [expected]]
@@ -1950,11 +1931,7 @@
 
 (add-check-method :binding
   [{:keys [init] :as expr} & [expected]]
-  (let [cinit (binding [vs/*current-expr* init]
-                (check init expected))]
-    (assoc expr
-           :init cinit
-           u/expr-type (u/expr-type cinit))))
+  (binding/check-binding check-expr expr expected))
 
 (add-check-method :loop
   [{binding-inits :bindings :keys [body] :as expr} & [expected]]
@@ -1984,13 +1961,9 @@
            :meta cmeta
            u/expr-type (u/expr-type cexpr))))
 
-
 (add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)]}
-  (let [ctest (binding [vs/*current-expr* test]
-                (check test))]
-    (if/check-if check expr ctest then else expected)))
+  (if/check-if check-expr expr expected))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multimethods

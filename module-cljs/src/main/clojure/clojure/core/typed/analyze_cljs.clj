@@ -27,9 +27,9 @@
   ;; TODO propagate analyzer env from opt
   (uc/with-cljs-typed-env
     (let [ast (api/analyze (api/empty-env) form)]
-      ;;(prn "ast-for-form" (:op ast) ast)
+      ;(prn "ast-for-form" (:op ast))
       (if eval-fn
-        (eval-fn opt ast)
+        (eval-fn ast opt)
         ast))))
 
 ; like cljs.analyze/analyze-form-seq, but returns a vector of

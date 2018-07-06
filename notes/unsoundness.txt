@@ -1,0 +1,13 @@
+* Unsoundness in core.typed
+
+core.typed is mostly designed to be a sound type system besides
+(at least) these features.
+
+** Array-backed seqs
+
+We assume anything implementing IPersistentCollection is immutable.
+
+** Vars
+
+We assume that vars are always bound, and they are always
+set to values of their annotated type.

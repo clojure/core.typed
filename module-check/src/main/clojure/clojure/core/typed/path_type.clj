@@ -76,7 +76,7 @@
                (next ps))))
 
        (and (pe/KeyPE? (first ps))
-            (r/Nil? t))
+            (sub/subtype? t r/-nil))
        (path-type r/-nil (next ps))
 
        (and (pe/KeyPE? (first ps))
@@ -111,7 +111,7 @@
            (next ps)))
 
        (and (pe/NthPE? (first ps))
-            (r/Nil? t))
+            (sub/subtype? t r/-nil))
        ;; we don't know the default value, so could return anything
        (path-type r/-any (next ps))
 

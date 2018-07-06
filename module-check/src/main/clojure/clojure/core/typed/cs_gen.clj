@@ -426,10 +426,10 @@
                                         (string? (.val S)) [(r/make-ExactCountRange (count (.val S)))]))
                                T))
             :cljs (cond
-                    (integer? (.val S)) (cs-gen V X Y (r/IntegerCLJS-maker) T)
-                    (number? (.val S)) (cs-gen V X Y (r/NumberCLJS-maker) T)
-                    (string? (.val S)) (cs-gen V X Y (r/StringCLJS-maker) T)
-                    (con/boolean? (.val S)) (cs-gen V X Y (r/BooleanCLJS-maker) T)
+                    (integer? (.val S)) (cs-gen V X Y (r/CLJSInteger-maker) T)
+                    (number? (.val S)) (cs-gen V X Y (r/JSNumber-maker) T)
+                    (string? (.val S)) (cs-gen V X Y (r/JSString-maker) T)
+                    (con/boolean? (.val S)) (cs-gen V X Y (r/JSBoolean-maker) T)
                     (symbol? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Symbol) T)
                     (keyword? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Keyword) T)
                     :else (fail! S T)))))
@@ -647,6 +647,17 @@
             (cset-meet* [(cs-gen-list V X Y Svals Tvals)
                          (cs-gen-list V X Y Sopts Topts)])))
 
+        ; covariant, as in TS and GClosure
+        (and (r/JSObj? S)
+             (r/JSObj? T))
+        (let [{Stypes :types} S
+              {Ttypes :types} T
+              Svals (map Stypes (keys Ttypes))
+              Tvals (vals Ttypes)]
+          (if (every? r/Type? Svals)
+            (cs-gen-list V X Y Svals Tvals)
+            (fail! S T)))
+
         (and (r/GetType? S)
              (not (r/F? (:target S))))
         (cs-gen V X Y (c/-resolve S) T)
@@ -694,7 +705,7 @@
               ;_ (println "dentries-cset" dentries-cset)
 
               ; if it's nil, we also accept it
-              map-cset (when-not (r/Nil? target)
+              map-cset (when-not (sub/subtype? target r/-nil)
                          (cs-gen V X Y target T))
               entries-keys (map first entries)
               entries-vals (map second entries)

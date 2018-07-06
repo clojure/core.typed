@@ -46,12 +46,12 @@
                                (let [obj (obj/-path (concat path-hm [this-pelem]) id-hm)]
                                  (fo/-and
                                    (fo/-filter-at val-type obj)
-                                   (fo/-not-filter-at (c/Un r/-nil r/-false) obj)))
+                                   (fo/-not-filter-at r/-falsy obj)))
                                fl/-top)
                              (if (and (obj/Path? o)
                                       (= r/-nil defaultt))
                                (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
-                                       (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
+                                       (fo/-filter r/-falsy id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
                                fl/-top))
                      (if (and (obj/Path? o) (= r/-nil defaultt))
                        (update-in o [:path] #(seq (concat % [this-pelem])))

@@ -31,8 +31,6 @@
            (clojure.core.typed.filter_rep FilterSet)
            (clojure.lang APersistentVector PersistentList ASeq)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (defn ^:private gen-repeat [times repeated]
   (reduce (fn [acc cur]
             (concat acc cur))
@@ -699,6 +697,20 @@
         (r/HeterogeneousMap? s)
         (subtype (c/upcast-hmap s) t)
 
+        ;; JSObj is covariant, taking after TypeScript & Google Closure. Obviously unsound.
+        (and (r/JSObj? s)
+             (r/JSObj? t))
+        (let [; convention: prefix things on left with l, right with r
+              {ltypes :types} s
+              {rtypes :types} t]
+          (if (every? (fn [[k rt]]
+                        (let [lt (get ltypes k)]
+                          (when lt
+                            (subtype? lt rt))))
+                      rtypes)
+            *sub-current-seen*
+            (fail! s t)))
+
         (and (r/HSet? s)
              (r/HSet? t))
         (subtype-HSet s t)
@@ -833,6 +845,9 @@
           *sub-current-seen*
           (fail! s t))
 
+        ((some-fn r/JSNull? r/JSUndefined?) s)
+        (subtypeA* *sub-current-seen* r/-nil t)
+
         ;values are subtypes of their classes
         (r/Value? s)
         (let [^Value s s
@@ -865,10 +880,10 @@
                                                (string? sval) [(r/make-ExactCountRange (count sval))]))
                                       t))
             :cljs (cond
-                    (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
-                    (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
-                    (string? (.val s)) (subtype (r/StringCLJS-maker) t)
-                    (con/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
+                    (integer? (.val s)) (subtype (r/CLJSInteger-maker) t)
+                    (number? (.val s)) (subtype (r/JSNumber-maker) t)
+                    (string? (.val s)) (subtype (r/JSString-maker) t)
+                    (con/boolean? (.val s)) (subtype (r/JSBoolean-maker) t)
                     (symbol? (.val s)) (subtype (c/DataType-of 'cljs.core/Symbol) t)
                     (keyword? (.val s)) (subtype (c/DataType-of 'cljs.core/Keyword) t)
                     :else (fail! s t))))
@@ -938,8 +953,8 @@
         (subtype-CountRange s t)
 
         ; CLJS special types
-        (and (r/IntegerCLJS? s)
-             (r/NumberCLJS? t))
+        (and (r/CLJSInteger? s)
+             (r/JSNumber? t))
         *sub-current-seen*
 
         (and (r/PolyDots? s)
@@ -961,23 +976,10 @@
 
         :else (fail! s t)))))
 
-(def base-type
-  {'object (r/ObjectCLJS-maker)
-   'string (r/StringCLJS-maker)
-   'number (r/NumberCLJS-maker)
-   'array  (r/ArrayCLJS-maker r/-any r/-any)
-   'function (r/FunctionCLJS-maker)
-   'boolean (r/BooleanCLJS-maker)
-   ;'default "_"
-   })
-
-
 (defn resolve-JS-reference [sym]
   (impl/assert-cljs)
   (cond
     (= "js" (namespace sym)) (c/JSNominal-with-unknown-params sym)
-    (= "default" sym) (assert nil "FIXME what is default?")
-    (base-type sym) (base-type sym)
     :else (let [{{:keys [protocol-symbol name]} :info} ((impl/v 'clojure.core.typed.analyze-cljs/analyze-qualified-symbol) sym)]
             (if protocol-symbol
               (c/Protocol-with-unknown-params name)

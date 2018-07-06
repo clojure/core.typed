@@ -31,8 +31,8 @@
         t (path-type/path-type (var-env/type-of alias-id) alias-path)]
     (r/ret t 
            (if (c/overlap t (c/Un r/-nil r/-false))
-             (fo/-FS (fo/-not-filter-at (c/Un r/-nil r/-false) obj)
-                     (fo/-filter-at (c/Un r/-nil r/-false) obj))
+             (fo/-FS (fo/-not-filter-at r/-falsy obj)
+                     (fo/-filter-at r/-falsy obj))
              (fo/-true-filter))
            obj)))
 
