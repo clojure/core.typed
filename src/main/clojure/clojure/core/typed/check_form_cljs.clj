@@ -13,7 +13,7 @@
    :unparse-ns (ucljs/cljs-ns)
    :ast-for-form ana-cljs/ast-for-form
    :collect-expr collect-cljs/collect
-   :check-expr chk-cljs/check})
+   :check-expr chk-cljs/check-expr})
 
 (defn check-form-info
   [form & opt]

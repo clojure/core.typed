@@ -75,27 +75,37 @@ cljs.core/Reduced [[[x :variance :covariant]]]
     ((impl/v 'clojure.core.typed.protocol-env/reset-protocol-env!)
      (init-protocol-env))))
 
+#_
+(ann-jsclass js/Document
+  :extends
+  :implements 
+  :properties
+  {getElementById [cljs.core.typed/JSString -> (U nil js/HTMLElement)]}
+  :static-properties
+  )
+
 (delay-and-cache-env ^:private init-jsnominals 
   (reset-protocol-env!)
   (h/jsnominal-mappings
 
 ; seems like a good place to put this
+;; FIXME this is actually js/String, delete
 string [[]
         :fields
         {}
         :methods
-        {toLowerCase [-> string]}]
+        {toLowerCase [-> cljs.core.typed/JSString]}]
     
 js/Document [[]
           :fields
           {}
           :methods
-          {getElementById [string -> (U nil js/HTMLElement)]}]
+          {getElementById [cljs.core.typed/JSString -> (U nil js/HTMLElement)]}]
 
 js/HTMLElement [[]
              :fields
-             {innerHTML string
-              tagName (U nil string)}]
+             {innerHTML cljs.core.typed/JSString
+              tagName (U nil cljs.core.typed/JSString)}]
     
     
 js/Event [[]
@@ -131,36 +141,35 @@ cljs.core.typed/def-alias* [Any Any -> Any]
 cljs.core.typed/typed-deps* [Any -> Any]
 cljs.core.typed/ann-jsnominal* [Any Any -> Any]
 
-cljs.core/+ (IFn [int * -> int]
-                 [number * -> number])
-cljs.core/+ (IFn [int * -> int]
-                 [number * -> number])
-cljs.core/- (IFn [int * -> int]
-                 [number * -> number])
-cljs.core/* (IFn [int * -> int]
-                 [number * -> number])
+cljs.core/+ (IFn [cljs.core.typed/CLJSInteger * -> cljs.core.typed/CLJSInteger]
+                 [cljs.core.typed/JSNumber * -> cljs.core.typed/JSNumber])
+cljs.core/- (IFn [cljs.core.typed/CLJSInteger * -> cljs.core.typed/CLJSInteger]
+                 [cljs.core.typed/JSNumber * -> cljs.core.typed/JSNumber])
+cljs.core/* (IFn [cljs.core.typed/CLJSInteger * -> cljs.core.typed/CLJSInteger]
+                 [cljs.core.typed/JSNumber * -> cljs.core.typed/JSNumber])
 cljs.core/nth (All [x y]
-                (IFn [(U nil (cljs.core/ISeqable x)) int -> x]
-                      [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
+                (IFn [(U nil (cljs.core/ISeqable x)) cljs.core.typed/CLJSInteger -> x]
+                      [(U nil (cljs.core/ISeqable x)) cljs.core.typed/CLJSInteger y -> (U y x)]))
 
-cljs.core/*flush-on-newline* boolean
-cljs.core/*print-newline* boolean
-cljs.core/*print-readably* boolean
-cljs.core/*print-meta* boolean
-cljs.core/*print-dup* boolean
-cljs.core/*print-length* (U nil int)
+cljs.core/*flush-on-newline* cljs.core.typed/JSBoolean
+cljs.core/*print-newline* cljs.core.typed/JSBoolean
+cljs.core/*print-readably* cljs.core.typed/JSBoolean
+cljs.core/*print-meta* cljs.core.typed/JSBoolean
+cljs.core/*print-dup* cljs.core.typed/JSBoolean
+cljs.core/*print-length* (U nil cljs.core.typed/CLJSInteger)
 
 cljs.core/enable-console-print! [-> Any]
 
 cljs.core/truth_ [Any -> Any]
 
-cljs.core/coercive-= [Any Any -> boolean]
+cljs.core/coercive-= [Any Any -> cljs.core.typed/JSBoolean]
 
 cljs.core/nil? (Pred nil)
+cljs.core/undefined? (Pred JSUndefined)
 
 cljs.core/array? (ReadOnlyArray Any)
 
-cljs.core/object? [Any -> boolean]
+cljs.core/object? [Any -> cljs.core.typed/JSBoolean]
 
 cljs.core/native-satisfies? [Any Any -> Any]
 
@@ -169,22 +178,22 @@ cljs.core/is_proto_ [Any -> Any]
 cljs.core/*main-cli-fn* (U nil [Any * -> Any])
 
 cljs.core/missing-protocol [Any Any -> Any]
-cljs.core/type->str [Any -> string]
+cljs.core/type->str [Any -> cljs.core.typed/JSString]
 
 cljs.core/make-array (All [r] 
-                          (IFn [int -> (Array r)]
-                               [Any int -> (Array r)]))
+                          (IFn [cljs.core.typed/CLJSInteger -> (Array r)]
+                               [Any cljs.core.typed/CLJSInteger -> (Array r)]))
 
 cljs.core/array (All [r]
                      [r * -> (Array r)])
 
-cljs.core/alength [(ReadOnlyArray Any) -> int]
+cljs.core/alength [(ReadOnlyArray Any) -> cljs.core.typed/CLJSInteger]
 
 cljs.core/into-array (All [x] 
                           (IFn [(U nil (cljs.core/ISeqable x)) -> (Array x)]
                               [Any (U nil (cljs.core/ISeqable x)) -> (Array x)]))
 
-cljs.core/pr-str* [Any -> string]
+cljs.core/pr-str* [Any -> cljs.core.typed/JSString]
 
 cljs.core/clone [Any -> Any]
 
@@ -194,15 +203,15 @@ cljs.core/cloneable? (Pred cljs.core/ICloneable)
 cljs.core/count
       ; TODO also accepts Counted
       ; FIXME should return integer
-      [(U nil (cljs.core/ISeqable Any)) -> int :object {:id 0, :path [Count]}]
+      [(U nil (cljs.core/ISeqable Any)) -> cljs.core.typed/CLJSInteger :object {:id 0, :path [Count]}]
 cljs.core/prim-seq
       (All [x]
            [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
 
-cljs.core/key-test [Keyword Any -> boolean]
+cljs.core/key-test [Keyword Any -> cljs.core.typed/JSBoolean]
 
-cljs.core/fn? [Any -> boolean]
-cljs.core/ifn? [Any -> boolean]
+cljs.core/fn? [Any -> cljs.core.typed/JSBoolean]
+cljs.core/ifn? [Any -> cljs.core.typed/JSBoolean]
 
 ;;pop needs to be defined here because
 ;;definition of List differs between clj and cljs
@@ -234,46 +243,54 @@ js/document js/Document
 
 ;; goog.dom
 
-goog.dom/setTextContent [js/Element (U string number) -> js/Window]
+goog.dom/setTextContent [js/Element (U cljs.core.typed/JSString cljs.core.typed/JSNumber) -> js/Window]
 goog.dom/getElementsByTagNameAndClass 
-      [(U nil string) (U nil string) (U nil js/Document js/Element) -> (cljs.core/ISeqable js/Element)]
-goog.dom.classes/set [(U js/Node nil) string -> Any]
-goog.dom.classes/add [(U js/Node nil) (U nil string) * -> boolean]
-goog.dom.classes/remove [(U js/Node nil) (U nil string) * -> boolean]
-goog.style/getPageOffsetLeft [(U nil js/Element) -> number]
-goog.style/getPageOffsetTop [(U nil js/Element) -> number]
+      [(U nil cljs.core.typed/JSString) (U nil cljs.core.typed/JSString) (U nil js/Document js/Element) -> (cljs.core/ISeqable js/Element)]
+goog.dom.classes/set [(U js/Node nil) cljs.core.typed/JSString -> Any]
+goog.dom.classes/add [(U js/Node nil) (U nil cljs.core.typed/JSString) * -> cljs.core.typed/JSBoolean]
+goog.dom.classes/remove [(U js/Node nil) (U nil cljs.core.typed/JSString) * -> cljs.core.typed/JSBoolean]
+goog.style/getPageOffsetLeft [(U nil js/Element) -> cljs.core.typed/JSNumber]
+goog.style/getPageOffsetTop [(U nil js/Element) -> cljs.core.typed/JSNumber]
 goog.events/listen [(U nil js/EventTarget goog.events.EventTarget goog.events.Listenable)
-                    (U nil string (ReadOnlyArray string)) -> number]
+                    (U nil cljs.core.typed/JSString (ReadOnlyArray cljs.core.typed/JSString)) -> cljs.core.typed/JSNumber]
 
-goog.events.EventType.KEYUP   string
-goog.events.EventType.KEYDOWN string
-goog.events.EventType.KEYPRESS string
-goog.events.EventType.CLICK   string
-goog.events.EventType.DBLCLICK string
-goog.events.EventType.MOUSEOVER string
-goog.events.EventType.MOUSEOUT string
-goog.events.EventType.MOUSEMOVE string
+goog.events.EventType.KEYUP   cljs.core.typed/JSString
+goog.events.EventType.KEYDOWN cljs.core.typed/JSString
+goog.events.EventType.KEYPRESS cljs.core.typed/JSString
+goog.events.EventType.CLICK   cljs.core.typed/JSString
+goog.events.EventType.DBLCLICK cljs.core.typed/JSString
+goog.events.EventType.MOUSEOVER cljs.core.typed/JSString
+goog.events.EventType.MOUSEOUT cljs.core.typed/JSString
+goog.events.EventType.MOUSEMOVE cljs.core.typed/JSString
     ))
 
 (delay-and-cache-env init-alias-env 
   (reset-protocol-env!)
   (reset-jsnominal-env!)
   (h/alias-mappings
+  ^{:doc "A type that returns true for cljs.core/integer?"}
+cljs.core.typed/AnyInteger cljs.core.typed/CLJSInteger
 
   ^{:doc "A type that returns true for cljs.core/integer?"}
-cljs.core.typed/AnyInteger int
+cljs.core.typed/Integer cljs.core.typed/CLJSInteger
 
   ^{:doc "A type that returns true for cljs.core/integer?"}
-cljs.core.typed/Integer int
+cljs.core.typed/Int cljs.core.typed/CLJSInteger
 
   ^{:doc "A type that returns true for cljs.core/number?"}
-cljs.core.typed/Number number
+cljs.core.typed/Number cljs.core.typed/JSNumber
+
+  ^{:doc "A type that returns true for cljs.core/number?"}
+cljs.core.typed/Num cljs.core.typed/JSNumber
 
   ^{:doc "A type that returns true for cljs.core/string?"}
-cljs.core.typed/String string
+cljs.core.typed/String cljs.core.typed/JSString
+
+  ^{:doc "A type that returns true for cljs.core/string?"}
+cljs.core.typed/Str cljs.core.typed/JSString
 
   ^{:doc "A type that returns true for cljs.core/boolean?"}
-cljs.core.typed/Boolean boolean
+cljs.core.typed/Boolean cljs.core.typed/JSBoolean
 
   ^{:doc "vector -- alias for common anns"}
 cljs.core.typed/Vec (TFn [[x :variance :covariant]]

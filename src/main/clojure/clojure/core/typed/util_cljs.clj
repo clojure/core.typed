@@ -1,11 +1,9 @@
 (ns ^:skip-wiki clojure.core.typed.util-cljs
   (:require [clojure.core.typed.current-impl :as impl]
             [cljs.analyzer :as ana]
-            [cljs.jvm.tools.analyzer.emit-form :as emit-form]
+            [clojure.core.typed.emit-form-cljs :as emit-form]
             [cljs.compiler :as comp]
             [cljs.env :as env]))
-
-(alter-meta! *ns* assoc :skip-wiki true)
 
 (def default-env (env/default-compiler-env))
 
@@ -41,8 +39,8 @@
 (defn cljs-ns []
   ana/*cljs-ns*)
 
-(defn emit-form [f]
-  (emit-form/emit-form f))
+(defn emit-form [ast]
+  (emit-form/emit-form ast))
 
 (defmacro with-core-cljs-typed [& body]
   `(comp/with-core-cljs

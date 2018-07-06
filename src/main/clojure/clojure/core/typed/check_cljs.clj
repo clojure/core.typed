@@ -1,36 +1,43 @@
 (ns clojure.core.typed.check-cljs
-  (:require [clojure.core.typed]
+  (:require [clojure.core.typed :as t]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.local-result :as local-result]
+            [clojure.core.typed.constant-type :as constant-type]
             [clojure.core.typed.check :as chk]
-            [clojure.core.typed.check.let :as let]
-            [clojure.core.typed.check.loop :as loop]
-            [clojure.core.typed.check.letfn :as letfn]
-            [clojure.core.typed.check.recur :as recur]
+            [clojure.core.typed.check.binding :as binding]
             [clojure.core.typed.check.def :as def]
             [clojure.core.typed.check.do :as do]
-            [clojure.core.typed.check.recur-utils :as recur-u]
-            [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.check.if :as if]
-            [clojure.core.typed.check.funapp :as funapp]
-            [clojure.core.typed.check.fn :as fn]
-            [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.dot-cljs :as dot]
+            [clojure.core.typed.check.const :as const]
+            [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
-            [clojure.core.typed.check.set-bang :as set!]
-            [clojure.core.typed.check.set :as set]
-            [clojure.core.typed.check.vector :as vec]
+            [clojure.core.typed.check.funapp :as funapp]
+            [clojure.core.typed.check.if :as if]
+            [clojure.core.typed.check.let :as let]
+            [clojure.core.typed.check.letfn :as letfn]
+            [clojure.core.typed.check.local :as local]
+            [clojure.core.typed.check.loop :as loop]
+            [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.print-env :as pr-env]
+            [clojure.core.typed.check.recur :as recur]
+            [clojure.core.typed.check.recur-utils :as recur-u]
+            [clojure.core.typed.check.set :as set]
+            [clojure.core.typed.check.set-bang :as set!]
+            [clojure.core.typed.check.throw :as throw]
+            [clojure.core.typed.check.quote :as quote]
+            [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.special.fn :as special-fn]
             [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
             [clojure.core.typed.check.special.loop :as special-loop]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.tc-equiv :as equiv]
             [clojure.core.typed.utils :as u :refer [expr-type]]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
@@ -46,12 +53,15 @@
             [clojure.core.typed.analyze-cljs :as ana]
             [clojure.string :as c-str]))
 
-(alias 't 'clojure.core.typed)
-
 (declare check)
 
+(defn check-expr [{:keys [env] :as expr} & [expected]]
+  (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
+            vs/*current-expr* expr]
+    (check expr expected)))
+
 (defn check-asts [asts]
-  (mapv check asts))
+  (mapv check-expr asts))
 
 (defn check-ns [nsym]
   {:pre [(symbol? nsym)]
@@ -73,56 +83,35 @@
 (add-check-method :no-op
   [expr & [expected]]
   (assoc expr
-         expr-type (ret r/-any)))
-
-;FIXME call constant-type
-(add-check-method :constant
-  [{:keys [form env] :as expr} & [expected]]
-  (let [t (r/-val form)
-        _ (binding [vs/*current-env* env]
-            (when expected
-              (when-not (sub/subtype? t (ret-t expected))
-                (cu/expected-error t (ret-t expected)))))]
-    (assoc expr
-           expr-type (ret t))))
+         expr-type (below/maybe-check-below
+                     (ret r/-any)
+                     expected)))
 
 (add-check-method :const
- [{:keys [form] :as expr} & [expected]]
- (let [t (r/-val form)
-       _ (when expected
-           (when-not (sub/subtype? t (ret-t expected))
-             (cu/expected-error t (ret-t expected))))]
-   (assoc expr expr-type (ret t))))
-
-(add-check-method :list
-  [{:keys [items] :as expr} & [expected]]
-  (let [citems (mapv check items)
-        actual (r/HeterogeneousList-maker (mapv (comp ret-t expr-type) citems))
-        _ (binding [vs/*current-env* (:env expr)]
-            (when expected
-              (when-not (sub/subtype? actual (ret-t expected))
-                (cu/expected-error actual (ret-t expected)))))]
-    (assoc expr
-           expr-type (ret actual))))
+ [{:keys [val] :as expr} & [expected]]
+ ;; FIXME probably want a custom `constant-type` function
+ (const/check-const constant-type/constant-type false expr expected))
 
 (add-check-method :vector
-  [{:keys [items] :as expr} & [expected]]
+  [expr & [expected]]
   (vec/check-vector check expr expected))
 
 (add-check-method :set
-  [{:keys [items] :as expr} & [expected]]
+  [expr & [expected]]
   (set/check-set check expr expected))
 
 (add-check-method :map
-  [{mkeys :keys mvals :vals :as expr} & [expected]]
+  [expr & [expected]]
   (map/check-map check expr expected))
 
 (add-check-method :def
-  [{:keys [init env] vname :name :as expr} & [expected]]
+  [{:keys [init] :as expr} & [expected]]
   (if init
     (def/check-normal-def check expr expected)
     (assoc expr
-           u/expr-type (ret r/-any))))
+           u/expr-type (below/maybe-check-below
+                         (ret r/-any)
+                         expected))))
 
 (add-check-method :js
   [{:keys [js-op args env] :as expr} & [expected]]
@@ -130,6 +119,7 @@
   (let [res (expr-type (check {:op :invoke
                                :from-js-op expr
                                :env env
+                               :children [:fn :args]
                                :fn {:op :var
                                     :env env
                                     :name js-op}
@@ -158,12 +148,10 @@
   [{[pexpr targs-expr :as args] :args :as expr} & [expected]]
   (assert (#{2} (count args)) "Wrong arguments to inst")
   (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
-                (if (r/Name? t)
-                  (c/resolve-Name t)
-                  t))
+                (c/fully-resolve-type t))
         _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
         targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-                (doall (map prs/parse-type (-> targs-expr :expr :form))))]
+                (mapv prs/parse-type (-> targs-expr :expr :form)))]
     (assoc expr
            expr-type (ret (inst/manual-inst ptype targs)))))
 
@@ -193,11 +181,22 @@
           inst-of (c/DataType-with-unknown-params varsym)
           cexpr (check target-expr)
           expr-tr (expr-type cexpr)
-          final-ret (ret (r/BooleanCLJS-maker)
+          final-ret (ret (r/JSBoolean-maker)
                          (fo/-FS (fo/-filter-at inst-of (ret-o expr-tr))
                                  (fo/-not-filter-at inst-of (ret-o expr-tr))))]
       (assoc expr
              expr-type final-ret))))
+
+;=
+(defmethod invoke-special 'cljs.core/= 
+  [{:keys [args] :as expr} & [expected]]
+  {:post [(vector? (:args %))
+          (-> % u/expr-type r/TCResult?)]}
+  (let [cargs (mapv check args)]
+    (-> expr
+        (update-in [:fn] check)
+        (assoc :args cargs
+               u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected)))))
 
 (add-check-method :invoke
   [{fexpr :fn :keys [args] :as expr} & [expected]]
@@ -227,8 +226,7 @@
 (add-check-method :var
   [{vname :name :as expr} & [expected]]
   (assoc expr expr-type
-         ((if (namespace vname) js-var-result local-result/local-result)
-          expr vname expected)))
+         (js-var-result expr vname expected)))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
 (u/special-do-op spec/special-form internal-special-form)
@@ -280,69 +278,27 @@
   (err/int-error (str "No such internal form: " (ast-u/emit-form-fn expr))))
 
 (add-check-method :do
-  [{:keys [ret statements] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (con/nne-seq? (seq (:statements %)))]}
+  [expr & [expected]]
   (do/check-do check internal-special-form expr expected))
 
 (add-check-method :fn
   [{:keys [methods] :as expr} & [expected]]
-  (let [;found-meta? (atom nil)
-        ;parse-meta (fn [{:keys [ann] :as m}] 
-        ;             (or (when (contains? m :ann)
-        ;                   (assert ((some-fn list? seq?) ann) 
-        ;                           (str "Annotations must be quoted: " m))
-        ;                   (reset! found-meta? true)
-        ;                   (prs/with-parse-ns (cu/expr-ns expr)
-        ;                     (prs/parse-type ann)))
-        ;                 r/-any))
-        ;manual-annot (doall
-        ;               (for [{:keys [variadic params]} methods]
-        ;                 (let [fixed (if variadic
-        ;                               (butlast params)
-        ;                               params)
-        ;                       rest (when variadic
-        ;                              (last params))]
-        ;                   (r/make-Function (mapv parse-meta (map meta fixed))
-        ;                                    r/-any
-        ;                                    :rest
-        ;                                    (when variadic
-        ;                                      (parse-meta rest))))))
-        ]
-    (prepare-check-fn
-      (if expected
-        (fn/check-fn expr expected)
-        (special-fn/check-core-fn-no-expected check expr)))))
-
-(add-check-method :deftype*
-  [expr & [expected]]
-  (assert (not expected))
-  (assoc expr
-         expr-type (ret r/-any)))
+  (prepare-check-fn
+    (if expected
+      (fn/check-fn expr expected)
+      (special-fn/check-core-fn-no-expected check expr))))
 
 (add-check-method :set!
   [{:keys [target val] :as expr} & [expected]]
   (set!/check-set! check expr expected))
 
-(add-check-method :dot
-  [expr & [expected]]
-  (dot/check-dot check expr expected))
-
-(add-check-method :new
-  [{:keys [ctor args] :as expr} & [expected]]
-  (assert nil ctor))
-
 (add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
-  {:post [(-> % expr-type r/TCResult?)]}
-  (let [ctest (check test)]
-    (if/check-if check expr ctest then else expected)))
+  (if/check-if check-expr expr expected))
 
 (add-check-method :let
-  [{:keys [bindings #_expr env] :as let-expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:bindings %))]}
-  (let/check-let check let-expr expected))
+  [expr & [expected]]
+  (let/check-let check expr expected))
 
 (add-check-method :letfn
   [{:keys [bindings body env] :as expr} & [expected]]
@@ -353,22 +309,31 @@
   (recur/check-recur exprs env recur-expr expected check))
 
 (add-check-method :loop
-  [{:keys [bindings #_expr env] :as loop-expr} & [expected]]
+  [{:keys [] :as loop-expr} & [expected]]
   (loop/check-loop check loop-expr expected))
 
 (add-check-method :ns
   [expr & [expected]]
   (assoc expr
-         expr-type (ret r/-any)))
+         expr-type (below/maybe-check-below
+                     (ret r/-any)
+                     expected)))
+
+(add-check-method :binding
+  [expr & [expected]]
+  (binding/check-binding check-expr expr expected))
+
+(add-check-method :quote
+  [expr & [expected]]
+  (quote/check-quote check-expr constant-type/constant-type expr expected))
 
 ;; adding a bunch of missing methods: 
 
 (defn fail-empty [expr]
-  (println (with-out-str (clojure.pprint/pprint (ast-u/strip-extra-info expr))))
-  (throw (Exception. "Not implemented, yet")))
+  (throw (Exception. (str "Not implemented, yet: " (:op expr)))))
 
-(add-check-method :binding
-  [expr & [expected]]
+(add-check-method :new
+  [{:keys [ctor args] :as expr} & [expected]]
   (fail-empty expr))
 
 (add-check-method :case
@@ -405,11 +370,13 @@
   [expr & [expected]]
   (fail-empty expr))
 
+; see clojure.core.typed.check.dot-cljs
 (add-check-method :host-call
   [{:keys [method target args] :as expr} & [expected]]
   ;;return Any for now
   (assoc expr expr-type (ret r/-any)))
 
+; see clojure.core.typed.check.dot-cljs
 (add-check-method :host-field
   [expr & [expected]]
   (assoc expr expr-type (ret r/-any)))
@@ -419,28 +386,28 @@
   (fail-empty expr))
 
 (add-check-method :js-object
-  [expr & [expected]]
-  (fail-empty expr))
+  [{:keys [keys vals] :as expr} & [expected]]
+  (let [cvals (mapv check vals)]
+    (assoc expr
+           :vals cvals
+           u/expr-type (below/maybe-check-below
+                         (r/ret (r/JSObj-maker (zipmap (map keyword keys)
+                                                       (map (comp r/ret-t u/expr-type) cvals)))
+                                (fo/-true-filter))
+                         expected))))
 
 (add-check-method :js-var
-  [expr & [expected]]
+  [{:keys [name] :as expr} & [expected]]
+  (u/tc-warning (str "Assuming JS variable is Any: " name))
   (assoc expr expr-type (ret r/-any)))
 
-;;fixme
 (add-check-method :local
   [expr & [expected]]
-  (chk/check expr expected))
+  (local/check-local expr expected))
 
 (add-check-method :ns*
   [expr & [expected]]
   (fail-empty expr))
-
-(add-check-method :quote
-  [{:keys [expr] :as quote-expr} & [expected]]
-  (let [cexpr (check expr expected)]
-    (assoc quote-expr
-           :expr cexpr
-           expr-type (expr-type cexpr))))
 
 (add-check-method :the-var
   [expr & [expected]]
@@ -448,8 +415,7 @@
 
 (add-check-method :throw
   [expr & [expected]]
-  (assoc expr
-    expr-type (ret r/-nothing)))
+  (throw/check-throw check-expr expr expected nil))
 
 (add-check-method :try
   [expr & [expected]]

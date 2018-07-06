@@ -16,67 +16,72 @@
             [clojure.core.typed.analyzer-api-intercept :as fake-ana-api]))
 
 (deftest parse-prims-cljs-test
-  (is-cljs (= (prs/parse-cljs 'number)
-              (r/NumberCLJS-maker)))
-  (is-cljs (= (prs/parse-cljs 'int)
-              (r/IntegerCLJS-maker)))
-  (is-cljs (= (prs/parse-cljs 'boolean)
-              (r/BooleanCLJS-maker)))
-  (is-cljs (= (prs/parse-cljs 'object)
-              (r/ObjectCLJS-maker)))
-  (is-cljs (= (prs/parse-cljs 'string)
-              (r/StringCLJS-maker))))
+  (is-cljs (= (prs/parse-cljs 'cljs.core.typed/JSNumber)
+              (r/JSNumber-maker)))
+  (is-cljs (= (prs/parse-cljs 'cljs.core.typed/CLJSInteger)
+              (r/CLJSInteger-maker)))
+  (is-cljs (= (prs/parse-cljs 'cljs.core.typed/JSBoolean)
+              (r/JSBoolean-maker)))
+  (is-cljs (= (prs/parse-cljs 'cljs.core.typed/JSObject)
+              (r/JSObject-maker)))
+  (is-cljs (= (prs/parse-cljs 'cljs.core.typed/JSString)
+              (r/JSString-maker))))
 
 (deftest parse-array-cljs-test
-  (is-cljs (= (prs/parse-cljs '(Array number))
-              (r/ArrayCLJS-maker (prs/parse-cljs 'number)
-                                 (prs/parse-cljs 'number)))))
+  (is-cljs (= (prs/parse-cljs '(Array cljs.core.typed/JSNumber))
+              (r/ArrayCLJS-maker (prs/parse-cljs 'cljs.core.typed/JSNumber)
+                                 (prs/parse-cljs 'cljs.core.typed/JSNumber)))))
 
 (deftest unparse-prims-cljs-test
-  (is-cljs (= 'number
-              (prs/unparse-type (prs/parse-cljs 'number))))
-  (is-cljs (= 'boolean
-              (prs/unparse-type (prs/parse-cljs 'boolean))))
-  (is-cljs (= 'int
-              (prs/unparse-type (prs/parse-cljs 'int))))
-  (is-cljs (= '(Array number)
-              (prs/unparse-type (prs/parse-cljs '(Array number)))))
-  (is-cljs (= '(Array2 number boolean)
-              (prs/unparse-type (prs/parse-cljs '(Array2 number boolean))))))
+  (is-cljs (= 'cljs.core.typed/JSNumber
+              (prs/unparse-type (prs/parse-cljs 'cljs.core.typed/JSNumber))))
+  (is-cljs (= 'cljs.core.typed/JSBoolean
+              (prs/unparse-type (prs/parse-cljs 'cljs.core.typed/JSBoolean))))
+  (is-cljs (= 'cljs.core.typed/CLJSInteger
+              (prs/unparse-type (prs/parse-cljs 'cljs.core.typed/CLJSInteger))))
+  (is-cljs (= '(Array cljs.core.typed/JSNumber)
+              (prs/unparse-type (prs/parse-cljs '(Array cljs.core.typed/JSNumber)))))
+  (is-cljs (= '(Array2 cljs.core.typed/JSNumber cljs.core.typed/JSBoolean)
+              (prs/unparse-type (prs/parse-cljs '(Array2 cljs.core.typed/JSNumber cljs.core.typed/JSBoolean))))))
 
 (deftest subtype-prims-cljs-test
-  (is-cljs (sub/subtype? (r/-val 1) (prs/parse-cljs 'number))))
+  (is-cljs (sub/subtype? (r/-val 1) (prs/parse-cljs 'cljs.core.typed/JSNumber))))
 
+;FIXME
+#_
 (deftest throw-test
-  (is-tc-e (throw (JSError. "foo"))
-           Nothing))
+  (is-tc-e (throw (js/JSError. "foo"))
+           t/Nothing))
 
 (deftest ann-test
-  (is-tc-e (t/ann foo number)))
+  (is-tc-e (do (t/ann foo t/JSNumber)
+               (def foo 1)))
+  (is-tc-err (do (t/ann foo t/JSNumber)
+                 (def foo nil))))
 
 (deftest check-ns-test
   (is-cljs (t/check-ns* 'cljs.core.typed.test.ann)))
 
 (deftest parse-protocol-test 
-  (is-cljs (prs/parse-cljs '(cljs.core/IMap number number))))
+  (is-cljs (prs/parse-cljs '(cljs.core/IMap cljs.core.typed/JSNumber cljs.core.typed/JSNumber))))
 
 (deftest Protocol-of-test
-  (is-cljs (c/Protocol-of 'cljs.core/IMap [(r/NumberCLJS-maker)
-                                           (r/NumberCLJS-maker)])))
+  (is-cljs (c/Protocol-of 'cljs.core/IMap [(r/JSNumber-maker)
+                                           (r/JSNumber-maker)])))
 
 (deftest heterogeneous-ds-test
   (is-tc-e [1 2]
-           '[number number])
+           '[t/JSNumber t/JSNumber])
   (is-tc-e [1 2]
-           (IVector number))
+           (IVector t/JSNumber))
   (is-tc-e {:a 1}
-           '{:a number})
+           '{:a t/JSNumber})
   (is-tc-e {1 1}
-           (IMap number number))
+           (IMap t/JSNumber t/JSNumber))
   (is-tc-e #{1}
-           (ISet number))
+           (ISet t/JSNumber))
   (is-tc-e (let [a 1] #{1 a})
-           (ISet number)))
+           (ISet t/JSNumber)))
 
 (deftest js*-test
   (is-tc-e (+ 1 1)))
@@ -89,13 +94,13 @@
 (deftest inst-test
   (is-tc-e (let [f (-> (fn [a] a)
                        (t/ann-form (t/All [x] [x -> x])))]
-             ((t/inst f t/Number) 1)
-          t/Number)))
+             ((t/inst f t/JSNumber) 1))
+           t/JSNumber))
 
 (deftest letfn-test
   (is-tc-e (t/letfn> [a :- (t/All [x] [x -> x])
                       (a [b] b)]
-                     (a 1))))
+             (a 1))))
 
 ;;commenting-out this test because just :require -ing cljs.core.async fails with internal error
 #_(deftest async-test
@@ -105,30 +110,29 @@
   ; code from David Nolen's blog
   ;FIXME
   #_(is-tc-e
-    (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
+    (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> cljs.core.typed/CLJSInteger]}
       index-of [xs x]
       (let [len (count xs)]
         (t/loop>
-         [i :- int, 0]
+         [i :- cljs.core.typed/CLJSInteger, 0]
          (if (< i len)
            (if (= (nth xs i) x)
              i
              (recur (inc i)))
            -1))))))
 
-#_(clojure.core.typed.analyze-cljs/ast-for-form '(fn [x] (instance? Atom x)))
-
+#_
 (deftest simple-polymorphic-test
   (is-cljs (t/check-ns* 'cljs.core.typed.test.identity)))
 
 (deftest value-supertype-test
   (is-tc-e 'a Symbol)
   (is-tc-e :a Keyword)
-  (is-tc-e 1 int)
-  (is-tc-e 1.1 number)
-  (is-tc-e 1 number)
-  (is-tc-e true boolean)
-  (is-tc-e "a" string))
+  (is-tc-e 1 t/CLJSInteger)
+  (is-tc-e 1.1 t/JSNumber)
+  (is-tc-e 1 t/JSNumber)
+  (is-tc-e true t/JSBoolean)
+  (is-tc-e "a" t/JSString))
 
 (deftest ns-deps-test
   (is (t/check-ns* 'cljs.core.typed.test.dep-one))
@@ -145,14 +149,14 @@
             -> t/Any]))
 
 (deftest seq-test
-  (is-tc-e [1 2 3] (t/Coll int))
-  (is-tc-e [1 2 3] (t/Seqable int))  ;;not sure if it should be...
-  (is-tc-e (seq [1 2 3]) (t/NonEmptyASeq int)))
+  (is-tc-e [1 2 3] (t/Coll cljs.core.typed/CLJSInteger))
+  (is-tc-e [1 2 3] (t/Seqable cljs.core.typed/CLJSInteger))  ;;not sure if it should be...
+  (is-tc-e (seq [1 2 3]) (t/NonEmptyASeq cljs.core.typed/CLJSInteger)))
 
-                                        ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
-                                        ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
-                                        ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)
-                                        ;(t/check-ns* 'cljs.core.typed.async)
+;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
+;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
+;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)
+;(t/check-ns* 'cljs.core.typed.async)
 
 
 (deftest core-fns-test
@@ -172,15 +176,15 @@
 
   ;;let
   (is-tc-e (let [x 0
-                   y x]
+                 y x]
              y)
-           t/Num)
+           t/JSNumber)
 
   ;;case
   (is-tc-e (fn [x] (case x
                     0 "zero"
                     "non-zero"))
-           [number -> string])
+           [t/JSNumber -> cljs.core.typed/JSString])
 
   ;;def
   (tc-e (def x 1))
@@ -190,21 +194,21 @@
   
   
   ;;const
-  (is-tc-e 1 number)
+  (is-tc-e 1 t/JSNumber)
 
   ;;if
   (tc-e (if 1 1 0))
 
   ;;letfn
-  (tc-e (t/letfn> [foo :- [t/Num -> t/Num]
+  (tc-e (t/letfn> [foo :- [t/JSNumber -> t/JSNumber]
                  (foo [x] x)]
                   (foo 2)))
 
   ;;loop
-  (is-tc-e (t/loop [a :- t/Num 1
-               b :- (t/U nil t/Num) nil]
+  (is-tc-e (t/loop [a :- t/JSNumber 1
+                    b :- (t/U nil t/JSNumber) nil]
              (if b (str a)
-                 (recur 1 1)))
+               (recur 1 1)))
            t/Str)
 
   ;;map
@@ -230,6 +234,52 @@
   ;; FIXME Value/Val parsing
   #_(is-tc-e {:a 1} (t/HMap :mandatory {:a (t/Value 1)}))
   #_(is-tc-e {:a 1} (t/HMap :mandatory {:a (t/Val 1)}))
-  (is-tc-e {:a 1} (t/Rec [x] (t/U nil (t/HMap :mandatory {:a t/Num} :optional {:b x}))))
+  (is-tc-e {:a 1}
+           (t/Rec [x] (t/U nil (t/HMap :mandatory {:a t/JSNumber} :optional {:b x}))))
   )
 
+(deftest undefined-test
+  (is-tc-err nil t/JSUndefined)
+  (is-tc-err nil t/JSNull)
+  (is (not (sub? nil cljs.core.typed/JSNull)))
+  (is (not (sub? nil cljs.core.typed/JSUndefined)))
+  (is (sub? cljs.core.typed/JSUndefined nil))
+  (is (sub? cljs.core.typed/JSNull nil))
+  (is-tc-e (t/fn [a :- t/JSUndefined] :- nil
+             a))
+  (is-tc-e (t/fn [a :- t/JSNull] :- nil
+             a))
+  (is-tc-err (t/fn [a :- t/JSNull] :-  t/JSUndefined
+               a))
+  (is-tc-err (t/fn [a :- t/JSUndefined] :-  t/JSNull
+               a))
+  (is-tc-err (when (undefined? nil)
+               :kw)
+             nil)
+  (is-tc-e (t/fn [a :- t/JSNull]
+             (when (undefined? a)
+               :kw))
+           [t/JSNull :-> nil])
+  (is-tc-e (t/fn [a :- t/JSUndefined]
+             (when (undefined? a)
+               :kw))
+           [t/JSUndefined :-> ':kw])
+  (is-tc-e (do
+             (t/ann ^:no-check a t/JSUndefined)
+             (def a nil)
+             a)
+           nil)
+  (is-tc-e (t/fn [a :- (t/U (cljs.core/IVector t/Any) t/JSUndefined)]
+             (if a
+               (t/ann-form a (cljs.core/IVector t/Any))
+               (t/ann-form a t/JSUndefined))))
+)
+
+(deftest ratio-test
+  (is-tc-e 1/2 t/JSNumber))
+
+(deftest goog-imports
+  (is-cljs (t/check-ns* 'cljs.core.typed.test.goog-import)))
+
+(deftest jsobj-test
+  (is-cljs (t/check-ns* 'cljs.core.typed.test.js-obj)))

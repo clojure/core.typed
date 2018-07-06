@@ -8,10 +8,6 @@
             [clojure.core.typed.env :as env])
   (:import (clojure.core.typed.type_rep Scope)))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; JSNominal
 

@@ -87,3 +87,17 @@
 
 (defmacro is-tc-err [& body]
   `(test/is (tc-err ~@body)))
+
+(defmacro tc-err [frm & opts]
+  (apply common-test/tc-err tc-common* frm opts))
+
+(defn subtype? [& rs]
+  (impl/with-cljs-impl
+    (sub/reset-subtype-cache)
+    (apply sub/subtype? rs)))
+
+(defmacro sub? [s t]
+  `(impl/with-cljs-impl
+     (sub/reset-subtype-cache)
+     (subtype? (prs/parse-type '~s)
+               (prs/parse-type '~t))))

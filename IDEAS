@@ -1,0 +1,2 @@
+1. Generate TS annotations using https://github.com/fable-compiler/ts2fable
+2. Generate Google Closure annotations using https://github.com/jleyba/js-dossier

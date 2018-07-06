@@ -7,7 +7,7 @@
   (:require [clojure.set :as set])
   (:use [clojure.walk :only [postwalk]]))
 
-(cljs-ann *occurs-check* BooleanCLJS)
+(cljs-ann *occurs-check* JSBoolean)
 (def ^{:dynamic true} *occurs-check* true)
 
 (defprotocol IUnifyTerms
