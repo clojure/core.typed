@@ -5298,7 +5298,7 @@
                               [sdef])))
                   (sort-by first (type-env env)))
 
-            _ (prn "used-aliases" @used-aliases)
+            ;_ (prn "used-aliases" @used-aliases)
             ; depends on side effects from above call
             aenv (binding [*multispecs-needed* multispecs-needed]
                    (unparse-spec-aliases env (sort @used-aliases)))
