@@ -2541,7 +2541,8 @@ for checking namespaces, cf for checking individual forms."}
     :compile
     (impl/with-impl impl/clojure
       (binding [vs/*prepare-infer-ns* true
-                vs/*instrument-infer-config* (dissoc config :ns)]
+                vs/*instrument-infer-config* (-> config
+                                                 (dissoc :ns))]
         (typed-load/load-typed-file 
           (subs (@#'clojure.core/root-resource (if (symbol? ns) ns (ns-name ns))) 1))))
     :instrument
