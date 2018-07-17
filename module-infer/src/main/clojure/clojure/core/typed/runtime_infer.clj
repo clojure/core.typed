@@ -2341,7 +2341,8 @@
 
 ;; generate good alias name for `s/keys`
 (defn register-unique-alias-for-spec-keys [env config k t]
-  {:pre [(keyword? k)]
+  {:pre [(keyword? k)
+         (type? t)]
    :post [(namespace (first %))]}
   (let [qualified? (boolean (namespace k))
         sym (if qualified?
@@ -2351,7 +2352,7 @@
               (symbol (unq-spec-nstr) (name k)))]
     ;(prn "register" sym)
     [sym (if true #_qualified?
-           (update-alias-env env update sym (fnil join -nothing) t)
+           (update-alias-env env update sym #(if %1 (join %1 %2) %2) t)
            (register-alias env config sym t))]))
 
 (defn resolve-alias [env {:keys [name] :as a}]
@@ -3273,6 +3274,8 @@
                        class)
                      (unwrap-value v))]
              ;(prn "call-ids" (map (comp #(map (comp :name first) %) first) call-ids))
+             ;FIXME memory intensive
+             #_
              (swap! results-atom update :call-flows
                     (fn [flows]
                       (reduce (fn [flows call-id]

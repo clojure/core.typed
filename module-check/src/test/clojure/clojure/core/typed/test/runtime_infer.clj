@@ -1589,4 +1589,14 @@
                                      :test {:Op :val :val 'blah}
                                      :then {:Op :val :val 'blah}
                                      :else {:Op :val :val 'blah}})]))
+  ;; ensure unvisited map entries have type Any/? not (s/or)
+  (is (infer-test :defs [(require '[clojure.walk :as w])
+                         (def Op-multi-spec nil)
+                         (defn takes-op [a]
+                           (mapv identity a))]
+                  :tests [(takes-op {:Op :val :val 'blah
+                                     :children {:foo [:a :b :c]}
+                                     })
+                          (takes-op {:Op :if
+                                     :children {:foo [:a :b :c]}})]))
 )
