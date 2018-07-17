@@ -312,11 +312,19 @@
 (defn swap-infer-results! [results-atom f & args]
   (apply swap! results-atom update :infer-results f args))
 
-(defn add-infer-result! [results-atom r]
-  (swap-infer-results! results-atom (fnil conj #{}) r))
-
 (defn add-infer-results! [results-atom r]
-  (swap-infer-results! results-atom (fnil into #{}) r))
+  (swap! results-atom
+         (fn [m]
+           (-> m
+               (update :root-results
+                       (fn [root-results]
+                         (reduce (fn [root-results nme]
+                                   (if (symbol? nme)
+                                     (update root-results nme (fnil inc 1))
+                                     root-results))
+                                 root-results
+                                 (map (comp :name #(nth % 0) :path) r))))
+               (update :infer-results #(into (or % #{}) r))))))
 
 (defn get-infer-results [results-atom]
   (get @results-atom :infer-results))
@@ -3263,19 +3271,31 @@
     u
     v))
 
+(def track-metric-cache (atom {}))
+
 ; track : (Atom InferResultEnv) Value Path -> Value
 (defn track 
-  ([{:keys [track-depth track-count track-strategy] :as config} results-atom v paths call-ids]
+  ([{:keys [track-depth track-count track-strategy track-metric root-results force-depth] :as config} results-atom v paths call-ids]
    {:pre [((con/set-c? vector?) paths)
           (seq paths)
           ((con/set-c? vector?) call-ids)]}
-   (let [_ (let [hs ((juxt 
+   (when (string? track-metric)
+     (let [tm (or (get @track-metric-cache track-metric)
+                  (-> track-metric read-string eval))
+           _ (when-not (@track-metric-cache track-metric)
+               (reset! track-metric-cache {track-metric tm}))]
+       (tm (merge config 
+                  {:results-atom results-atom
+                   :v v 
+                   :paths paths 
+                   :call-ids call-ids}))))
+   (let [;FIXME memory intensive
+         #_#_
+         _ (let [hs ((juxt 
                        #(System/identityHashCode %)
                        class)
                      (unwrap-value v))]
              ;(prn "call-ids" (map (comp #(map (comp :name first) %) first) call-ids))
-             ;FIXME memory intensive
-             #_
              (swap! results-atom update :call-flows
                     (fn [flows]
                       (reduce (fn [flows call-id]
@@ -3290,18 +3310,28 @@
                                         flows
                                         paths))
                               flows
-                              call-ids))))]
+                              call-ids))))
+         paths-that-exceed-root-results (let [rr (:root-results @results-atom)]
+                                          (when root-results
+                                            (filter #(< root-results (get rr (-> % first :name) 0))
+                                                    paths)))]
      (cond
        ((some-fn keyword? nil? false?) v)
        (do
-         (add-infer-results! results-atom (infer-results paths (-val v)))
+         (add-infer-results! results-atom (infer-results (remove (set paths-that-exceed-root-results) paths)
+                                                         (-val v)))
          v)
 
        ;; cut off path
        (or
-         (when-let [track-depth track-depth]
-           (> (apply min (map count paths)) track-depth))
-         (not *should-track*))
+         (not *should-track*)
+         ;; cap at 1000 results per var
+         (seq paths-that-exceed-root-results)
+         (let [smallest-path-count (apply min (map count paths))]
+           (if (and force-depth (>= force-depth smallest-path-count))
+             false
+             (when track-depth
+               (> smallest-path-count track-depth)))))
        ;(debug
        ;  (println "Cut off inference at path "
        ;           (unparse-path path)
@@ -3312,7 +3342,8 @@
        ;           ")")
          (let [;; record as unknown so this doesn't
                ;; cut off actually recursive types.
-               _ (add-infer-results! results-atom (infer-results paths {:op :unknown}))]
+               _ (add-infer-results! results-atom (infer-results (remove (set paths-that-exceed-root-results) paths)
+                                                                 {:op :unknown}))]
            (unwrap-value v))
        ;)
 
@@ -3545,102 +3576,99 @@
                               (binding [*should-track* false]
                                 (extend-paths paths (key-path kw-entries-types ks k)))
                               call-ids)))
-                 ]
-             (cond
-               (= track-strategy :lazy)
-               (PersistentMapProxy. v
-                                    (zipmap (apply disj ks with-kw-val)
-                                            (repeat {{:all-kws? true
-                                                      :kw-entries-types kw-entries-types
-                                                      :ks ks}
-                                                     {:paths paths
-                                                      :call-ids call-ids}}))
-                                    config
-                                    results-atom
-                                    kw-entries-types
-                                    ks
-                                    true)
-               :else
-               (reduce
-                 (fn [m [k orig-v]]
-                   (let [v (track config results-atom orig-v
-                                  (binding [*should-track* false]
-                                    (extend-paths paths (key-path kw-entries-types ks k)))
-                                  call-ids)]
-                     (cond
-                       ;; only assoc if needed
-                       (identical? v orig-v) m
+                 v (if (= track-strategy :lazy)
+                     (PersistentMapProxy. v
+                                          (zipmap (apply disj ks with-kw-val)
+                                                  (repeat {{:all-kws? true
+                                                            :kw-entries-types kw-entries-types
+                                                            :ks ks}
+                                                           {:paths paths
+                                                            :call-ids call-ids}}))
+                                          config
+                                          results-atom
+                                          kw-entries-types
+                                          ks
+                                          true)
+                     v)]
+             (reduce
+               (fn [m [k orig-v]]
+                 (let [v (track config results-atom orig-v
+                                (binding [*should-track* false]
+                                  (extend-paths paths (key-path kw-entries-types ks k)))
+                                call-ids)]
+                   (cond
+                     ;; only assoc if needed
+                     (identical? v orig-v) m
 
-                       :else
-                       (binding [*should-track* false]
-                         (assoc m k v)))))
-                 v
-                 no-kw-val)))
+                     :else
+                     (binding [*should-track* false]
+                       (assoc m k v)))))
+               v
+               no-kw-val))
 
            :else
-           (let [so-far (atom 0)]
-             (cond
-               (= track-strategy :lazy)
-               (PersistentMapProxy. v
-                                    (zipmap ks (repeat {{:all-kws? false
-                                                         :kw-entries-types {}
-                                                         :ks ks}
-                                                        {:paths paths
-                                                         :call-ids call-ids}}))
-                                    config
-                                    results-atom
-                                    {}
-                                    ks
-                                    false)
-               :else
-               (reduce
-                 (fn [m k]
-                   (swap! so-far inc)
-                   (let [orig-v (get m k)
-                         [new-k v] 
-                         (cond
-                           ;; We don't want to pollute the HMap-req-ks with
-                           ;; non keywords (yet), disable.
-                           ;(keyword? k)
-                           ;[k (track config results-atom orig-v
-                           ;          (binding [*should-track* false]
-                           ;            (extend-paths paths (key-path {} ks k))))]
+           (let [so-far (atom 0)
+                 v (if (= track-strategy :lazy)
+                     (PersistentMapProxy. v
+                                          (zipmap ks (repeat {{:all-kws? false
+                                                               :kw-entries-types {}
+                                                               :ks ks}
+                                                              {:paths paths
+                                                               :call-ids call-ids}}))
+                                          config
+                                          results-atom
+                                          {}
+                                          ks
+                                          false)
+                     v)]
+             (reduce
+               (fn [m k]
+                 (swap! so-far inc)
+                 (let [orig-v (get m k)
+                       [new-k v] 
+                       (cond
+                         ;; We don't want to pollute the HMap-req-ks with
+                         ;; non keywords (yet), disable.
+                         ;(keyword? k)
+                         ;[k (track config results-atom orig-v
+                         ;          (binding [*should-track* false]
+                         ;            (extend-paths paths (key-path {} ks k))))]
 
-                           :else 
-                           [(track config results-atom k
-                                   (binding [*should-track* false]
-                                     (extend-paths paths (map-keys-path)))
-                                   call-ids)
-                            (track config results-atom orig-v
-                                   (binding [*should-track* false]
-                                     (extend-paths paths (map-vals-path)))
-                                   call-ids)])]
-                     (cond
-                       ; cut off homogeneous map
-                       (when-let [tc *track-count*]
-                         (< tc @so-far))
-                       (reduced
-                         (binding [*should-track* false]
-                           (-> m
-                               ;; ensure we replace the key
-                               (dissoc k)
-                               (assoc new-k v))))
-
-                       ;; only assoc if needed
-                       (identical? v orig-v) m
-
-                       ;; make sure we replace the key
-                       (not (identical? new-k k))
+                         :else 
+                         [(track config results-atom k
+                                 (binding [*should-track* false]
+                                   (extend-paths paths (map-keys-path)))
+                                 call-ids)
+                          (track config results-atom orig-v
+                                 (binding [*should-track* false]
+                                   (extend-paths paths (map-vals-path)))
+                                 call-ids)])]
+                   (cond
+                     ; cut off homogeneous map
+                     (when-let [tc *track-count*]
+                       (< tc @so-far))
+                     (reduced
                        (binding [*should-track* false]
                          (-> m
+                             ;; ensure we replace the key
                              (dissoc k)
-                             (assoc new-k v)))
+                             (assoc new-k v))))
 
-                       :else
-                       (binding [*should-track* false]
-                         (assoc m new-k v)))))
-                 v
-                 (keys v))))))
+                     ;; only assoc if needed
+                     (identical? v orig-v) m
+
+                     ;; make sure we replace the key
+                     (not (identical? new-k k))
+                     (binding [*should-track* false]
+                       (-> m
+                           (dissoc k)
+                           (assoc new-k v)))
+
+                     :else
+                     (binding [*should-track* false]
+                       (assoc m new-k v)))))
+               v
+               (keys v)))))
 
         (instance? clojure.lang.IAtom v)
         (let [old-val (-> v meta ::t/old-val)
