@@ -3469,15 +3469,14 @@
              vl (track config results-atom (nth v 1) (extend-paths paths (index-path 2 1)) call-ids)]
          (assoc v 0 k 1 vl))
 
-       (and (vector? v) 
-            (satisfies? clojure.core.protocols/IKVReduce v)) ; MapEntry's are not IKVReduce
+       (vector? v)
        (let [heterogeneous? (<= (count v) 4)
              len (count v)
              so-far (atom 0)]
          (when (= 0 len)
            (add-infer-results! results-atom (infer-results paths (-class clojure.lang.IPersistentVector [{:op :union :types #{}}]))))
-         (reduce-kv
-           (fn [e k v]
+         (reduce
+           (fn [e [k v]]
              (swap! so-far inc)
              (let [v' (track config results-atom v (extend-paths 
                                                      paths 
@@ -3496,7 +3495,7 @@
                  (binding [*should-track* false]
                    (assoc e k v')))))
            v
-           v))
+           (map-indexed vector v)))
 
        (set? v)
        (do
@@ -4150,10 +4149,14 @@
        ;; namespace.
        :def (let [v (:var expr)
                   _ (assert ((some-fn nil? var?) v))
-                  no-infer? (some-> v meta ::t/no-infer)
+                  no-infer? (or (some-> v meta ::t/no-infer)
+                                ;; if we enable macros, make sure we don't traverse
+                                ;; &env or &form -- &env at least pollutes HMaps.
+                                (some-> v meta :macro))
                      ]
               (when no-infer?
-                (prn "no-infer" (ast/def-var-name expr)))
+                (println (str "Not instrumenting " (ast/def-var-name expr) " definition"))
+                (flush))
               (if (and (:init expr)
                        (not no-infer?))
                 (update expr :init 
