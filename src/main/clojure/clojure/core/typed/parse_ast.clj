@@ -6,10 +6,6 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.set :as set]))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-)
-
 (t/ann *parse-type-in-ns* (t/U nil t/Sym))
 (defonce ^:dynamic *parse-type-in-ns* nil)
 
@@ -512,6 +508,12 @@
   (let [_ (when-not (#{2} (count args))
             (err/int-error "Wrong arguments to All"))
         [bnds type] args
+        _ (when-not (vector? bnds)
+            (err/int-error "Wrong arguments to All"))
+        [bnds kwargs] (split-with (complement keyword?) bnds)
+        _ (when-not (even? (count kwargs))
+            (err/int-error "Wrong arguments to All"))
+        {:keys [named] :as kwargs} kwargs
         dotted? (boolean 
                   ('#{...} (last bnds)))
         [fs frees-with-bnds] (reduce (fn [[fs prsed] fsyn]
@@ -541,6 +543,7 @@
          :binder (concat frees-with-bnds
                          (when dotted?
                            [dvar]))
+         :named (or named {})
          :type (parse type)
          :children [:type]}))))
 
