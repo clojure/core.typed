@@ -156,18 +156,29 @@
 ;return a vector of [name bnds]
 (defn parse-free [f]
   {:post [((con/hvector-c? symbol? r/Bounds?) %)]}
-  (if (symbol? f)
-    [f r/no-bounds]
-    (let [[n & {:keys [< >] :as opts}] f]
-      (when (contains? opts :kind)
-        (err/deprecated-warn "Kind annotation for TFn parameters"))
-      (when (:variance opts) 
-        (err/int-error "Variance not supported for variables introduced with All"))
-      [n (let [upper-or-nil (when (contains? opts :<)
-                              (parse-type <))
-               lower-or-nil (when (contains? opts :>)
-                              (parse-type >))]
-           (c/infer-bounds upper-or-nil lower-or-nil))])))
+  (let [validate-sym (fn [s]
+                       (when-not (symbol? s)
+                         (err/int-error (str "Type variable must be a symbol, given: " (pr-str s))))
+                       (when (namespace s)
+                         (err/int-error (str "Type variable must not be namespace qualified: " (pr-str s))))
+                       (when (.contains (name s) ".")
+                         (err/int-error (str "Type variable must not contain dots (.): " (pr-str s))))
+                       (when (#{"true" "nil" "false"} (name s))
+                         (err/int-error (str "Type variable must not be named true, false, or nil: " (pr-str s)))))]
+    (if (symbol? f)
+      (do (validate-sym f)
+          [f r/no-bounds])
+      (let [[n & {:keys [< >] :as opts}] f]
+        (validate-sym n)
+        (when (contains? opts :kind)
+          (err/deprecated-warn "Kind annotation for TFn parameters"))
+        (when (:variance opts) 
+          (err/int-error "Variance not supported for variables introduced with All"))
+        [n (let [upper-or-nil (when (contains? opts :<)
+                                (parse-type <))
+                 lower-or-nil (when (contains? opts :>)
+                                (parse-type >))]
+             (c/infer-bounds upper-or-nil lower-or-nil))]))))
 
 (defn check-forbidden-rec [rec tbody]
   (letfn [(well-formed? [t]
@@ -362,14 +373,15 @@
                (conj out group))))))
 
 (defn parse-dotted-binder [bnds]
+  {:pre [(vector? bnds)]}
   (let [frees-with-bnds (reduce (fn [fs fsyn]
                                   {:pre [(vector? fs)]
                                    :post [(every? (con/hvector-c? symbol? r/Bounds?) %)]}
                                   (conj fs
                                         (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) fs))
                                           (parse-free fsyn))))
-                                [] (-> bnds butlast butlast))
-        dvar (parse-free (-> bnds butlast last))]
+                                [] (-> bnds pop pop))
+        dvar (parse-free (-> bnds pop peek))]
     [frees-with-bnds dvar]))
 
 (defn parse-normal-binder [bnds]
@@ -386,26 +398,75 @@
 (defn parse-unknown-binder [bnds]
   {:pre [((some-fn nil? vector?) bnds)]}
   (when bnds
-    ((if (#{'...} (last bnds))
+    ((if (#{'...} (peek bnds))
        parse-dotted-binder
        parse-normal-binder)
      bnds)))
 
+(defn parse-All-binder [bnds]
+  {:pre [(vector? bnds)]}
+  (let [[positional kwargs] (split-with (complement keyword?) bnds)
+        positional (vec positional)
+        _ (when-not (even? (count kwargs))
+            (err/int-error (str "Expected an even number of keyword options to All, given: " (vec kwargs))))
+        _ (when (seq kwargs)
+            (when-not (apply distinct? (map first (partition 2 kwargs)))
+              (err/int-error (str "Gave repeated keyword args to All: " (vec kwargs)))))
+        {:keys [named] :as kwargs} kwargs
+        _ (let [unsupported (set/difference (set (keys kwargs)) #{:named})]
+            (when (seq unsupported)
+              (err/int-error (str "Unsupported keyword argument(s) to All: " unsupported))))
+        _ (when (contains? kwargs :named)
+            (when-not (and (vector? named)
+                           (every? symbol? named))
+              (err/int-error (str ":named keyword argument to All must be a vector of symbols, given: " (pr-str named)))))
+        dotted? (= '... (peek positional))
+        bnds* (if named
+                (let [positional-no-dotted (if dotted?
+                                             (pop (pop positional))
+                                             positional)
+                      ;; fit :named variables between positional and dotted variable, because 
+                      ;; PolyDots expects the dotted variable last.
+                      bnds* (vec (concat positional-no-dotted named
+                                         (when dotted?
+                                           (subvec positional (- (count positional) 2)))))]
+                  bnds*)
+                positional)
+        no-dots (if dotted?
+                  (pop bnds*)
+                  bnds*)
+        _ (when (seq no-dots)
+            (when-not (apply distinct? no-dots)
+              (err/int-error (str "Variables bound by All must be unique, given: " no-dots))))
+        named-map (let [sym-to-pos (into {} (map-indexed #(vector %2 %1)) no-dots)]
+                    (select-keys sym-to-pos named))
+        ;; TODO 
+        ;; update usages of parse-unknown-binder to use parse-All-binder
+        [frees-with-bnds dvar] ((if dotted?
+                                  parse-dotted-binder
+                                  parse-normal-binder)
+                                bnds*)]
+    {:frees-with-bnds frees-with-bnds
+     :dvar dvar
+     :named named-map}))
+
 ;dispatch on last element of syntax in binder
 (defn parse-all-type [bnds type]
   (let [_ (assert (vector? bnds))
-        [frees-with-bnds dvar] (parse-unknown-binder bnds)
+        {:keys [frees-with-bnds dvar named]} (parse-All-binder bnds)
         bfs (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))]
     (if dvar
       (free-ops/with-bounded-frees bfs
         (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
                      (map second (concat frees-with-bnds [dvar]))
                      (dvar/with-dotted [(r/make-F (first dvar))]
-                       (parse-type type))))
+                       (parse-type type))
+                     :named named))
       (free-ops/with-bounded-frees bfs
         (c/Poly* (map first frees-with-bnds)
                  (map second frees-with-bnds)
-                 (parse-type type))))))
+                 (parse-type type)
+                 :named named)))))
 
 (defmethod parse-type-list 'Extends
   [[_ extends & {:keys [without] :as opts} :as syn]]
@@ -418,7 +479,7 @@
 
 (defn parse-All [[_All_ bnds syn & more :as all]]
   ;(prn "All syntax" all)
-  (when-not (not more) 
+  (when more
     (err/int-error (str "Bad All syntax: " all)))
   (parse-all-type bnds syn))
 
@@ -1570,19 +1631,40 @@
           [name :> l])
         name)))
 
+(defn unparse-poly-dotted-bounds-entry [free-name bbnd]
+  ; ignore dotted bound for now, not sure what it means yet.
+  [(-> free-name r/make-F r/F-original-name) '...])
+
+(defn unparse-poly-binder [dotted? free-names bbnds named]
+  (let [named-remappings (apply sorted-map (interleave (vals named) (keys named)))
+        {:keys [fixed-inb named-inb]} (group-by (fn [[i]]
+                                                  (if (named-remappings i)
+                                                    :named-inb
+                                                    :fixed-inb))
+                                                (map vector
+                                                     (range)
+                                                     free-names
+                                                     bbnds))
+        [fixed-inb dotted-inb] (if dotted?
+                                 ((juxt pop peek) fixed-inb)
+                                 [fixed-inb nil])
+        unp-inb (fn [[_ free-name bbnd]]
+                  (unparse-poly-bounds-entry free-name bbnd))
+        binder (into (mapv unp-inb fixed-inb)
+                     (concat
+                       (when-let [[_ free-name bbnd] dotted-inb]
+                         (unparse-poly-dotted-bounds-entry free-name bbnd))
+                       (when named-inb
+                         [:named (mapv unp-inb named-inb)])))]
+    binder))
+
 (defmethod unparse-type* PolyDots
-  [{:keys [nbound] :as p}]
-  (let [free-and-dotted-names (vec (c/PolyDots-fresh-symbols* p))
-        ; ignore dotted bound for now
-        bbnds (butlast (c/PolyDots-bbnds* free-and-dotted-names p))
-        binder (vec (concat (map unparse-poly-bounds-entry 
-                                 (butlast free-and-dotted-names) 
-                                 bbnds)
-                            [(-> (last free-and-dotted-names)
-                                 r/make-F r/F-original-name) 
-                             '...]))
-        body (c/PolyDots-body* free-and-dotted-names p)]
-    (list 'All binder (unparse-type body))))
+  [{:keys [nbound named] :as p}]
+  (let [free-names (vec (c/PolyDots-fresh-symbols* p))
+        bbnds (c/PolyDots-bbnds* free-names p)
+        binder (unparse-poly-binder true free-names bbnds named)
+        body (c/PolyDots-body* free-names p)]
+    (list (unparse-Name-symbol-in-ns `t/All) binder (unparse-type body))))
 
 (defmethod unparse-type* Extends
   [{:keys [extends without]}]
@@ -1592,11 +1674,11 @@
            [:without (mapv unparse-type without)])))
 
 (defmethod unparse-type* Poly
-  [{:keys [nbound] :as p}]
+  [{:keys [nbound named] :as p}]
   (let [free-names (c/Poly-fresh-symbols* p)
         ;_ (prn "Poly unparse" free-names (map meta free-names))
         bbnds (c/Poly-bbnds* free-names p)
-        binder (mapv unparse-poly-bounds-entry free-names bbnds)
+        binder (unparse-poly-binder false free-names bbnds named)
         body (c/Poly-body* free-names p)]
     (list (unparse-Name-symbol-in-ns `t/All) binder (unparse-type body))))
 

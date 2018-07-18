@@ -37,66 +37,92 @@
        (sub/subtype? (:lower-bound bnds) t)))
 
 (defn manual-inst 
-  "Poly Type^n -> Type
+  "Poly (Vec Type) (Map Sym Type) -> Type
   Substitute the type parameters of the polymorphic type
   with given types"
-  [ptype argtys]
+  [ptype argtys named]
   {:pre [((some-fn r/Poly? r/PolyDots?) ptype)
-         (every? r/Type? argtys)]
+         (vector? argtys)
+         (every? r/Type? argtys)
+         (every? symbol? (keys named))
+         (every? r/Type? (vals named))]
    :post [(r/Type? %)]}
-  (cond
-    (r/Poly? ptype)
-    (let [_ (when-not (= (:nbound ptype) (count argtys)) 
-              (err/int-error
-                (str "Wrong number of arguments to instantiate polymorphic type (expected " (:nbound ptype)
-                     ", actual " (count argtys)
-                     "\n\nTarget:\n" (prs/unparse-type ptype)
-                     "\n\nActual arguments:\n" (string/join " " (map prs/unparse-type argtys)))))
-          names (c/Poly-fresh-symbols* ptype)
-          body (c/Poly-body* names ptype)
-          bbnds (c/Poly-bbnds* names ptype)]
-      (free-ops/with-bounded-frees (zipmap (map r/make-F names) bbnds)
-        (doseq [[nme ty bnds] (map vector names argtys bbnds)]
-          (assert (not (:higher-kind bnds)))
-          (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
-                upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
-            (when-not (sub/subtype? lower-bound upper-bound)
-              (err/int-error
-                (str "Lower-bound " (prs/unparse-type lower-bound)
-                     " is not below upper-bound " (prs/unparse-type upper-bound))))
-            (when-not (and (sub/subtype? ty upper-bound)
-                           (sub/subtype? lower-bound ty))
-              (err/int-error
-                (str "Manually instantiated type " (prs/unparse-type ty)
-                     " is not between bounds " (prs/unparse-type lower-bound)
-                     " and " (prs/unparse-type upper-bound))))))
-        (subst/substitute-many body argtys names)))
+  (let [dotted? (r/PolyDots? ptype)
+        nrequired ((if dotted? dec identity)
+                   (- (:nbound ptype) (count (:named ptype))))
+        _ (when-not ((if dotted? <= =) nrequired (count argtys))
+            (err/int-error
+              (str "Wrong number of arguments to instantiate polymorphic type (expected " 
+                   (when dotted? "at least ")
+                   nrequired
+                   ", actual " (count argtys)
+                   "\n\nTarget:\n" (prs/unparse-type ptype)
+                   "\n\nActual arguments:\n" (string/join " " (map prs/unparse-type argtys)))))
+        expected-named (:named ptype)
+        _ (when (empty? expected-named)
+            (when (seq named)
+              (err/int-error (str "Passed :named types to instantiate first argument of inst, but this type doesn't have :named arguments: "
+                                  (pr-str ptype)))))
+        ;; splice :named arguments between fixed and dotted params
+        argtys-before-named-subst (let [[fixedtys dottedtys] [(subvec argtys 0 nrequired)
+                                                              (subvec argtys nrequired)]]
+                                    ;; :named arguments default to t/Any
+                                    (into fixedtys
+                                          (concat (repeat (count expected-named) r/-any)
+                                                  dottedtys)))
+        ;; fill in provided :named arguments
+        argtys (reduce (fn [argtys [k v]]
+                         (if-let [i (get expected-named k)]
+                           (assoc argtys i v)
+                           (err/int-error (str "Unrecognized :named variable passed to inst, "
+                                               "given: " (pr-str k)
+                                               " expected one of: " (pr-str (keys expected-named))))))
+                       argtys-before-named-subst
+                       named)]
+    (cond
+      (r/Poly? ptype)
+      (let [names (c/Poly-fresh-symbols* ptype)
+            body (c/Poly-body* names ptype)
+            bbnds (c/Poly-bbnds* names ptype)]
+        (free-ops/with-bounded-frees (zipmap (map r/make-F names) bbnds)
+          (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+            (assert (not (:higher-kind bnds)))
+            (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
+                  upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
+              (when-not (sub/subtype? lower-bound upper-bound)
+                (err/int-error
+                  (str "Lower-bound " (prs/unparse-type lower-bound)
+                       " is not below upper-bound " (prs/unparse-type upper-bound))))
+              (when-not (and (sub/subtype? ty upper-bound)
+                             (sub/subtype? lower-bound ty))
+                (err/int-error
+                  (str "Manually instantiated type " (prs/unparse-type ty)
+                       " is not between bounds " (prs/unparse-type lower-bound)
+                       " and " (prs/unparse-type upper-bound))))))
+          (subst/substitute-many body argtys names)))
 
-    (r/PolyDots? ptype)
-    (let [nrequired-types (dec (:nbound ptype))
-          _ (when-not (<= nrequired-types (count argtys)) 
-              (err/int-error
-                (str "Insufficient arguments to instantiate dotted polymorphic type")))
-          names (c/PolyDots-fresh-symbols* ptype)
-          body (c/PolyDots-body* names ptype)
-          bbnds (c/PolyDots-bbnds* names ptype)]
-      (free-ops/with-bounded-frees (zipmap (-> (map r/make-F names) butlast) (butlast bbnds))
-        (doseq [[nme ty bnds] (map vector names argtys bbnds)]
-          (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
-                upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
-            (when-not (sub/subtype? lower-bound upper-bound)
-              (err/int-error
-                (str "Lower-bound " (prs/unparse-type lower-bound)
-                     " is not below upper-bound " (prs/unparse-type upper-bound))))
-            (when-not (and (sub/subtype? ty upper-bound)
-                           (sub/subtype? lower-bound ty))
-              (err/int-error
-                (str "Manually instantiated type " (prs/unparse-type ty)
-                     " is not between bounds " (prs/unparse-type lower-bound)
-                     " and " (prs/unparse-type upper-bound))))))
-        (-> body
-          ; expand dotted pre-types in body
-          (trans/trans-dots (last names) ;the bound
-                            (drop (dec (:nbound ptype)) argtys)) ;the types to expand pre-type with
-          ; substitute normal variables
-          (subst/substitute-many (take nrequired-types argtys) (butlast names)))))))
+      (r/PolyDots? ptype)
+      (let [names (vec (c/PolyDots-fresh-symbols* ptype))
+            body (c/PolyDots-body* names ptype)
+            bbnds (c/PolyDots-bbnds* names ptype)
+            dotted-argtys-start (dec (:nbound ptype))]
+        (free-ops/with-bounded-frees (zipmap (-> (map r/make-F names) butlast) (butlast bbnds))
+          (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+            (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
+                  upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
+              (when-not (sub/subtype? lower-bound upper-bound)
+                (err/int-error
+                  (str "Lower-bound " (prs/unparse-type lower-bound)
+                       " is not below upper-bound " (prs/unparse-type upper-bound))))
+              (when-not (and (sub/subtype? ty upper-bound)
+                             (sub/subtype? lower-bound ty))
+                (err/int-error
+                  (str "Manually instantiated type " (prs/unparse-type ty)
+                       " is not between bounds " (prs/unparse-type lower-bound)
+                       " and " (prs/unparse-type upper-bound))))))
+          (-> body
+            ; expand dotted pre-types in body
+            (trans/trans-dots (peek names) ;the bound
+                              (subvec argtys dotted-argtys-start)) ;the types to expand pre-type with
+            ; substitute normal variables
+            (subst/substitute-many (subvec argtys 0 dotted-argtys-start) (pop names))))))))

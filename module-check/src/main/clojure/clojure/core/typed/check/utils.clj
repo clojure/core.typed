@@ -105,23 +105,12 @@
 
 ;(t/ann hvec->rets [HeterogeneousVector -> (Seqable TCResult)])
 (defn hvec->rets [v]
-{:pre [(r/HeterogeneousVector? v)]
- :post [(every? r/TCResult? %)]}
-(map r/ret
+  {:pre [(r/HeterogeneousVector? v)]
+   :post [(every? r/TCResult? %)]}
+  (map r/ret
        (:types v)
        (:fs v)
        (:objects v)))
-
-;[Type (Seqable t/Sym) (Seqable F) (U :Poly :Polydots nil) -> Type]
-(defn rewrap-poly [body inst-frees bnds poly?]
-  {:pre [(r/Type? body)
-         (every? r/F? inst-frees)
-         ((some-fn nil? #{:Poly :PolyDots}) poly?)]
-   :post [(r/Type? %)]}
-  (case poly?
-    :Poly (c/Poly* (map :name inst-frees) bnds body)
-    :PolyDots (c/PolyDots* (map :name inst-frees) bnds body)
-    body))
 
 (defn- get-demunged-protocol-method [unwrapped-p mungedsym]
   {:pre [(symbol? mungedsym)
@@ -232,7 +221,8 @@
           body (extend-method-expected target-type body)]
       (c/Poly* names 
                (c/Poly-bbnds* names expected)
-               body))
+               body
+               :named (:named expected)))
 
     (r/PolyDots? expected)
     (let [names (c/PolyDots-fresh-symbols* expected)
@@ -240,7 +230,8 @@
           body (extend-method-expected target-type body)]
       (c/PolyDots* names 
                    (c/PolyDots-bbnds* names expected)
-                   body))
+                   body
+                   :named (:named expected)))
     :else (err/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
 
 (defn protocol-implementation-type [datatype {:keys [declaring-class] :as method-sig}]
