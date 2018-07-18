@@ -108,6 +108,6 @@ workflows:
       - core_typed_tests:
           requires:
             - core_typed_dependencies
-      #- rti_tests:
-      #    requires:
-      #      - core_typed_dependencies
+      - rti_tests:
+          requires:
+            - core_typed_dependencies
