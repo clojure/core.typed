@@ -479,12 +479,13 @@
          (let [ns-form (ns-depsu/ns-form-for-ns nsym)
                check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
            (if-not check?
-             (do (println (str "Not checking " nsym 
-                               (cond
-                                 (not ns-form) " (ns form missing)"
-                                 (ns-depsu/collect-only-ns? ns-form) " (tagged :collect-only in ns metadata)"
-                                 (not (ns-depsu/requires-tc? ns-form)) " (does not depend on clojure.core.typed)")))
-                 (flush))
+             (when-not (#{'clojure.core.typed 'cljs.core.typed} nsym)
+               (println (str "Not checking " nsym 
+                             (cond
+                               (not ns-form) " (ns form missing)"
+                               (ns-depsu/collect-only-ns? ns-form) " (tagged :collect-only in ns metadata)"
+                               (not (ns-depsu/requires-tc? ns-form)) " (does not depend on clojure.core.typed)")))
+               (flush))
              (let [start (. System (nanoTime))
                    asts (u/p :check/gen-analysis (ast-for-ns nsym))
                    _ (println "Start checking" nsym)
