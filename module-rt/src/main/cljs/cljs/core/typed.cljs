@@ -7,7 +7,7 @@
 (defn ^:skip-wiki
   ann* 
   "Internal use only. Use ann."
-  [varsym typesyn]
+  [qsym typesyn check? form]
   nil)
 
 (defn ^:skip-wiki

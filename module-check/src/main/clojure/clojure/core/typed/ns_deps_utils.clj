@@ -10,15 +10,16 @@
             [clojure.core.typed.internal :as internal]
             [clojure.java.io :as io]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (defn ns-form-for-file
   "Returns the namespace declaration for the file, or
   nil if not found"
   [file]
   (p/p :ns-deps-utils/ns-form-for-file
    (some-> (io/resource file)
-           ns-file/read-file-ns-decl)))
+           (ns-file/read-file-ns-decl
+             (impl/impl-case
+               :clojure ns-parse/clj-read-opts
+               :cljs ns-parse/cljs-read-opts)))))
 
 (defn ns-form-for-ns
   "Returns the namespace declaration for the namespace, or

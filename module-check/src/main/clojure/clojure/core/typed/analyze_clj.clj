@@ -33,6 +33,7 @@
             [clojure.core :as core]
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.expand :as expand]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ns-deps :as dep]
             [clojure.core.typed.ns-deps-utils :as dep-u])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
@@ -68,6 +69,7 @@
            ;ns-effect (clojure.core/in-ns name)
            name-metadata (meta name)]
        ;; core.typed side effect
+       (prn "ns form" &form)
        (let [prs-ns (dep-u/ns-form-name &form)
              deps   (dep-u/ns-form-deps &form)
              tdeps (set (filter dep-u/should-check-ns? deps))]
@@ -500,7 +502,10 @@
         reader (readers/indexing-push-back-reader file 1 p)
         eof  (reify)
         reader-opts (if (.endsWith ^String p ".cljc")
-                      {:eof eof :read-cond :allow}
+                      {:eof eof :read-cond :allow
+                       :features #{(impl/impl-case
+                                     :clojure :clj
+                                     :cljs (assert nil "Not allowed"))}}
                       {:eof eof})
         asts (binding [*ns* *ns*
                        *file* p]

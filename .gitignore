@@ -23,3 +23,5 @@ target
 *.iml
 .nrepl-port
 .DS_Store
+.cljs_*
+nashorn_*

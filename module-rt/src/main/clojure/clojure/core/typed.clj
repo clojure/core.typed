@@ -5,7 +5,7 @@ for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
                             defn atom ref cast
-                            #_def #_filter #_remove])
+                            #_filter #_remove])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
             [clojure.set :as set]
@@ -2748,7 +2748,7 @@ for checking namespaces, cf for checking individual forms."}
                      :column (U Int nil)}))
 
   (IFn [Contract Any -> Any]
-       [Contract Any Options -> Any]
+       [Contract Any Options -> Any])
 
   Options:
   - :positive   positive blame, (U Sym Str)

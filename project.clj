@@ -17,16 +17,16 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 ;[org.clojure/clojurescript "0.0-SNAPSHOT"]
-                 [org.clojure/clojurescript "1.10.363"]
+                 [org.clojure/clojurescript "0.0-SNAPSHOT"]
+                 [org.clojure/clojurescript "1.10.373"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.3.465"]
                  [org.clojure/tools.trace "0.7.5" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.analyzer.jvm "0.7.0"]
                  [org.clojure/tools.reader "1.1.1"]
-                 [org.clojure/math.combinatorics "0.1.3" :exclusions [org.clojure/clojure]]
-                 [org.clojure/tools.namespace "0.3.0-alpha3"]
+                 [org.clojure/math.combinatorics "0.1.4" :exclusions [org.clojure/clojure]]
+                 [org.clojure/tools.namespace "0.3.0-alpha4"]
                  [org.clojure/core.cache "0.6.5"]
                  [com.gfredericks/test.chuck "0.2.6"]
                  [org.clojure/test.check "0.9.0"]
@@ -35,23 +35,14 @@
 
   :repl-options {:port 64545
                  :timeout 6645464645555}
-
-  ; fireplace repl middleware
-  :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
-                                  [org.clojure/tools.nrepl "0.2.10"]]
-                   ; CLJS fireplace REPL
-                   :repl-options {:port 64545
-                                  :timeout 6645464644444455
-                                  ;:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]
-                                  }
-                   }
-             }
-
+  :profiles {:dev {:dependencies [[cider/piggieback "0.3.6"]
+                                  [org.clojure/tools.nrepl "0.2.13"]]
+                   :repl-options {:nrepl-middleware [cider.piggieback/wrap-cljs-repl]}} }
   :injections [(require 'clojure.core.typed)
                (clojure.core.typed/install
                  #{:load})]
 
-  :global-vars {*warn-on-reflection* true}
+  ;:global-vars {*warn-on-reflection* true}
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 

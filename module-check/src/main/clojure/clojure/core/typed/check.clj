@@ -55,6 +55,7 @@
             [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.vector :as vec]
+            [clojure.core.typed.check.with-meta :as with-meta]
             [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.check.special.cast :as cast]
             [clojure.core.typed.check.special.fn :as special-fn]
@@ -1952,14 +1953,8 @@
   (letfn/check-letfn bindings body expr expected check))
 
 (add-check-method :with-meta
-  [{:keys [expr meta] :as with-meta-expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)]}
-  (let [cexpr (check expr expected)
-        cmeta (check meta)]
-    (assoc with-meta-expr 
-           :expr cexpr
-           :meta cmeta
-           u/expr-type (u/expr-type cexpr))))
+  [expr & [expected]]
+  (with-meta/check-with-meta check-expr expr expected))
 
 (add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]

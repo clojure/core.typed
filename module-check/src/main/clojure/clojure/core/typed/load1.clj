@@ -84,8 +84,9 @@
   ;(prn "typed load" base-resource-paths)
   (doseq [base-resource-path base-resource-paths]
     (cond
-      (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
-          (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc")))
+      (impl/with-clojure-impl
+        (or (ns-utils/file-should-use-typed-load? (str base-resource-path ".clj"))
+            (ns-utils/file-should-use-typed-load? (str base-resource-path ".cljc"))))
       (do
         (when @#'clojure.core/*loading-verbosely*
           (printf "Loading typed file\n" base-resource-path))
