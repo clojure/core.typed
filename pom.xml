@@ -100,7 +100,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>1.10.363</version>
+      <version>1.10.373</version>
     </dependency>
   </dependencies>
 </project>

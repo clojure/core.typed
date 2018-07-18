@@ -27,6 +27,7 @@
             [clojure.core.typed.check.throw :as throw]
             [clojure.core.typed.check.quote :as quote]
             [clojure.core.typed.check.vector :as vec]
+            [clojure.core.typed.check.with-meta :as with-meta]
             [clojure.core.typed.check.special.fn :as special-fn]
             [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
@@ -115,18 +116,23 @@
 
 (add-check-method :js
   [{:keys [js-op args env] :as expr} & [expected]]
-  (assert js-op "js-op missing")
-  (let [res (expr-type (check {:op :invoke
-                               :from-js-op expr
-                               :env env
-                               :children [:fn :args]
-                               :fn {:op :var
-                                    :env env
-                                    :name js-op}
-                               :args args}
-                              expected))]
-    (assoc expr
-           expr-type res)))
+  (cond
+    js-op (let [res (expr-type (check {:op :invoke
+                                       :from-js-op expr
+                                       :env env
+                                       :children [:fn :args]
+                                       :fn {:op :var
+                                            :env env
+                                            :name js-op}
+                                       :args args}
+                                      expected))]
+            (assoc expr
+                   u/expr-type res))
+    :else (do (u/tc-warning (str "js-op missing, inferring Unchecked"))
+              (assoc expr
+                     u/expr-type (below/maybe-check-below
+                                   (r/ret (r/-unchecked))
+                                   expected)))))
 
 (defmulti invoke-special (fn [{{:keys [op] :as fexpr} :fn :as expr} & expected]
                            (when (= :var op)
@@ -279,18 +285,18 @@
 
 (add-check-method :do
   [expr & [expected]]
-  (do/check-do check internal-special-form expr expected))
+  (do/check-do check-expr internal-special-form expr expected))
 
 (add-check-method :fn
   [{:keys [methods] :as expr} & [expected]]
   (prepare-check-fn
     (if expected
       (fn/check-fn expr expected)
-      (special-fn/check-core-fn-no-expected check expr))))
+      (special-fn/check-core-fn-no-expected check-expr expr))))
 
 (add-check-method :set!
   [{:keys [target val] :as expr} & [expected]]
-  (set!/check-set! check expr expected))
+  (set!/check-set! check-expr expr expected))
 
 (add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
@@ -298,19 +304,19 @@
 
 (add-check-method :let
   [expr & [expected]]
-  (let/check-let check expr expected))
+  (let/check-let check-expr expr expected))
 
 (add-check-method :letfn
   [{:keys [bindings body env] :as expr} & [expected]]
-  (letfn/check-letfn bindings body expr expected check))
+  (letfn/check-letfn bindings body expr expected check-expr))
 
 (add-check-method :recur
   [{:keys [exprs env] :as recur-expr} & [expected]]
-  (recur/check-recur exprs env recur-expr expected check))
+  (recur/check-recur exprs env recur-expr expected check-expr))
 
 (add-check-method :loop
   [{:keys [] :as loop-expr} & [expected]]
-  (loop/check-loop check loop-expr expected))
+  (loop/check-loop check-expr loop-expr expected))
 
 (add-check-method :ns
   [expr & [expected]]
@@ -318,6 +324,13 @@
          expr-type (below/maybe-check-below
                      (ret r/-any)
                      expected)))
+
+(add-check-method :ns*
+  [expr & [expected]]
+  (assoc expr 
+         u/expr-type (below/maybe-check-below
+                       (r/ret r/-any)
+                       expected)))
 
 (add-check-method :binding
   [expr & [expected]]
@@ -334,8 +347,16 @@
 
 (add-check-method :new
   [{:keys [ctor args] :as expr} & [expected]]
-  (fail-empty expr))
+  (let [;; TODO check ctor
+        cargs (mapv check-expr args)]
+    (u/tc-warning (str "`new` special form is Unchecked"))
+    (assoc :args cargs
+           u/expr-type (below/maybe-check-below
+                         ;; TODO actual checks
+                         (r/ret (r/-unchecked))
+                         expected))))
 
+;; TODO does this actually work?
 (add-check-method :case
   [{:keys [test nodes default :as expr]} & [expected]]
   (chk/check
@@ -358,36 +379,67 @@
   [expr & [expected]]
   (fail-empty expr))
 
+;TODO
 (add-check-method :defrecord
   [expr & [expected]]
-  (fail-empty expr))
+  (u/tc-warning (str "`defrecord` special form is Unchecked"))
+  (assoc expr
+         u/expr-type (below/maybe-check-below
+                       (r/ret (r/-unchecked))
+                       expected)))
 
 (add-check-method :deftype
   [expr & [expected]]
-  (fail-empty expr))
+  (u/tc-warning (str "`deftype` special form is Unchecked"))
+  (assoc expr
+         u/expr-type (below/maybe-check-below
+                       (r/ret (r/-unchecked))
+                       expected)))
 
 (add-check-method :fn-method
   [expr & [expected]]
   (fail-empty expr))
 
 ; see clojure.core.typed.check.dot-cljs
+;; TODO check
 (add-check-method :host-call
   [{:keys [method target args] :as expr} & [expected]]
-  ;;return Any for now
-  (assoc expr expr-type (ret r/-any)))
+  (let [ctarget (check-expr target)
+        cargs (mapv check-expr args)]
+    (u/tc-warning (str "`.` special form is Unchecked"))
+    (assoc expr 
+           :target ctarget
+           :args cargs
+           u/expr-type (below/maybe-check-below
+                         (r/ret (r/-unchecked))
+                         expected))))
 
 ; see clojure.core.typed.check.dot-cljs
+;; TODO check
 (add-check-method :host-field
-  [expr & [expected]]
-  (assoc expr expr-type (ret r/-any)))
+  [{:keys [target] :as expr} & [expected]]
+  (let [ctarget (check-expr target)]
+    (u/tc-warning (str "`.` special form is Unchecked"))
+    (assoc expr 
+           :target ctarget
+           u/expr-type (below/maybe-check-below
+                         (r/ret (r/-unchecked))
+                         expected))))
 
+;; TODO check
 (add-check-method :js-array
-  [expr & [expected]]
-  (fail-empty expr))
+  [{:keys [items] :as expr} & [expected]]
+  (let [citems (mapv check-expr items)]
+    (u/tc-warning (str "`#js []` special form is Unchecked"))
+    (assoc expr 
+           :items citems
+           u/expr-type (below/maybe-check-below
+                         (r/ret (r/-unchecked))
+                         expected))))
 
 (add-check-method :js-object
   [{:keys [keys vals] :as expr} & [expected]]
-  (let [cvals (mapv check vals)]
+  (let [cvals (mapv check-expr vals)]
     (assoc expr
            :vals cvals
            u/expr-type (below/maybe-check-below
@@ -396,31 +448,38 @@
                                 (fo/-true-filter))
                          expected))))
 
+; TODO check
 (add-check-method :js-var
   [{:keys [name] :as expr} & [expected]]
-  (u/tc-warning (str "Assuming JS variable is Any: " name))
-  (assoc expr expr-type (ret r/-any)))
+  (u/tc-warning (str "Assuming JS variable is unchecked " name))
+  (assoc expr 
+         u/expr-type (below/maybe-check-below
+                       (r/ret (r/-unchecked))
+                       expected)))
 
 (add-check-method :local
   [expr & [expected]]
   (local/check-local expr expected))
 
-(add-check-method :ns*
-  [expr & [expected]]
-  (fail-empty expr))
 
+; TODO check
 (add-check-method :the-var
   [expr & [expected]]
-  (fail-empty expr))
+  (u/tc-warning (str "`var` special form is Unchecked"))
+  (assoc expr 
+         u/expr-type (below/maybe-check-below
+                       (r/ret (r/-unchecked))
+                       expected)))
 
 (add-check-method :throw
   [expr & [expected]]
   (throw/check-throw check-expr expr expected nil))
 
+; TODO check
 (add-check-method :try
   [expr & [expected]]
   (fail-empty expr))
 
 (add-check-method :with-meta
   [expr & [expected]]
-  (fail-empty expr))
+  (with-meta/check-with-meta check-expr expr expected))
