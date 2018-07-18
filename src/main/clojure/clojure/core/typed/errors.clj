@@ -36,7 +36,11 @@
   ([estr {:keys [use-current-env] :as opt}]
    (let [{:keys [line column file] :as env} *current-env*]
      (throw (ex-info (str "Internal Error "
-                          "(" (or file (:ns env)) ":" 
+                          "(" (or file 
+                                  (impl/impl-case
+                                    :clojure (:ns env)
+                                    :cljs (:name (:ns env))))
+                          ":" 
                           (or line "<NO LINE>")
                           (when column
                             (str ":" column))
