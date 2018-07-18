@@ -69,7 +69,7 @@
            ;ns-effect (clojure.core/in-ns name)
            name-metadata (meta name)]
        ;; core.typed side effect
-       (prn "ns form" &form)
+       ;(prn "ns form" &form)
        (let [prs-ns (dep-u/ns-form-name &form)
              deps   (dep-u/ns-form-deps &form)
              tdeps (set (filter dep-u/should-check-ns? deps))]

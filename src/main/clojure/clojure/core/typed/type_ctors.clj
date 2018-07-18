@@ -1144,23 +1144,27 @@
 ;; Provide #:original-names if the names that you are closing off
 ;; are *different* from the names you want recorded in the table.
 ;;
-(t/ann ^:no-check Poly* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type (t/Seqable t/Sym) 
-                         & :optional {:original-names (t/Seqable t/Sym)} -> r/Type])
-(defn Poly* [names bbnds body & {:keys [original-names] 
+(t/ann ^:no-check Poly* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type
+                         & :optional {:original-names (t/Seqable t/Sym)
+                                      :named (t/U nil (t/Map t/Sym t/Int))}
+                         -> r/Type])
+(defn Poly* [names bbnds body & {:keys [original-names named]
                                  :or {original-names 
                                       (map (comp r/F-original-name r/make-F) names)}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
          (r/Type? body)
          (every? symbol? original-names)
-         (apply = (map count [names bbnds original-names]))]}
+         (apply = (map count [names bbnds original-names]))
+         ((some-fn nil? map?) named)]}
   (if (empty? names)
     body
     (let [v (r/Poly-maker (count names)
                           (vec
                             (for [bnd bbnds]
                               (r/visit-bounds bnd #(abstract-many names %))))
-                          (abstract-many names body))]
+                          (abstract-many names body)
+                          (or named {}))]
       (with-original-names v original-names))))
 
 (t/ann ^:no-check Poly-free-names* [Poly -> (t/U nil (t/Seqable t/Sym))])
@@ -1205,12 +1209,15 @@
 
 ;smart constructor
 (t/ann ^:no-check PolyDots* [(t/Seqable t/Sym) (t/Seqable Bounds) r/Type 
-                             & :optional {:original-names (t/Seqable t/Sym)} -> r/Type])
-(defn PolyDots* [names bbnds body & {:keys [original-names] 
+                             & :optional {:original-names (t/Seqable t/Sym)
+                                          :named (t/U nil (t/Map t/Sym t/Int))}
+                             -> r/Type])
+(defn PolyDots* [names bbnds body & {:keys [original-names named] 
                                      :or {original-names (map (comp r/F-original-name r/make-F) names)}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
-         (r/Type? body)]}
+         (r/Type? body)
+         ((some-fn nil? map?) named)]}
   (assert (= (count names) (count bbnds)) "Wrong number of names")
   (if (empty? names)
     body
@@ -1218,7 +1225,8 @@
                               (mapv (fn [bnd] 
                                       (r/visit-bounds bnd #(abstract-many names %)))
                                     bbnds)
-                              (abstract-many names body))]
+                              (abstract-many names body)
+                              (or named {}))]
       (with-original-names v original-names))))
 
 ;smart destructor
@@ -1889,7 +1897,7 @@
 
 (f/add-fold-case ::abstract-many
                  PolyDots
-                 (fn [{bbnds* :bbnds n :nbound body* :scope :as ty} {{:keys [name count type outer name-to]} :locals}]
+                 (fn [{:keys [named] bbnds* :bbnds n :nbound body* :scope :as ty} {{:keys [name count type outer name-to]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
@@ -1897,18 +1905,20 @@
                      (r/PolyDots-maker n 
                                        (mapv #(r/visit-bounds % as) bbnds)
                                        (as body)
+                                       named
                                        :meta (meta ty)))))
 
 (f/add-fold-case ::abstract-many
                  Poly
-                 (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} {{:keys [name count type outer name-to]} :locals}]
+                 (fn [{:keys [named] bbnds* :bbnds n :nbound body* :scope :as poly} {{:keys [name count type outer name-to]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/Poly-maker n 
-                             (mapv #(r/visit-bounds % as) bbnds)
-                             (as body)
+                                   (mapv #(r/visit-bounds % as) bbnds)
+                                   (as body)
+                                   named
                                    :meta (meta poly)))))
 
 (f/add-fold-case ::abstract-many
@@ -2051,7 +2061,7 @@
 
 (f/add-fold-case ::instantiate-many
                PolyDots
-               (fn [{bbnds* :bbnds n :nbound body* :scope :as ty} {{:keys [replace count outer image sb type]} :locals}]
+               (fn [{:keys [named] bbnds* :bbnds n :nbound body* :scope :as ty} {{:keys [replace count outer image sb type]} :locals}]
                  (let [rs #(remove-scopes n %)
                        body (rs body*)
                        bbnds (mapv #(r/visit-bounds % rs) bbnds*)
@@ -2059,11 +2069,12 @@
                    (r/PolyDots-maker n 
                                      (mapv #(r/visit-bounds % as) bbnds)
                                      (as body)
+                                     named
                                      :meta (meta ty)))))
 
 (f/add-fold-case ::instantiate-many
                  Poly
-                 (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} 
+                 (fn [{:keys [named] bbnds* :bbnds n :nbound body* :scope :as poly} 
                       {{:keys [replace count outer image sb type]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
@@ -2072,6 +2083,7 @@
                      (r/Poly-maker n 
                                    (mapv #(r/visit-bounds % as) bbnds)
                                    (as body)
+                                   named
                                    :meta (meta poly)))))
 
 (f/add-fold-case ::instantiate-many

@@ -11,10 +11,6 @@
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 (t/defalias SeqNumber Long)
 
 ;(set! *warn-on-reflection* true)
@@ -158,7 +154,7 @@
 
 (u/ann-record B [idx :- Number])
 (u/def-type B [idx]
-  "de Bruijn indexes - should never appear outside of this file.
+  "de Bruijn indices - should never appear outside of this file.
   Bound type variables"
   [(con/znat? idx)]
   :methods
@@ -348,27 +344,42 @@
 
 (u/ann-record Poly [nbound :- Number,
                     bbnds :- (t/U nil (t/Seqable Bounds)),
-                    scope :- p/IScope,])
-(u/def-type Poly [nbound bbnds scope]
-  "A polymorphic type containing n bound variables"
+                    scope :- p/IScope
+                    named :- (t/Map t/Sym t/Int)])
+(u/def-type Poly [nbound bbnds scope named]
+  "A polymorphic type containing n bound variables.
+  `named` is a map of free variable names to de Bruijn indices (range nbound)"
   [(con/znat? nbound)
    (every? Bounds? bbnds)
    (apply = nbound (map count [bbnds]))
    (scope-depth? scope nbound)
-   (Scope? scope)]
+   (Scope? scope)
+   (map? named)
+   (every? symbol? (keys named))
+   (every? #(<= 0 % (dec nbound)) (vals named))
+   (or (empty? named)
+       (apply distinct? (vals named)))
+   ]
   :methods
   [p/TCType])
 
 (u/ann-record PolyDots [nbound :- Number,
                         bbnds :- (t/U nil (t/Seqable Bounds)),
-                        scope :- p/IScope])
-(u/def-type PolyDots [nbound bbnds scope]
-  "A polymorphic type containing n-1 bound variables and 1 ... variable"
-  [(con/znat? nbound)
+                        scope :- p/IScope
+                        named :- (t/Map t/Sym t/Int)])
+(u/def-type PolyDots [nbound bbnds scope named]
+  "A polymorphic type containing n-1 bound variables and 1 ... variable
+  `named` is a map of free variable names to de Bruijn indices (range nbound)."
+  [(nat-int? nbound)
    (every? Bounds? bbnds)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
-   (Scope? scope)]
+   (Scope? scope)
+   (map? named)
+   (every? symbol? (keys named))
+   (every? #(<= 0 % (dec nbound)) (vals named))
+   (or (empty? named)
+       (apply distinct? (vals named)))]
   :methods
   [p/TCType])
 

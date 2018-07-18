@@ -161,7 +161,8 @@
                                     (free-ops/with-bounded-frees bmap
                                       (mapv #(r/visit-bounds % type-rec) bbnds))
                                     (free-ops/with-bounded-frees bmap
-                                      (type-rec body))))))
+                                      (type-rec body))
+                                    :named (:named ty)))))
 
 (add-default-fold-case PolyDots
                        (fn [^PolyDots ty _]
@@ -174,7 +175,8 @@
                                         (free-ops/with-bounded-frees bmap
                                           (mapv #(r/visit-bounds % type-rec) bbnds))
                                         (free-ops/with-bounded-frees bmap
-                                          (type-rec body))))))
+                                          (type-rec body))
+                                        :named (:named ty)))))
 
 (add-default-fold-case Mu
                        (fn [ty _]

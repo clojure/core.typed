@@ -2,6 +2,7 @@
   {:skip-wiki true}
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
+            [clojure.set :as cljset]
             [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.rules :as rules]
@@ -882,15 +883,35 @@
         (err/tc-delayed-error (str "Cannot instantiate non-polymorphic type: " (prs/unparse-type ptype))
                             :return (assoc expr
                                            u/expr-type (cu/error-ret expected))))
-      (let [targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)
+      (let [[targs-syn kwargs] (split-with (complement keyword?) (ast-u/quote-expr-val targs-exprs))
+            _ (when-not (even? (count kwargs))
+                (err/int-error (str "Expected an even number of keyword options to inst, given: " (vec kwargs))))
+            _ (when (seq kwargs)
+                (when-not (apply distinct? (map first (partition 2 kwargs)))
+                  (err/int-error (str "Gave repeated keyword args to inst: " (vec kwargs)))))
+            {:keys [named] :as kwargs} kwargs
+            _ (let [unsupported (cljset/difference (set (keys kwargs)) #{:named})]
+                (when (seq unsupported)
+                  (err/int-error (str "Unsupported keyword argument(s) to inst " unsupported))))
+            _ (when (contains? kwargs :named)
+                (when-not (and (map? named)
+                               (every? symbol? (keys named)))
+                  (err/int-error (str ":named keyword argument to inst must be a map of symbols to types, given: " (pr-str named)))))
+            named (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)
                             vs/*current-expr* expr]
-                    (doall (map prs/parse-type (ast-u/quote-expr-val targs-exprs))))]
+                    (into {}
+                          (map (fn [[k v]]
+                                 [k (prs/parse-type v)]))
+                          named))
+            targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)
+                            vs/*current-expr* expr]
+                    (mapv prs/parse-type targs-syn))]
         (assoc expr
                u/expr-type (below/maybe-check-below
                              (r/ret 
                                (binding [prs/*unparse-type-in-ns* (cu/expr-ns expr)
                                          vs/*current-expr* expr]
-                                 (inst/manual-inst ptype targs)))
+                                 (inst/manual-inst ptype targs named)))
                              expected))))))
 
 (defonce ^:dynamic *inst-ctor-types* nil)
@@ -1007,27 +1028,6 @@
     (assoc expr
            :args cargs
            u/expr-type (u/expr-type cfexpr))))
-
-;polymorphic fn literal
-(add-invoke-special-method 'clojure.core.typed/pfn>-ann
-  [{:keys [args] :as expr} & [expected]]
-  (assert false "pfn> NYI")
-         ;FIXME these are :quote exprs
-  #_(let [[fexpr {poly-decl :val} {method-types-syn :val}] args
-        frees-with-bounds (map prs/parse-free poly-decl)
-        method-types (free-ops/with-bounded-frees frees-with-bounds
-                       (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-                         (doall 
-                           (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
-                             {:dom (doall (map prs/parse-type dom-syntax))
-                              :rng (if has-rng?
-                                     (prs/parse-type rng-syntax)
-                                     r/-any)}))))
-        cexpr (-> (check-anon-fn fexpr method-types :poly frees-with-bounds)
-                  (update-in [u/expr-type :t] (fn [fin] (c/Poly* (map first frees-with-bounds) 
-                                                             (map second frees-with-bounds)
-                                                             fin))))]
-    cexpr))
 
 ;loop
 (add-invoke-special-method 'clojure.core.typed/loop>-ann
