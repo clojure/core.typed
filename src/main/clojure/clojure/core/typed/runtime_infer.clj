@@ -5623,7 +5623,7 @@
    :post [(integer? %)]}
   (let [ns-form (with-open [pbr (rdrt/indexing-push-back-reader
                                   (rdrt/string-push-back-reader s))]
-                  (nprs/read-ns-decl pbr))
+                  (nprs/read-ns-decl pbr nprs/clj-read-opts))
         _ (assert ns-form "No namespace form found")
         end-line (-> ns-form meta :end-line)
         _ (assert (integer? end-line) 
