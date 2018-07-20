@@ -1,7 +1,6 @@
 (ns clojure.core.typed.check-form-cljs
   (:require [clojure.core.typed.check-form-common :as chk-form]
             [clojure.core.typed.analyze-cljs :as ana-cljs]
-            [clojure.core.typed.collect-cljs :as collect-cljs]
             [clojure.core.typed.check-cljs :as chk-cljs]
             [clojure.core.typed.util-cljs :as ucljs]
             [cljs.env :as env]
@@ -12,7 +11,6 @@
   {:impl impl/clojurescript 
    :unparse-ns (ucljs/cljs-ns)
    :ast-for-form ana-cljs/ast-for-form
-   :collect-expr collect-cljs/collect
    :check-expr chk-cljs/check-expr})
 
 (defn check-form-info
