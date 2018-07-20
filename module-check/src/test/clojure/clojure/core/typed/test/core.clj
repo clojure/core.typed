@@ -5717,3 +5717,6 @@
              (when (nil? a)
                :kw))
            [nil :-> ':kw]))
+
+(deftest transducer-test
+  (is (check-ns 'clojure.core.typed.test.transducer)))
