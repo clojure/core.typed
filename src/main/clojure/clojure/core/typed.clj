@@ -1443,10 +1443,21 @@ for checking namespaces, cf for checking individual forms."}
        ::special-type true}
   AnyValue)
 
+(def ^{:doc "TCError is the type of a type error in the type checker. Use only after
+            a type error has been thrown. Only ever use this type in a custom typing rule."
+       :forms '[TCError]
+       ::special-type true}
+  TCError)
+
 (def ^{:doc "U represents a union of types"
        :forms '[(U type*)]
        ::special-type true}
   U)
+
+(def ^{:doc "(alpha) Resolves to the type of the var (lazily) or local (eagerly) named by sym."
+       :forms '[(TypeOf sym)]
+       ::special-type true}
+  TypeOf)
 
 (def ^{:doc "Nothing is the bottom type that has no values."
        :forms '[Nothing]
@@ -1513,7 +1524,8 @@ for checking namespaces, cf for checking individual forms."}
        ::special-type true}
   HMap)
 
-(def ^{:doc "HSequential is a type for heterogeneous sequential collections"
+(def ^{:doc "HSequential is a type for heterogeneous sequential persistent collections.
+            It extends IPersistentCollection and Sequential"
        :forms '[(HSequential [fixed*] :filter-sets [FS*] :objects [obj*])
                 (HSequential [fixed* rest *] :filter-sets [FS*] :objects [obj*])
                 (HSequential [fixed* drest ... bound] :filter-sets [FS*] :objects [obj*])]
@@ -1526,6 +1538,13 @@ for checking namespaces, cf for checking individual forms."}
                 (HSeq [fixed* drest ... bound] :filter-sets [FS*] :objects [obj*])]
        ::special-type true}
   HSeq)
+
+(def ^{:doc "HList is a type for heterogeneous lists. Is a supertype of HSeq that implements IPersistentList."
+       :forms '[(HList [fixed*] :filter-sets [FS*] :objects [obj*])
+                (HList [fixed* rest *] :filter-sets [FS*] :objects [obj*])
+                (HList [fixed* drest ... bound] :filter-sets [FS*] :objects [obj*])]
+       ::special-type true}
+  HList)
 
 (def ^{:doc "HSet is a type for heterogeneous sets.
             Takes a set of simple values. By default
@@ -2321,6 +2340,8 @@ for checking namespaces, cf for checking individual forms."}
                      If a fatal error occurs, mapped to nil.
   - :no-eval         If true, don't evaluate :out-form. Removes :result return value.
                      It is highly recommended to evaluate :out-form manually.
+  - :beta-limit      A natural integer which denotes the maximum number of beta reductions
+                     the type system can perform on a single top-level form (post Gilardi-scenario).
   
   Default return map
   - :ret             TCResult inferred for the current form
