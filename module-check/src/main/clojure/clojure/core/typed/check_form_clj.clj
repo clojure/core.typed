@@ -10,7 +10,6 @@
   {:impl impl/clojure
    :ast-for-form ana-clj/ast-for-form
    :unparse-ns (ns-name *ns*)
-   :collect-expr (fn [_] nil)
    :check-expr chk-clj/check-expr
    :runtime-check-expr rt-chk/runtime-check-expr
    :runtime-infer-expr (fn [& args]
@@ -19,8 +18,13 @@
    :eval-out-ast (fn eval-out-ast
                    ([ast] (eval-out-ast ast {}))
                    ([ast opts] (ana-clj/eval-ast ast opts)))
-   :custom-expansions? ana-clj/custom-expansions?
-   :emit-form ast-u/emit-form-fn})
+   :custom-expansions? (-> *ns*
+                           meta
+                           :core.typed
+                           :experimental
+                           (contains? :custom-expansions))
+   :emit-form ast-u/emit-form-fn
+   :analyze-bindings-fn ana-clj/thread-bindings})
 
 (defn check-form-info
   [form & opt]

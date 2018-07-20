@@ -254,17 +254,18 @@
 
       (and pos?
            (pe/NthPE? (first lo))
-           (c/AnyHSequential? t))
+           (r/HSequential? t))
       (let [type ft
             path-expr (first lo)
             idx (:idx path-expr)
             fixed-types (conj (vec (repeat idx r/-any)) type)
-            restriction-type (r/-hsequential fixed-types :rest r/-any)]
+            restriction-type (r/-hsequential fixed-types :rest r/-any
+                                             :kind (:kind t))]
         (c/restrict t restriction-type))
 
       (and (not pos?)
            (pe/NthPE? (first lo))
-           (c/AnyHSequential? t))
+           (r/HSequential? t))
       t
 
       ; Update class information based on a call to `class`

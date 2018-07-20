@@ -154,6 +154,7 @@
                      (list* (ast-u/emit-form-fn fexpr)
                             (map ast-u/emit-form-fn args)))
                    "<NO FORM>"))
+        :expected expected
         :return (or expected (r/ret r/Err))))))
 
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]

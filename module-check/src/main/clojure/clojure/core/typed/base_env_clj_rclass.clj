@@ -6,7 +6,7 @@
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef ARef Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
-                         ITransientVector PersistentHashMap Reduced)
+                         ITransientVector PersistentHashMap Reduced MultiFn)
            (java.util Collection RandomAccess))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
@@ -427,6 +427,46 @@ LazySeq [[[a :variance :covariant]]
 Reduced [[[a :variance :covariant]]
          :replace
          {IDeref (IDeref a)}]
+
+; 1. what is the variance of the dispatch function? covariant?
+;
+;   (ann f (MultiFn [t/Int -> t/Int] [t/Int -> Bool]))
+;   (defmulti f even?)
+;
+;   ; make return types less specific -- seems ok. just means
+;   ; we can infer less in defmethod's.
+;   (ann-form f (MultiFn [t/Int -> Any] [t/Int -> Any]))
+;
+;   (ann g (MultiFn [t/Int -> t/Int] [t/Int -> Bool]))
+;   (defmulti g odd?)
+;
+; 2. what bound do we want on `f` and `d`?
+;   ; say if we don't have `d`'s lower bound as EveryIFn..
+;   (ann f (MultiFn .. ':a))
+;   (defmulti f :a)
+;
+;   (ann g (MultiFn .. (ToIFn ':a)))
+;   (defmulti g (fn [a] (:a a)))
+;
+;   ; is this desirable? let's use the lower bound, since we can always
+;   ; make the type more permissive later.
+;   (ann-form f (TypeOf g)) ;ok
+;   (ann-form g (TypeOf f)) ;fails
+
+#_#_
+MultiFn [[[f :variance :covariant :> EveryIFn :< AnyIFn]
+          [d :variance :covariant :> EveryIFn :< AnyIFn]
+          ;; only support :default default for now, and no hierarchy support
+          #_#_
+          :named
+          {default [:variance :covariant,
+                    :between [EveryIFn AnyValue],
+                    :default ':default]
+           hierarchy [:variance :covariant
+                      :< (Var Hierarchy)
+                      :default GlobalHierarchy]}]
+         :replace
+         {clojure.lang.IFn f}]
 
 ;;; We override the internal Java classes that clojure.lang.* classes use
 ;;; and simulate some of them extending Clojure interfaces as if they were protocols

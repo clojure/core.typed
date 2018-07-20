@@ -11,10 +11,6 @@
             [clojure.core.typed :as t])
   (:import (clojure.lang Seqable)))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-  )
-
 (t/defalias RObject
   "An object with a path."
   p/IRObject)

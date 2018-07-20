@@ -11,6 +11,9 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]
+            [clojure.repl :as repl]
+            [clojure.core.typed.analyzer2 :as ana]
+            [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
 
@@ -29,8 +32,9 @@
 ;;  Mandatory
 ;; - :ast-for-form  function from form to tools.analyzer AST, taking :bindings-atom as keyword
 ;;                  argument.
-;; - :collect-expr  side-effecting function taking AST and collecting type annotations
 ;; - :check-expr    function taking AST and expected type and returns a checked AST.
+;; - :analyze-bindings-fn    a thunk that returns the var/values map that should be bound
+;;                           to perform analysis.
 ;;
 ;;  Optional
 ;; - :eval-out-ast  function taking checked AST which evaluates it and returns the AST
@@ -62,6 +66,8 @@
 ;;                     It is highly recommended to evaluate :out-form manually.
 ;;  - :bindings-atom   an atom which contains a value suitable for with-bindings.
 ;;                     Will be updated during macroexpansion and evaluation.
+;;  - :beta-limit      A natural integer which denotes the maximum number of beta reductions
+;;                     the type system can perform.
 ;;  
 ;;  Default return map
 ;;  - :ret             TCResult inferred for the current form
@@ -74,7 +80,6 @@
 (defn check-form-info
   [{:keys [ast-for-form 
            check-expr 
-           collect-expr
            custom-expansions?
            emit-form 
            env
@@ -83,9 +88,10 @@
            runtime-infer-expr 
            should-runtime-infer?
            instrument-infer-config
-           unparse-ns]}
+           unparse-ns
+           analyze-bindings-fn]}
    form & {:keys [expected-ret expected type-provided? profile file-mapping
-                  checked-ast no-eval bindings-atom]}]
+                  checked-ast no-eval bindings-atom beta-limit]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)
          ((some-fn nil? symbol?) unparse-ns)]}
   (assert (not (and expected-ret type-provided?)))
@@ -98,7 +104,11 @@
               vs/*in-check-form* true
               vs/*lexical-env* (lex-env/init-lexical-env)
               ;; custom expansions might not even evaluate
-              vs/*can-rewrite* (not custom-expansions?)]
+              vs/*can-rewrite* (not custom-expansions?)
+              vs/*custom-expansions* custom-expansions?
+              vs/*beta-count* (when custom-expansions?
+                                (atom {:count 0
+                                       :limit (or beta-limit 500)}))]
       (let [expected (or
                        expected-ret
                        (when type-provided?
@@ -129,12 +139,26 @@
                            nil
                            file-mapping)
             eval-ast (fn [ast {:keys [expected] :as opt}]
-                       (do (p/p :check-form/collect
-                             (collect-expr ast))
+                       #_(binding [*print-length* nil
+                                 *print-level* nil]
+                         (prn "before check-expr")
+                         (clojure.pprint/pprint (emit-form ast)))
+                       (do (when-let [state (-> ast
+                                                :env
+                                                ::ana/state
+                                                (get #'clojure.core.typed.analyzer2.passes.beta-reduce/push-invoke))]
+                             (when (::beta-reduce/reached-beta-limit @state)
+                               (err/int-error
+                                 (str "Exceeded the limit of symbolic beta reductions in a single form "
+                                      "(" (::beta-reduce/expansions @state) ")"))))
                            (let [c-ast (do 
                                          (reset-caches/reset-caches)
-                                         (p/p :check-form/check-expr
+                                         (with-bindings (analyze-bindings-fn)
                                            (check-expr ast expected)))
+                                 #_#__ (binding [*print-length* nil
+                                             *print-level* nil]
+                                     (prn "after check-expr")
+                                     (clojure.pprint/pprint (emit-form c-ast)))
                                  eval-cexp (or (when-not no-eval
                                                  eval-out-ast)
                                                (fn [ast _] ast))
@@ -154,6 +178,7 @@
                     (p/p :check-form/ast-for-form
                       (ast-for-form form
                                     {:bindings-atom bindings-atom
+                                     :analyze-bindings-fn analyze-bindings-fn
                                      :eval-fn eval-ast
                                      :expected expected
                                      :stop-analysis stop-analysis
@@ -164,7 +189,10 @@
                                   (err/print-errors! (vec (concat (delayed-errors-fn) [e])))
                                   (catch Throwable e
                                     e))
-                                e)]
+                                (do
+                                  #_(binding [*out* *err*]
+                                    (prn e))
+                                  e))]
                         (reset! terminal-error e)
                         nil)))
             res (some-> c-ast u/expr-type)
@@ -191,9 +219,11 @@
 
 (defn check-form*
   [{:keys [impl unparse-ns] :as config} form expected type-provided?]
-  (let [{:keys [delayed-errors ret]} (check-form-info config form
+  (let [{:keys [ex delayed-errors ret]} (check-form-info config form
                                                       :expected expected 
                                                       :type-provided? type-provided?)]
     (if-let [errors (seq delayed-errors)]
       (err/print-errors! errors)
-      (prs/unparse-TCResult-in-ns ret unparse-ns))))
+      (if ex
+        (throw ex)
+        (prs/unparse-TCResult-in-ns ret unparse-ns)))))

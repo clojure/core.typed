@@ -1,5 +1,6 @@
 (ns clojure.core.typed.test.transducer
-  (:require [clojure.core.typed :as t]
+  (:refer-clojure :exclude [])
+  (:require [clojure.core.typed :as t :refer [All Option Seqable ASeq Transducer IFn]]
             [clojure.core :as core]))
 
 ;; based on https://hypirion.com/musings/haskell-transducers
@@ -18,6 +19,15 @@
 (defn map [& args]
   (apply core/map args))
 
+#_#_
+(t/ann ^:no-check mapcat
+     (All [c a b ...]
+       (IFn
+          [[a :-> (Option (Seqable c))] :-> (Transducer a c)]
+          [[a b ... b -> (Option (Seqable c))] (Option (Seqable a)) (Option (Seqable b)) ... b -> (ASeq c)])))
+(defn mapcat [& args]
+  (apply core/mapcat args))
+
 ;; added
 #_
 (t/ann ^:no-check sequence
@@ -30,6 +40,11 @@
 
 (let [map (t/inst map t/Num t/Num)
       m (map (t/inst identity t/Num))
+      sequence (t/inst sequence t/Num t/Num)]
+  (sequence m [1 2 3]))
+
+(let [mapcat (t/inst mapcat t/Num t/Num)
+      m (mapcat (t/inst vector t/Num t/Num))
       sequence (t/inst sequence t/Num t/Num)]
   (sequence m [1 2 3]))
 

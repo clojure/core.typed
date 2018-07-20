@@ -159,7 +159,7 @@
       (let [{t1 :t f1 :fl o1 :o flow1 :flow} tr1
             {t2 :t f2 :fl o2 :o flow2 :flow} expected]
         (cond
-          (not (subtype? t1 t2)) (cu/expected-error t1 t2 :expected expected)
+          (not (subtype? t1 t2)) (cu/expected-error t1 expected)
 
           :else
           (let [better-fs? (filter-better? f1 f2)
@@ -194,7 +194,7 @@
       (let [{t1 :t f :fl o :o} tr1
             t2 expected]
         (when-not (subtype? t1 t2)
-          (cu/expected-error t1 t2))
+          (cu/expected-error t1 (r/ret t2)))
         (r/ret (choose-result-type t1 t2) f o))
 
       (and (r/Type? tr1)
@@ -204,7 +204,7 @@
         (if (subtype? t1 t2)
           (err/tc-delayed-error (str "Expected result with filter " (pr-str f) " and object " (pr-str o)
                                      ", got trivial filter and empty object."))
-          (cu/expected-error t1 t2))
+          (cu/expected-error t1 expected))
         t1)
 
       (and (r/Type? tr1)
@@ -212,7 +212,7 @@
       (let [t1 tr1
             t2 expected]
         (when-not (subtype? t1 t2)
-          (cu/expected-error t1 t2))
+          (cu/expected-error t1 (r/ret t2)))
         (choose-result-type t1 t2))
 
       :else (let [a tr1

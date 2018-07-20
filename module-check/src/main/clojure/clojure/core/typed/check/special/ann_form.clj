@@ -38,18 +38,18 @@
   {:pre [(#{3} (count statements))]}
   (let [tsyn (ann-form-annotation expr)
         parsed-t (parse-annotation tsyn expr)
-        cret (check frm 
-                    (or (when expected
-                          (assoc expected :t parsed-t))
-                        ;; TODO let users add expected filters etc
-                        (r/ret parsed-t)))]
+        ;; TODO let users add expected filters etc
+        this-expected (or (some-> expected (assoc :t parsed-t))
+                          (r/ret parsed-t))
+        _ (binding [vs/*current-expr* expr
+                    vs/*current-env* env]
+            (below/maybe-check-below
+              this-expected
+              expected))
+        cret (check frm this-expected)]
     (assoc expr
            :ret cret
-           u/expr-type (binding [vs/*current-expr* expr
-                                 vs/*current-env* env]
-                         (below/maybe-check-below
-                           (u/expr-type cret)
-                           expected)))))
+           u/expr-type (u/expr-type cret))))
 
 (defn add-checks-ann-form
   "Add runtime checks to an ann-form expression. Propagates its annotation

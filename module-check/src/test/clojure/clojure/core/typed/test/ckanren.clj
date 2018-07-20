@@ -969,7 +969,4 @@
   (cf (ann-form (pair 1 2) (Pair Number Number)))
 
   (cf (first [1]))
-  (clojure.core.typed/cs-gen '#{} {'G__65606 no-bounds} '{} 
-                             (->HeterogeneousVector [(-val 1)])
-                             (In (RClass-of Seqable [(make-F 'G__65606)]) (make-CountRange 1)))
   )

@@ -48,3 +48,6 @@
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *prepare-infer-ns* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *instrument-infer-config* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *check-config* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *custom-expansions* nil)
+;;TODO replace with pass state
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *beta-count* nil)

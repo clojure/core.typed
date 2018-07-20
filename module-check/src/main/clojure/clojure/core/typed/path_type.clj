@@ -95,14 +95,7 @@
        (path-type (c/Un r/-nil (c/RClass-of Class)) (next ps))
 
        (and (pe/NthPE? (first ps))
-            (r/HeterogeneousList? t))
-       (path-type
-         (c/HList->HSequential t)
-         ps
-         (conj resolved t))
-
-       (and (pe/NthPE? (first ps))
-            (c/AnyHSequential? t))
+            (r/HSequential? t))
        (let [idx (:idx (first ps))]
          (path-type
            (or (nth (:types t) idx nil)

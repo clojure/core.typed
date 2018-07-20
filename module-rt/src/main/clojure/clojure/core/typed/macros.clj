@@ -127,7 +127,7 @@
   (core/let [{:keys [let]} (internal/parse-let* (cons bvec forms))]
     let))
 
-(defmacro ann-form 
+(defmacro ann-form
   "Annotate a form with an expected type."
   [form ty]
   `(do ~spec/special-form

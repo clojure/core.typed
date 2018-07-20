@@ -1364,16 +1364,16 @@
   (is-tc-e
     '(1 2 3)
     (HSeq [Num Num Num]))
-  ;; FIXME
-  #_(is-tc-e
+  (is-tc-e
+    '(1 2 3)
+    (HList [Num Num Num]))
+  (is-tc-e
     (seq '(1 2 3))
     (HSeq [Num Num Num]))
   ;; FIXME
-  #_(is-tc-e
+  (is-tc-e
     (let [[a b c & d :as e] '(1 2 3 4 5 6 7)]
-      #_(ann-form a (t/Seqable Number))
-      (ann-form d (t/Seqable Number))
-      #_(ann-form e (t/Seqable Number))))
+      (ann-form d (t/Seqable Number))))
 
   (is (check-ns 'clojure.core.typed.test.destructure)))
 
@@ -1957,12 +1957,20 @@
   (is-cf {:a #(+ % 1)} (HMap :optional {:a [Number -> Number]})))
 
 (deftest fnil-test
-  (is-cf ((fnil + 0) 2))
+  (is-tc-e ((fnil + (ann-form 0 Number)) 2))
+  ;;FIXME probably related to how we handle :invariant variables in subst-gen
+  #_(is-cf ((fnil + 0) 2))
   (is-cf ((fnil + 0) nil))
-  ; can Typed Racket do better here?
+  ;;FIXME probably related to how we handle :invariant variables in subst-gen
+  #_
   (is-cf ((fnil (clojure.core.typed/ann-form + [Number * -> Number])
                 0)
-          2.2)))
+          2.2))
+  ; can Typed Racket do better here?
+  (is-tc-e ((fnil (clojure.core.typed/ann-form + [Number * -> Number])
+                  (ann-form 0 Number))
+            2.2))
+)
 
 ;(cf (every? (fn [a] a) [1]))
 
@@ -3507,7 +3515,12 @@
 
 (deftest atom-test
   (is-tc-e @(atom 1) Any)
-  (is-tc-e @(atom :- Number 1) Number))
+  (is-tc-e @(atom :- Number 1) Number)
+  (is-tc-e (atom :- Number 1) (Atom1 Number))
+  (is-tc-e (atom :- Number 1))
+  (is-tc-e (atom (ann-form 1 Number)) (Atom1 Number))
+  (is-tc-err (atom :- Number 1) (Atom1 Boolean))
+)
 
 (deftest ref-test
   (is-tc-e @(ref 1) Any)
@@ -5720,3 +5733,23 @@
 
 (deftest transducer-test
   (is (check-ns 'clojure.core.typed.test.transducer)))
+
+(deftest TypeOf-test
+  (is-tc-e (let [a :- t/Num, 1]
+             (ann-form 2 (t/TypeOf a))))
+  (is-tc-e (let [a :- t/Bool, true
+                 a :- t/Num, 1]
+             (ann-form 2 (t/TypeOf a))))
+  (is-tc-err (let [a :- t/Num, 1
+                   a :- t/Bool, true]
+               (ann-form 2 (t/TypeOf a))))
+  (is-tc-e (let [f (let [b :- t/Num, 1]
+                     (fn [] :- (t/TypeOf b)
+                       1))]
+             (inc (f))))
+)
+
+(deftest cf-throws-test
+  (is (thrown? Throwable (cf (nil))))
+  (is (thrown? Throwable (cf (clojure.core/fn [:- :a]))))
+)

@@ -128,7 +128,7 @@
 ; Difference from Typed Racket
 ;
 ; Here we also abstract types with abstract-type. We have types
-; like HeterogeneousVector that contains Result's, but can also
+; like HSequential that contains Result's, but can also
 ; appear in arbitrary positions. The combination of these means
 ; we need to abstract and instantiate all types at function boundaries.
 

@@ -26,9 +26,9 @@
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
-                                        Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
-                                        CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
-                                        HeterogeneousSeq KwArgsSeq TCError Extends JSNumber JSBoolean
+                                        Mu HeterogeneousMap
+                                        CountRange Name Value Top TypeOf Unchecked TopFunction B F Result AnyValue
+                                        KwArgsSeq TCError Extends JSNumber JSBoolean
                                         CLJSInteger ArrayCLJS JSNominal JSString TCResult AssocType
                                         GetType HSequential HSet JSUndefined JSNull JSSymbol JSObject
                                         JSObj)
@@ -231,6 +231,31 @@
 (defmethod parse-type-list 'CountRange [t] (parse-CountRange t))
 (defmethod parse-type-list 'clojure.core.typed/CountRange [t] (parse-CountRange t))
 (defmethod parse-type-list 'cljs.core.typed/CountRange [t] (parse-CountRange t))
+
+(declare resolve-type-clj)
+
+(defn uniquify-local [sym]
+  (get-in vs/*current-expr* [:env :clojure.core.typed.analyzer2.passes.uniquify/locals-frame-val sym]))
+
+(defmethod parse-type-list 'clojure.core.typed/TypeOf [[_ sym :as t]]
+  (impl/assert-clojure)
+  (when-not (= 2 (count t))
+    (err/int-error (str "Wrong number of arguments to TypeOf (" (count t) ")")))
+  (when-not (symbol? sym)
+    (err/int-error "Argument to TypeOf must be a symbol."))
+  (let [uniquified-local (uniquify-local sym)
+        vsym (let [r (resolve-type-clj sym)]
+               (when (var? r)
+                 (coerce/var->symbol r)))]
+    (if uniquified-local
+      (let [t (ind/type-of-nofail uniquified-local)]
+        (when-not t
+          (err/int-error (str "Could not resolve TypeOf for local " sym)))
+        t)
+      (do
+        (when-not vsym
+          (err/int-error (str "Could not resolve TypeOf for var " sym)))
+        (r/-type-of vsym)))))
 
 (defn parse-ExactCount [[_ & [n :as args]]]
   (when-not (#{1} (count args))
@@ -661,7 +686,9 @@
 (defmethod parse-type-list 'Seq* [syn] 
   (err/deprecated-plain-op 'Seq* 'HSeq)
   (r/-hseq (mapv parse-type (rest syn))))
-(defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'List* [syn]
+  (err/deprecated-plain-op 'List* 'HList)
+  (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] 
   (err/deprecated-plain-op 'Vector* 'HVec)
   (parse-quoted-hvec (rest syn)))
@@ -703,12 +730,12 @@
 
 (def parse-hvec-types (parse-types-with-rest-drest
                         "Invalid heterogeneous vector syntax:"))
-
 (def parse-hsequential-types (parse-types-with-rest-drest
-                              "Invalid heterogeneous sequential syntax:"))
-
+                               "Invalid heterogeneous sequential syntax:"))
 (def parse-hseq-types (parse-types-with-rest-drest
-                      "Invalid heterogeneous seq syntax:"))
+                        "Invalid heterogeneous seq syntax:"))
+(def parse-hlist-types (parse-types-with-rest-drest
+                         "Invalid heterogeneous list syntax:"))
 
 (declare parse-object parse-filter-set)
 
@@ -728,6 +755,8 @@
 (def parse-HVec (parse-heterogeneous* parse-hvec-types r/-hvec))
 (def parse-HSequential (parse-heterogeneous* parse-hsequential-types r/-hsequential))
 (def parse-HSeq (parse-heterogeneous* parse-hseq-types r/-hseq))
+(def parse-HList (parse-heterogeneous* parse-hseq-types (comp #(assoc % :kind :list)
+                                                              r/-hsequential)))
 
 (defmethod parse-type-list 'HVec [t] (parse-HVec t))
 (defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
@@ -742,6 +771,9 @@
   (parse-HSeq t))
 (defmethod parse-type-list 'clojure.core.typed/HSeq [t] (parse-HSeq t))
 (defmethod parse-type-list 'cljs.core.typed/HSeq [t] (parse-HSeq t))
+
+;; TODO CLJS HList
+(defmethod parse-type-list 'clojure.core.typed/HList [t] (parse-HList t))
 
 (defn parse-HSet [[_ ts & {:keys [complete?] :or {complete? true}} :as args]]
   (let [bad (seq (remove hset/valid-fixed? ts))]
@@ -971,11 +1003,18 @@
           :cljs (resolve-type-cljs n))
         n)))
 
+(defn parse-Any [sym]
+  (if (-> sym :meta ::t/infer)
+    r/-infer-any
+    r/-any))
+
 (defmethod parse-type-symbol 'Any [_] 
   (err/deprecated-plain-op 'Any)
   r/-any)
-(defmethod parse-type-symbol 'clojure.core.typed/Any [_] r/-any)
-(defmethod parse-type-symbol 'cljs.core.typed/Any [_] r/-any)
+(defmethod parse-type-symbol 'clojure.core.typed/Any [s] (parse-Any s))
+(defmethod parse-type-symbol 'cljs.core.typed/Any [s] (parse-Any s))
+
+(defmethod parse-type-symbol 'clojure.core.typed/TCError [t] (r/TCError-maker))
 
 (defmethod parse-type-symbol 'Nothing [_] 
   (err/deprecated-plain-op 'Nothing)
@@ -1435,11 +1474,13 @@
 (defn unp [t] (prn (unparse-type t)))
 
 (defmethod unparse-type* Top [_] (unparse-Name-symbol-in-ns `t/Any))
+;; TODO qualify vsym in current ns
+(defmethod unparse-type* TypeOf [{:keys [vsym] :as t}] (list (unparse-Name-symbol-in-ns `t/TypeOf) vsym))
 (defmethod unparse-type* Unchecked [{:keys [vsym] :as t}]
   (if vsym
     (list 'Unchecked vsym)
     'Unchecked))
-(defmethod unparse-type* TCError [_] 'Error)
+(defmethod unparse-type* TCError [_] (unparse-Name-symbol-in-ns `t/TCError))
 (defmethod unparse-type* Name [{:keys [id]}] (unparse-Name-symbol-in-ns id))
 (defmethod unparse-type* AnyValue [_] (unparse-Name-symbol-in-ns `t/AnyValue))
 
@@ -1739,34 +1780,31 @@
            (when (c/complete-hmap? v)
              [:complete? true]))))
 
-(defn unparse-heterogeneous* [sym vec?]
-  (fn [{:keys [types rest drest fs objects repeat] :as v}]
-    (let [first-part (concat
-                       (map unparse-type (:types v))
-                       (when rest [(unparse-type rest) '*])
-                       (when drest [(unparse-type (:pre-type drest))
-                                    '...
-                                    (unparse-bound (:name drest))]))]
+(defn unparse-heterogeneous* [sym {:keys [types rest drest fs objects repeat] :as v}]
+  (let [first-part (concat
+                     (map unparse-type (:types v))
+                     (when rest [(unparse-type rest) '*])
+                     (when drest [(unparse-type (:pre-type drest))
+                                  '...
+                                  (unparse-bound (:name drest))]))]
     (list* sym
-           (if vec?
-             (vec first-part)
-             first-part)
+           (vec first-part)
            (concat
              (when repeat
                [:repeat true])
              (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
                [:filter-sets (mapv unparse-filter-set fs)])
              (when-not (every? #{orep/-empty} objects)
-               [:objects (mapv unparse-object objects)]))))))
-
-(defmethod unparse-type* HeterogeneousVector [v]
-  ((unparse-heterogeneous* 'HVec true) v))
-
-(defmethod unparse-type* HeterogeneousSeq [v]
-  ((unparse-heterogeneous* 'HSeq false) v))
+               [:objects (mapv unparse-object objects)])))))
 
 (defmethod unparse-type* HSequential [v]
-  ((unparse-heterogeneous* 'HSequential true) v))
+  (unparse-heterogeneous*
+    (case (:kind v)
+      :list (unparse-Name-symbol-in-ns `t/HList)
+      :vector (unparse-Name-symbol-in-ns `t/HVec)
+      :seq (unparse-Name-symbol-in-ns `t/HSeq)
+      :sequential (unparse-Name-symbol-in-ns `t/HSequential))
+    v))
 
 (defmethod unparse-type* HSet
   [{:keys [fixed] :as v}]
@@ -1785,10 +1823,6 @@
              [:complete? (:complete? v)])
            (when (:nilable-non-empty? v)
              [:nilable-non-empty? (:nilable-non-empty? v)]))))
-
-(defmethod unparse-type* HeterogeneousList
-  [v]
-  (list* 'List* (doall (map unparse-type (:types v)))))
 
 (defmethod unparse-type* AssocType
   [{:keys [target entries dentries]}]

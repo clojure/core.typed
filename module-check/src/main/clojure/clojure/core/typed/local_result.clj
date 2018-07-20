@@ -19,16 +19,9 @@
 (defn local-ret [sym]
   {:pre [(symbol? sym)]
    :post [(r/TCResult? %)]}
-  (let [; see if sym is an alias for an object
-        ; if not (-id-path sym) is returned
-        obj (lex/lookup-alias sym)
-        [alias-path alias-id] (cond
-                                (obj/Path? obj) [(:path obj) (:id obj)]
-                                (obj/EmptyObject? obj) [nil sym]
-                                :else (err/int-error (str "what is this?" (pr-str obj))))
-        _ (assert (pr/path-elems? alias-path))
-        _ (assert (fr/name-ref? alias-id))
-        t (path-type/path-type (var-env/type-of alias-id) alias-path)]
+  (let [[obj t] ((juxt lex/lookup-alias lex/lookup-local) sym)]
+    (when-not t
+      (err/int-error (str "Could not find type for local variable " sym)))
     (r/ret t 
            (if (c/overlap t (c/Un r/-nil r/-false))
              (fo/-FS (fo/-not-filter-at r/-falsy obj)

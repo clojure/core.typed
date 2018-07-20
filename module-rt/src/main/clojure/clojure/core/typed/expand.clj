@@ -2,11 +2,13 @@
   "Rewriting rules for custom expansions, to improve type checking
   error messages and reduce local annotations."
   (:require [clojure.core.typed :as t]
+            [clojure.core :as core]
             [clojure.core.typed.special-form :as spc]
             [clojure.pprint :as pp]
             [clojure.core.typed.internal :as internal]))
 
 (defmulti -expand-macro (fn [form {:keys [vsym]}] vsym))
+;; TODO equivalent to :inline-arities
 (defmulti -expand-inline (fn [form {:keys [vsym]}] vsym))
 
 (defn custom-expansion? [vsym]
@@ -38,12 +40,14 @@
                        :expression ~expression})
                 ~@(destructure [binding gs])]
            ~form))
-      `(check-if-empty-body
-         (do ~@body-forms)
-         {:msg-fn (fn [_#]
-                     "This 'let' expression returns nil with an empty body, which does not agree with the expected type")
-          :blame-form ~form
-          :original-body ~body-forms})
+      (if (seq body-forms)
+        `(do ~@body-forms)
+        `(check-if-empty-body
+           (do ~@body-forms)
+           {:msg-fn (fn [_#]
+                      "This 'let' expression returns nil with an empty body, which does not agree with the expected type")
+            :blame-form ~form
+            :original-body ~body-forms}))
       (partition 2 (rseq bindings-form)))))
 
 (defmacro check-if-empty-body [e opts]
@@ -199,7 +203,7 @@
   [[_ & sigs :as form] _]
   (let [{:keys [sigs name]} (parse-fn-sigs form)
         expand-sig (fn [{:keys [conds-from-params-meta? pre post params body sig-form]}]
-                     (assert (vector? params))
+                     {:pre [(vector? params)]}
                      (let [gsyms (mapv (fn [a]
                                          (if (= '& a)
                                            a
@@ -214,13 +218,15 @@
                                          params
                                          gsyms)]
                            ~@(map assert-form pre)
-                           ~(let [body `(check-if-empty-body
-                                          (do ~@body)
-                                          {:msg-fn (fn [_#]
-                                                     (str "This 'fn' body returns nil, "
-                                                          "which does not agree with the expected type."))
-                                           :blame-form ~sig-form
-                                           :original-body ~body})]
+                           ~(let [body (if (seq body)
+                                         `(do ~@body)
+                                         `(check-if-empty-body
+                                            (do ~@body)
+                                            {:msg-fn (fn [_#]
+                                                       (str "This 'fn' body returns nil, "
+                                                            "which does not agree with the expected type."))
+                                             :blame-form ~sig-form
+                                             :original-body ~body}))]
                               (if post
                                 `(let [~'% ~body]
                                    ~@(map assert-form post)
@@ -229,31 +235,33 @@
     `(fn* ~@(when name [name])
           ~@(map expand-sig sigs))))
 
-(defmacro check-for-seq [expr]
-  (throw (Exception. "TODO check-for-seq"))
-  `(rand-nth (seq ~expr)))
+(defmacro solve [expr opts]
+  (assert nil)
+  (prn "bad solve"))
 
-(defmacro expected-as [s body]
+(defmethod -expand-macro `solve
+  [[_ expr opts :as form] _]
+  {:pre [(= 3 (count form))]}
   `(do ~spc/special-form
-       ::expected-as
-       '{:sym ~s}
-       ~body))
+       ::solve
+       '~opts
+       ~expr))
 
-(defmacro gather-for-return-type [ret]
-  (throw (Exception. "gather-for-return-type Not for expansion")))
+(defmacro expected-type-as [s body & [opts & more]]
+  {:pre [((some-fn nil? map?) opts)
+         (not more)]}
+  `(let* [~s (t/ann-form nil t/Any)]
+     (do ~spc/special-form
+         ::expected-type-as
+         '~(merge opts {:sym s})
+         ~body)))
 
-(defmacro gather-for-return-type [_ ret]
-  `(do ~spc/special-form
-       ::gather-for-return-type
-       '{}
-       ~ret))
+(defmacro ignore-expected-if [tst body] body)
 
-(defmacro check-for-expected [{:keys [expr expected-local]}]
-  (throw (Exception. "check-for-expected Not for expansion")))
-
-(defmethod -expand-macro `check-for-expected [[_ {:keys [expr expected-local]}] _]
-  (assert nil "TODO check-for-expected")
-  expr)
+(defmethod -expand-macro `ignore-expected-if
+  [[_ tst body :as form] _]
+  {:pre [(= 3 (count form))]}
+  body)
 
 (defmethod -expand-macro 'clojure.core/for
   [[_ seq-forms body-form :as form] _]
@@ -265,26 +273,23 @@
                   (:while :when) `(when ~expr ~body)
                   (if (keyword? binding)
                     (throw (Exception. (str "Invalid 'for' keyword: " binding)))
-                    `(let [~binding (check-for-seq
-                                      {:expr ~expr
-                                       :binding ~binding})]
+                    `(let [~binding (solve
+                                      ~expr
+                                      {:query (t/All [a#] [(t/U nil (t/Seqable a#)) :-> a#])
+                                       :blame-form ~expr
+                                       :msg-fn (fn [_#]
+                                                 (str "'for' expects Seqables in binding form"))})]
                        ~body))))
-              `[(check-for-expected
-                  {:expr ~body-form
-                   ;; FIXME should we blame an outer form (if it exists)
-                   ;; if the expected type is incompatible with Seq?
-                   :form ~form
-                   :expected-local ~expg})]
+              `[~body-form]
               (partition 2 (rseq seq-forms)))]
-    `(expected-as ~expg
-                  (gather-for-return-type ~ret))))
-
-(defmacro ignore-expected-if [tst body] body)
-
-(defmethod -expand-macro `ignore-expected-if
-  [[_ tst body :as form] _]
-  {:pre [(= 3 (count form))]}
-  body)
+    ;; FIXME correctly handle expected type 
+    `(check-expected
+       ;; TODO figure out what `solve` even does with the expected type
+       (solve (ignore-expected-if true ~ret)
+              {:query (t/All [a#] [a# :-> (t/Seq a#)])})
+       {:msg-fn (fn [_#]
+                  "The return type of this 'for' expression does not agree with the expected type.")
+        :blame-form ~form})))
 
 (defn expand-typed-fn-macro
   [form _]
@@ -308,14 +313,24 @@
                (when name
                  [name])
                (for [{:keys [original-method body pvec ann]} parsed-methods]
-                 (list pvec
-                       `(ignore-expected-if ~(boolean (-> ann :rng :default))
-                         (check-if-empty-body
-                           (do ~@body)
-                           {:msg-fn (fn [_#]
-                                      "This 't/fn' method returns nil, which does not agree with the expected type.")
-                            :blame-form ~original-method
-                            :original-body ~body}))))))
+                 (let [conds (when (and (next body) (map? (first body)))
+                               (first body))
+                       body (if conds
+                              (next body)
+                              body)]
+                   (list* pvec
+                          (concat
+                            (when conds
+                              [conds])
+                            [`(ignore-expected-if ~(boolean (-> ann :rng :default))
+                                ~(if (seq body)
+                                   `(do ~@body)
+                                   `(check-if-empty-body
+                                      (do ~@body)
+                                      {:msg-fn (fn [_#]
+                                                 "This 't/fn' method returns nil, which does not agree with the expected type.")
+                                       :blame-form ~original-method
+                                       :original-body ~body})))]))))))
       ~reassembled-fn-type)))
 
 (defmethod -expand-macro `t/fn [& args] (apply expand-typed-fn-macro args))
@@ -382,7 +397,7 @@
 
 (comment 
   (inline-assoc-in `(assoc-in {:a {:b nil}} [:a :b] 2))
-  (inline-assoc-in {:a {:b {:c nil}}} [:a :b :c] 2)
+  (inline-assoc-in `(assoc-in {:a {:b {:c nil}}} [:a :b :c] 2))
 )
 
 (defmacro type-error [opts]
@@ -404,9 +419,10 @@
      (inline-get-in form `(get ~m ~k) ks)
      `(get ~m ~k))))
 
-(defmethod -expand-inline 'clojure.core/assoc-in [form _]
-  {:pre [(= 4 (count form))]}
-  (prn "-expand-inline clojure.core/assoc-in")
+(defmethod -expand-inline 'clojure.core/assoc-in [form {:keys [internal-error]}]
+  (when-not (= 4 (count form))
+    (internal-error (str "Must provide 3 arguments to clojure.core/assoc-in, found " (dec (count form))
+                         ": " form)))
   (let [[_ _ path] form
         _ (assert (and (vector? path) (seq path)) "core.typed only supports non-empty vector paths with assoc-in")]
     `(check-expected
@@ -415,8 +431,10 @@
                   "The return type of this 'assoc-in' expression does not agree with the expected type.")
         :blame-form ~form})))
 
-(defmethod -expand-inline 'clojure.core/get-in [form _]
-  {:pre [(#{3 4} (count form))]}
+(defmethod -expand-inline 'clojure.core/get-in [form {:keys [internal-error]}]
+  (when-not (= 4 (count form))
+    (internal-error (str "Must provide 2 or 3 arguments to clojure.core/get-in, found " (dec (count form))
+                         ": " form)))
   (let [[_ _ path] form
         _ (assert (and (vector? path) (seq path)) "core.typed only supports non-empty vector paths with get-in")]
     `(check-expected
@@ -430,8 +448,10 @@
   ([form m ks f args]
    `(assoc-in ~m ~ks (~f (get-in ~m ~ks) ~@args))))
 
-(defmethod -expand-inline 'clojure.core/update-in [form _]
-  {:pre [(<= 4 (count form))]}
+(defmethod -expand-inline 'clojure.core/update-in [form {:keys [internal-error]}]
+  (when-not (<= 4 (count form))
+    (internal-error (str "Must provide at least 3 arguments to clojure.core/update-in, found " (dec (count form))
+                         ": " form)))
   (let [[_ _ path] form
         _ (assert (and (vector? path) (seq path)) "core.typed only supports non-empty vector paths with 'update-in'")]
     `(check-expected
@@ -439,6 +459,311 @@
        {:msg-fn (fn [_#]
                   "The return type of this 'update-in' expression does not agree with the expected type.")
         :blame-form ~form})))
+
+(defn expand-ann-form [form _]
+  (let [[_ frm ty] form]
+    `(check-expected
+       (do ~spc/special-form
+           ::t/ann-form
+           ;FIXME move quote to outside of map
+           {:type '~ty}
+           (check-expected
+             ~frm
+             {:blame-form ~frm}))
+       {:msg-fn (fn [_#]
+                  ;; TODO insert actual types in this message
+                  "The annotated type for this 'ann-form' expression did not agree with the expected type from the surrounding context.")
+        :blame-form ~form})))
+
+(defmethod -expand-macro `t/ann-form [& args] (apply expand-ann-form args))
+(defmethod -expand-macro 'clojure.core.typed.macros/ann-form [& args] (apply expand-ann-form args))
+
+(defn expand-tc-ignore [[_ & body :as form] _]
+  `(check-expected
+     (do ~spc/special-form
+         ::t/tc-ignore
+         ~@(or body [nil]))
+     {:msg-fn (fn [_#]
+                "The surrounding context of this 'tc-ignore' expression expects a more specific type than Any.")
+      :blame-form ~form}))
+
+(defmethod -expand-macro `t/tc-ignore [& args] (apply expand-tc-ignore args))
+(defmethod -expand-macro 'clojure.core.typed.macros/tc-ignore [& args] (apply expand-tc-ignore args))
+
+(defmacro require-expected [expr opts]
+  {:pre [(map? opts)]}
+  `(do ~spc/special-form
+       ::require-expected
+       '~opts
+       ~expr))
+
+(defn inline-map-transducer [[_ f :as form] {:keys [internal-error]}]
+  {:pre [(= 2 (count form))]}
+  `(fn* [rf#]
+     (fn*
+       ([] (rf#))
+       ([result#] (rf# result#))
+       ([result# input#]
+        (rf# result# (~f input#)))))
+  #_
+  `(expected-type-as expected#
+     (let [[in# out#]
+           (solve expected#
+                  {:query (t/All [a# b#] [(t/Transducer a# b#) :-> '[a# b#]])
+                   ;; would be nice to customize this message based on `expected`
+                   :msg-fn (fn [_#]
+                             (str "'map' transducer arity requires an expected type which is a subtype of (t/Transducer t/Nothing t/Any)"))
+                   :blame-form ~form})]
+       (fn* [rf#]
+         (fn*
+           ([] (rf#))
+           ([result#] (rf# result#))
+           ([result# input#]
+            (rf# result#
+                 ;; fake invoke
+                 (check-expected
+                   (~f input#)
+                   {:default-expected {:type (t/TypeOf out#)}
+                    :msg-fn (fn [{parse-type# :parse-type actual# :actual}]
+                              (str "'map' transducer did not return a correct type:"
+                                   "\n\nExpected: \t" (pr-str (parse-type# (list 't/Transducer '(t/TypeOf in#) '(t/TypeOf out#))))
+                                   "\n\nActual: \t" (pr-str (parse-type# (list 't/Transducer '(t/TypeOf in#) actual#)))
+                                   "\n\n"
+                                   "in: \t" '~form))
+                    :blame-form (~f input#)}))))))
+     {:msg-fn (fn [_#]
+                (str "Must provide expected type to 'map' transducer arity.\n"
+                     "Hint: Try (t/ann-form (map ...) (t/Transducer in out))."))
+      :blame-form ~form}))
+
+(defn map-colls-fallthrough [[_ f & colls :as form] {:keys [internal-error splice-seqable-form]}]
+  (let [gsyms (repeatedly (count colls) gensym)
+        bindings (mapcat (fn [i gsym coll] 
+                           [gsym `(solve
+                                    ~coll
+                                    {:query (t/All [a#] [(t/U nil (t/Seqable a#)) :-> a#])
+                                     :msg-fn (fn [{actual# :actual}]
+                                               (str "Argument number " ~i " to 'map' must be Seqable, given: "
+                                                    actual#))
+                                     :blame-form ~coll})])
+                         ;; counting argument #'s to this 'map' form
+                         (range 2 ##Inf)
+                         gsyms colls)]
+    `(let ~(vec bindings)
+       ;; FIXME can we push the expected type into `f`?
+       (check-expected
+         (solve
+           (~f ~@gsyms)
+           {:query (t/All [a#] [a# :-> (t/Seq a#)])})
+         {:msg-fn (fn [_#]
+                    "The return type of this 'map' expression does not agree with the expected type.")
+          :blame-form ~form}))))
+
+(defn inline-map-colls [[_ f & colls :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  {:pre [(seq colls)]}
+  (prn "inline-map-colls")
+  (let [splices (mapv splice-seqable-form colls)]
+    (if (some nil? splices)
+      (do
+        (prn "fall through splices" splices)
+        (map-colls-fallthrough form opts))
+      (let [smallest-max-count (apply min (map (fn [e]
+                                                 (apply + (map :max-count e)))
+                                               splices))
+            largest-min-count (apply max (map (fn [e]
+                                                 (apply + (map :min-count e)))
+                                              splices))
+            ordered? (:ordered (first splices))
+            max-realized-count (max smallest-max-count largest-min-count)
+            _ (prn "max-realized-count" max-realized-count)
+            csyms (repeatedly (count colls) gensym)]
+        (if (and (not-any? nil? splices)
+                 ordered?
+                 (< max-realized-count 10)
+                 (< (count colls) 3))
+          (if (pos? max-realized-count)
+            `(let* [~@(mapcat vector csyms colls)]
+               (cons (~f ~@(map (fn [csym] `(first ~csym)) csyms))
+                     (map ~f ~@(map (fn [csym] `(rest ~csym)) csyms))))
+            `(sequence nil))
+          (map-colls-fallthrough form opts))))))
+
+(defmethod -expand-inline 'clojure.core/map [[_ f & colls :as form] {:keys [internal-error] :as opts}]
+  (when-not (<= 2 (count form))
+    (internal-error (str "Must provide 1 or more arguments to clojure.core/map, found " (dec (count form))
+                         ": " form)))
+  (if (empty? colls)
+    (inline-map-transducer form opts)
+    (inline-map-colls form opts)))
+
+(defmethod -expand-inline 'clojure.core/every? [[_ f coll :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (= 3 (count form))
+    (internal-error (str "Must provide 2 arguments to clojure.core/every?, found " (dec (count form))
+                         ": " form)))
+  (if-let [splice (splice-seqable-form coll)]
+    (let [min-count (apply + (map :min-count splice))
+          max-count (apply + (map :max-count splice))
+          ordered? (:ordered (first splice))
+          max-realized (max min-count max-count)]
+      (if (and ordered?
+               (< max-realized 15))
+        (if (pos? max-realized)
+          `(let* [c# ~coll]
+             (and (~f (first c#))
+                  (every? ~f (rest c#))))
+          true)
+        form))
+    form))
+
+(defmethod -expand-inline 'clojure.core/some [[_ f coll :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (= 3 (count form))
+    (internal-error (str "Must provide 2 arguments to clojure.core/every?, found " (dec (count form))
+                         ": " form)))
+  (if-let [splice (splice-seqable-form coll)]
+    (let [min-count (apply + (map :min-count splice))
+          max-count (apply + (map :max-count splice))
+          ordered? (:ordered (first splice))
+          max-realized (max min-count max-count)]
+      (if (and ordered?
+               (< max-realized 15))
+        (if (pos? max-realized)
+          `(let* [c# ~coll]
+             (or (~f (first c#))
+                 (some ~f (rest c#))))
+          nil)
+        form))
+    form))
+
+(defmethod -expand-inline 'clojure.core/not-any? [[_ f coll :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (= 3 (count form))
+    (internal-error (str "Must provide 2 arguments to clojure.core/not-any?, found " (dec (count form))
+                         ": " form)))
+  (if-let [splice (splice-seqable-form coll)]
+    (let [min-count (apply + (map :min-count splice))
+          max-count (apply + (map :max-count splice))
+          ordered? (:ordered (first splice))
+          max-realized (max min-count max-count)]
+      (if (and ordered?
+               (< max-realized 15))
+        (if (pos? max-realized)
+          `(let* [c# ~coll]
+             (and (not (~f (first c#)))
+                  (not-any? ~f (rest c#))))
+          true)
+        form))
+    form))
+
+(defmethod -expand-inline 'clojure.core/apply [[_ f & args :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (<= 3 (count form))
+    (internal-error (str "Must provide at least 2 arguments to clojure.core/apply, found " (dec (count form))
+                         ": " form)))
+  (let [[fixed rst] ((juxt pop peek) (vec args))]
+    (if-let [splice (splice-seqable-form rst)]
+      (let [min-count (apply + (map :min-count splice))
+            max-count (apply + (map :max-count splice))
+            ordered? (:ordered (first splice))
+            max-realized (max min-count max-count)]
+        (prn "apply: found splice" ordered? max-realized)
+        (if (and ordered?
+                 (< max-realized 15))
+          (let [gsym (gensym 'args)]
+            `(let* [~gsym ~rst]
+               (~f ~@fixed ~@(map (fn [i]
+                                    `(first (nthnext ~gsym ~i)))
+                                  (range max-realized)))))
+          form))
+      (do
+        (prn "apply: no splice")
+        form))))
+
+(defmethod -expand-inline 'clojure.core/complement [[_ f :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (= 2 (count form))
+    (internal-error (str "Must provide 1 argument to clojure.core/complement, found " (dec (count form))
+                         ": " form)))
+  `(fn* [& args#]
+     (not (apply ~f args#))))
+
+(defmethod -expand-inline 'clojure.core/juxt [[_ & fs :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (<= 2 (count form))
+    (internal-error (str "Must provide at least 1 argument to clojure.core/juxt, found " (dec (count form))
+                         ": " form)))
+  (let [gsym (gensym 'args)]
+    `(fn* [& ~gsym]
+       ~(mapv (fn [f]
+                `(apply ~f ~gsym))
+              fs))))
+
+(defmethod -expand-inline 'clojure.core/not [[_ x :as form] {:keys [internal-error splice-seqable-form] :as opts}]
+  (when-not (= 2 (count form))
+    (internal-error (str "Must provide 1 argument to clojure.core/not, found " (dec (count form))
+                         ": " form)))
+  `(if ~x false true))
+
+(comment
+ (-> identity
+     (map [1 2 3])
+     vec)
+ =>
+ (check-expected
+   (vec
+     (check-expected
+       (map identity [1 2 3])
+       {:msg-fn (fn [_#]
+                  "A threaded form with -> threw a type error: (-> ... (map [1 2 3]) ...)")
+        :blame-form (map identity [1 2 3])}))
+   {:msg-fn (fn [_#]
+              "A threaded form with -> threw a type error: (-> ... vec ...)")
+    :blame-form (vec (map identity [1 2 3]))})
+ (clojure.pprint/pprint (-expand-macro '(-> identity (map [1 2 3]) vec) {:vsym `->}))
+ )
+
+(defmethod -expand-macro 'clojure.core/-> [[_ x & forms :as all-form] _]
+  (loop [x x, forms forms, blame-form x]
+    (if forms
+      (let [form (first forms)
+            insert-in (fn [x]
+                        (if (seq? form)
+                          (with-meta `(~(first form) ~x ~@(next form)) (meta form))
+                          (list form x)))
+            threaded (insert-in x)
+            blame-form (insert-in blame-form)
+            threaded `(check-expected
+                        ~threaded
+                        {:msg-fn (fn [_#]
+                                   (str "A threaded form with -> yielded a type error: "
+                                        ~(pr-str (list '-> '... form '...))))
+                         :blame-form ~blame-form})]
+        (recur threaded (next forms) blame-form))
+      x)))
+
+(defmethod -expand-inline 'clojure.core/comp [[_ & fs :as all-form] _]
+  (let [fs (vec fs)
+        args (gensym 'args)]
+    `(fn* [& ~args]
+       ~(reduce (fn [res g]
+                  (list g res))
+                `(apply ~(if (seq fs) (peek fs) `identity) ~args)
+                (when (seq fs)
+                  (pop fs))))))
+
+
+;; Notes:
+;; - try `->` next
+;;   - good test of inheriting msg-fn etc.
+;; - do we need to special-case comp+transducers?
+(comment
+   (into #{}
+         (comp (filter identity)
+               (map inc))
+         [1 nil 2 nil 3])
+   (into #{}
+         (fn [a]
+           (map inc)
+         (comp (filter identity)
+               (map inc))
+         [1 nil 2 nil 3])
+   )
+   )
 
 
 (comment

@@ -1,4 +1,5 @@
 ;; adapted from tools.analyzer
+;TODO move this ns into clojure.core.typed.analyzer2
 (ns clojure.core.typed.analyzer2.pre-analyze
   (:refer-clojure :exclude [macroexpand-1 macroexpand var? record? boolean?])
   (:require [clojure.tools.analyzer.utils :as u]
@@ -16,7 +17,7 @@
          pre-analyze-const)
 
 (def ^:dynamic pre-analyze-form
-  "Like analyze, but does not mark the form with :top-level true"
+  "Like pre-analyze, but does not mark the form with :top-level true"
   -pre-analyze-form)
 
 (defmethod -pre-analyze-form Symbol
@@ -64,7 +65,7 @@
   (pre-analyze-const form env))
 
 (defn pre-analyze
-  "Given a form to analyze and an environment, a map containing:
+  "Given a top-level form to analyze and an environment, a map containing:
    * :locals     a map from binding symbol to AST of the binding value
    * :context    a keyword describing the form's context from the :ctx/* hierarchy.
     ** :ctx/expr      the form is an expression: its value is used
@@ -73,22 +74,8 @@
    * :ns         a symbol representing the current namespace of the form to be
                  analyzed
 
-   returns an AST for that form.
-
-   Every node in the AST is a map that is *guaranteed* to have the following keys:
-   * :op   a keyword describing the AST node
-   * :form the form represented by the AST node
-   * :env  the environment map of the AST node
-
-   Additionaly if the AST node contains sub-nodes, it is guaranteed to have:
-   * :children a vector of the keys of the AST node mapping to the sub-nodes,
-               ordered, when that makes sense
-
-   It is considered a node either the top-level node (marked with :top-level true)
-   or a node that can be reached via :children; if a node contains a node-like
-   map that is not reachable by :children, there's no guarantee that such a map
-   will contain the guaranteed keys."
-
+   returns one level of the AST for that form, with all children
+   stubbed out with :unanalyzed nodes."
   [form env]
   (assoc (pre-analyze-form form env) :top-level true))
 
@@ -97,6 +84,9 @@
   {:op :unanalyzed
    :form form
    :env env
+   ;; ::config will be inherited by the node in :analyzed-atom
+   ;; when this :unanalyzed node is replaced by it
+   ::config {}
    ;; update this atom when this node has been analyzed
    :analyzed-atom (atom nil)})
 
@@ -107,7 +97,7 @@
 
 (def ^{:dynamic  true
        :arglists '([[op & args] env])
-       :doc      "Multimethod that dispatches on op, should default to -pre-parse"}
+       :doc      "Function that dispatches on op, should default to -pre-parse"}
   pre-parse)
 
 ;; this node wraps non-quoted collections literals with metadata attached
@@ -183,9 +173,10 @@
   (let [mform (ana/macroexpand-1 sym env)] ;; t.a.j/macroexpand-1 macroexpands Class/Field into (. Class Field)
     (if (= mform sym)
       (merge (if-let [{:keys [mutable children] :as local-binding} (-> env :locals sym)] ;; locals shadow globals
-               (merge (dissoc local-binding :init)                                      ;; avoids useless passes later
+               (merge local-binding
                       {:op          :local
                        :assignable? (boolean mutable)
+                       ;; don't walk :init, but keep in AST
                        :children    (vec (remove #{:init} children))})
                (if-let [var (let [v (u/resolve-sym sym env)]
                               (and (ana/var? v) v))]

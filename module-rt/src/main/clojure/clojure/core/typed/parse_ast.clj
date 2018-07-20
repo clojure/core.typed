@@ -318,8 +318,8 @@
           {:objects (mapv parse-object objects)})
         (when (true? repeat) {:repeat true})))))
 
-(def parse-HVec (parse-h* :HVec "Invalid heterogeneous vector syntax:"))
-(def parse-HSequential (parse-h* :HSequential "Invalid HSeqnential syntax:"))
+(def parse-HVec (parse-h* :HVec "Invalid HVec syntax:"))
+(def parse-HSequential (parse-h* :HSequential "Invalid HSequential syntax:"))
 (def parse-HSeq (parse-h* :HSeq "Invalid HSeq syntax:"))
 
 (def parse-quoted-hvec (fn [syn]

@@ -26,8 +26,8 @@
             [clojure.core.typed :as t :refer [letfn>]]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
-                                        Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
-                                        HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
+                                        Result AnyValue Top RClass
+                                        DataType HeterogeneousMap PrimitiveArray
                                         Function Protocol Bounds FlowSet TCResult HSequential)
            (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)
            (clojure.core.typed.filter_rep TypeFilter)
@@ -434,19 +434,24 @@
                     (keyword? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Keyword) T)
                     :else (fail! S T)))))
 
-        ;; constrain body to be below T, but don't mention the new vars
-        (r/Poly? S)
-        (let [nms (c/Poly-fresh-symbols* S)
-              body (c/Poly-body* nms S)
-              bbnds (c/Poly-bbnds* nms S)]
-          (free-ops/with-bounded-frees (zipmap (map r/F-maker nms) bbnds)
-                   (cs-gen (set/union (set nms) V) X Y body T)))
-
         (r/Name? S)
         (cs-gen V X Y (c/resolve-Name S) T)
 
         (r/Name? T)
         (cs-gen V X Y S (c/resolve-Name T))
+
+        (and (r/TApp? S)
+             (r/TApp? T)
+             (= (:rator S) (:rator T)))
+        (cs-gen-TApp V X Y S T)
+
+        (and (r/TApp? S)
+             (not (r/F? (:rator S))))
+        (cs-gen V X Y (c/resolve-TApp S) T)
+
+        (and (r/TApp? T)
+             (not (r/F? (:rator T))))
+        (cs-gen V X Y S (c/resolve-TApp T))
 
         ; copied from TR's infer-unit
         ;; if we have two mu's, we rename them to have the same variable
@@ -460,13 +465,13 @@
         (r/Mu? S) (cs-gen V X Y (c/unfold S) T)
         (r/Mu? T) (cs-gen V X Y S (c/unfold T))
 
-        (and (r/TApp? S)
-             (not (r/F? (:rator S))))
-        (cs-gen V X Y (c/resolve-TApp S) T)
+        ;; similar to Mu+Mu case
+        (and (r/Poly? S)
+             (r/Poly? T)
+             (= (:nbound S) (:nbound T))
+             (= (:bbnds S) (:bbnds T)))
+        (cs-gen V X Y (r/Poly-body-unsafe* S) (r/Poly-body-unsafe* T))
 
-        (and (r/TApp? T)
-             (not (r/F? (:rator T))))
-        (cs-gen V X Y S (c/resolve-TApp T))
 
         ;constrain *each* element of S to be below T, and then combine the constraints
         (r/Union? S)
@@ -549,41 +554,19 @@
         (r/App? T)
         (cs-gen V X Y S (c/resolve-App T))
 
+        ;; constrain body to be below T, but don't mention the new vars
+        (r/Poly? S)
+        (let [nms (c/Poly-fresh-symbols* S)
+              body (c/Poly-body* nms S)
+              bbnds (c/Poly-bbnds* nms S)]
+          (free-ops/with-bounded-frees (zipmap (map r/F-maker nms) bbnds)
+                   (cs-gen (set/union (set nms) V) X Y body T)))
+
         (and (r/DataType? S)
              (r/DataType? T)) (cs-gen-datatypes-or-records V X Y S T)
 
         ; handle Record as HMap
         (r/Record? S) (cs-gen V X Y (c/Record->HMap S) T)
-
-        (and (r/HeterogeneousVector? S)
-             (r/HeterogeneousVector? T))
-        (cs-gen-HSequential V X Y (c/HVec->HSequential S) (c/HVec->HSequential T))
-
-        (and (r/HeterogeneousSeq? S)
-             (r/HeterogeneousSeq? T))
-        (cs-gen-HSequential V X Y (c/HSeq->HSequential S) (c/HSeq->HSequential T))
-
-        (and (r/HeterogeneousList? S)
-             (r/HeterogeneousList? T))
-        (cs-gen-HSequential V X Y (c/HList->HSequential S) (c/HList->HSequential T))
-
-        ; HList/HSeq/HVector are HSequential
-        (and ((some-fn r/HeterogeneousList?
-                       r/HeterogeneousSeq?
-                       r/HeterogeneousVector?)
-              S)
-             (r/HSequential? T))
-        (cs-gen-HSequential V X Y 
-                (cond
-                  (r/HeterogeneousList? S) (c/HList->HSequential S) 
-                  (r/HeterogeneousVector? S) (c/HVec->HSequential S) 
-                  :else (c/HSeq->HSequential S))
-                T)
-
-        ; HList is a HSeq
-        (and (r/HeterogeneousList? S)
-             (r/HeterogeneousSeq? T))
-        (cs-gen-HSequential V X Y (c/HList->HSequential S) (c/HSeq->HSequential T))
 
         (and (r/HSequential? S)
              (r/HSequential? T))
@@ -833,17 +816,12 @@
         ; It's useful to also trigger this case with HSequential, as that's more likely
         ; to be on the right.
         (and (r/RClass? S)
-             ((some-fn r/HeterogeneousVector? r/HSequential?) T))
+             (r/HSequential? T))
         (if-let [[Sv] (seq
-                        (filter (some-fn r/HeterogeneousVector? r/HSequential?)
-                                (map c/fully-resolve-type (c/RClass-supers* S))))]
+                        (filter r/HSequential? (map c/fully-resolve-type (c/RClass-supers* S))))]
           (cs-gen V X Y Sv T)
           (fail! S T))
         
-        (and (r/TApp? S)
-             (r/TApp? T))
-        (cs-gen-TApp V X Y S T)
-
         (and (r/FnIntersection? S)
              (r/FnIntersection? T))
         (cs-gen-FnIntersection V X Y S T)
@@ -866,34 +844,6 @@
              (r/AnyValue? T))
         (cr/empty-cset X Y)
 
-; must remember to update these if HeterogeneousList gets rest/drest
-        (and (r/HeterogeneousSeq? S)
-             (r/RClass? T))
-        (cs-gen V X Y
-                (let [ss (apply c/Un
-                                (concat
-                                  (:types S)
-                                  (when-let [rest (:rest S)]
-                                    [rest])
-                                  (when (:drest S)
-                                    [r/-any])))]
-                  (c/In (impl/impl-case
-                          :clojure (c/RClass-of ISeq [ss])
-                          :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
-                        ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
-                           (count (:types S)))))
-                T)
-
-; must remember to update these if HeterogeneousList gets rest/drest
-        (and (r/HeterogeneousList? S)
-             (r/RClass? T))
-        (cs-gen V X Y 
-                (c/In (impl/impl-case
-                        :clojure (c/RClass-of IPersistentList [(apply c/Un (:types S))])
-                        :cljs (c/Protocol-of 'cljs.core/IList [(apply c/Un (:types S))]))
-                      (r/make-ExactCountRange (count (:types S))))
-                T)
-
         ; TODO add :repeat support
         (and (r/HSequential? S)
              (r/RClass? T))
@@ -906,30 +856,17 @@
                                   (when (:drest S)
                                     [r/-any])))]
                   (c/In (impl/impl-case
-                          :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
-                                         (c/RClass-of clojure.lang.Sequential))
+                          :clojure (case (:kind S)
+                                     :vector (c/RClass-of clojure.lang.APersistentVector [ss])
+                                     :seq (c/RClass-of clojure.lang.ISeq [ss])
+                                     :list (c/RClass-of clojure.lang.IPersistentList [ss])
+                                     :sequential (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
+                                                       (c/RClass-of clojure.lang.Sequential)))
                           :cljs (throw (Exception. "TODO CLJS HSequential cs-gen")))
                         ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
                          (count (:types S)))))
                 T)
 
-        ; TODO add :repeat support
-        (and (r/HeterogeneousVector? S)
-             (r/RClass? T))
-        (cs-gen V X Y
-                (let [ss (apply c/Un 
-                                (concat
-                                  (:types S)
-                                  (when-let [rest (:rest S)]
-                                    [rest])
-                                  (when (:drest S)
-                                    [r/-any])))]
-                  (c/In (impl/impl-case
-                          :clojure (c/RClass-of APersistentVector [ss])
-                          :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
-                        ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
-                         (count (:types S)))))
-                T)
 
         (and (r/RClass? S)
              (r/RClass? T))
@@ -947,8 +884,8 @@
         (let [new-S (c/upcast-hset S)]
           (cs-gen V X Y new-S T))
 
-        (r/HeterogeneousVector? S)
-        (cs-gen V X Y (c/upcast-hvec S) T)
+        (r/HSequential? S)
+        (cs-gen V X Y (c/upcast-HSequential S) T)
 
         (and (r/AssocType? S)
              (r/Protocol? T))
@@ -968,6 +905,8 @@
   {:pre [(r/HSequential? S)
          (r/HSequential? T)]
    :post [(cr/cset? %)]}
+  (when-not (r/compatible-HSequential-kind? (:kind S) (:kind T))
+    (fail! S T))
   (cset-meet* (concat
                 (cond
                   ;simple case
@@ -1158,20 +1097,19 @@
     ;;FIXME do something here
     :else (fail! s t)))
 
-(declare cs-gen-Function)
+(declare cs-gen-Function cs-gen-list-with-variances)
 
-;FIXME handle variance
 (defn cs-gen-TApp
   [V X Y S T]
   {:pre [(r/TApp? S)
-         (r/TApp? T)]}
-  (when-not (= (:rator S) (:rator T)) 
-    (fail! S T))
-  (cset-meet*
-    (mapv (t/fn [s1 :- r/Type 
-                 t1 :- r/Type]
-            (cs-gen V X Y s1 t1))
-          (:rands S) (:rands T))))
+         (r/TApp? T)
+         (= (:rator S) (:rator T))]}
+  (let [tfn (-> T :rator c/fully-resolve-type)]
+    (assert (r/TypeFn? tfn) "Found something other than a TFn in a TApp")
+    (cs-gen-list-with-variances 
+      V X Y
+      (:variances tfn)
+      (:rands S) (:rands T))))
 
 (defn cs-gen-FnIntersection
   [V X Y ^FnIntersection S ^FnIntersection T] 
@@ -1217,8 +1155,7 @@
   (when-not (= (:the-class S) (:the-class T)) 
     (fail! S T))
   (if (seq (:poly? S))
-    ;TODO variance
-    (cs-gen-list V X Y (:poly? S) (:poly? T))
+    (cs-gen-list-with-variances V X Y (:variances T) (:poly? S) (:poly? T))
     (cr/empty-cset X Y)))
 
 ; constrain si and ti according to variance
@@ -1272,16 +1209,11 @@
   ;    (prn "relevant-S" (prs/unparse-type relevant-S)))
     (cond
       relevant-S
-      (cset-meet*
-        (cons (cr/empty-cset X Y)
-              (doall
-                (map (t/fn [vari :- r/Variance 
-                            si :- r/Type 
-                            ti :- r/Type]
-                       (cs-gen-with-variance V X Y vari si ti))
-                     (:variances T)
-                     (:poly? relevant-S)
-                     (:poly? T)))))
+      (cs-gen-list-with-variances 
+        V X Y
+        (:variances T)
+        (:poly? relevant-S)
+        (:poly? T))
       :else (fail! S T))))
 
 (defn cs-gen-Protocol
@@ -1810,14 +1742,17 @@
 ;; Y : (setof symbol?) - index variables that must have entries
 ;; R : Type? - result type into which we will be substituting
 ;TODO no-check, very slow!
-(t/ann ^:no-check subst-gen [cset (t/Set t/Sym) r/AnyType -> (t/U nil cr/SubstMap)])
-(defn subst-gen [C Y R]
+(t/ann ^:no-check subst-gen [cset (t/Set t/Sym) r/AnyType & :optional {:T (t/U nil (t/Seqable r/Type))} -> (t/U nil cr/SubstMap)])
+(defn subst-gen [C Y R & {:keys [T]}]
   {:pre [(cr/cset? C)
          ((con/set-c? symbol?) Y)
-         (r/AnyType? R)]
+         (r/AnyType? R)
+         (every? r/Type? T)]
    :post [((some-fn nil? cr/substitution-c?) %)]}
   (u/p :cs-gen/subst-gen
-  (let [var-hash (frees/fv-variances R)
+  (let [var-hash (apply frees/combine-frees
+                        (frees/fv-variances R)
+                        (mapv frees/fv-variances T))
         idx-hash (frees/idx-variances R)]
     (letfn> 
            [
@@ -1835,7 +1770,8 @@
                     inferred (case var
                                (:constant :covariant) S
                                :contravariant T
-                               :invariant S)]
+                               ;; FIXME unsure if In is correct here
+                               :invariant (c/In S T))]
                 inferred))
             ;TODO implement generalize
             ;                  (let [gS (generalize S)]
@@ -2090,6 +2026,7 @@
         cs (cset-meet cs-short cs-dotted)
         ;_ (prn "cs" cs)
         ]
+    ;; FIXME pass variances via :T
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
 
 (declare infer)
@@ -2158,6 +2095,7 @@
         cs (cset-meet cs-short cs-dotted)
         ;_ (prn "cs" cs)
         ]
+    ;; FIXME pass variances via :T
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
 
 ;; like infer-vararg, but T-var is the prest type:
@@ -2275,7 +2213,7 @@
      ;(prn "final cs" cs*)
      (if R
        (u/p :cs-gen/infer-inner-subst-gen
-         (subst-gen cs* (set (keys Y)) R))
+         (subst-gen cs* (set (keys Y)) R :T T))
        true)))))
 
 (ind-u/add-indirection ind/infer infer)

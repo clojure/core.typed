@@ -1,12 +1,15 @@
 (ns ^:skip-wiki clojure.core.typed.lex-env
   (:require [clojure.core.typed :as t]
+            [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.path-type :as path-type]
             [clojure.core.typed.object-rep :as obj]))
 
 (def lex-env? (con/hash-c? con/local-sym? r/Type?))
@@ -53,7 +56,18 @@
 (defn lookup-local [sym]
   {:pre [(con/local-sym? sym)]
    :post [((some-fn nil? r/Type?) %)]}
-  (get-in (lexical-env) [:l sym]))
+  (let [; see if sym is an alias for an object
+        ; if not (-id-path sym) is returned
+        obj (lookup-alias sym)
+        [alias-path alias-id] (cond
+                                (obj/Path? obj) [(:path obj) (:id obj)]
+                                (obj/EmptyObject? obj) [nil sym]
+                                :else (err/int-error (str "what is this?" (pr-str obj))))
+        _ (assert (pr/path-elems? alias-path))
+        _ (assert (fr/name-ref? alias-id))
+        lt (get-in (lexical-env) [:l alias-id])]
+    (when lt
+      (path-type/path-type lt alias-path))))
 
 (defn merge-locals [env new]
   {:pre [(PropEnv? env)]

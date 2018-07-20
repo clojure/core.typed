@@ -26,7 +26,7 @@
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds
                                         PrimitiveArray DataType RClass HeterogeneousMap
-                                        HeterogeneousList HeterogeneousSeq CountRange KwArgs
+                                        CountRange KwArgs
                                         Extends)
            (clojure.core.typed.filter_rep FilterSet)
            (clojure.lang APersistentVector PersistentList ASeq)))
@@ -188,6 +188,12 @@
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
         *sub-current-seen*
+
+        (r/TypeOf? s)
+        (subtypeA* *sub-current-seen* (c/resolve-TypeOf s) t)
+
+        (r/TypeOf? t)
+        (subtypeA* *sub-current-seen* s (c/resolve-TypeOf t))
 
         (and (r/Value? s)
              (r/Value? t))
@@ -481,7 +487,8 @@
             (fail! s t)))
 
         (and (r/HSequential? s)
-             (r/HSequential? t))
+             (r/HSequential? t)
+             (r/compatible-HSequential-kind? (:kind s) (:kind t)))
         (if (and (cond
                    ; simple case, no rest, drest, repeat types
                    (and (not-any? :rest [s t])
@@ -588,44 +595,9 @@
           *sub-current-seen*
           (fail! s t))
 
-        (and (r/HeterogeneousVector? s)
-             (r/HeterogeneousVector? t))
-        (subtype (c/HVec->HSequential s) (c/HVec->HSequential t))
-
-        (and (r/HeterogeneousList? s)
-             (r/HeterogeneousList? t))
-        (subtype (c/HList->HSequential s) (c/HList->HSequential t))
-
-        (and (r/HeterogeneousSeq? s)
-             (r/HeterogeneousSeq? t))
-        (subtype (c/HSeq->HSequential s) (c/HSeq->HSequential t))
-
-        ; HList is a HSeq
-        (and (r/HeterogeneousList? s)
-             (r/HeterogeneousSeq? t))
-        (subtype (c/HList->HSequential s) (c/HSeq->HSequential t))
-
-        ; HVec/HList/HSeq are HSequential's
-        (and (or (r/HeterogeneousVector? s)
-                 (r/HeterogeneousList? s)
-                 (r/HeterogeneousSeq? s))
-             (r/HSequential? t))
-        (subtype (cond
-                   (r/HeterogeneousVector? s)
-                   (c/HVec->HSequential s)
-
-                   (r/HeterogeneousList? s)
-                   (c/HList->HSequential s)
-
-                   :else
-                   (c/HSeq->HSequential s))
-                 t)
-
         ; repeat Heterogeneous* can always accept nil
         (and (r/Nil? s)
-             (or (r/HeterogeneousVector? t)
-                 (r/HeterogeneousSeq? t)
-                 (r/HSequential? t))
+             (r/HSequential? t)
              (:repeat t))
           *sub-current-seen*
 
@@ -747,62 +719,7 @@
 
         ; TODO add repeat support
         (r/HSequential? s)
-        (let [ss (apply c/Un
-                        (concat
-                          (:types s)
-                          (when-let [rest (:rest s)]
-                            [rest])
-                          (when (:drest s)
-                            [r/-any])))]
-          (subtype (c/In (impl/impl-case
-                           :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
-                                          (c/RClass-of clojure.lang.Sequential))
-                           :cljs (c/In (c/Protocol-of 'cljs.core/ICollection [ss])
-                                       (c/Protocol-of 'cljs.core/ISequential))
-                           #_(throw (Exception. "TODO cljs HSequential")))
-                         ((if (or (:rest s)
-                                  (:drest s))
-                            r/make-CountRange
-                            r/make-ExactCountRange)
-                          (count (:types s))))
-                   t))
-
-        ; TODO add repeat support
-        (r/HeterogeneousVector? s)
-        (subtype (c/upcast-hvec s) t)
-
-        (r/HeterogeneousList? s)
-        (let [ss (apply c/Un
-                        (concat
-                          (:types s)
-                          #_(when-let [rest (:rest s)]
-                            [rest])
-                          #_(when (:drest s)
-                            [r/-any])))]
-          (subtype (c/In (impl/impl-case
-                           :clojure (c/RClass-of PersistentList [ss])
-                           :cljs (c/Protocol-of 'cljs.core/IList [ss]))
-                         (r/make-ExactCountRange (count (:types s))))
-                   t))
-
-        ; TODO add repeat support
-        (r/HeterogeneousSeq? s)
-        (let [ss (apply c/Un
-                        (concat
-                          (:types s)
-                          (when-let [rest (:rest s)]
-                            [rest])
-                          (when (:drest s)
-                            [r/-any])))]
-          (subtype (c/In (impl/impl-case
-                           :clojure (c/RClass-of ASeq [ss])
-                           :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
-                         ((if (or (:rest s)
-                                  (:drest s))
-                            r/make-CountRange
-                            r/make-ExactCountRange)
-                          (count (:types s))))
-                   t))
+        (subtype (c/upcast-HSequential s) t)
 
 ; The order of checking protocols and datatypes is subtle.
 ; It is easier to calculate the ancestors of a datatype than
@@ -936,8 +853,8 @@
 
         ; handles classes with heterogeneous vector ancestors (eg. IMapEntry)
         (and (r/RClass? s)
-             (r/HeterogeneousVector? t))
-        (if (some #(when (r/HeterogeneousVector? %)
+             (r/HSequential? t))
+        (if (some #(when (r/HSequential? %)
                      (subtype? % t))
                   (map c/fully-resolve-type (c/RClass-supers* s)))
           *sub-current-seen*

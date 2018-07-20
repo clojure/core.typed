@@ -9,28 +9,22 @@
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.tools.analyzer.passes :as passes]
-            [clojure.tools.analyzer.passes.trim :as trim]
+            #_[clojure.tools.analyzer.passes.trim :as trim]
             #_[clojure.tools.analyzer.passes.jvm.box :as box]
             #_[clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-on-reflection]
             #_[clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
-            [clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
-            [clojure.tools.analyzer.passes.jvm.fix-case-test :as fix-case-test]
-            [clojure.tools.analyzer.passes.jvm.infer-tag :as infer-tag]
-            [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-            [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
+            [clojure.core.typed.analyzer2.passes.jvm.infer-tag :as infer-tag]
             [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
-            [clojure.tools.analyzer.passes.jvm.validate :as validate]
             #_[clojure.tools.analyzer.passes.jvm.validate-loop-locals :as validate-loop-locals]
-            [clojure.tools.analyzer.passes.jvm.validate-recur :as validate-recur]
             [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
-            [clojure.tools.analyzer.passes.jvm.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer2.passes.jvm.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
+            [clojure.core.typed.analyzer2.passes.jvm.validate :as validate]
             [clojure.core.typed.analyzer2 :as ana]
             [clojure.core.typed.analyzer2.pre-analyze :as pre]
-            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
-            [clojure.core.memoize :as memo])
+            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre])
   (:import (clojure.lang IObj RT Var)))
 
 (def specials
@@ -87,155 +81,32 @@
 ;;redefine passes mainly to move dependency on `uniquify-locals`
 ;; to `uniquify2/uniquify-locals`
 
-(defn add-binding-atom
-  "Adds an atom-backed-map to every local binding,the same
-   atom will be shared between all occurences of that local.
-
-   The atom is put in the :atom field of the node."
-  {:pass-info {:walk :pre :depends #{#'uniquify2/uniquify-locals}
-               :state (fn [] (atom {}))}}
-  [state ast]
-  (add-binding-atom/add-binding-atom state ast))
-
-(defn fix-case-test
-  "If the node is a :case-test, annotates in the atom shared
-  by the binding and the local node with :case-test"
-  {:pass-info {:walk :pre :depends #{#'add-binding-atom}}}
-  [& args]
-  (apply fix-case-test/fix-case-test args))
-
-(defn infer-tag
-  "Performs local type inference on the AST adds, when possible,
-   one or more of the following keys to the AST:
-   * :o-tag      represents the current type of the
-                 expression represented by the node
-   * :tag        represents the type the expression represented by the
-                 node is required to have, possibly the same as :o-tag
-   * :return-tag implies that the node will return a function whose
-                 invocation will result in a object of this type
-   * :arglists   implies that the node will return a function with
-                 this arglists
-   * :ignore-tag true when the node is untyped, does not imply that
-                 all untyped node will have this
-
-  Passes opts:
-  * :infer-tag/level  If :global, infer-tag will perform Var tag
-                      inference"
-  {:pass-info {:walk :post :depends #{#'annotate-tag/annotate-tag 
-                                      #'annotate-host-info/annotate-host-info 
-                                      #'fix-case-test 
-                                      #'analyze-host-expr/analyze-host-expr} 
-               ; trim is incompatible with core.typed
-               #_#_:after #{#'trim}}}
-  [& args]
-  (apply infer-tag/infer-tag args))
-
-(defn validate
-  "Validate tags, classes, method calls.
-   Throws exceptions when invalid forms are encountered, replaces
-   class symbols with class objects.
-
-   Passes opts:
-   * :validate/throw-on-arity-mismatch
-      If true, validate will throw on potential arity mismatch
-   * :validate/wrong-tag-handler
-      If bound to a function, will invoke that function instead of
-      throwing on invalid tag.
-      The function takes the tag key (or :name/tag if the node is :def and
-      the wrong tag is the one on the :name field meta) and the originating
-      AST node and must return a map (or nil) that will be merged into the AST,
-      possibly shadowing the wrong tag with Object or nil.
-   * :validate/unresolvable-symbol-handler
-      If bound to a function, will invoke that function instead of
-      throwing on unresolvable symbol.
-      The function takes three arguments: the namespace (possibly nil)
-      and name part of the symbol, as symbols and the originating
-      AST node which can be either a :maybe-class or a :maybe-host-form,
-      those nodes are documented in the tools.analyzer quickref.
-      The function must return a valid tools.analyzer.jvm AST node."
-  {:pass-info {:walk :post :depends #{#'infer-tag
-                                      #'analyze-host-expr/analyze-host-expr
-                                      ;; validate-recur doesn't seem to play nicely with core.async/go
-                                      #_#'validate-recur/validate-recur}}}
-  [& args]
-  (apply validate/validate args))
-
-#_(defn box
-  "Box the AST node tag where necessary"
-  {:pass-info {:walk :pre :depends #{#'infer-tag} 
-               :after #{#'validate}}}
-  [& args]
-  (apply box/box args))
-
-#_(defn validate-loop-locals
-  "Returns a pass that validates the loop locals, calling analyze on the loop AST when
-   a mismatched loop-local is found"
-  {:pass-info {:walk :post :depends #{#'validate} 
-               :affects #{#'analyze-host-expr/analyze-host-expr
-                          #'infer-tag
-                          #'validate}
-               :after #{#'classify-invoke/classify-invoke}}}
-  [& args]
-  (apply validate-loop-locals/validate-loop-locals args))
-
-(defn classify-invoke
-  "If the AST node is an :invoke, check the node in function position,
-   * if it is a keyword, transform the node in a :keyword-invoke node;
-   * if it is the clojure.core/instance? var and the first argument is a
-     literal class, transform the node in a :instance? node to be inlined by
-     the emitter
-   * if it is a protocol function var, transform the node in a :protocol-invoke
-     node
-   * if it is a regular function with primitive type hints that match a
-     clojure.lang.IFn$[primitive interface], transform the node in a :prim-invoke
-     node"
-  {:pass-info {:walk :post :depends #{#'validate}}} ;; use this validate
-  [& args]
-   (apply classify-invoke/classify-invoke args))
-
 (defn compile-passes [pre-passes post-passes info]
   (let [with-state (filter (comp :state info) (concat pre-passes post-passes))
         state      (zipmap with-state (mapv #(:state (info %)) with-state))
 
-        pfns-fn    (fn [passes direction]
-                     (reduce (fn [f p]
-                               (let [i (info p)
-                                     p (cond
-                                         (:state i)
-                                         (fn [_ s ast] 
-                                           ;(prn (str "before state " direction " pass" p))
-                                           ;(clojure.pprint/pprint ast)
-                                           (let [ast (p (s p) ast)]
-                                             ;(prn (str "after state " direction " pass" p))
-                                             ;(clojure.pprint/pprint ast)
-                                             ast))
-                                         (:affects i)
-                                         (fn [a _ ast]
-                                           (assert nil "affects not allowed, single pass only")
-                                           ;(prn (str "before affects " direction " pass" p))
-                                           ;(clojure.pprint/pprint ast)
-                                           (let [ast ((p a) ast)]
-                                             ;(prn (str "after affects " direction " pass" p))
-                                             ;(clojure.pprint/pprint ast)
-                                             ast))
-                                         :else
-                                         (fn [_ _ ast] 
-                                           ;(prn (str "before normal " direction " pass" p))
-                                           ;(prn (:op ast) (emit-form/emit-form ast))
-                                           (let [ast (p ast)]
-                                             ;(prn (str "after normal " direction " pass" p))
-                                             ;(prn (:op ast) (emit-form/emit-form ast))
-                                             ast)))]
-                                 (fn [a s ast]
-                                   (p a s (f a s ast)))))
-                             (fn [_ _ ast] ast)
+        pfns-fn    (fn [passes]
+                     (reduce (fn [f pass]
+                               (let [i (info pass)
+                                     pass (cond
+                                            ;; passes with :state meta take 2 arguments: state and ast
+                                            (:state i)
+                                            (fn [ast]
+                                              (let [pass-state (-> ast :env ::ana/state (get pass))]
+                                                (pass pass-state ast)))
+                                            ;; otherwise, a pass just takes ast
+                                            :else pass)]
+                                 #(pass (f %))))
+                             (fn [ast] ast)
                              passes))
-        pre-pfns  (pfns-fn pre-passes :pre)
-        post-pfns  (pfns-fn post-passes :post)]
-    (fn analyze [ast]
-      (ast/walk ast
-                (partial pre-pfns analyze (u/update-vals state #(%)))
-                (partial post-pfns analyze (u/update-vals state #(%)))))))
+        pre-passes  (pfns-fn pre-passes)
+        post-passes (pfns-fn post-passes)]
+    (fn [ast]
+      (let [state (or (-> ast :env ::ana/state)
+                      (u/update-vals state #(%)))]
+        (ast/walk (assoc-in ast [:env ::ana/state] state)
+                  pre-passes
+                  post-passes)))))
 
 (defn schedule
   "Takes a set of Vars that represent tools.analyzer passes and returns a function
@@ -259,7 +130,7 @@
                  - :any  if the pass can be composed with other passes in both a prewalk
                          or a postwalk
    * :affects  a set of Vars, this pass must be the last in the same tree traversal that all
-               the specified passes must partecipate in
+               the specified passes must participate in
                This pass must take a function as argument and return the actual pass, the
                argument represents the reified tree traversal which the pass can use to
                control a recursive traversal, implies :depends
@@ -285,7 +156,8 @@
 
             _ (assert (= 2 (count ps)))
             _ (assert (= :pre (:walk pre)))
-            _ (assert (= :post (:walk post)))]
+            _ (assert (= :post (:walk post)))
+            ]
         (if (:debug? opts)
           (mapv #(select-keys % [:passes :walk]) ps)
           (compile-passes pre-passes post-passes info))))))
@@ -315,17 +187,18 @@
 ;KEEP
     #'analyze-host-expr/analyze-host-expr
     ;#'validate-loop-locals
-    #'validate
-    #'infer-tag
+    #'validate/validate
+    #'infer-tag/infer-tag
 ;KEEP
 
 ;KEEP
-    #'classify-invoke
+    #'classify-invoke/classify-invoke
 ;KEEP
     })
 
 (def scheduled-default-passes
-  (schedule default-passes))
+  (delay
+    (schedule default-passes)))
 
 (comment
   (clojure.pprint/pprint
@@ -333,15 +206,15 @@
                      {:debug? true}))
   )
 
-(defn ^:dynamic run-passes
+(defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different
-   set of passes is required.
+   set of passes is required (via analyze2/run-passes).
 
    Use #'clojure.tools.analyzer.passes/schedule to get a function from a set of passes that
    run-passes can be bound to."
   [ast]
-  (scheduled-default-passes ast))
+  (@scheduled-default-passes ast))
 
 (def default-passes-opts
   "Default :passes-opts for `analyze`"
@@ -374,13 +247,14 @@
      (with-bindings (merge {Compiler/LOADER     (RT/makeClassLoader)
                             #'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    taj/create-var
-                            #'pre/pre-parse  jpre/pre-parse
+                            #'ana/run-passes    run-passes
+                            #'pre/pre-parse     jpre/pre-parse
                             #'ana/var?          var?
                             #'*ns*              (the-ns (:ns env))}
                            (:bindings opts))
        (env/ensure (taj/global-env)
          (doto (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
-                 (run-passes (pre/pre-analyze-child form env)))
+                 (ana/run-passes (pre/pre-analyze-child form env)))
            (do (taj/update-ns-map!)))))))
 
 (deftype ExceptionThrown [e ast])
@@ -395,7 +269,7 @@
     (do (assert (not (#{:hygienic :qualified-symbols} opts))
                 "Cannot support emit-form options on unanalyzed form")
         #_(throw (Exception. "Cannot emit :unanalyzed form"))
-        (prn (str "WARNING: emit-form: did not analyze: " form))
+        #_(prn (str "WARNING: emit-form: did not analyze: " form))
         form)))
 
 (defn eval-ast [a {:keys [handle-evaluation-exception]
@@ -429,14 +303,14 @@
                      eval-fn
                      annotate-do
                      statement-opts-fn
-                     analyze-opts-fn
-                     analyze-env-fn]
-              :or {additional-gilardi-condition (fn [_] true)
+                     stop-gildardi-check
+                     analyze-fn]
+              :or {additional-gilardi-condition (fn [form env] true)
                    eval-fn eval-ast
                    annotate-do (fn [a _ _] a)
                    statement-opts-fn identity
-                   analyze-opts-fn identity
-                   analyze-env-fn identity}
+                   stop-gildardi-check (fn [form env] false)
+                   analyze-fn analyze}
               :as opts}]
      (env/ensure (taj/global-env)
        (taj/update-ns-map!)
@@ -446,7 +320,9 @@
                                                #'ana/macroexpand-1 (get-in opts [:bindings #'ana/macroexpand-1] 
                                                                            macroexpand-1)}
                                  (loop [form form raw-forms []]
-                                   (let [mform (ana/macroexpand-1 form env)]
+                                   (let [mform (if (stop-gildardi-check form env)
+                                                 form
+                                                 (ana/macroexpand-1 form env))]
                                      (if (= mform form)
                                        [mform (seq raw-forms)]
                                        (recur mform (conj raw-forms
@@ -457,7 +333,7 @@
                                                               form)
                                                             form)))))))]
          (if (and (seq? mform) (= 'do (first mform)) (next mform)
-                  (additional-gilardi-condition mform))
+                  (additional-gilardi-condition mform env))
            ;; handle the Gilardi scenario
            (let [[statements ret] (u/butlast+last (rest mform))
                  statements-expr (mapv (fn [s] (analyze+eval s (-> env
@@ -478,6 +354,6 @@
                 :raw-forms  raw-forms}
                statements-expr
                ret-expr))
-           (let [a (analyze mform (analyze-env-fn env) (analyze-opts-fn opts))
+           (let [a (analyze-fn mform env opts)
                  e (eval-fn a (assoc opts :original-form mform))]
              (merge e {:raw-forms raw-forms})))))))
