@@ -102,7 +102,7 @@ clojure.java.io/IOFactory
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
                 Symbol Namespace Atom2 Ref1 Ref2 Delay Proxy List Stack ExInfo
                 Multi Deref BlockingDeref SequentialSeqable ASeq NonEmptyASeq
-                AVec NonEmptyAVec Sequential]]
+                AVec NonEmptyAVec Sequential Transducer]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -1020,8 +1020,9 @@ clojure.core/empty? (IFn [(Option (HSequential [Any *])) -> Boolean
 
 clojure.core/map
      (All [c a b ...]
-          (IFn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyASeq c)]
-              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (ASeq c)]))
+          (IFn [[a :-> c] :-> (Transducer a c)]
+               [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyASeq c)]
+               [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (ASeq c)]))
 
 clojure.core/mapv
      (All [c a b ...]
@@ -1176,11 +1177,16 @@ clojure.core/next
               [(Option (Seqable x)) -> (Option (NonEmptyASeq x))]))
 
 clojure.core/into
-      (All [x y]
+      (All [x y :named [a]]
            (IFn [(Map x y) (U nil (Seqable (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y]))) -> (Map x y)]
                [(Vec x) (U nil (Seqable x)) -> (Vec x)]
                [(Set x) (U nil (Seqable x)) -> (Set x)]
-               [(Coll Any) (U nil (Seqable Any)) -> (Coll Any)]))
+               [(Coll Any) (U nil (Seqable Any)) -> (Coll Any)]
+               ; transducer arities
+               [(Map x y) (Transducer a (U nil '[x y])) (U nil (Seqable a)) -> (Map x y)]
+               [(Vec x) (Transducer y x) (U nil (Seqable y)) -> (Vec x)]
+               [(Set x) (Transducer y x) (U nil (Seqable y)) -> (Set x)]
+               [(Coll Any) (Transducer y Any) (U nil (Seqable y)) -> (Coll Any)]))
 
 clojure.core/conj
 ;     (All [e
@@ -1222,6 +1228,10 @@ clojure.core/conj
 ;      [nil -> nil]
 ;      [(U nil (IPersistentCollection Any :empty-fn empty-fn)) -> (U nil (empty-fn))])
 
+clojure.core/sequence
+       (All [a b]
+         (IFn [(U nil (Seqable a)) -> (Seq a)]
+              [(Transducer a b) (Seqable a) :-> (Seqable b)]))
 clojure.core/find
      (All [x y]
           [(U nil (clojure.lang.Associative x y)) Any -> (U nil (HVec [x y]))])
@@ -1462,11 +1472,13 @@ clojure.core/shutdown-agents [-> Any]
 
 clojure.core/take
      (All [x]
-       [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
+       (IFn [Int :-> (Transducer x x)]
+            [AnyInteger (U nil (Seqable x)) -> (ASeq x)]))
 
 clojure.core/drop
      (All [x]
-       [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
+       (IFn [t/Int :-> (t/Transducer x x)]
+            [AnyInteger (U nil (Seqable x)) -> (ASeq x)]))
 
 clojure.core/take-last
      (All [x]
