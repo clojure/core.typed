@@ -101,6 +101,13 @@
        (requires-tc? ns-form)
        (not (collect-only-ns? ns-form))))
 
+(defn should-custom-expand-ns-form?
+  [ns-form]
+  {:post [(con/boolean? %)]}
+  (let [m (ns-meta ns-form)]
+    (-> m :core.typed :experimental
+        (contains? :custom-expansions))))
+
 (defn should-collect-ns?
   "Returns true if the given namespace should be collected for
   type annotations. Currently, if the namespace depends on

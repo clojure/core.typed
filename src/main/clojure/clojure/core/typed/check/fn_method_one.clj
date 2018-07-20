@@ -20,7 +20,12 @@
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.check.utils :as cu]))
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.analyze-clj :as ana-clj]
+            [clojure.core.typed.analyzer2 :as ana]
+            [clojure.core.typed.analyzer2.pre-analyze :as pre]
+            [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]))
 
 ;check method is under a particular Function, and return inferred Function
 ; if ignore-rng is true, otherwise return expression with original expected type.
@@ -86,29 +91,13 @@
         ;_ (prn "open-result expected-rng" expected-rng)
         ;_ (prn "open-result expected-rng filters" (some->> expected-rng :fl ((juxt :then :else)) (map fl/infer-top?)))
         ;ensure Function fits method
-        _ (when-not ((if (or rest drest kws prest pdot) <= =) (count required-params) (count dom))
+        _ (when-not (or ((if (or rest drest kws prest pdot) <= =) (count required-params) (count dom))
+                        rest-param)
             (err/int-error (str "Checking method with incorrect number of expected parameters"
                               ", expected " (count dom) " required parameter(s) with"
                               (if rest " a " " no ") "rest parameter, found " (count required-params)
                               " required parameter(s) and" (if rest-param " a " " no ")
                               "rest parameter.")))
-
-        _ (when-not (or (not rest-param)
-                        (some identity [drest rest kws prest pdot]))
-            (err/int-error (str "No type for rest parameter")))
-
-        ;;unhygienic version
-        ;        ; Update filters that reference bindings that the params shadow.
-        ;        ; Abstracting references to parameters is handled later in abstract-result, but
-        ;        ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`).
-        ;        ; In short, don't shadow parameters if you want meaningful filters.
-        ;        props (mapv (fn [oldp]
-        ;                      (reduce (fn [p sym]
-        ;                                {:pre [(fl/Filter? p)
-        ;                                       (symbol? sym)]}
-        ;                                (subst-filter p sym obj/-empty true))
-        ;                              oldp (map :sym required-params)))
-        ;                    (:props (lex/lexical-env)))
 
         props (:props (lex/lexical-env))
         crequired-params (map (fn [p t] (assoc p u/expr-type (r/ret t)))
@@ -188,7 +177,30 @@
                           (recur-u/RecurTarget-maker dom rest drest nil))
                   _ (assert (recur-u/RecurTarget? rec))]
               (recur-u/with-recur-target rec
-                (check-fn-method1-checkfn body expected-rng))))))
+                (let [body (if (and vs/*custom-expansions*
+                                    rest-param
+                                    (not-any? identity [rest drest kws prest pdot]))
+                             ;; substitute away the rest argument to try and trigger
+                             ;; any beta reductions
+                             (with-bindings* (ana-clj/thread-bindings {:env (:env method)})
+                               #(-> body
+                                    (beta-reduce/subst-locals 
+                                      {(:name rest-param) (beta-reduce/fake-seq-invoke
+                                                            (mapv (fn [t]
+                                                                    (beta-reduce/make-invoke-expr
+                                                                      (beta-reduce/make-var-expr
+                                                                        #'cu/special-typed-expression
+                                                                        (:env method))
+                                                                      [(pre/pre-parse-quote
+                                                                         (binding [vs/*verbose-types* true]
+                                                                           `'~(prs/unparse-type t))
+                                                                         (:env method))]
+                                                                      (:env method)))
+                                                                  dom)
+                                                            (:env method))})
+                                    ana/run-passes))
+                             body)]
+                  (check-fn-method1-checkfn body expected-rng)))))))
 
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.

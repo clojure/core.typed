@@ -39,8 +39,8 @@
                   "Can't provide both expected type and expected ret")
         actual-ret (gensym 'ret)]
     `(let [{~actual-ret :ret ex# :ex delayed-errors# :delayed-errors} ~(tc-common* frm (assoc opts
-                                                                               :expected-syntax {:provided? has-t?
-                                                                                                 :syn t}))]
+                                                                                              :expected-syntax {:provided? has-t?
+                                                                                                                :syn t}))]
        (or (when ex#
              (throw ex#))
            (when (empty? delayed-errors#)

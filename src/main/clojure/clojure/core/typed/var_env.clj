@@ -5,6 +5,8 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.indirect-utils :as indu]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.core.typed.env :as env]
@@ -153,10 +155,12 @@
 (defn type-of-nofail [sym]
   {:pre [(symbol? sym)]
    :post [((some-fn nil? r/Type?) %)]}
-  (if (and (not (namespace sym))
-           (not-any? #{\.} (str sym))) 
-    (lex/lookup-local sym)
-    (lookup-Var-nofail sym)))
+  (or (when (and (not (namespace sym))
+                 (not-any? #{\.} (str sym)))
+        (lex/lookup-local sym))
+      (lookup-Var-nofail sym)))
+
+(indu/add-indirection ind/type-of-nofail type-of-nofail)
 
 (defn type-of [sym]
   {:pre [(symbol? sym)]

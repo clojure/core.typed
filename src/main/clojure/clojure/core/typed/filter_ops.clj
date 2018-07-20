@@ -409,6 +409,8 @@
                       :else
                       (recur (rest fs) (cons t result))))))))))
 
+(ind-u/add-indirection ind/-and -and)
+
 (defn -FS [+ -]
   {:pre [(fr/Filter? +)
          (fr/Filter? -)]

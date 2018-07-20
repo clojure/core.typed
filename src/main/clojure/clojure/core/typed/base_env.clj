@@ -1030,8 +1030,10 @@ clojure.core/mapv
                [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (AVec c)]))
 
 clojure.core/mapcat
-     (All [c b ...]
-          [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (ASeq c)])
+     (All [c a b ...]
+       (IFn
+          [[a :-> (Option (Seqable c))] :-> (Transducer a c)]
+          [[a b ... b -> (Option (Seqable c))] (Option (Seqable a)) (Option (Seqable b)) ... b -> (ASeq c)]))
 
 clojure.core/pmap
      (All [c a b ...]
@@ -1041,6 +1043,12 @@ clojure.core/pmap
 clojure.core/pcalls
       (All [r]
            [[-> r] * -> (ASeq r)])
+
+#_#_
+clojure.core/halt-when
+(All [a d]
+  [[a :-> t/Any] :-> (Transducer a a)]
+  [[a :-> t/Any] (U nil [t/Any a :-> a]) :-> (Transducer a a)])
 
 clojure.core/*clojure-version* '{:major Any
                                  :minor Any
@@ -1079,6 +1087,8 @@ clojure.core/reduce
             [(IFn [a c -> (U (Reduced a) a)] [-> (U (Reduced a) a)]) (Option (Seqable c)) -> a]
             ; default
             ; (reduce + 3 my-coll)
+            ; (reduce (fn [a b] a) (reduced 1) nil) 
+            ; ;=> (reduced 1)
             [[a c -> (U (Reduced a) a)] a (Option (Seqable c)) -> a]))
 
 clojure.core/reduce-kv

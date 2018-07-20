@@ -12,9 +12,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed :as t :refer [ann Seqable]])
-  (:import (clojure.core.typed.type_rep F Function HeterogeneousVector
-                                        HSequential HeterogeneousSeq
-                                        AssocType)
+  (:import (clojure.core.typed.type_rep F Function HSequential AssocType)
            (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -70,8 +68,6 @@
 
 ;; Substitute dots
 
-
-(t/tc-ignore
 (derive ::substitute-dots f/fold-rhs-default)
 (f/add-fold-case ::substitute-dots
   Function
@@ -134,39 +130,28 @@
                            (and dentries (r/DottedPretype1-maker (sb (:pre-type dentries))
                                                                  (:name dentries))))))))
 
-(defn substitute-dots-for-heterogeneous* [constructor]
-  (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
-   (if (and drest
-            (= name (:name drest)))
-     (constructor
-              (vec
-                (concat (map sb types)
-                        ;; We need to recur first, just to expand out any dotted usages of this.
-                        (let [expanded (sb (:pre-type drest))]
-                          (map (fn [img] (substitute img name expanded)) images))))
-              :filters (vec (concat (map sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top))))
-              :objects (vec (concat (map sb objects) (repeat (count images) orep/-empty))))
-     (constructor
-              (vec (map sb types))
-              :filters (vec (map sb fs))
-              :objects (vec (map sb objects))
-              :rest (when rest (sb rest))
-              :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
-                                                         (:name drest)))
-              :repeat (:repeat ftype)))))
-
-(f/add-fold-case ::substitute-dots
-  HeterogeneousVector
-  (substitute-dots-for-heterogeneous* r/-hvec))
-
 (f/add-fold-case ::substitute-dots
   HSequential
-  (substitute-dots-for-heterogeneous* r/-hsequential))
-
-(f/add-fold-case ::substitute-dots
-  HeterogeneousSeq
-  (substitute-dots-for-heterogeneous* r/-hseq))
-  )
+  (fn [{:keys [types fs objects rest drest kind] :as ftype} {{:keys [name sb images rimage]} :locals}]
+    (if (and drest
+             (= name (:name drest)))
+      (r/-hsequential
+        (into (mapv sb types)
+              ;; We need to recur first, just to expand out any dotted usages of this.
+              (let [expanded (sb (:pre-type drest))]
+                (map (fn [img] (substitute img name expanded)) images)))
+        :filters (into (mapv sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top)))
+        :objects (into (mapv sb objects) (repeat (count images) orep/-empty))
+        :kind kind)
+      (r/-hsequential
+        (mapv sb types)
+        :filters (mapv sb fs)
+        :objects (mapv sb objects)
+        :rest (when rest (sb rest))
+        :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
+                                                   (:name drest)))
+        :repeat (:repeat ftype)
+        :kind kind))))
 
 ;; implements angle bracket substitution from the formalism
 ;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
@@ -191,7 +176,6 @@
       target)))
 
 
-(t/tc-ignore
 (derive ::substitute-dotted f/fold-rhs-default)
 (f/add-fold-case ::substitute-dotted
   F
@@ -230,32 +214,21 @@
                                                      name
                                                      (:name dentries)))))))
 
-(defn substitute-dotted-for-heterogeneous* [constructor]
-  (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [sb name image]} :locals}]
-    (constructor
-             (doall (map sb types))
-             :filters (doall (map sb fs))
-             :objects (doall (map sb objects))
-             :rest (when rest (sb rest))
-             :drest (when drest
-                      (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
-                                              (if (= name (:name drest))
-                                                name
-                                                (:name drest))))
-             :repeat (:repeat ftype))))
-
-(f/add-fold-case ::substitute-dotted
-  HeterogeneousVector
-  (substitute-dotted-for-heterogeneous* r/-hvec))
-
 (f/add-fold-case ::substitute-dotted
   HSequential
-  (substitute-dotted-for-heterogeneous* r/-hsequential))
-
-(f/add-fold-case ::substitute-dotted
-  HeterogeneousSeq
-  (substitute-dotted-for-heterogeneous* r/-hseq))
-  )
+  (fn [{:keys [types fs objects rest drest kind] :as ftype} {{:keys [sb name image]} :locals}]
+    (r/-hsequential
+      (mapv sb types)
+      :filters (mapv sb fs))
+      :objects (mapv sb objects)
+      :rest (when rest (sb rest))
+      :drest (when drest
+               (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
+                                       (if (= name (:name drest))
+                                         name
+                                         (:name drest))))
+      :repeat (:repeat ftype)
+      :kind kind))
 
 ;; implements curly brace substitution from the formalism
 ;; substitute-dotted : Type Name Name Type -> Type

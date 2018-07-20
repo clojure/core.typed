@@ -95,13 +95,13 @@
 
         ts (zipmap key-types val-types)
         actual-t (if (every? c/keyword-value? (keys ts))
-                 (c/-complete-hmap ts)
-                 (impl/impl-case
-                   :clojure (c/RClass-of APersistentMap [(apply c/Un (keys ts))
-                                                         (apply c/Un (vals ts))])
-                   :cljs (c/Protocol-of 'cljs.core/IMap
-                                        [(apply c/Un (keys ts))
-                                         (apply c/Un (vals ts))]) ))
+                   (c/-complete-hmap ts)
+                   (impl/impl-case
+                     :clojure (c/RClass-of APersistentMap [(apply c/Un (keys ts))
+                                                           (apply c/Un (vals ts))])
+                     :cljs (c/Protocol-of 'cljs.core/IMap
+                                          [(apply c/Un (keys ts))
+                                           (apply c/Un (vals ts))]) ))
         actual-ret (r/ret actual-t (fo/-true-filter))]
     (assoc expr
            :keys ckeyexprs

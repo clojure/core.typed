@@ -23,10 +23,11 @@
   #_(assert (empty? (set/difference (set (keys opt))
                                   #{:expected :ret}))))
 
-(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret requires] :as opt}]
+(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret requires ns-meta] :as opt}]
   (check-opt opt)
   (let [ns-form 
         `(ns ~(gensym 'clojure.core.typed.test.temp)
+           ~@(when ns-meta [ns-meta])
            (:refer-clojure :exclude 
                            ~'[type defprotocol #_letfn fn loop dotimes let for doseq
                               #_def #_filter #_remove defn atom ref cast])

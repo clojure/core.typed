@@ -6,8 +6,7 @@
             [clojure.core.typed.fold-rep :as fold]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or])
-  (:import (clojure.core.typed.type_rep HSequential HeterogeneousVector
-                                        Function AssocType)))
+  (:import (clojure.core.typed.type_rep HSequential Function AssocType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted pre-type expansion
@@ -24,8 +23,7 @@
 
 (fold/add-fold-case ::trans-dots
   HSequential
-  (fn
-    [t {{:keys [b bm]} :locals}]
+  (fn [{:keys [kind] :as t} {{:keys [b bm]} :locals}]
     (let [tfn #(trans-dots % b bm)]
       (cond
         (:drest t)
@@ -46,76 +44,31 @@
                   extra-fixed (- (count fixed)
                                  (count (:types t)))]
               (r/-hsequential fixed
-                       :filters (vec
-                                  (concat (map tfn (:fs t))
-                                          (repeat extra-fixed
-                                                  (fo/-simple-filter))))
-                       :objects (vec
-                                  (concat (map tfn (:objects t))
-                                          (repeat extra-fixed
-                                                  or/-empty)))
-                       ;drest is expanded into fixed
-                       ))
+                              :filters (vec
+                                         (concat (map tfn (:fs t))
+                                                 (repeat extra-fixed
+                                                         (fo/-simple-filter))))
+                              :objects (vec
+                                         (concat (map tfn (:objects t))
+                                                 (repeat extra-fixed
+                                                         or/-empty)))
+                              ;drest is expanded into fixed
+                              :kind kind))
             (r/-hsequential (mapv tfn (:types t))
-                     :filters (mapv tfn (:fs t))
-                     :objects (mapv tfn (:objects t))
-                     :drest (when-let [drest (:drest t)]
-                              (-> drest
-                                  (update-in [:pre-type] tfn)))))) ;translate pre-type
+                            :filters (mapv tfn (:fs t))
+                            :objects (mapv tfn (:objects t))
+                            :drest (when-let [drest (:drest t)]
+                                     (-> drest
+                                         (update-in [:pre-type] tfn))) ;translate pre-type
+                            :kind kind)))
         :else
         (r/-hsequential (mapv tfn (:types t))
-                 :filters (mapv tfn (:fs t))
-                 :objects (mapv tfn (:objects t))
-                 :rest (when-let [r (:rest t)]
-                         (tfn r))
-                 :repeat (:repeat t))))))
-
-(fold/add-fold-case ::trans-dots
-  HeterogeneousVector
-  (fn 
-    [t {{:keys [b bm]} :locals}]
-    (let [tfn #(trans-dots % b bm)]
-      (cond
-        (:drest t)
-        (let [{:keys [pre-type name]} (:drest t)]
-          (assert (symbol? name))
-          (if (= b name) ;identical bounds
-            (let [fixed (vec
-                          (concat 
-                            ;keep fixed entries
-                            (doall (map tfn (:types t)))
-                            ;expand dotted type to fixed entries
-                            (doall (map (fn [bk]
-                                          {:post [(r/Type? %)]}
-                                          ;replace free occurences of bound with bk
-                                          (-> (subst/substitute bk b pre-type)
-                                              tfn))
-                                        bm))))
-                  extra-fixed (- (count fixed)
-                                 (count (:types t)))]
-              (r/-hvec fixed
-                       :filters (vec
-                                  (concat (map tfn (:fs t))
-                                          (repeat extra-fixed
-                                                  (fo/-simple-filter))))
-                       :objects (vec
-                                  (concat (map tfn (:objects t))
-                                          (repeat extra-fixed
-                                                  or/-empty)))
-                       ;drest is expanded into fixed
-                       ))
-            (r/-hvec (mapv tfn (:types t))
-                     :filters (mapv tfn (:fs t))
-                     :objects (mapv tfn (:objects t))
-                     :drest (when-let [drest (:drest t)]
-                              (-> drest
-                                  (update-in [:pre-type] tfn)))))) ;translate pre-type
-        :else
-        (r/-hvec (mapv tfn (:types t))
-                 :filters (mapv tfn (:fs t))
-                 :objects (mapv tfn (:objects t))
-                 :rest (when-let [r (:rest t)]
-                         (tfn r)))))))
+                        :filters (mapv tfn (:fs t))
+                        :objects (mapv tfn (:objects t))
+                        :rest (when-let [r (:rest t)]
+                                (tfn r))
+                        :repeat (:repeat t)
+                        :kind kind)))))
 
 (fold/add-fold-case ::trans-dots
   AssocType

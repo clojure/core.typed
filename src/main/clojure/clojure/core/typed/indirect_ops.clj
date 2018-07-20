@@ -11,4 +11,6 @@
                      -empty-fn
                      infer
                      PropEnv?
-                     -or)
+                     -or
+                     -and
+                     type-of-nofail)

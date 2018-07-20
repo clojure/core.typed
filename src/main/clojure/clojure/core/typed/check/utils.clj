@@ -58,14 +58,18 @@
     (assert (symbol? method))
     (symbol (str (coerce/Class->symbol c)) (str method))))
 
-;(t/ann expected-error [r/Type r/Type -> nil])
+;(t/ann expected-error [r/Type r/TCResult -> nil])
 (defn expected-error [actual expected & opt]
+  {:pre [(r/Type? actual)
+         (r/TCResult? expected)]}
   (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                            (when vs/*current-expr*
                              (expr-ns vs/*current-expr*)))
     (apply err/tc-delayed-error (str "Type mismatch:"
-                                     "\n\nExpected: \t" (pr-str (prs/unparse-type expected))
+                                     "\n\nExpected: \t" (pr-str (prs/unparse-type (:t expected)))
                                      "\n\nActual: \t" (pr-str (prs/unparse-type actual)))
+           :expected expected
+           :actual actual
            opt)))
 
 
@@ -101,9 +105,9 @@
                       [(c/PolyDots-body* new-nmes t) new-frees (c/PolyDots-bbnds* new-nmes t) :PolyDots])
     :else [t nil nil nil]))
 
-(def not-special ::not-special)
+(def not-special :default)
 
-;(t/ann hvec->rets [HeterogeneousVector -> (Seqable TCResult)])
+;(t/ann hvec->rets [HSequential -> (Seqable TCResult)])
 (defn hvec->rets [v]
   {:pre [(r/HeterogeneousVector? v)]
    :post [(every? r/TCResult? %)]}
@@ -581,3 +585,8 @@
                fl/-top)))
     (assoc :opts (or (:opts expected) {}))))
 
+(defn maybe-map->TCResult [m]
+  (some-> m map->TCResult))
+
+(defn special-typed-expression [& args]
+  )

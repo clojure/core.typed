@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.core.typed.test.test-utils :refer :all]
             [clojure.core.typed :refer [Kw HVec Num Str Int
-                                        HMap] :as t]
+                                        HMap HSequential] :as t]
             [clojure.core.typed.type-ctors :refer :all]
             [clojure.core.typed.type-rep :refer :all]
             [clojure.core.typed.parse-unparse :refer [parse-type]]))
