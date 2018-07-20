@@ -659,6 +659,27 @@ Fn
       :forms '[Multi]}
 Multi
               clojure.lang.MultiFn
+
+  ^{:doc "A reducer function with accumulator a and reduces over collections of b"
+    :forms '[(Reducer a b)]}
+Reducer
+  (TFn [[a :variance :contravariant]
+        [b :variance :invariant]]
+    (IFn 
+      ;init
+      [:-> b]
+      ;complete
+      [b :-> b]
+      ;step
+      [b a :-> (U b (clojure.lang.Reduced b))]))
+
+  ^{:doc "A transducer function that transforms in to out."
+    :forms '[(Transducer in out)]}
+Transducer
+  (TFn [[in :variance :contravariant]
+        [out :variance :covariant]]
+    (All [r]
+      [(clojure.core.typed/Reducer out r) :-> (clojure.core.typed/Reducer in r)]))
 ])
 
 (assert (even? (count init-aliases)))
