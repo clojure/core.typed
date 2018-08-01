@@ -479,7 +479,7 @@
   (is-tc-err (fn* ([] (inc (inc (inc ((fn* ([x] (inc (x x)))) (fn* ([x] (inc (x x)))))))))))
   (is-tc-err (fn* ([] (inc (inc (inc (inc ((fn* ([x] (inc (x x)))) (fn* ([x] (inc (x x))))))))))))
   (is-tc-err (fn* ([] (inc (inc (inc (inc (inc ((fn* ([x] (inc (x x)))) (fn* ([x] (inc (x x)))))))))))))
-	(is-tc-err (fn* ([] (inc (inc (inc (inc (inc (inc ((fn* ([x] (inc (x x)))) (fn* ([x] (inc (x x))))))))))))))
+  (is-tc-err (fn* ([] (inc (inc (inc (inc (inc (inc ((fn* ([x] (inc (x x)))) (fn* ([x] (inc (x x))))))))))))))
   ;variadic fn
   (is-tc-e ((fn* [& a] (map inc a)) 1))
   (is-tc-err ((fn* [& a] (map inc a)) :a))

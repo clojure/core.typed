@@ -143,7 +143,7 @@
                           then-filter (-> isa-ret r/ret-f :then)
                           _ (assert then-filter)]
                       then-filter)))
-        ;_ (prn "^^^ mm-filter")
+        ;_ (prn "^^^ mm-filter" multi-u/*current-mm*)
 
         ;_ (prn "funapp1: inferred mm-filter" mm-filter)
 

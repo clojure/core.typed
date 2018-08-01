@@ -19,6 +19,7 @@
             [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.subtype :as sub]))
 
 (declare wrap-poly)
@@ -203,13 +204,18 @@
         nil))))
 
 (defn check-special-fn 
-  [check {[_ _ fn-ann-expr :as statements] :statements fexpr :ret :as expr} expected]
+  [check {statements :statements fexpr :ret :as expr} expected]
   {:pre [((some-fn nil? r/TCResult?) expected)
-         (#{3} (count statements))
-         (#{:fn} (:op fexpr))]}
+         (#{3} (count statements))]}
   ;(prn "check-special-fn")
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-    (let [fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
+    (let [{:keys [pre post]} ana2/scheduled-passes
+          fexpr (pre fexpr)
+          statements (update statements 2 ana2/run-passes)
+          [_ _ fn-ann-expr :as statements] statements
+          _ (assert (#{:fn} (:op fexpr)))
+          fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
+          ;_ (prn "fn-anns-quoted" fn-anns-quoted)
           poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)
           ;; always quoted
           fn-anns (second fn-anns-quoted)
@@ -259,5 +265,6 @@
                                   :dvar dvar}))))]
               (update cfexpr u/expr-type below/maybe-check-below expected)))]
       (assoc expr
+             :statements statements
              :ret cfexpr
              u/expr-type (u/expr-type cfexpr)))))

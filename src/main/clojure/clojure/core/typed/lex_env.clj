@@ -66,6 +66,7 @@
         _ (assert (pr/path-elems? alias-path))
         _ (assert (fr/name-ref? alias-id))
         lt (get-in (lexical-env) [:l alias-id])]
+    ;(prn "lex-env" (lexical-env))
     (when lt
       (path-type/path-type lt alias-path))))
 

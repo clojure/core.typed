@@ -3,15 +3,19 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.utils :as u]))
 
 ; corresponds to a c.c.t/loop macro.
 ; Extra the :ann annotations for loop variables and propagate to actual loop construct checking
 ; via `recur-u/*loop-bnd-anns*`.
 (defn check-special-loop
-  [check {[_ _ vexpr :as statements] :statements frm :ret, :keys [env], :as expr} expected]
-  {:pre [(#{3} (count statements))]}
-  (let [ ; tools.analyzer does constanst folding
+  [check expr expected]
+  {:pre [(#{3} (count (:statements expr)))]}
+  (let [{[_ _ vexpr :as statements] :statements frm :ret, :keys [env], :as expr}
+        (-> expr
+            (update-in [:statements 2] ana2/run-passes))
+        ; tools.analyzer does constanst folding
         tsyns (case (:op vexpr)
                 :const (let [{{tsyns-quoted :ann} :val} vexpr
                              _ (assert (and (seq? tsyns-quoted)

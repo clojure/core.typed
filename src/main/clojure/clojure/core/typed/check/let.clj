@@ -18,6 +18,7 @@
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.subst-obj :as subst-obj]
             [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.contract-utils :as con]))
 
 (defn update-env [env sym {:keys [t fl flow o] :as r} is-reachable]
@@ -83,26 +84,31 @@
     (let [is-reachable (atom true)
           [env cbindings] 
           (reduce
-            (fn [[env cexprs] [{sym :name :as expr} expected-bnd]]
+            (fn [[env cbindings] [n expected-bnd]]
               {:pre [@is-reachable
                      (lex/PropEnv? env)
-                     (symbol? sym)
                      ((some-fn nil? r/Type?) expected-bnd)
                      (= (boolean expected-bnd) (boolean is-loop))]
                :post [((con/maybe-reduced-c? (con/hvector-c? lex/PropEnv? vector?)) %)]}
-              (let [; check rhs
-                    cexpr (var-env/with-lexical-env env
-                            (check expr (when is-loop
-                                          (r/ret expected-bnd))))
+              (let [expr (get cbindings n)
+                    ; check rhs
+                    {sym :name :as cexpr} (var-env/with-lexical-env env
+                                            (check expr (when is-loop
+                                                          (r/ret expected-bnd))))
                     new-env (update-env env sym (u/expr-type cexpr) is-reachable)
                     maybe-reduced (if @is-reachable identity reduced)]
                 (maybe-reduced
-                  [new-env (conj cexprs cexpr)])))
-            [(lex/lexical-env) []]
-            (map vector bindings (or expected-bnds
-                                     (repeat nil))))]
+                  [new-env (assoc cbindings n cexpr)])))
+            [(lex/lexical-env) bindings]
+            (map vector
+                 (range (count bindings))
+                 (or expected-bnds
+                     (repeat nil))))
+          _ (assert (= (count bindings) (count cbindings)))]
       (cond
-        (not @is-reachable) (assoc expr u/expr-type (or expected (r/ret (c/Un))))
+        (not @is-reachable) (assoc expr 
+                                   :bindings cbindings
+                                   u/expr-type (or expected (r/ret (c/Un))))
 
         :else
         (let [cbody (var-env/with-lexical-env env
@@ -111,7 +117,7 @@
                           (check body expected))
                         (binding [vs/*current-expr* body]
                           (check body expected))))
-             unshadowed-ret (erase-objects (map :name bindings) (u/expr-type cbody))]
+             unshadowed-ret (erase-objects (map :name cbindings) (u/expr-type cbody))]
           (assoc expr
                  :body cbody
                  :bindings cbindings

@@ -25,6 +25,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.tools.analyzer.ast :as ast]
             [clojure.core.typed :as T]
             [clojure.core.typed :as t]
             [clojure.core.cache :as cache]
@@ -417,6 +418,8 @@
     ast))
 ;========================
 
+;; old tools.analyzer.jvm config
+(comment
 (def typed-passes
   (-> jana2/default-passes
       ; this pass is manually inserted as we check
@@ -443,6 +446,7 @@
 
 (defn run-passes [ast]
   (typed-schedule ast))
+)
 
 (declare scheduled-passes-for-custom-expansions)
 
@@ -451,11 +455,12 @@
   (t/tc-ignore
     {Compiler/LOADER     (clojure.lang.RT/makeClassLoader)
      #'ana2/macroexpand-1 macroexpand-1
-     #'ana2/run-passes    (if vs/*custom-expansions*
-                            #(@scheduled-passes-for-custom-expansions %)
-                            jana2/run-passes)
+     #'ana2/scheduled-passes (if vs/*custom-expansions*
+                               @scheduled-passes-for-custom-expansions
+                               jana2/scheduled-default-passes)
      #'pre/pre-parse      jpre/pre-parse
      #'ana2/var?          var?
+     #'ana2/create-var    taj/create-var
      #'*ns*               (the-ns (or (-> opts :env :ns)
                                       *ns*))}))
 
@@ -548,13 +553,6 @@
   (binding [*ns* (or (find-ns nsym)
                      *ns*)]
     (analyze1 form)))
-
-(def reread-with-tr (comp tr/read readers/indexing-push-back-reader print-str))
-
-;(defn ast-for-str
-;  "Returns an AST node for the string, using tools.reader."
-;  [form-str]
-;  (analyze1 (-> form-str readers/indexing-push-back-reader tr/read) (taj/empty-env)))
 
 (defn ast-for-form
   "Returns an AST node for the form"
