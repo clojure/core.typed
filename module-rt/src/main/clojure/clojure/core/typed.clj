@@ -900,14 +900,9 @@ for checking namespaces, cf for checking individual forms."}
                            (next bindings)
                            (conj norm fbnd))
             :else (throw (Exception. (str "Unknown syntax to letfn>: " fbnd)))))
-        {anns false inits true} (group-by list? normalised-bindings)
-        ; init-syn unquotes local binding references to be compatible with hygienic expansion
-        init-syn (into {}
-                   (for [[lb type] anns]
-                     [lb `'~type]))]
+        {anns false inits true} (group-by list? normalised-bindings)]
     `(core/letfn ~(vec inits)
-       ;unquoted to allow bindings to resolve with hygiene
-       ~init-syn
+       '~(mapv second anns)
        ;preserve letfn empty body
        ~@(or body [nil]))))
 
@@ -2324,7 +2319,7 @@ for checking namespaces, cf for checking individual forms."}
   `(tc-ignore (warn-on-unannotated-vars* '~(ns-name *ns*))))
 
 (defn check-form-info 
-  "Type checks a (quoted) form and returns a map of results from type checking the
+  "Function that type checks a form and returns a map of results from type checking the
   form.
   
   Options
@@ -2356,7 +2351,7 @@ for checking namespaces, cf for checking individual forms."}
   (apply (impl/v 'clojure.core.typed.check-form-clj/check-form-info) form opt))
 
 (defn check-form*
-  "Takes a (quoted) form and optional expected type syntax and
+  "Function that takes a form and optional expected type syntax and
   type checks the form. If expected is provided, type-provided?
   must be true."
   ([form] (check-form* form nil nil))

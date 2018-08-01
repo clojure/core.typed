@@ -67,7 +67,7 @@
                "module-check/src/test/resources"
                "module-rt/test/clojure"
                "module-rt/test/cljs"]
-	;:resource-paths [~(libyjp-jar-path)]
+  ;:resource-paths [~(libyjp-jar-path)]
 
   :jvm-opts ["-Xss4m" #_~(str "-agentpath:" (libyjp-agent-path))]
   :cljsbuild {:builds {}})

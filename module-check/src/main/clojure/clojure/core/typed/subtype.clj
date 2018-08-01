@@ -126,7 +126,7 @@
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
          subtype-CountRange subtype-TypeFn subtype-RClass
          subtype-datatype-and-protocol subtype-rclass-protocol
-         boxed-primitives subtype-datatype-rclass)
+         boxed-primitives subtype-datatype-rclass subtype-TApp)
 
 (defn subtype-HSet [s t]
   {:pre [(r/HSet? s)
@@ -269,6 +269,12 @@
         (fail! s t)
 
         (and (r/TApp? s)
+             (r/TApp? t)
+             (= (c/fully-resolve-type (:rator s))
+                (c/fully-resolve-type (:rator t))))
+        (subtype-TApp s t)
+
+        (and (r/TApp? s)
              (r/TypeFn? (c/fully-resolve-type (:rator s))))
         (let [{:keys [rands]} s
               rator (c/fully-resolve-type (:rator s))]
@@ -377,20 +383,6 @@
                    (not-any? #(subtype? s %) (.without t)))
             *sub-current-seen*
             (fail! s t)))
-
-        (and (r/TApp? s)
-             (r/TApp? t)
-             (r/F? (:rator s))
-             (r/F? (:rator t))
-             (= (:rator s) (:rator t)))
-        (let [{:keys [upper-bound] :as bnd} (free-ops/free-with-name-bnds (-> s :rator :name))]
-          (cond 
-            (not bnd) (err/int-error (str "No bounds for " (:name s)))
-            :else (let [upper-bound (c/fully-resolve-type upper-bound)]
-                    (if (and (r/TypeFn? upper-bound)
-                             (subtype-TypeFn-rands? upper-bound (:rands s) (:rands t)))
-                      *sub-current-seen*
-                      (fail! s t)))))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
@@ -1321,6 +1313,46 @@
                                      (subtypeA*? *sub-current-seen* r l))
                    (err/int-error (str "Unknown variance: " v))))
                (map vector (:variances tfn) rands1 rands2))))
+
+(defn subtype-TApp
+  [s t]
+  (let [s (update s :rator c/fully-resolve-type)
+        t (update t :rator c/fully-resolve-type)
+        _ (assert (= (:rator s) (:rator t)))]
+    (cond
+      (and (r/F? (:rator s))
+           (r/F? (:rator t)))
+      (let [{:keys [upper-bound] :as bnd} (free-ops/free-with-name-bnds (-> s :rator :name))]
+        (cond 
+          (not bnd) (err/int-error (str "No bounds for " (:name s)))
+          :else (let [upper-bound (c/fully-resolve-type upper-bound)]
+                  (if (and (r/TypeFn? upper-bound)
+                           (subtype-TypeFn-rands? upper-bound (:rands s) (:rands t)))
+                    *sub-current-seen*
+                    (fail! s t)))))
+      (r/TypeFn? (:rator s))
+      (let [rator (:rator s)
+            variances (:variances rator)
+            names (repeatedly (:nbound rator) gensym)
+            bbnds (c/TypeFn-bbnds* names rator)]
+        (if (and (= (count variances)
+                    (count (:rands s))
+                    (count (:rands t)))
+                 (every? identity
+                         (map (fn [variance {:keys [lower-bound upper-bound]} s t]
+                                (and (subtype? lower-bound s)
+                                     (subtype? lower-bound t)
+                                     (subtype? s upper-bound)
+                                     (subtype? t upper-bound)
+                                     (case variance
+                                       :covariant (subtype? s t)
+                                       :contravariant (subtype? t s)
+                                       :invariant (and (subtype? s t)
+                                                       (subtype? t s)))))
+                              variances bbnds (:rands s) (:rands t))))
+          *sub-current-seen*
+          (fail! s t)))
+      :else (fail! s t))))
 
 (defn subtype-TypeFn
   [S T]

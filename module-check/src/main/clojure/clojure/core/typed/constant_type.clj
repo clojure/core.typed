@@ -77,9 +77,11 @@
           vts (map constant-type (vals cmap))]
       (if (every? r/Value? kts)
         (ret (c/-complete-hmap (zipmap kts vts)))
-        (ret (c/-name `t/Map
-                      (apply c/Un kts)
-                      (apply c/Un vts))))))
+        (ret (c/In
+               (c/-name `t/Map
+                        (apply c/Un kts)
+                        (apply c/Un vts))
+               (r/make-ExactCountRange (count cmap)))))))
   
   ;base case
   Object

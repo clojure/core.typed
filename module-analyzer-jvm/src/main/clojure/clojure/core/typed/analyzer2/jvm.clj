@@ -101,18 +101,16 @@
                              passes))
         pre-passes  (pfns-fn pre-passes)
         post-passes (pfns-fn post-passes)]
-    (fn [ast]
-      (let [state (or (-> ast :env ::ana/state)
-                      (u/update-vals state #(%)))]
-        (ast/walk (assoc-in ast [:env ::ana/state] state)
-                  pre-passes
-                  post-passes)))))
+    {:pre (fn [ast]
+            (let [state (or (-> ast :env ::ana/state)
+                            (u/update-vals state #(%)))]
+              (pre-passes (assoc-in ast [:env ::ana/state] state))))
+     :post post-passes}))
 
 (defn schedule
-  "Takes a set of Vars that represent tools.analyzer passes and returns a function
-   that takes an AST and applies all the passes and their dependencies to the AST,
-   trying to compose together as many passes as possible to reduce the number of
-   full tree traversals.
+  "Takes a set of Vars that represent tools.analyzer passes and returns a map
+   m of two functions, such that (ast/walk ast (:pre m) (:post m)) runs all
+   passes on ast.
 
    Each pass must have a :pass-info element in its Var's metadata and it must point
    to a map with the following parameters (:before, :after, :affects and :state are
@@ -129,11 +127,6 @@
                          passes
                  - :any  if the pass can be composed with other passes in both a prewalk
                          or a postwalk
-   * :affects  a set of Vars, this pass must be the last in the same tree traversal that all
-               the specified passes must participate in
-               This pass must take a function as argument and return the actual pass, the
-               argument represents the reified tree traversal which the pass can use to
-               control a recursive traversal, implies :depends
    * :state    a no-arg function that should return an atom holding an init value that will be
                passed as the first argument to the pass (the pass will thus take the ast
                as the second parameter), the atom will be the same for the whole tree traversal
@@ -197,24 +190,13 @@
     })
 
 (def scheduled-default-passes
-  (delay
-    (schedule default-passes)))
+  (schedule default-passes))
 
 (comment
   (clojure.pprint/pprint
     (schedule default-passes
                      {:debug? true}))
   )
-
-(defn run-passes
-  "Function that will be invoked on the AST tree immediately after it has been constructed,
-   by default runs the passes declared in #'default-passes, should be rebound if a different
-   set of passes is required (via analyze2/run-passes).
-
-   Use #'clojure.tools.analyzer.passes/schedule to get a function from a set of passes that
-   run-passes can be bound to."
-  [ast]
-  (@scheduled-default-passes ast))
 
 (def default-passes-opts
   "Default :passes-opts for `analyze`"
@@ -247,7 +229,7 @@
      (with-bindings (merge {Compiler/LOADER     (RT/makeClassLoader)
                             #'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    taj/create-var
-                            #'ana/run-passes    run-passes
+                            #'ana/scheduled-passes    scheduled-default-passes
                             #'pre/pre-parse     jpre/pre-parse
                             #'ana/var?          var?
                             #'*ns*              (the-ns (:ns env))}
@@ -263,14 +245,12 @@
   (throw (.e ^ExceptionThrown e)))
 
 (defmethod emit-form/-emit-form :unanalyzed
-  [{:keys [analyzed-atom form] :as ast} opts]
-  (if-some [ast @analyzed-atom]
-    (emit-form/emit-form ast)
-    (do (assert (not (#{:hygienic :qualified-symbols} opts))
-                "Cannot support emit-form options on unanalyzed form")
-        #_(throw (Exception. "Cannot emit :unanalyzed form"))
-        #_(prn (str "WARNING: emit-form: did not analyze: " form))
-        form)))
+  [{:keys [form] :as ast} opts]
+  (assert (not (#{:hygienic :qualified-symbols} opts))
+          "Cannot support emit-form options on unanalyzed form")
+  #_(throw (Exception. "Cannot emit :unanalyzed form"))
+  #_(prn (str "WARNING: emit-form: did not analyze: " form))
+  form)
 
 (defn eval-ast [a {:keys [handle-evaluation-exception]
                    :or {handle-evaluation-exception throw!}

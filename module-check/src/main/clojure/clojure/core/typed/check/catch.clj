@@ -4,10 +4,13 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.ast-utils :as ast-u]))
 
 (defn check-catch [check {handler :body :keys [local] :as expr} expected]
-  (let [ecls (ast-u/catch-op-class expr)
+  (let [expr (-> expr
+                 (update :class ana2/run-passes))
+        ecls (ast-u/catch-op-class expr)
         local-sym (:name local)
         local-type (impl/impl-case
                      :clojure (c/RClass-of-with-unknown-params ecls)
@@ -15,4 +18,5 @@
         chandler (lex/with-locals {local-sym local-type}
                    (check handler expected))]
     (assoc expr
+           :body chandler
            u/expr-type (u/expr-type chandler))))

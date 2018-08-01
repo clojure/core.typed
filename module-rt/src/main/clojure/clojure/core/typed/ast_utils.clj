@@ -152,7 +152,8 @@
     :cljs (:name expr)))
 
 (defn new-op-class [expr]
-  {:pre [(#{:new} (:op expr))]
+  {:pre [(#{:new} (:op expr))
+         (#{:const} (:op (:class expr)))]
    :post [(class? %)]}
   (-> expr :class :val))
 

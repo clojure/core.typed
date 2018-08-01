@@ -356,7 +356,7 @@
     (subtype? (parse-type `(~'List* (Value 1) (Value 2)))
               (RClass-of ISeq [-any])))
   (is-clj (= (tc-t [1 2])
-             (ret (-hvec [(-val 1) (-val 2)]) (-true-filter) -empty)))
+             (ret (-hvec [(-val 1) (-val 2)] :filters [(-true-filter) (-true-filter)]) (-true-filter) -empty)))
   (is-clj (= (tc-t '(1 2))
          (ret (HeterogeneousList-maker [(-val 1) (-val 2)]) (-true-filter) -empty)))
   (is-clj (= (tc-t {:a 1})
@@ -1049,7 +1049,8 @@
                     [a b c]))
              (-hvec [(-val 1)
                      (-val 2)
-                     (-hvec [(-val 1) (-val 2)])]
+                     (-hvec [(-val 1) (-val 2)]
+                            :filters [(-true-filter) (-true-filter)])]
                     :filters [(-true-filter) (-true-filter) (-true-filter)])))
   ;Map destructuring of vector
   ;FIXME needs implementing, but gives a decent error msg
@@ -1393,6 +1394,11 @@
                     (a [b] (inc b))]
              (a 1))
            Number)
+  ; erase objects
+  (is-clj (= (tc-t (letfn> [a :- [Number -> Number]
+                            (a [b] (inc b))]
+                     a))
+             (ret (parse-clj '[Number -> Number]) (-FS -top -bot) -empty)))
   ; annotation needed
   (is-tc-err (letfn> [(a [b] (inc b))]
                (a 1)))
@@ -1609,7 +1615,7 @@
   (is (check-ns 'clojure.core.typed.test.set-bang)))
 
 (deftest flow-unreachable-test
-  ; this will always throw a runtime exception, which is ok.
+  ; this will always throw a runtime exception, so it's unreachable
   (is-tc-e 
     (fn [a] 
       {:pre [(symbol? a)]}
@@ -2192,8 +2198,7 @@
   
   (equal-types-noparse (assoc [3] 1 2)
                        (-hvec [(-val 3) (-val 2)]
-                              :filters [(-FS -top -top) ; embedded literals dont get any
-                                                        ; filter information (yet)?
+                              :filters [(-true-filter)
                                         (-true-filter)]
                               :objects [-empty -empty]))
   
@@ -2387,7 +2392,7 @@
   
   (equal-types-noparse (conj [1] 2 3)
                        (-hvec [(-val 1) (-val 2) (-val 3)]
-                              :filters [(-FS -top -top)
+                              :filters [(-true-filter)
                                         (-true-filter)
                                         (-true-filter)]
                               :objects [-empty -empty -empty]))
@@ -2395,8 +2400,7 @@
                              (ann-form nil (U nil '2))
                              3)
                        (-hvec [(-val 1) (Un -nil (-val 2)) (-val 3)]
-                              :filters [(-FS -top -top) ; embedded literals dont get any
-                                                        ; filter information (yet)?
+                              :filters [(-true-filter)
                                         (-FS -top -top)
                                         (-true-filter)]
                               :objects [-empty -empty -empty]))
@@ -2854,6 +2858,7 @@
   (is (sub? [-> nil] Callable))
   (is (sub? [-> nil] Runnable)))
 
+#_
 (deftest swap!-special-test
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
@@ -2863,6 +2868,8 @@
                 {1 2 3 4 5 6})))
 
 (deftest mapentry-first-test
+  (is-tc-e (first {1 2})
+           '[Num Num])
   (is-tc-e (first (first {1 2}))
            Num))
 
@@ -3236,7 +3243,20 @@
         (check-ns 'clojure.core.typed.test.fail.reflection))))
 
 (deftest tc-ignore-test
-  (is-tc-e (fn [] (tc-ignore (+ 'a 1)))))
+  (is-tc-e (fn [] (tc-ignore (+ 'a 1))))
+  ;; evaluates body
+  (is (thrown? Exception
+               (tc-e (tc-ignore (+ 'a 1)))))
+  (is (= 1
+         (:result
+           (check-form-info
+             '(do (do 1))))))
+  ;; FIXME
+  #_
+  (is (= 1
+         (:result
+           (check-form-info
+             '(do (do (tc-ignore 1))))))))
 
 (deftest loop-macro-test
   (is-tc-e (fn [] (loop [a 1] (recur a))))
@@ -3335,32 +3355,18 @@
              :name)
          0)))
 
-(cf (tc/fn [f :- (clojure.core.typed/All [b ...]
-                   [-> [b ... b -> clojure.core.typed/Any]])] 
-      (f)))
-(cf (tc/fn [f :- (clojure.core.typed/All [b ...]
-                   ['[b ... b] ... b -> [b ... b -> clojure.core.typed/Any]])] 
-      (f [1 2] [1 2])))
-(cf (tc/fn [f :- (clojure.core.typed/All [b ...]
-                   [-> (HVec [b ... b])])] 
-      (f)))
-(cf (tc/fn [f :- (clojure.core.typed/All [b ...]
-                   [-> (HSequential [b ... b])])] 
-      (f)))
-
-#_(check-form* '(do (ns unit-test.blah
-                    (:require [clojure.core.typed :as t]))
-                  #_(t/ann-form (+ 1 1) Number)))
-
-#_(cf (ns unit-test.blah
-      (:require [clojure.core.typed :as t])))
-#_(cf @#'clojure.core/*loaded-libs*
-    (clojure.core.typed/Ref1 (clojure.core.typed/Set clojure.lang.Symbol)))
-
-
-#_(tc-e nil)
-
-#_(cf @((inst ref Number) 1))
+(deftest dotted-fn-test
+  (is-tc-e (fn [f :- (All [b ...] [-> [b ... b -> Any]])] 
+             (f)))
+  (is-tc-e (fn [f :- (All [b ...]
+                          ['[b ... b] ... b -> [b ... b -> Any]])] 
+             (f [1 2] [1 2])))
+  (is-tc-e (fn [f :- (All [b ...]
+                          [-> (HVec [b ... b])])] 
+             (f)))
+  (is-tc-e (fn [f :- (All [b ...]
+                          [-> (HSequential [b ... b])])]
+             (f))))
 
 ;FIXME
 #_(deftest first-class-poly-test
@@ -4858,14 +4864,14 @@
 (deftest CTYP-215-zero?-test
   ; inlinings
   (is-tc-e (zero? 1) Boolean)
-  (is-tc-err (zero? 'a) Boolean)
+  (is-tc-err #(zero? 'a) [-> Boolean])
   (is-tc-e zero? [Number -> Boolean]))
 
 (deftest CTYP-181-prim-cast-test
   (is-tc-e float [Number -> Float])
   ;; inlinings
   (is-tc-e (float 1) Float)
-  (is-tc-err (float 'a) Float)
+  (is-tc-err #(float 'a) [-> Float])
   (is-tc-err (let [^Character c \c]
                (float c))
              Float)
@@ -4873,7 +4879,7 @@
   (is-tc-e double [Number -> Double])
   ;; inlinings
   (is-tc-e (double 1) Double)
-  (is-tc-err (double 'a) Double)
+  (is-tc-err #(double 'a) [-> Double])
   (is-tc-err (let [^Character c \c]
                (double c))
              Double)
@@ -4882,7 +4888,7 @@
   ;; inlinings
   (is-tc-e (int 1) Integer)
   (is-tc-e (int \c) Integer)
-  (is-tc-err (int 'a) Integer)
+  (is-tc-err #(int 'a) [-> Integer])
 
   (is-tc-e long [(U Character Number) -> Long])
   ;; inlinings
@@ -4890,7 +4896,7 @@
   (is-tc-e (let [^Character c \c]
              (long c)) 
            Long)
-  (is-tc-err (long 'a) Long)
+  (is-tc-err #(long 'a) [-> Long])
 
   (is-tc-e num [Number -> Number])
   ;; inlinings
@@ -4898,7 +4904,7 @@
   (is-tc-err (let [^Character c \c]
                (num c))
              Number)
-  (is-tc-err (num 'a) Number)
+  (is-tc-err #(num 'a) [-> Number])
 
   (is-tc-e short [(U Character Number) -> Short])
   ;; inlinings
@@ -4906,19 +4912,19 @@
   (is-tc-e (let [^Character c \c]
              (short c))
            Short)
-  (is-tc-err (short 'a) Short)
+  (is-tc-err #(short 'a) [-> Short])
 
   (is-tc-e byte [(U Character Number) -> Byte])
   (is-tc-e (byte 1) Byte)
   (is-tc-e (let [^Character c \c]
              (byte c))
            Byte)
-  (is-tc-err (byte 'a) Byte)
+  (is-tc-err #(byte 'a) [-> Byte])
 
   (is-tc-e char [(U Character Number) -> Character])
   (is-tc-e (char 1) Character)
   (is-tc-e (char \c) Character)
-  (is-tc-err (char 'a) Character)
+  (is-tc-err #(char 'a) [-> Character])
   )
 
 (deftest CTYP-170-test
@@ -5075,6 +5081,16 @@
   (is
     (should-not-reflect
       (tc-e 
+        (let [^java.io.File a (java.io.File. "a")]
+          (.getParent a)))))
+  (is
+    (should-not-reflect
+      (tc-e 
+        (let [a (java.io.File. "a")]
+          (.getParent a)))))
+  (is
+    (should-not-reflect
+      (tc-e 
         (fn [a] (.getParent a))
         [java.io.File -> Any])))
   (is
@@ -5105,7 +5121,7 @@
         [java.io.File -> Any]))))
 
 (deftest rewrite-reflecting-ctor-test
-  (is-tc-err (java.io.File. 1))
+  (is-tc-err #(java.io.File. 1))
   (is-tc-err (fn [a]
                (java.io.File. a)))
   (is
@@ -5704,6 +5720,7 @@
   (is (= ((clojure.core.typed/fn [] :- nil, nil)) nil)))
 
 #_
+;TODO
 (deftest nil-branch-test
   (is-tc-e (fn [a :- false]
              (when (false? a)
@@ -5746,10 +5763,11 @@
   (is-tc-e (let [f (let [b :- t/Num, 1]
                      (fn [] :- (t/TypeOf b)
                        1))]
-             (inc (f))))
-)
+             (inc (f)))))
 
 (deftest cf-throws-test
   (is (thrown? Throwable (cf (nil))))
-  (is (thrown? Throwable (cf (clojure.core/fn [:- :a]))))
-)
+  (is (thrown? Throwable (cf (clojure.core/fn [:- :a])))))
+
+(deftest check-form-info-result-test
+  (is (= 1 (:result (check-form-info '(do (do (do 1))))))))

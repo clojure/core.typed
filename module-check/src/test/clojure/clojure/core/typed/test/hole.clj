@@ -50,9 +50,9 @@
 ;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:53
 ;
 ;Actual type
-;	clojure.core.typed.test.hole.Hole
+;  clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
-;	c
+;  c
 ;
 ;Form: (let* [_ (clojure.core.typed/ann-form* f (quote [b -> c])) _18471 (clojure.core.typed/ann-form* g (quote [a -> b])) _18472 (clojure.core.typed/ann-form* x (quote a))] (clojure.core.typed.test.hole/->Hole))>
 
@@ -67,9 +67,9 @@
 ;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:69
 ;
 ;Actual type
-;	clojure.core.typed.test.hole.Hole
+;  clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
-;	b
+;  b
 ;
 ;Form: (f (clojure.core.typed.test.hole/->Hole))>
 
@@ -84,9 +84,9 @@
 ;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:86
 ;
 ;Actual type
-;	clojure.core.typed.test.hole.Hole
+;  clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
-;	a
+;  a
 ;
 ;Form: (f (g (clojure.core.typed.test.hole/->Hole)))>
 
@@ -127,9 +127,9 @@
 ;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:127
 ;
 ;Actual type
-;	clojure.core.typed.test.hole.Hole
+;  clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
-;	(m b)
+;  (m b)
 ;
 ;Form: (let* [_ (clojure.core.typed/ann-form* mf (quote (m [a -> b]))) _21382 (clojure.core.typed/ann-form* ma (quote (m a)))] (clojure.core.typed.test.hole/->Hole))>
 
@@ -155,9 +155,9 @@
 ;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:145
 ;
 ;Actual type
-;	clojure.core.typed.test.hole.Hole
+;  clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
-;	(m b)
+;  (m b)
 ;
 ;Form: (let* [_ (clojure.core.typed/ann-form* mf (quote (m [a -> b]))) _21976 (clojure.core.typed/ann-form* ma (quote (m a))) _21977 (clojure.core.typed/ann-form* (fn* ([p1__21960#] (m-bind mf p1__21960#))) (quote [[[a -> b] -> (m b)] -> (m b)]))] (clojure.core.typed.test.hole/->Hole))>
 
@@ -178,9 +178,9 @@
 ;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:172
 ;
 ;Actual type
-;	clojure.core.typed.test.hole.Hole
+;  clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
-;	(m b)
+;  (m b)
 ;
 ;Form: (clojure.core.typed.test.hole/->Hole)>
 

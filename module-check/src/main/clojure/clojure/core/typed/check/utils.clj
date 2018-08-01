@@ -509,7 +509,8 @@
   {:pre [(r/Type? t)]
    :post [((some-fn nil? class?) %)]}
   (cond
-    (r/RClass? t) (r/RClass->Class t)))
+    (r/RClass? t) (r/RClass->Class t)
+    (r/Value? t) (class (:val t))))
 
 (defn should-rewrite? []
   (and vs/*in-check-form*

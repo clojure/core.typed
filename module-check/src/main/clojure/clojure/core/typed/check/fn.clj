@@ -25,5 +25,4 @@
     (assoc fexpr
            :methods methods
            ::t/cmethods cmethods
-           u/expr-type  (r/ret ifn
-                               (fo/-FS fl/-top fl/-bot)))))
+           u/expr-type  (r/ret ifn (fo/-true-filter)))))

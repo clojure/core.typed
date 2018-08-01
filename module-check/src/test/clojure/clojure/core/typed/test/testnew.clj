@@ -29,7 +29,7 @@
            :requires [[clojure.test :refer [run-all-tests]]])
   (is-tc-e #(run-all-tests #"asdf") [-> (Map Any Any)]
            :requires [[clojure.test :refer [run-all-tests]]])
-  (is-tc-err (run-all-tests) String
+  (is-tc-err #(run-all-tests) [:-> String]
              :requires [[clojure.test :refer [run-all-tests]]]))
             
 (deftest successful?-test

@@ -10,12 +10,17 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.filter-rep :as fl]))
 
 (defn check-cast
-  [check {:keys [statements env] frm :ret :as expr} expected]
-  {:pre [(#{3} (count statements))]}
-  (let [[_ _ texpr] statements
+  [check expr expected]
+  (let [{:keys [pre post]} ana2/scheduled-passes
+        {[_ _ texpr :as statements] :statements :keys [env] frm :ret :as expr}
+        (-> expr 
+            (update-in [:statements 2] ana2/run-passes)
+            (update :ret pre))
+        _ (assert (#{3} (count statements)))
         tsyn-quoted (ast-u/map-expr-at texpr :type)
         _ (impl/impl-case
             :clojure (assert (and (seq? tsyn-quoted)
@@ -35,6 +40,9 @@
         _ (assert (== 1 (count (:args frm))))
         ;; allows silly down casts, might want to change that.
         expr (-> expr
-                 (update-in [:ret :args 0] check))]
+                 (update-in [:ret :fn] ana2/run-passes)
+                 (update-in [:ret :args 0] check)
+                 (update :ret post))]
     (assoc expr
+           :statements statements
            u/expr-type (r/ret parsed-t))))

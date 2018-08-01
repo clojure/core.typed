@@ -36,7 +36,9 @@
   inwards to the inner expression."
   [check {:keys [statements env] frm :ret :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [tsyn (ann-form-annotation expr)
+  (let [expr (-> expr
+                 (update :statements #(mapv check %)))
+        tsyn (ann-form-annotation expr)
         parsed-t (parse-annotation tsyn expr)
         ;; TODO let users add expected filters etc
         this-expected (or (some-> expected (assoc :t parsed-t))

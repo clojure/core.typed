@@ -421,7 +421,8 @@
                       new-env (update-in env [:l (:id f)]
                                          (fn [t]
                                            (when-not t
-                                             (err/int-error (str "Updating local not in scope: " (:id f))))
+                                             (err/int-error (str "Updating local not in scope: " (:id f)
+                                                                 " " (keys (get env :l)))))
                                            (update t f)))]
                   ; update flag if a variable is now bottom
                   (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]

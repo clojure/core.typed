@@ -145,7 +145,7 @@
         (impl/with-clojure-impl
           (let [eof (Object.)
                 rdr (readers/indexing-push-back-reader file 1 file-path)]
-            (binding [;*ns* *ns*
+            (binding [*ns* *ns*
                       *file* file-path
                       *source-path* file-name]
               (loop [result nil]
@@ -156,7 +156,7 @@
                       ;(prn "before" rcode (@session #'*ns*))
                       (let [{:keys [ret result ex]}
                             (t/check-form-info rcode
-                                               :eval-out-ast #(ana-clj/eval-ast % {})
+                                               ;:eval-out-ast #(ana-clj/eval-ast % {})
                                                :bindings-atom session)]
                         ;(prn "after" ex result)
                         (if ex

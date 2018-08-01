@@ -1,5 +1,6 @@
 ;; adapted from tools.analyzer
 (ns clojure.core.typed.analyzer2
+  (:require [clojure.tools.analyzer.ast :as ast])
   (:refer-clojure :exclude [macroexpand-1 var?]))
 
 (def ^{:dynamic  true
@@ -24,16 +25,28 @@
   var?)
 
 (def ^{:dynamic  true
-       :arglists '([ast])
-       :doc      "Function that will be invoked on the AST tree immediately after it has been constructed,
-                 by default runs the passes declared in #'default-passes, should be rebound if a different
-                 set of passes is required.
+       :doc      "A map of functions such that
 
-                 Use #'clojure.tools.analyzer.passes/schedule to get a function from a set of passes that
-                 run-passes can be bound to."}
-  run-passes)
+                 (ast/walk ast (:pre scheduled-passes) (:post scheduled-passes))
+
+                 runs the passes currently scheduled.
+                 "}
+  scheduled-passes)
+
+(defn run-passes
+  "Function that will be invoked on the AST tree immediately after it has been constructed,
+   by default runs the passes declared in #'default-passes, should be rebound if a different
+   set of passes is required (via analyze2/run-passes).
+
+   Use #'clojure.tools.analyzer.passes/schedule to get a function from a set of passes that
+   run-passes can be bound to."
+  [ast]
+  {:pre [(map? scheduled-passes)]}
+  (ast/walk ast
+            (:pre scheduled-passes)
+            (:post scheduled-passes)))
 
 (def specials
-	'#{do if new quote set! try var
-		 catch throw finally def .
-		 let* letfn* loop* recur fn*})
+  '#{do if new quote set! try var
+     catch throw finally def .
+     let* letfn* loop* recur fn*})

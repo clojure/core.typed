@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.walk
-	(:require [clojure.core.typed :as t] 
+  (:require [clojure.core.typed :as t] 
             [clojure.test :refer :all]                
             [clojure.core.typed.test.test-utils :refer :all]))
 

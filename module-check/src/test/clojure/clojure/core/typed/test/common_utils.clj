@@ -64,7 +64,7 @@
         _ (assert (not (and has-t? (contains? opts :expected-ret)))
                   "Can't provide both expected type and expected ret")
         actual-ret (gensym 'ret)]
-    `(let [{~actual-ret :ret ex# :ex} 
+    `(let [{~actual-ret :ret ex# :ex delayed-errors# :delayed-errors}
            ~(tc-common* frm 
                         (assoc 
                           opts
@@ -73,4 +73,4 @@
        ~(when has-ret?
           `(assert (= ~actual-ret ~(:ret opts))))
        (or (some-> ex# ex-data err/top-level-error?)
-           false))))
+           (some-> delayed-errors# seq)))))

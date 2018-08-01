@@ -17,6 +17,12 @@
             (.a r))
           Number)
 
+(let [^MyRecord r (MyRecord. 1)]
+  (ann-form (.a r) Number))
+
+(let [r (MyRecord. 1)]
+  (ann-form (.a r) Number))
+
 (ann-form (assoc (->MyRecord 1) :a 1)
           MyRecord)
 
