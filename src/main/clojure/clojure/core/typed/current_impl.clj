@@ -537,9 +537,9 @@ Future
 Promise 
               (TFn [[x :variance :invariant]]
                (Rec [p]
-                (I (Extends [(clojure.lang.IDeref x)
-                             (clojure.lang.IBlockingDeref x)
-                             clojure.lang.IPending])
+                (I (clojure.lang.IDeref x)
+                   (clojure.lang.IBlockingDeref x)
+                   clojure.lang.IPending
                    [x -> (U nil p)])))
 
     ^{:doc "A Clojure delay (see clojure.core/{delay,force})."
