@@ -231,15 +231,12 @@
 (defn pre-analyze
   ""
   [ast]
-  ;(prn "pre-analyze" (:op ast))
+  {:post [(not= :unanalyzed (:op %))]}
   (case (:op ast)
-    :unanalyzed (let [{:keys [analyzed-atom form env ::pre/config]} ast
-                      ;_ (prn "pre-analyze form" form)
-                      ast (if-some [ast @analyzed-atom]
-                            ast
-                            (let [ast (pre/pre-analyze-form form env)]
-                              (reset! analyzed-atom ast)
-                              ast))]
-                  (assert (not= :unanalyzed (:op ast)))
-                  (assoc ast ::pre/config config))
+    :unanalyzed (let [{:keys [form env ::pre/config]} ast
+                      ast (-> form
+                              (pre/pre-analyze-form env)
+                              ;TODO rename to ::pre/inherited
+                              (assoc ::pre/config config))]
+                    ast)
     ast))

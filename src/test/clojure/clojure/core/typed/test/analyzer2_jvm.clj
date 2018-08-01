@@ -1,10 +1,13 @@
 (ns clojure.core.typed.test.analyzer2-jvm
   (:require [clojure.test :refer :all]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
-            [clojure.core.typed.analyzer2.jvm :as ana]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
+            [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.jvm.utils :as ju]))
+            [clojure.tools.analyzer.env :as env]
+            [clojure.tools.analyzer.ast :as ast]
+            [clojure.core.typed.analyzer2.pre-analyze :as pre]
+            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
+            [clojure.core.typed.analyzer2.jvm :as ana]))
 
 (defmacro ast' [form]
   `(ana/analyze '~form))
