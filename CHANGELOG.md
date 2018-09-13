@@ -1,3 +1,8 @@
+# 0.5.4 - 13 September 2018
+
+- add annotations for some clojure.core Transducers (but usages are still too hard to infer for now)
+- fix bad `clojure.core/take-while` annotation
+
 # 0.5.3 - 21 June 2018
 
 - fix `s/keys` generation
