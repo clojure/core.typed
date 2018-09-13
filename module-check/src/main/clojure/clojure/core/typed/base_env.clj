@@ -295,9 +295,7 @@ clojure.core/remove (All [x y]
 
 
 clojure.core/take-while (All [x y]
-                               (IFn 
-                                 [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (ASeq y)]
-                                 [[x -> Any] (Option (Seqable x)) -> (ASeq x)]))
+                               [[x -> Any] (Option (Seqable x)) -> (ASeq x)])
 clojure.core/drop-while (All [x]
                                [[x -> Any] (Option (Seqable x)) -> (ASeq x)])
 
