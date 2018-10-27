@@ -18,11 +18,11 @@
             [clojure.string :as str]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.tools.namespace.parse :as nprs]
             [clojure.math.combinatorics :as comb]
             [clojure.core.typed.contract-utils :as con]
             [clojure.walk :as walk]
             #?@(:clj [[clojure.core.typed.dep.potemkin.collections :as pot]
+                      [clojure.tools.namespace.parse :as nprs]
                       [clojure.tools.reader.reader-types :as rdrt]
                       [clojure.java.io :as io]
                       [clojure.core.typed.ast-utils :as ast]
@@ -654,7 +654,7 @@
 
 ; classify : Any -> Kw
 (defn classify [v]
-  {:pre [v]}
+  {:pre [(some? v)]}
   (cond
     ;(nil? v) :nil
     (char? v) :char
@@ -816,7 +816,13 @@
          (symbol? s)
          (not (namespace s))]
    :post [(symbol? %)]}
-  (symbol (str nsym) (str s))))
+  ;TODO
+  (symbol (get {'clojure.core.typed "t"
+                'clojure.spec.alpha "s"
+                'clojure.core nil}
+               nsym
+               (str nsym))
+          (str s))))
 
 (defn qualify-spec-symbol [s]
   {:pre [(symbol? s)]
@@ -838,6 +844,7 @@
    :post [(symbol? %)]}
   (assert (string? c) c)
   (symbol c)
+  ;;FIXME add back
   #_
   (symbol
     (if (= (ns-resolve (current-ns) (symbol (.getSimpleName c)))
@@ -3144,6 +3151,9 @@
           (recur (next aseq))))))))
 
 ;; deterministic printing of HMaps
+;;FIXME this doesn't work in CLJS, {:a 1} pprints as:
+;; :a{ 1}
+#?(:clj
 (defmethod wrap-dispatch #?(:clj clojure.lang.IPersistentMap
                             :cljs :map)
   [o]
@@ -3161,7 +3171,7 @@
                  (mapcat identity tagged)
                  (mapcat identity untagged)))]
     #?(:clj (pprint-map ordered)
-       :cljs (pp/code-dispatch ordered))))
+       :cljs (pp/code-dispatch ordered)))))
 
 (defmethod wrap-dispatch #?(:clj clojure.lang.Keyword
                             :cljs :keyword)
