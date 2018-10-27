@@ -3,13 +3,16 @@
 (def ^:dynamic *checker* nil)
 
 (defn checker-or-nil []
-  {:post [(or (instance? clojure.lang.IAtom %)
+  {:post [(or #?(:clj (instance? clojure.lang.IAtom %)
+                 :cljs (instance? Atom %))
               (nil? %))]}
   *checker*)
 
 (defn checker []
   (let [c *checker*]
-    (assert (instance? clojure.lang.IAtom c) (str "No checker state: " (pr-str c)))
+    (assert #?(:clj (instance? clojure.lang.IAtom c)
+               :cljs (instance? Atom c))
+            (str "No checker state: " (pr-str c)))
     c))
 
 (defn empty-checker []
@@ -26,6 +29,7 @@
 (defn swap-checker! [& args]
   (apply swap! (checker) args))
 
+#?(:clj
 (defmacro with-checker [c & body]
   `(binding [*checker* ~c]
-     ~@body))
+     ~@body)))

@@ -2,7 +2,8 @@
   {:skip-wiki true
    :core.typed {:collect-only true}}
   (:refer-clojure :exclude [boolean?])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set])
+  #?(:clj (:import (clojure.lang PersistentArrayMap))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -16,9 +17,10 @@
 
 (def boolean? (some-fn true? false?))
 
-(def namespace? #(instance? clojure.lang.Namespace %))
+#?(:clj
+(def namespace? #(instance? clojure.lang.Namespace %)))
 
-(def character? #(instance? Character %))
+(def character? char?)
 
 (defn =-c? [& as]
   #(apply = (concat as %&)))
@@ -39,7 +41,7 @@
       (c r))))
 
 (defn array-map-c? [ks-c? vs-c?]
-  (every-pred #(instance? clojure.lang.PersistentArrayMap %)
+  (every-pred #(instance? PersistentArrayMap %)
               #(every? ks-c? (keys %))
               #(every? vs-c? (vals %))))
 
@@ -88,4 +90,4 @@
 (def local-sym? (every-pred symbol? (complement namespace)))
 
 ;; FIXME when 1.7 is released, change to IAtom
-(defn atom? [v] (instance? clojure.lang.Atom v))
+(defn atom? [v] (instance? #?(:clj clojure.lang.IAtom :cljs Atom) v))

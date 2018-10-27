@@ -11,16 +11,7 @@
     <version>0.5.5-SNAPSHOT</version>
   </parent>
 
-
   <build>
-    <resources>
-      <resource>
-        <directory>src/main/cljs</directory>
-      </resource>
-      <resource>
-        <directory>src/main/java</directory>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <groupId>com.theoryinpractise</groupId>
@@ -45,12 +36,14 @@
           <!-- Don't put AOT files in jar -->
           <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <sourceDirectories>
-            <!--<sourceDirectory>target/classes</sourceDirectory>-->
             <sourceDirectory>src/main/clojure</sourceDirectory>
+            <sourceDirectory>src/main/cljs</sourceDirectory>
+            <sourceDirectory>src/main/cljc</sourceDirectory>
           </sourceDirectories>
           <testSourceDirectories>
             <testSourceDirectory>src/test/clojure</testSourceDirectory>
-          </testSourceDirectories>
+            <testSourceDirectory>src/test/cljs</testSourceDirectory>
+          </testSourceDirectories>-->
         </configuration>
       </plugin>
       <plugin>

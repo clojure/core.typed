@@ -2,8 +2,6 @@
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (defn resolve-Name [{:keys [name] :as expr}]
   {:pre [(#{:Name} (:op expr))]}
   (let [e (force (get (impl/alias-env) name))

@@ -61,13 +61,15 @@
 (t/ann *dotted-scope* (t/Map t/Sym t/Sym))
 (def ^:dynamic *dotted-scope* {})
 
+#?(:clj
 (defmacro with-frees [fs & args]
   `(binding [*tvar-scope* (merge *tvar-scope* ~fs)]
-     ~@args))
+     ~@args)))
 
+#?(:clj
 (defmacro with-dfrees [fs & args]
   `(binding [*dotted-scope* (merge *dotted-scope* ~fs)]
-     ~@args))
+     ~@args)))
 
 (t/defalias Filter
   (t/Rec [Filter]

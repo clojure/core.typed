@@ -1,6 +1,6 @@
 ; untyped, clojure.core.typed depends on this namespace
 (ns clojure.core.typed.current-impl
-  (:require [clojure.core.typed.profiling :as p]
+  (:require #?(:clj [clojure.core.typed.profiling :as p])
             [clojure.set :as set]
             [clojure.core.typed.env :as env]
             [clojure.core.typed.contract-utils :as con]
@@ -149,6 +149,7 @@
   (env/swap-checker! assoc-in [ns-opts-kw nsym :warn-on-unannotated-vars] true)
   nil)
 
+#?(:clj
 (defmacro create-env
   "For name n, creates defs for {n}, {n}-kw, add-{n},
   and reset-{n}!"
@@ -170,16 +171,23 @@
          (defn ~reset-def [m#]
            (env/swap-checker! assoc ~kw-def m#)
            nil)
-         nil)))
+         nil))))
 
 ;; runtime environments
-(create-env var-env)
-(create-env alias-env)
-(create-env protocol-env)
-(create-env rclass-env)
-(create-env datatype-env)
-(create-env jsnominal-env)
+#?(:clj
+(create-env var-env))
+#?(:clj
+(create-env alias-env))
+#?(:clj 
+(create-env protocol-env))
+#?(:clj 
+(create-env rclass-env))
+#?(:clj 
+(create-env datatype-env))
+#?(:clj 
+(create-env jsnominal-env))
 
+#?(:clj
 (defn v [vsym]
   {:pre [(symbol? vsym)
          (namespace vsym)]}
@@ -187,8 +195,9 @@
         _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
         var (ns-resolve ns (symbol (name vsym)))]
     (assert (var? var) (str "Cannot find var: " vsym))
-    @var))
+    @var)))
 
+#?(:clj
 (defn the-var [vsym]
   {:pre [(symbol? vsym)
          (namespace vsym)]
@@ -197,7 +206,7 @@
         _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
         var (ns-resolve ns (symbol (name vsym)))]
     (assert (var? var) (str "Cannot find var: " vsym))
-    var))
+    var)))
 
 (def clojure ::clojure)
 (def clojurescript ::clojurescript)
@@ -216,9 +225,10 @@
 
 (declare bindings-for-impl)
 
+#?(:clj
 (defmacro with-impl [impl & body]
   `(with-bindings (get (bindings-for-impl) ~impl {})
-     ~@body))
+     ~@body)))
 
 (defonce clj-checker-atom 
   (doto (env/init-checker)
@@ -230,24 +240,27 @@
 (defn clj-bindings []
   {#'env/*checker* (clj-checker)})
 
+#?(:clj
 (defmacro with-clojure-impl [& body]
   `(with-impl clojure
-     ~@body))
+     ~@body)))
 
 (defonce cljs-checker-atom 
   (doto (env/init-checker)
     (swap! assoc current-impl-kw clojurescript)))
 
 (defn cljs-checker []
-  {:post [(instance? clojure.lang.IAtom %)]}
+  {:post [#?(:clj (instance? clojure.lang.IAtom %)
+             :cljs (instance? Atom %))]}
   cljs-checker-atom)
 
 (defn cljs-bindings []
   {#'env/*checker* (cljs-checker)})
 
+#?(:clj
 (defmacro with-cljs-impl [& body]
   `(with-impl clojurescript
-     ~@body))
+     ~@body)))
 
 (defn impl-for []
   {:clojure (cljs-checker)
@@ -257,9 +270,10 @@
   {clojure (clj-bindings)
    clojurescript (cljs-bindings)})
 
+#?(:clj
 (defmacro with-full-impl [impl & body]
   `(with-impl ~impl
-     ~@body))
+     ~@body)))
 
 (defn implementation-specified? []
   ((complement #{unknown}) (current-impl)))
@@ -287,6 +301,7 @@
 ;; :clojure = ::clojure
 ;; :cljs = ::clojurescript
 ;; :unknown = ::unknown
+#?(:clj
 (defmacro impl-case [& {clj-case :clojure cljs-case :cljs unknown :unknown :as opts}]
   (assert (empty? (set/difference (set (keys opts)) #{:clojure :cljs :unknown}))
           "Incorrect cases to impl-case")
@@ -295,21 +310,20 @@
      ~clojurescript ~cljs-case
      ~(if (contains? opts :unknown)
         unknown
-        `(assert nil (str "No case matched for impl-case " (current-impl))))))
+        `(assert nil (str "No case matched for impl-case " (current-impl)))))))
 
+#?(:clj
 (defn var->symbol [^clojure.lang.Var var]
   {:pre [(var? var)]
    :post [((every-pred symbol? namespace) %)]}
   (symbol (str (ns-name (.ns var)))
-          (str (.sym var))))
+          (str (.sym var)))))
 
+#?(:clj
 (defn Class->symbol [^Class cls]
   {:pre [(class? cls)]
    :post [(symbol? %)]}
-  (symbol (.getName cls)))
-
-(defn bounded-length [s len]
-  (clojure.lang.RT/boundedLength s len))
+  (symbol (.getName cls))))
 
 ; for type-contract
 (defn hmap-c? [& {:keys [mandatory optional absent-keys complete?]}]
@@ -685,6 +699,7 @@ Transducer
 (assert (even? (count init-aliases)))
 (assert (apply distinct? (map first (partition 2 init-aliases))))
 
+#?(:clj
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)
          ((some-fn nil? map?) mths)]}
@@ -799,7 +814,7 @@ Transducer
         (add-nocheck-var kq)
         (add-tc-var-type kq mt-ann)))
     ;(prn "end gen-protocol" s)
-    nil))
+    nil)))
 
 (defn add-datatype-ancestors
   "Add a mapping of ancestor overrides (from the type syntax of the override
@@ -811,6 +826,7 @@ Transducer
   (env/swap-checker! update-in [current-dt-ancestors-kw sym] merge tmap)
   nil)
 
+#?(:clj
 (defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
   {:pre [(symbol? current-ns)]}
   (with-clojure-impl
@@ -953,4 +969,4 @@ Transducer
           (when record?
             (add-method-override (symbol (str s) "create") map-ctor)
             (add-tc-var-type map-ctor-name map-ctor)
-            (add-nocheck-var map-ctor-name)))))))
+            (add-nocheck-var map-ctor-name))))))))

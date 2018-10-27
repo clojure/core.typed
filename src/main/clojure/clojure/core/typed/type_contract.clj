@@ -8,8 +8,6 @@
             ;used in contracts
             [clojure.set :as set]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 (defn keyword-singleton? [{:keys [op val]}]
   (when ('#{:singleton} op)
     (keyword? val)))
