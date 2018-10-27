@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.5.5-SNAPSHOT</version>
+    <version>0.5.5</version>
   </parent>
 
   <build>
@@ -43,7 +43,7 @@
           <testSourceDirectories>
             <testSourceDirectory>src/test/clojure</testSourceDirectory>
             <testSourceDirectory>src/test/cljs</testSourceDirectory>
-          </testSourceDirectories>-->
+          </testSourceDirectories>--&gt;
         </configuration>
       </plugin>
       <plugin>
