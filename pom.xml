@@ -42,8 +42,8 @@
             <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </testNamespaces>
           <sourceDirectories>
-            <!--<sourceDirectory>target/classes</sourceDirectory>-->
             <sourceDirectory>src/main/clojure</sourceDirectory>
+            <sourceDirectory>src/main/cljc</sourceDirectory>
             <sourceDirectory>src/main/java</sourceDirectory>
           </sourceDirectories>
           <testSourceDirectories>
