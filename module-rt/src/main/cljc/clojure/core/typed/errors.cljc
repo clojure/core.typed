@@ -39,7 +39,8 @@
                           "(" (or file 
                                   (impl/impl-case
                                     :clojure (:ns env)
-                                    :cljs (:name (:ns env))))
+                                    :cljs (:name (:ns env))
+                                    :unknown "?"))
                           ":" 
                           (or line "<NO LINE>")
                           (when column
@@ -65,17 +66,19 @@
 (defn top-level-error? [{:keys [type-error] :as exdata}]
   (boolean (#{:top-level-error} type-error)))
 
+#?(:clj
 (defmacro top-level-error-thrown? [& body]
   `(with-ex-info-handlers
      [top-level-error? (constantly true)]
      ~@body
-     false))
+     false)))
 
+#?(:clj
 (defmacro tc-error-thrown? [& body]
   `(with-ex-info-handlers
      [tc-error? (constantly true)]
      ~@body
-     false))
+     false)))
 
 (defn tc-error? [exdata]
   (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
@@ -179,6 +182,7 @@
                     (merge {:type-error nyi-error-kw}
                            {:env (env-for-error env)})))))
 
+#?(:clj
 (defmacro with-ex-info-handlers 
   "Handle an ExceptionInfo e thrown in body. The first handler whos left hand
   side returns true, then the right hand side is called passing (ex-info e) and e."
@@ -195,7 +199,7 @@
                              ~(mapv vec (partition 2 handlers)))]
          (if @found?#
            result#
-           (throw e#))))))
+           (throw e#)))))))
 
 (defn var-for-impl [sym]
   {:pre [((some-fn string? symbol?) sym)]

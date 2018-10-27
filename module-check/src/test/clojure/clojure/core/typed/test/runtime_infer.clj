@@ -81,7 +81,7 @@
                   :arg clojure.lang.Symbol,
                   :body '{:name clojure.lang.Symbol, :E ':var},
                   :arg-type
-                  '{:T ':intersection, :types clojure.lang.PersistentHashSet}}
+                  '{:T ':intersection, :types (Seqable Any)}}
                 '{:name clojure.lang.Symbol, :E ':var}),
                :E ':app})])]
 
@@ -96,7 +96,7 @@
                    :arg clojure.lang.Symbol,
                    :body '{:name clojure.lang.Symbol, :E ':var},
                    :arg-type
-                   '{:T ':intersection, :types clojure.lang.PersistentHashSet}}
+                   '{:T ':intersection, :types (Seqable Any)}}
                  '{:name clojure.lang.Symbol, :E ':var}),
                 :E ':app})))))
   (checking
@@ -211,7 +211,7 @@
                              -unknown)
                (infer-result [(var-path 'use-map)
                               (key-path #{:a} :a)]
-                             (-class Long []))])]
+                             (prs Long))])]
     (is (= (update-path' (init-env) infers)
            {'use-map (prs '{:a Long})})))
   (checking
@@ -219,21 +219,21 @@
     20
     [infers (gen/shuffle
               [(infer-result [(var-path 'use-map)]
-                             (-class clojure.lang.IFn []))
+                             (prs clojure.lang.IFn))
                (infer-result [(var-path 'use-map)
                               (fn-rng-path 1)
                               (key-path #{:b :f :a} :f)]
-                             (-class clojure.lang.IFn []))
+                             (prs clojure.lang.IFn))
                (infer-result [(var-path 'use-map)
                               (fn-dom-path 1 0)
                               (key-path #{:f :a} :a)]
-                             (-class Long []))
+                             (prs Long))
                (infer-result [(var-path 'use-map)
                               (fn-dom-path 1 0)
                               (key-path #{:f :a} :f)
                               (fn-dom-path 1 0)
                               (fn-rng-path 1)]
-                             (-class Long []))])]
+                             (prs Long))])]
     (is (= (update-path' (init-env) infers))
         {'use-map
          (prs ['{:f [[? :-> Long] :-> ?], :a java.lang.Long} :-> '{:b ?, :f clojure.lang.IFn, :a ?}])}))

@@ -2,8 +2,8 @@
   "A contract system a la racket/contract.
 
   Main entry point is the `contract` macro."
-  (:require [clojure.test :refer :all]
-            [clojure.set :as set]))
+  #?(:cljs (:require-macros [clojure.core.typed.contract :refer [contract instance-c]]))
+  (:require [clojure.set :as set]))
 
 ;; A contract, the first argument to the `contract` macro
 ;; - name : Symbol
@@ -120,6 +120,7 @@
   [& {:as bls}]
   (map->Blame bls))
 
+#?(:clj
 (defmacro contract
   "Check a contract against a value, with an optional Blame object.
   
@@ -136,7 +137,7 @@
                                  @Compiler/LINE)
                       :column ~(or (-> &form meta :column)
                                    @Compiler/COLUMN))))
-     ~x)))
+     ~x))))
 
 #_(ann swap-blame [Blame :-> Blame])
 (defn swap-blame 
@@ -156,11 +157,12 @@
   (make-flat-contract :name 'int-c :first-order integer?))
 
 ;; macro to allow instance? specialisation
+#?(:clj
 (defmacro instance-c
   "Flat contracts for instance? checks on Class's."
   [c]
   `(make-flat-contract :name (str ~c)
-                       :first-order #(instance? ~c %)))
+                       :first-order #(instance? ~c %))))
 
 #_(ann Object-c Contract)
 (def Object-c (instance-c Object))

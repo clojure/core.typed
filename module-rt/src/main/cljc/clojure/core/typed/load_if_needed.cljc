@@ -1,8 +1,9 @@
 (ns ^:skip-wiki clojure.core.typed.load-if-needed
   (:require [clojure.core.typed.errors :as err]
-            [clojure.java.io :as io]
+            #?(:clj [clojure.java.io :as io])
             [clojure.core.typed.util-vars :as vs]))
 
+#?(:clj
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   ([] (load-if-needed false))
@@ -23,3 +24,8 @@
           (time (@(ns-resolve init-ns 'load-impl) cljs?))
           (println "core.typed initialized.")
           (flush)))))))
+  :cljs
+(defn load-if-needed 
+  "Load and initialize all of core.typed if not already"
+  ([] (err/int-error "Cannot load the checker in CLJS"))
+  ([cljs?] (err/int-error "Cannot load the checker in CLJS"))))
