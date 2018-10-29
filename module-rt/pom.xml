@@ -43,7 +43,7 @@
           <testSourceDirectories>
             <testSourceDirectory>src/test/clojure</testSourceDirectory>
             <testSourceDirectory>src/test/cljs</testSourceDirectory>
-          </testSourceDirectories>--&gt;
+          </testSourceDirectories>
         </configuration>
       </plugin>
       <plugin>
