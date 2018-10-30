@@ -1,0 +1,13 @@
+{:paths ["src/main/cljc"
+         "src/main/clojure"
+         "src/main/cljs"]
+ :aliases {:test
+           {:extra-paths ["src/test/clojure"]}
+           :runner
+           {:extra-deps {com.cognitect/test-runner
+                         {:git/url "https://github.com/cognitect-labs/test-runner"
+                          :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
+            :main-opts ["-m" "cognitect.test-runner"
+                        "-d" "src/test/clojure"
+                        "-r" ".*"
+                        ]}}}
