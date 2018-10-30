@@ -5,6 +5,8 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.mm-env :as mmenv]))
 
+(def ^:private reset-cljs-envs! (delay (impl/dynaload 'clojure.core.typed.base-env-cljs/reset-cljs-envs!)))
+
 (defn reset-envs!
   "Reset all environments for all implementations. Cannot be called
   if a specific implementation is currently bound"
@@ -21,7 +23,7 @@
       (do
         (assert cljs? "No ClojureScript dependency")
         (when cljs?
-          ((impl/v 'clojure.core.typed.base-env-cljs/reset-cljs-envs!))
+          (@reset-cljs-envs!)
           (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
     nil)))
@@ -44,7 +46,7 @@
         (assert nil "load-core-envs! TODO CLJS")
         (assert cljs? "No ClojureScript dependency")
         (when cljs?
-          ((impl/v 'clojure.core.typed.base-env-cljs/reset-cljs-envs!))
+          (@reset-cljs-envs!)
           (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
     nil)))

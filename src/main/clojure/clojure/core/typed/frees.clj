@@ -213,15 +213,16 @@
   [{:keys [rator rands]}]
   (apply combine-frees (mapv frees (cons rator rands))))
 
+(def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type)))
+
 ;FIXME flow error during checking
 (t/tc-ignore
 (add-frees-method [::any-var TApp]
   [{:keys [rator rands] :as tapp}]
   (apply combine-frees
-         (let [^TypeFn
-               tfn (loop [rator rator]
+         (let [tfn (loop [rator rator]
                      (cond
-                       (r/F? rator) (when-let [bnds (free-ops/free-with-name-bnds (.name ^F rator))]
+                       (r/F? rator) (when-let [bnds (free-ops/free-with-name-bnds (:name rator))]
                                       ;assume upper/lower bound variance agree
                                       (c/fully-resolve-type (:upper-bound bnds)))
                        (r/Name? rator) (let [{:keys [id]} rator]
@@ -240,8 +241,7 @@
                                            (recur (c/resolve-Name rator))))
                        (r/TypeFn? rator) rator
                        :else (err/int-error (str "Invalid operator to type application: "
-                                               ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
-                                                tapp)))))
+                                               (@unparse-type tapp)))))
                _ (when-not (r/TypeFn? tfn) 
                    (err/int-error (str "First argument to TApp must be TypeFn")))]
            (mapv (fn [[v arg-vs]]
@@ -250,7 +250,7 @@
                      :contravariant (flip-variances arg-vs)
                      :invariant (into {} (for [[k _] arg-vs]
                                            [k :invariant]))))
-                 (map vector (.variances tfn) (map frees rands))))))
+                 (map vector (:variances tfn) (map frees rands))))))
   )
 
 (add-frees-method [::any-var PrimitiveArray]
