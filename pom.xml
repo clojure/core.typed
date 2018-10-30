@@ -33,13 +33,9 @@
           <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <namespaces>
             <namespace>!clojure.core.typed.test.mini-occ</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </namespaces>
           <testNamespaces>
             <namespace>!clojure.core.typed.test.mini-occ</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer</namespace>
-            <namespace>!clojure.core.typed.test.cljs-analyzer-test</namespace>
           </testNamespaces>
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>
@@ -99,6 +95,11 @@
       <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
       <version>0.7.0</version>
+    </dependency>
+    <dependency>
+      <groupId>potemkin</groupId>
+      <artifactId>potemkin</artifactId>
+      <version>0.4.5</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

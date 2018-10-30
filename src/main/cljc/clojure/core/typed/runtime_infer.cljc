@@ -21,7 +21,7 @@
             [clojure.math.combinatorics :as comb]
             [clojure.core.typed.contract-utils :as con]
             [clojure.walk :as walk]
-            #?@(:clj [[clojure.core.typed.dep.potemkin.collections :as pot]
+            #?@(:clj [[potemkin.collections :as pot]
                       [clojure.tools.namespace.parse :as nprs]
                       [clojure.tools.reader.reader-types :as rdrt]
                       [clojure.java.io :as io]
