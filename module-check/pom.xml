@@ -51,19 +51,16 @@
           <testNamespaces>
             <namespace>clojure.core.typed.test.*</namespace>
             <!-- testing runtime errors -->
-            <namespace>!clojure.core.typed.test.load-file</namespace>
-            <namespace>!clojure.core.typed.test.load-file2</namespace>
             <!-- depends on tools.nrepl -->
             <!-- <namespace>!clojure.core.typed.test.repl</namespace>-->
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>
-            <sourceDirectory>src/main/java</sourceDirectory>
-            <sourceDirectory>src/main/cljs</sourceDirectory>
-            <sourceDirectory>src/test/clojure</sourceDirectory>
-            <sourceDirectory>src/test/cljs</sourceDirectory>
           </sourceDirectories>
+          <testSourceDirectories>
+            <testSourceDirectory>src/test/clojure</testSourceDirectory>
+          </testSourceDirectories>
         </configuration>
       </plugin>
       <plugin>

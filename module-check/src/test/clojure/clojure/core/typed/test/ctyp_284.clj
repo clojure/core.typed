@@ -7,25 +7,12 @@
 
 (deftest transitive-no-reload
   (is 
-    ;; doing this twice seems to help
-    (do
-      ;; first time, throw away error
-      (try 
-        (with-typed-load 
-          (and
-            (try
-              (require 'clojure.core.typed.test.typed-load.uses-bad-dep :reload-all)
-              (catch Throwable _ true))
-            (nil?
-              (require 'clojure.core.typed.test.typed-load.uses-bad-dep))))
-        (catch Throwable _ true))
-      ;; second time
-      (with-typed-load 
-        (and
-          ;; reload-all should throw a type error in bad.dep
-          (try
-            (require 'clojure.core.typed.test.typed-load.uses-bad-dep :reload-all)
-            (catch Throwable _ true))
-          ;; normal require doesn't reload
-          (nil?
-            (require 'clojure.core.typed.test.typed-load.uses-bad-dep)))))))
+    (with-typed-load 
+      (and
+        ; bad dep throws a type error
+        (try
+          (require 'clojure.core.typed.test.typed-load.bad-dep :reload)
+          nil
+          (catch Throwable _ true))
+        ; but isn't rechecked by transitive dep
+        (nil? (require 'clojure.core.typed.test.typed-load.uses-bad-dep :reload))))))

@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# fail on error
+set -e
+
+tst () {
+  echo "Testing $1"
+  cd $1
+  ./script/test
+  cd ..
+}
+
+tst module-rt
+tst module-infer
+tst module-analyzer-jvm
+tst module-check
