@@ -65,27 +65,28 @@
   {:pre [(symbol? nsym)]}
   (analyze-form-seq (ana/forms-seq* (io/reader (cljsu/ns->source nsym)))))
 
-(defn extenders
-  "Returns a set of descendants for a protocol"
-  [psym]
-  {:pre [(symbol? psym)
-         (namespace psym)]}
-  (assert nil "FIXME extenders")
-  (require 'cljs.analyzer)
-  (or (get-in ((impl/v 'cljs.analyzer/get-namespace) (symbol (namespace psym)))
-              [:defs (symbol (name psym)) :impls])
-      #{}))
+(let [get-namespace (delay (impl/dynaload 'cljs.analyzer/get-namespace))]
+  (defn extenders
+    "Returns a set of descendants for a protocol"
+    [psym]
+    {:pre [(symbol? psym)
+           (namespace psym)]}
+    (assert nil "FIXME extenders")
+    (require 'cljs.analyzer)
+    (or (get-in (@get-namespace (symbol (namespace psym)))
+                [:defs (symbol (name psym)) :impls])
+        #{})))
 
-(defn analyze-qualified-symbol 
-  "Return a var expr that the fully qualified symbol names"
-  [sym]
-  {:pre [(symbol? sym)] 
-   :post [(= :var (:op %))]}
-  ;; is this still correct?
-  (assert nil "FIXME analyze-qualified-symbol")
-  (require 'cljs.analyzer)
-  ((impl/v 'cljs.analyzer/analyze-symbol) 
-   ((impl/v 'cljs.analyzer/empty-env)) sym))
+(let [analyze-symbol (delay (impl/dynaload 'cljs.analyzer/analyze-symbol))
+      empty-env (delay (impl/dynaload 'cljs.analyzer/empty-env))]
+  (defn analyze-qualified-symbol 
+    "Return a var expr that the fully qualified symbol names"
+    [sym]
+    {:pre [(symbol? sym)] 
+     :post [(= :var (:op %))]}
+    ;; is this still correct?
+    (assert nil "FIXME analyze-qualified-symbol")
+    (@analyze-symbol (@empty-env) sym)))
 
 ;(analyze-qualified-symbol 'cljs.core/ISeq)
 ;(analyze-qualified-symbol 'cljs.core.SubVec)
