@@ -16,21 +16,6 @@ jobs:
             - v1-core-typed-{{ .Branch }}
             - v1-core-typed-
       - run:
-          filters:
-            branches:
-              only: cljs
-          name: Clone CLJS fork
-          command: git clone https://github.com/frenchy64/clojurescript.git ~/cljs
-      - run:
-          filters:
-            branches:
-              only: cljs
-          name: Install CLJS fork
-          command: |
-            echo $(git branch -v)
-            cd ~/cljs
-            ./script/build
-      - run:
           name: Resolve dependencies
           command: mvn -DskipTests clean install dependency:resolve-plugins dependency:go-offline
       - save_cache:
