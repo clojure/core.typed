@@ -8,4 +8,4 @@ jobs:
     steps:
       - checkout
       - run: mvn --version
-      - run: mvn clean test
+      - run: mvn -B clean test
