@@ -8,4 +8,5 @@ jobs:
     steps:
       - checkout
       - run: mvn --version
-      - run: mvn -B clean test
+      # remove "Downloaded" and "Downloading" logs
+      - run: mvn -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -B clean test
