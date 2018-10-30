@@ -21,11 +21,11 @@
         <executions>
           <execution>
             <id>clojure-compile</id>
-            <phase>compile</phase>
+            <phase>none</phase>
           </execution>
           <execution>
             <id>clojure-test</id>
-            <phase>test</phase>
+            <phase>none</phase>
           </execution>
         </executions>
         <configuration>
