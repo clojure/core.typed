@@ -1,15 +1,10 @@
 version: 2
 
 jobs:
-  test:
-    unit-test:
-      - run:
-          name: Unit Tests
-          command: mvn clean test
-
-workflows:
-  version: 2
-  #parallelism: 2
-  build_and_test:
-    jobs:
-      - test
+  build:
+    working_directory: ~/core.typed
+    docker:
+      - image: circleci/openjdk:8-jdk
+    steps:
+      - checkout
+      - run: mvn clean test
