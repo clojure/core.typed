@@ -24,7 +24,7 @@
           </execution>
           <execution>
             <id>clojure-test</id>
-            <phase>test</phase>
+            <phase>none</phase>
           </execution>
         </executions>
         <configuration>
