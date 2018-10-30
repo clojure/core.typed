@@ -891,14 +891,14 @@
 
 (defmethod parse-type-list 'cljs.core.typed/JSObj [t] (parse-JSObj t))
 
+(def ^:private cljs-ns (delay (impl/dynaload 'clojure.core.typed.util-cljs/cljs-ns)))
+
 (defn- parse-in-ns []
   {:post [(symbol? %)]}
   (or *parse-type-in-ns*
       (impl/impl-case
         :clojure (ns-name *ns*)
-        :cljs (do
-                (require '[clojure.core.typed.util-cljs])
-                ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))))
+        :cljs (@cljs-ns))))
 
 (defn- resolve-type-clj 
   "Returns a var, class or nil"
@@ -911,18 +911,18 @@
       (ns-resolve ns sym)
       (err/int-error (str "Cannot find namespace: " sym)))))
 
-(defn- resolve-type-cljs 
-  "Returns a qualified symbol or nil"
-  [sym]
-  {:pre [(symbol? sym)]
-   :post [((some-fn symbol?
-                    nil?)
-           %)]}
-  (impl/assert-cljs)
-  (let [nsym (parse-in-ns)
-        _ (require '[clojure.core.typed.util-cljs])
-        res ((impl/v 'clojure.core.typed.util-cljs/resolve-var) nsym sym)]
-    res))
+(let [cljs-resolve-var (delay (impl/dynaload 'clojure.core.typed.util-cljs/resolve-var))]
+  (defn- resolve-type-cljs 
+    "Returns a qualified symbol or nil"
+    [sym]
+    {:pre [(symbol? sym)]
+     :post [((some-fn symbol?
+                      nil?)
+             %)]}
+    (impl/assert-cljs)
+    (let [nsym (parse-in-ns)
+          res (@cljs-resolve-var nsym sym)]
+      res)))
 
 (defn parse-RClass [cls-sym params-syn]
   (impl/assert-clojure)
@@ -1385,9 +1385,7 @@
   (or *unparse-type-in-ns*
       (impl/impl-case
         :clojure (ns-name *ns*)
-        :cljs (do
-                (require '[clojure.core.typed.util-cljs])
-                ((impl/v 'clojure.core.typed.util-cljs/cljs-ns)))
+        :cljs (@cljs-ns)
         :unknown nil)))
 
 (defmacro with-unparse-ns [sym & body]

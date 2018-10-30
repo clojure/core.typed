@@ -8,6 +8,9 @@
             [clojure.core.typed.runtime-check :as rt-chk]
             [clojure.core.typed.current-impl :as impl]))
 
+(def ^:private runtime-infer-expr
+  (delay (impl/dynaload 'clojure.core.typed.runtime-infer/runtime-infer-expr)))
+
 (def version 2)
 
 (defn config-map []
@@ -17,8 +20,7 @@
    :check-expr chk-clj/check-expr
    :runtime-check-expr rt-chk/runtime-check-expr
    :runtime-infer-expr (fn [& args]
-                         (require 'clojure.core.typed.runtime-infer)
-                         (apply (impl/v 'clojure.core.typed.runtime-infer/runtime-infer-expr) args))
+                         (apply @runtime-infer-expr args))
    :eval-out-ast (fn eval-out-ast
                    ([ast] (eval-out-ast ast {}))
                    ([ast opts] (ana-clj/eval-ast ast opts)))
@@ -39,8 +41,7 @@
    :unparse-ns (ns-name *ns*)
    :runtime-check-expr rt-chk/runtime-check-expr
    :runtime-infer-expr (fn [& args]
-                         (require 'clojure.core.typed.runtime-infer)
-                         (apply (impl/v 'clojure.core.typed.runtime-infer/runtime-infer-expr) args))
+                         (apply @runtime-infer-expr args))
    :eval-out-ast (fn eval-out-ast
                    ([ast] (eval-out-ast ast {}))
                    ([ast opts] (ana-clj/eval-ast ast opts)))

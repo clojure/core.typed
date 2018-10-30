@@ -70,10 +70,10 @@ cljs.core/INamed [[]]
 cljs.core/Reduced [[[x :variance :covariant]]]
 ))
 
-(defn reset-protocol-env! []
-  (impl/with-cljs-impl
-    ((impl/v 'clojure.core.typed.protocol-env/reset-protocol-env!)
-     (init-protocol-env))))
+(let [rst! (delay (impl/dynaload 'clojure.core.typed.protocol-env/reset-protocol-env!))]
+  (defn reset-protocol-env! []
+    (impl/with-cljs-impl
+      (@rst! (init-protocol-env)))))
 
 #_
 (ann-jsclass js/Document
@@ -120,10 +120,10 @@ goog.events.Listenable [[]]
 goog.events.EventTarget [[]]
     ))
 
-(defn reset-jsnominal-env! []
-  (impl/with-cljs-impl
-    ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
-     (init-jsnominals))))
+(let [rst! (delay (impl/dynaload 'clojure.core.typed.jsnominal-env/reset-jsnominal!))]
+  (defn reset-jsnominal-env! []
+    (impl/with-cljs-impl
+      (@rst! (init-jsnominals)))))
 
 ;;; vars specific to cljs
 (delay-and-cache-env ^:private init-var-env
@@ -475,22 +475,23 @@ cljs.core.typed/Reversible
         (cljs.core/IReversible x))))
 
 
-(defn reset-alias-env! []
-  (let [alias-env (init-alias-env)]
-    ; Ensure init-alias-env agrees with the -base-aliases
-    (assert (= (set (keys alias-env))
-               (set (map #(symbol "cljs.core.typed" (str %))
-                         boot/-base-aliases)))
-            (str "core.typed Bug! Base aliases do not agree with base environment."
-                 " Missing from cljs.core.typed ns: "
-                 (set/difference (set (keys alias-env))
-                                 (set (map #(symbol "cljs.core.typed" (str %))
-                                           boot/-base-aliases)))
-                 " Missing from base-env-cljs ns "
-                 (set/difference (set (map #(symbol "cljs.core.typed" (str %))
-                                           boot/-base-aliases))
-                                 (set (keys alias-env)))))
-    ((impl/v 'clojure.core.typed.name-env/reset-name-env!) alias-env)))
+(let [rst! (delay (impl/dynaload 'clojure.core.typed.name-env/reset-name-env!))]
+  (defn reset-alias-env! []
+    (let [alias-env (init-alias-env)]
+      ; Ensure init-alias-env agrees with the -base-aliases
+      (assert (= (set (keys alias-env))
+                 (set (map #(symbol "cljs.core.typed" (str %))
+                           boot/-base-aliases)))
+              (str "core.typed Bug! Base aliases do not agree with base environment."
+                   " Missing from cljs.core.typed ns: "
+                   (set/difference (set (keys alias-env))
+                                   (set (map #(symbol "cljs.core.typed" (str %))
+                                             boot/-base-aliases)))
+                   " Missing from base-env-cljs ns "
+                   (set/difference (set (map #(symbol "cljs.core.typed" (str %))
+                                             boot/-base-aliases))
+                                   (set (keys alias-env)))))
+      (@rst! alias-env))))
 
 (delay-and-cache-env init-declared-kinds {})
 
@@ -508,18 +509,18 @@ cljs.core/Reduced [[[x :variance :covariant]]]
     ))
 )
 
-(defn reset-cljs-envs! []
-  (ucljs/with-cljs-typed-env
-    (impl/with-cljs-impl
-      (reset-alias-env!)
-      ((impl/v 'clojure.core.typed.var-env/reset-var-type-env!)
-       (init-var-env) (init-var-nochecks))
-      ((impl/v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
-       (init-jsvar-env))
-      (reset-protocol-env!)
-      ((impl/v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!)
-       (init-declared-kinds))
-      (reset-jsnominal-env!)
-      ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!)
-       (init-datatype-env))))
-  nil)))
+(let [reset-var-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/reset-var-type-env!))
+      reset-jsvar-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/reset-jsvar-type-env!))
+      reset-declared-kinds! (delay (impl/dynaload 'clojure.core.typed.declared-kind-env/reset-declared-kinds!))
+      reset-datatype-env! (delay (impl/dynaload 'clojure.core.typed.datatype-env/reset-datatype-env!))]
+  (defn reset-cljs-envs! []
+    (ucljs/with-cljs-typed-env
+      (impl/with-cljs-impl
+        (reset-alias-env!)
+        (@reset-var-type-env! (init-var-env) (init-var-nochecks))
+        (@reset-jsvar-type-env! (init-jsvar-env))
+        (reset-protocol-env!)
+        (@reset-declared-kinds! (init-declared-kinds))
+        (reset-jsnominal-env!)
+        (@reset-datatype-env! (init-datatype-env))))
+    nil))))

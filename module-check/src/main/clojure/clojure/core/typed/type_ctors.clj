@@ -265,17 +265,7 @@
 
 ;; Unions
 
-(t/tc-ignore
-(defn- subtype?-var []
-  (let [n (find-ns 'clojure.core.typed.subtype)
-        _ (assert n "subtype ns doesn't exist")
-        v (ns-resolve n 'subtype?)]
-    (assert (var? v) "subtype? unbound")
-    v))
-
-(defn- subtype? [& args]
-  (apply (impl/v 'clojure.core.typed.subtype/subtype?) args))
-  )
+(def ^:private subtype? (delay (impl/dynaload 'clojure.core.typed.subtype/subtype?)))
 
 (t/defalias TypeCache 
   (t/Map (t/Set r/Type) r/Type))
@@ -303,7 +293,7 @@
         hit)
   (p :type-ctors/Un-ctor
   (let [_ (p :Un-cache-miss)
-        res (let [subtype? @(subtype?-var)]
+        res (let []
               (letfn [;; a is a Type (not a union type)
                       ;; b is a Set[Type] (non overlapping, non Union-types)
                       ;; The output is a non overlapping list of non Union types.
@@ -321,10 +311,10 @@
                                     ; fully defined yet
                                     ; TODO basic error checking, eg. number of params
                                     (some (some-fn r/Name? r/TApp?) (conj b a)) (conj b a)
-                                    (subtype? a b*) b
-                                    (subtype? b* a) #{a}
+                                    (@subtype? a b*) b
+                                    (@subtype? b* a) #{a}
                                     :else (set (cons a 
-                                                     (remove #(subtype? % a) b))))]
+                                                     (remove #(@subtype? % a) b))))]
                           ;(prn "res" res)
                           res))]
                 (let [types (set types)]
@@ -402,7 +392,7 @@
          #_(not (r/Union? t1))
          #_(not (r/Union? t2))]
    :post [(r/Type? %)]}
-  (let [subtype? @(subtype?-var)]
+  (let []
     ;(prn "intersect" (map ind/unparse-type [t1 t2]))
     (if-let [hit (@intersect-cache (set [t1 t2]))]
       (do
@@ -437,8 +427,8 @@
 
                 (not (overlap t1 t2)) bottom
 
-                (subtype? t1 t2) t1
-                (subtype? t2 t1) t2
+                (@subtype? t1 t2) t1
+                (@subtype? t2 t1) t2
                 :else (do
                         #_(prn "failed to eliminate intersection" (make-Intersection [t1 t2]))
                         (make-Intersection [t1 t2])))]
@@ -547,6 +537,8 @@
 
 (declare TypeFn-fresh-symbols*)
 
+(def ^:private get-jsnominal (delay (impl/dynaload 'clojure.core.typed.jsnominal-env/get-jsnominal)))
+
 (t/ann ^:no-check JSNominal-of (t/IFn [t/Sym -> r/Type]
                                    [t/Sym (t/U nil (t/Seqable r/Type)) -> r/Type]))
 (defn JSNominal-of
@@ -555,7 +547,7 @@
    {:pre [(symbol? sym)
           (every? r/Type? args)]
     :post [(r/Type? %)]}
-   (let [p ((impl/v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)]
+   (let [p (@get-jsnominal sym)]
      (assert ((some-fn r/TypeFn? r/JSNominal? nil?) p))
      ; parameterised nominals must be previously annotated
      (assert (or (r/TypeFn? p) (empty? args))
@@ -687,26 +679,26 @@
   (t/IFn [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Map t/Sym r/Type) -> r/Type]
       [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym 
        (t/Map t/Sym r/Type) (t/Set r/Type) -> r/Type]))
-(defn RClass* 
-  ([names variances poly? the-class replacements]
-   (RClass* names variances poly? the-class replacements #{}))
-  ([names variances poly? the-class replacements unchecked-ancestors]
-   (RClass* names variances poly? the-class replacements unchecked-ancestors (repeat (count names) r/no-bounds)))
-  ([names variances poly? the-class replacements unchecked-ancestors bnds]
-  {:pre [(every? symbol? names)
-         (every? r/variance? variances)
-         (= (count variances) (count poly?))
-         (every? r/Type? poly?)
-         (every? r/Bounds? bnds)
-         (symbol? the-class)]
-   :post [((some-fn r/TypeFn? r/RClass?) %)]}
-   (let [_ ((impl/v 'clojure.core.typed.rclass-ancestor-env/add-rclass-replacements)
-            the-class names replacements)
-         _ ((impl/v 'clojure.core.typed.rclass-ancestor-env/add-rclass-ancestors)
-            the-class names unchecked-ancestors)]
-     (if (seq variances)
-       (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class))
-       (r/RClass-maker nil nil the-class)))))
+(let [add-rclass-replacements (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/add-rclass-replacements))
+      add-rclass-ancestors (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/add-rclass-ancestors))]
+  (defn RClass* 
+    ([names variances poly? the-class replacements]
+     (RClass* names variances poly? the-class replacements #{}))
+    ([names variances poly? the-class replacements unchecked-ancestors]
+     (RClass* names variances poly? the-class replacements unchecked-ancestors (repeat (count names) r/no-bounds)))
+    ([names variances poly? the-class replacements unchecked-ancestors bnds]
+    {:pre [(every? symbol? names)
+           (every? r/variance? variances)
+           (= (count variances) (count poly?))
+           (every? r/Type? poly?)
+           (every? r/Bounds? bnds)
+           (symbol? the-class)]
+     :post [((some-fn r/TypeFn? r/RClass?) %)]}
+     (let [_ (@add-rclass-replacements the-class names replacements)
+           _ (@add-rclass-ancestors the-class names unchecked-ancestors)]
+       (if (seq variances)
+         (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class))
+         (r/RClass-maker nil nil the-class))))))
 
 (t/ann ^:no-check isa-DataType? [(t/U t/Sym Class) -> t/Any])
 (defn isa-DataType? [sym-or-cls]
@@ -832,7 +824,7 @@
   ([sym]
    {:pre [(symbol? sym)]
     :post [((some-fn r/JSNominal?) %)]}
-   (let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)
+   (let [t (@get-jsnominal sym)
          args (when (r/TypeFn? t)
                 (let [syms (TypeFn-fresh-symbols* t)]
                   (most-general-on-variance (:variances t)
@@ -840,33 +832,36 @@
      (JSNominal-of sym args))))
 
 (t/ann ^:no-check JSNominal-method* [JSNominal t/Sym -> r/Type])
-(defn JSNominal-method*
-  [{:keys [name poly?] :as jsnom} msym]
-  {:pre [(r/JSNominal? jsnom)
-         (symbol? msym)]
-   :post [(r/Type? %)]}
-  (if-let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-method) name poly? msym)]
-    t
-    (assert nil (str "JS nominal type " name " does not have method " msym))))
+(let [gm (delay (impl/dynaload 'clojure.core.typed.jsnominal-env/get-method))]
+  (defn JSNominal-method*
+    [{:keys [name poly?] :as jsnom} msym]
+    {:pre [(r/JSNominal? jsnom)
+           (symbol? msym)]
+     :post [(r/Type? %)]}
+    (if-let [t (@gm name poly? msym)]
+      t
+      (assert nil (str "JS nominal type " name " does not have method " msym)))))
 
 (t/ann ^:no-check JSNominal-field* [JSNominal t/Sym -> r/Type])
-(defn JSNominal-field*
-  [{:keys [name poly?] :as jsnom} fsym]
-  {:pre [(r/JSNominal? jsnom)
-         (symbol? fsym)]
-   :post [(r/Type? %)]}
-  (if-let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-field) name poly? fsym)]
-    t
-    (assert nil (str "JS nominal type " name " does not have field " fsym))))
+(let [gf (delay (impl/dynaload 'clojure.core.typed.jsnominal-env/get-field))]
+  (defn JSNominal-field*
+    [{:keys [name poly?] :as jsnom} fsym]
+    {:pre [(r/JSNominal? jsnom)
+           (symbol? fsym)]
+     :post [(r/Type? %)]}
+    (if-let [t (@gf name poly? fsym)]
+      t
+      (assert nil (str "JS nominal type " name " does not have field " fsym)))))
 
 (t/ann ^:no-check JSNominal-ctor* [JSNominal -> r/Type])
-(defn JSNominal-ctor*
-  [{:keys [name poly?] :as jsnom}]
-  {:pre [(r/JSNominal? jsnom)]
-   :post [(r/Type? %)]}
-  (if-let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-ctor) name poly?)]
-    t
-    (assert nil (str "JS nominal type " name " does not have a constructor."))))
+(let [gc (delay (impl/dynaload 'clojure.core.typed.jsnominal-env/get-ctor))]
+  (defn JSNominal-ctor*
+    [{:keys [name poly?] :as jsnom}]
+    {:pre [(r/JSNominal? jsnom)]
+     :post [(r/Type? %)]}
+    (if-let [t (@gc name poly?)]
+      t
+      (assert nil (str "JS nominal type " name " does not have a constructor.")))))
 
 (t/ann ^:no-check Protocol-with-unknown-params [t/Sym -> r/Type])
 (defn Protocol-with-unknown-params
@@ -919,21 +914,21 @@
     (subst-all subst t))))
 
 (t/ann ^:no-check RClass-replacements* [RClass -> (t/Map t/Sym r/Type)])
-(defn RClass-replacements*
-  "Return the replacements map for the RClass"
-  [rcls]
-  {:pre [(r/RClass? rcls)]
-   :post [((con/hash-c? symbol? r/Type?) %)]}
-  ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-replacements)
-   rcls))
+(let [rclass-replacements (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/rclass-replacements))]
+  (defn RClass-replacements*
+    "Return the replacements map for the RClass"
+    [rcls]
+    {:pre [(r/RClass? rcls)]
+     :post [((con/hash-c? symbol? r/Type?) %)]}
+    (@rclass-replacements rcls)))
 
 (t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (t/SortedSet r/Type)])
-(defn RClass-unchecked-ancestors*
-  [rcls]
-  {:pre [(r/RClass? rcls)]
-   :post [((con/sorted-set-c? r/Type?) %)]}
-  ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-ancestors)
-   rcls))
+(let [rclass-ancestors (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/rclass-ancestors))]
+  (defn RClass-unchecked-ancestors*
+    [rcls]
+    {:pre [(r/RClass? rcls)]
+     :post [((con/sorted-set-c? r/Type?) %)]}
+    (@rclass-ancestors rcls)))
 
 (t/ann ^:no-check supers-cache (t/Atom1 (t/Map Number (t/SortedSet r/Type))))
 (defonce ^:private supers-cache (atom {}
@@ -1047,34 +1042,34 @@
 
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(t/Seqable t/Sym) TypeFn -> r/Type])
-(defn TypeFn-body* [names typefn]
-  {:pre [(every? symbol? names)
-         (r/TypeFn? typefn)]}
-  (u/p :ctors/TypeFn-body*
-  (assert (= (:nbound typefn) (count names)) "Wrong number of names")
-  (let [bbnds (TypeFn-bbnds* names typefn)
-        body (free-ops/with-bounded-frees
+(let [; We don't check variances are consistent at parse-time. Instead
+      ; we check at instantiation time. This avoids some implementation headaches,
+      ; like dealing with partially defined types.
+      fv-variances (delay (impl/dynaload 'clojure.core.typed.frees/fv-variances))]
+  (defn TypeFn-body* [names typefn]
+    {:pre [(every? symbol? names)
+           (r/TypeFn? typefn)]}
+    (u/p :ctors/TypeFn-body*
+    (assert (= (:nbound typefn) (count names)) "Wrong number of names")
+    (let [bbnds (TypeFn-bbnds* names typefn)
+          body (free-ops/with-bounded-frees
+                 (zipmap (map r/make-F names) bbnds)
+                 (instantiate-many names (:scope typefn)))
+          vs (free-ops/with-bounded-frees 
                (zipmap (map r/make-F names) bbnds)
-               (instantiate-many names (:scope typefn)))
-        ; We don't check variances are consistent at parse-time. Instead
-        ; we check at instantiation time. This avoids some implementation headaches,
-        ; like dealing with partially defined types.
-        fv-variances (impl/v 'clojure.core.typed.frees/fv-variances)
-        vs (free-ops/with-bounded-frees 
-             (zipmap (map r/make-F names) bbnds)
-             (fv-variances body))
-        _ (when *TypeFn-variance-check*
-            (doseq [[nme variance] (map vector names (:variances typefn))]
-              (when-let [actual-v (vs nme)]
-                (when-not (= (vs nme) variance)
-                  (binding [vs/*current-env* (or (some-> typefn meta :env)
-                                                 vs/*current-env*)]
-                    (err/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
-                                        " appears in " (name actual-v) " position "
-                                        "when declared " (name variance)
-                                        ", in " (binding [*TypeFn-variance-check* false]
-                                                  (ind/unparse-type typefn)))))))))]
-    body)))
+               (@fv-variances body))
+          _ (when *TypeFn-variance-check*
+              (doseq [[nme variance] (map vector names (:variances typefn))]
+                (when-let [actual-v (vs nme)]
+                  (when-not (= (vs nme) variance)
+                    (binding [vs/*current-env* (or (some-> typefn meta :env)
+                                                   vs/*current-env*)]
+                      (err/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
+                                          " appears in " (name actual-v) " position "
+                                          "when declared " (name variance)
+                                          ", in " (binding [*TypeFn-variance-check* false]
+                                                    (ind/unparse-type typefn)))))))))]
+      body))))
 
 (t/ann ^:no-check TypeFn-bbnds* [(t/Seqable t/Sym) TypeFn -> (t/Seqable Bounds)])
 (defn TypeFn-bbnds* [names ^TypeFn typefn]
@@ -1540,9 +1535,8 @@
     (let [A* (conj A [t1 t2])
           overlap #(overlap A* %1 %2)
           ;; handle mutual recursion between subtyping and overlap
-          subtype? (let [subtype? @(subtype?-var)]
-                     #(binding [*overlap-seen* A*]
-                        (subtype? %1 %2)))
+          subtype? #(binding [*overlap-seen* A*]
+                      (@subtype? %1 %2))
 
           t1 (fully-resolve-type t1)
           t2 (fully-resolve-type t2)
@@ -1724,11 +1718,10 @@
 (defn restrict [t1 t2]
   (let [t1 (fully-resolve-type t1)
         t2 (fully-resolve-type t2)
-        subtype? @(subtype?-var)
         subst-all @(subst-all-var)
         infer @(infer-var)]
     (cond
-      (subtype? t1 t2) t1 ;; already a subtype
+      (@subtype? t1 t2) t1 ;; already a subtype
 
       (not (overlap t1 t2)) (Un) ;there's no overlap, so the restriction is empty
 
@@ -2321,7 +2314,7 @@
                          (err/int-error (str "No bounds for type variable: " name bnds/*current-tvar-bnds*)))]
                  (find-val-type (:upper-bound bnd) k default
                                 #{}))
-      (subtype? t r/-nil) default
+      (@subtype? t r/-nil) default
       (r/AssocType? t) (let [t* (apply ind/assoc-pairs-noret (:target t) (:entries t))]
                          (cond
                            (:dentries t) (do

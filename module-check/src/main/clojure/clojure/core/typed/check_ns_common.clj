@@ -18,8 +18,12 @@
             [clojure.tools.analyzer.jvm.utils :as jvm-u])
   (:import (clojure.lang ExceptionInfo)))
 
+(def ^:private ns->relpath (delay (impl/dynaload 'cljs.util/ns->relpath)))
+(def ^:private collect-cljs-ns (delay (impl/dynaload 'clojure.core.typed.collect-cljs/collect-ns)))
+(def ^:private check-cljs-ns (delay (impl/dynaload 'clojure.core.typed.check-cljs/check-ns)))
+
 (defn cljs-reader [nsym]
-  (let [f ((impl/v 'cljs.util/ns->relpath) nsym)
+  (let [f (@ns->relpath nsym)
         res (if (re-find #"^file://" f) (java.net.URL. f) (io/resource f))]
     (assert res (str "Can't find " f " in classpath"))
     (io/reader res)))
@@ -67,9 +71,8 @@
                 ;-------------------------
                 (impl/impl-case
                   :clojure nil
-                  :cljs (let [collect-ns (impl/v 'clojure.core.typed.collect-cljs/collect-ns)
-                              _ (doseq [nsym nsym-coll]
-                                  (collect-ns nsym))
+                  :cljs (let [_ (doseq [nsym nsym-coll]
+                                  (@collect-cljs-ns nsym))
                               ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
                               collected (if-let [c vs/*already-collected*]
                                           @c
@@ -83,7 +86,7 @@
                   (let [check-ns (impl/impl-case
                                    :clojure #(binding [vs/*check-config* (atom check-config)]
                                                (chk-clj/check-ns-and-deps %))
-                                   :cljs    (impl/v 'clojure.core.typed.check-cljs/check-ns))]
+                                   :cljs    @check-cljs-ns)]
                     (doseq [nsym nsym-coll]
                       (check-ns nsym)))
                   #_

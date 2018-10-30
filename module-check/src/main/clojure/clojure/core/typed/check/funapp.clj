@@ -26,6 +26,7 @@
             [clojure.core.typed.infer-vars :as infer-vars]
             [clojure.core.typed.hset-utils :as hset]))
 
+(def ^:private nth-type (delay (impl/dynaload 'clojure.core.typed.check.nth/nth-type)))
 
 ; Expr Expr^n TCResult TCResult^n (U nil TCResult) -> TCResult
 ;TODO HeterogeneousMap case
@@ -35,9 +36,7 @@
          ((some-fn nil? r/TCResult?) expected)]
    :post [(r/TCResult? %)]}
   (u/p :check/check-funapp
-  (let [_ (require 'clojure.core.typed.check.nth)
-        nth-type (impl/v 'clojure.core.typed.check.nth/nth-type)
-        fexpr-type (c/fully-resolve-type (r/ret-t fexpr-ret-type))
+  (let [fexpr-type (c/fully-resolve-type (r/ret-t fexpr-ret-type))
         arg-types (mapv r/ret-t arg-ret-types)]
     (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                              (when fexpr
@@ -154,7 +153,7 @@
                   (integer? (:val i)))))
       (below/maybe-check-below
         ;; FIXME replace with path-type?
-        (r/ret (nth-type [fexpr-type] (:val (first arg-types)) (second arg-types)))
+        (r/ret (@nth-type [fexpr-type] (:val (first arg-types)) (second arg-types)))
         expected)
 
       (r/HSet? fexpr-type)
