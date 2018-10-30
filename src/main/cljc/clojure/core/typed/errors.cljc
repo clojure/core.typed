@@ -84,54 +84,54 @@
   (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
   (isa? (:type-error exdata) tc-error-parent))
 
-(defn msg-fn-opts []
-  (require 'clojure.core.typed.parse-unparse)
-  {:parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)})
+(let [parse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/parse-type))]
+  (defn msg-fn-opts []
+    {:parse-type @parse-type}))
 
-(defn tc-delayed-error [msg & {:keys [return form expected] :as opt}]
-  (let [form (cond
-               (contains? (:opts expected) :blame-form) (-> expected :opts :blame-form)
-               (contains? opt :blame-form) (:blame-form opt)
-               (contains? opt :form) form
-               :else (ast-u/emit-form-fn uvs/*current-expr*))
-        msg (str (when-let [msg-fn (some-> (or (-> expected :opts :msg-fn)
-                                               (:msg-fn opt))
-                                           eval)]
-                   (str (msg-fn (merge (msg-fn-opts)
-                                       (when-let [[_ actual] (find opt :actual)]
-                                         (require 'clojure.core.typed.parse-unparse)
-                                         (let [unparse-type (impl/v 'clojure.core.typed.parse-unparse/unparse-type)]
-                                           {:actual (unparse-type actual)}))))
-                        (when msg
-                          (str
-                            "\n\n"
-                            "====================\n"
-                            "  More information  \n"
-                            "====================\n\n"))))
-                 msg)
-        e (ex-info msg (merge {:type-error tc-error-parent}
-                              (when (or (contains? opt :form)
-                                        uvs/*current-expr*)
-                                {:form form})
-                              {:env (env-for-error
-                                      (merge (or (when uvs/*current-expr*
-                                                   (:env uvs/*current-expr*))
-                                                 *current-env*)
-                                             (when (contains? (:opts expected) :blame-form)
-                                               (meta (-> expected :opts :blame-form)))))}))]
-    (cond
-      ;can't delay here
-      (not uvs/*delayed-errors*)
-      (throw e)
+(let [unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type))
+      -error (delay (impl/dynaload 'clojure.core.typed.type-rep/-error))]
+  (defn tc-delayed-error [msg & {:keys [return form expected] :as opt}]
+    (let [form (cond
+                 (contains? (:opts expected) :blame-form) (-> expected :opts :blame-form)
+                 (contains? opt :blame-form) (:blame-form opt)
+                 (contains? opt :form) form
+                 :else (ast-u/emit-form-fn uvs/*current-expr*))
+          msg (str (when-let [msg-fn (some-> (or (-> expected :opts :msg-fn)
+                                                 (:msg-fn opt))
+                                             eval)]
+                     (str (msg-fn (merge (msg-fn-opts)
+                                         (when-let [[_ actual] (find opt :actual)]
+                                           {:actual (@unparse-type actual)})))
+                          (when msg
+                            (str
+                              "\n\n"
+                              "====================\n"
+                              "  More information  \n"
+                              "====================\n\n"))))
+                   msg)
+          e (ex-info msg (merge {:type-error tc-error-parent}
+                                (when (or (contains? opt :form)
+                                          uvs/*current-expr*)
+                                  {:form form})
+                                {:env (env-for-error
+                                        (merge (or (when uvs/*current-expr*
+                                                     (:env uvs/*current-expr*))
+                                                   *current-env*)
+                                               (when (contains? (:opts expected) :blame-form)
+                                                 (meta (-> expected :opts :blame-form)))))}))]
+      (cond
+        ;can't delay here
+        (not uvs/*delayed-errors*)
+        (throw e)
 
-      :else
-      (do
-        (if-let [delayed-errors uvs/*delayed-errors*]
-          (swap! delayed-errors conj e)
-          (throw (Exception. (str "*delayed-errors* not rebound"))))
-        (or (when (contains? opt :return)
-              return)
-            (impl/v 'clojure.core.typed.type-rep/-error))))))
+        :else
+        (do
+          (if-let [delayed-errors uvs/*delayed-errors*]
+            (swap! delayed-errors conj e)
+            (throw (Exception. (str "*delayed-errors* not rebound"))))
+          (or (when (contains? opt :return)
+                return)
+              @-error))))))
 
 (defn tc-error
   [estr]

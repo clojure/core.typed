@@ -9,35 +9,34 @@
 
 ;AnalysisExpr -> Form
 ;(ann emit-form-fn [Any -> Any])
-(defn emit-form-fn [expr]
-  (impl/impl-case
-    :clojure (do (require '[clojure.tools.analyzer.passes.jvm.emit-form])
-                 ((impl/v 'clojure.tools.analyzer.passes.jvm.emit-form/emit-form) expr))
-    :cljs (do
-            (require '[clojure.core.typed.util-cljs])
-            ((impl/v 'clojure.core.typed.util-cljs/emit-form) expr))))
+(let [emit-form-clj (delay (impl/dynaload 'clojure.tools.analyzer.passes.jvm.emit-form/emit-form))
+      emit-form-cljs (delay (impl/dynaload 'clojure.core.typed.util-cljs/emit-form))]
+  (defn emit-form-fn [expr]
+    (impl/impl-case
+      :clojure (@emit-form-clj expr)
+      :cljs (@emit-form-cljs expr))))
 
 (defn constant-expr [expr]
   {:pre [(#{:quote} (:op expr))
          (#{:const} (:op (:expr expr)))]}
   (-> expr :expr :val))
 
-(defn map-expr-at [expr key]
-  (impl/impl-case
-    :clojure (case (:op expr)
-               :map (let [const (do (require '[clojure.tools.analyzer.passes.jvm.constant-lifter])
-                                    ((impl/v 'clojure.tools.analyzer.passes.jvm.constant-lifter/constant-lift) expr))]
-                      (assert (#{:const} (:op const)))
-                      (map-expr-at const key))
-               :const (let [v (:val expr)]
-                        (assert (contains? v key) key)
-                        (get v key)))
-    :cljs (let [_ (assert (#{:map} (:op expr)))
-                m (zipmap (map :form (:keys expr))
-                          (:vals expr))
-                _ (assert (contains? m key))
-                vexpr (get m key)]
-            (:form vexpr))))
+(let [constant-lift (delay (impl/dynaload 'clojure.tools.analyzer.passes.jvm.constant-lifter/constant-lift))]
+  (defn map-expr-at [expr key]
+    (impl/impl-case
+      :clojure (case (:op expr)
+                 :map (let [const (@constant-lift expr)]
+                        (assert (#{:const} (:op const)))
+                        (map-expr-at const key))
+                 :const (let [v (:val expr)]
+                          (assert (contains? v key) key)
+                          (get v key)))
+      :cljs (let [_ (assert (#{:map} (:op expr)))
+                  m (zipmap (map :form (:keys expr))
+                            (:vals expr))
+                  _ (assert (contains? m key))
+                  vexpr (get m key)]
+              (:form vexpr)))))
 
 (defn constant-exprs [exprs]
   (map constant-expr exprs))

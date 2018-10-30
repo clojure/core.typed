@@ -13,12 +13,13 @@
 (t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> t/Kw])
 
 (t/ann parse-in-ns [-> t/Sym])
-(defn- parse-in-ns []
-  {:post [(symbol? %)]}
-  (or *parse-type-in-ns* 
-      (impl/impl-case
-        :clojure (ns-name *ns*)
-        :cljs (t/tc-ignore (impl/v 'cljs.analyzer/*cljs-ns*)))))
+(let [cljs-ns (delay (impl/dynaload 'clojure.core.typed.util-cljs/cljs-ns))]
+  (defn- parse-in-ns []
+    {:post [(symbol? %)]}
+    (or *parse-type-in-ns* 
+        (impl/impl-case
+          :clojure (ns-name *ns*)
+          :cljs (t/tc-ignore (@cljs-ns))))))
 
 (t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure
        (t/IFn [-> nil]

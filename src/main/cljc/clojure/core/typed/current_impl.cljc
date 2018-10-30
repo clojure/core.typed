@@ -1,5 +1,6 @@
 ; untyped, clojure.core.typed depends on this namespace
-(ns clojure.core.typed.current-impl
+(ns ^:skip-wiki clojure.core.typed.current-impl
+  #?(:cljs (:refer-clojure :exclude [-val]))
   (:require #?(:clj [clojure.core.typed.profiling :as p])
             [clojure.set :as set]
             [clojure.core.typed.env :as env]
@@ -186,6 +187,19 @@
 (create-env datatype-env))
 #?(:clj 
 (create-env jsnominal-env))
+
+; copied from clojure.spec.gen.alpha
+#?(:clj
+(defn dynaload
+  [s]
+  (let [ns (namespace s)]
+    (assert ns)
+    (require (symbol ns))
+    (let [v (resolve s)]
+      (if v
+        @v
+        (throw (RuntimeException. (str "Var " s " is not on the classpath"))))))))
+
 
 #?(:clj
 (defn v [vsym]
@@ -700,117 +714,137 @@ Transducer
 (assert (apply distinct? (map first (partition 2 init-aliases))))
 
 #?(:clj
+(def ^:private int-error (delay (dynaload 'clojure.core.typed.errors/int-error))))
+#?(:clj
+(def ^:private parse-free-binder-with-variance (delay (dynaload 'clojure.core.typed.parse-unparse/parse-free-binder-with-variance))))
+#?(:clj
+(def ^:private with-parse-ns* (delay (dynaload 'clojure.core.typed.parse-unparse/with-parse-ns*))))
+#?(:clj
+(def ^:private with-bounded-frees* (delay (dynaload 'clojure.core.typed.free-ops/with-bounded-frees*))))
+#?(:clj
+(def ^:private unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))))
+#?(:clj
+(def ^:private parse-type (delay (dynaload 'clojure.core.typed.parse-unparse/parse-type))))
+#?(:clj
+(def ^:private fully-resolve-type (delay (dynaload 'clojure.core.typed.type-ctors/fully-resolve-type))))
+#?(:clj
+(def ^:private Poly? (delay (dynaload 'clojure.core.typed.type-rep/Poly?))))
+#?(:clj
+(def ^:private Poly-fresh-symbols* (delay (dynaload 'clojure.core.typed.type-ctors/Poly-fresh-symbols*))))
+#?(:clj
+(def ^:private Poly-body* (delay (dynaload 'clojure.core.typed.type-ctors/Poly-body*))))
+#?(:clj
+(def ^:private PolyDots? (delay (dynaload 'clojure.core.typed.type-rep/PolyDots?))))
+#?(:clj
+(def ^:private PolyDots-fresh-symbols* (delay (dynaload 'clojure.core.typed.type-ctors/PolyDots-fresh-symbols*))))
+#?(:clj
+(def ^:private PolyDots-body* (delay (dynaload 'clojure.core.typed.type-ctors/PolyDots-body*))))
+#?(:clj
+(def ^:private FnIntersection? (delay (dynaload 'clojure.core.typed.type-rep/FnIntersection?))))
+#?(:clj
+(def ^:private Protocol* (delay (dynaload 'clojure.core.typed.type-ctors/Protocol*))))
+#?(:clj
+(def ^:private Protocol-var->on-class (delay (dynaload 'clojure.core.typed.type-ctors/Protocol-var->on-class))))
+#?(:clj
+(def ^:private -any (delay (dynaload 'clojure.core.typed.type-rep/-any))))
+#?(:clj
+(def ^:private protocol-method-var-ann (delay (dynaload 'clojure.core.typed.collect-utils/protocol-method-var-ann))))
+#?(:clj
+(def ^:private make-F (delay (dynaload 'clojure.core.typed.type-rep/make-F))))
+#?(:clj
+(def ^:private DataType* (delay (dynaload 'clojure.core.typed.type-ctors/DataType*))))
+#?(:clj
+(def ^:private Poly* (delay (dynaload 'clojure.core.typed.type-ctors/Poly*))))
+#?(:clj
+(def ^:private make-FnIntersection (delay (dynaload 'clojure.core.typed.type-rep/make-FnIntersection))))
+#?(:clj
+(def ^:private make-Function (delay (dynaload 'clojure.core.typed.type-rep/make-Function))))
+#?(:clj
+(def ^:private DataType-of (delay (dynaload 'clojure.core.typed.type-ctors/DataType-of))))
+#?(:clj
+(def ^:private subtype? (delay (dynaload 'clojure.core.typed.subtype/subtype?))))
+
+
+#?(:clj
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)
          ((some-fn nil? map?) mths)]}
-  (let [_ (require 'clojure.core.typed.errors)
-        int-error (v 'clojure.core.typed.errors/int-error)
-        _ (when-not (symbol? vsym)
-            (int-error
+  (let [_ (when-not (symbol? vsym)
+            (@int-error
               (str "First argument to ann-protocol must be a symbol: " vsym)))
         s (if (namespace vsym)
             (symbol vsym)
             (symbol (str current-ns) (name vsym)))
         protocol-defined-in-nstr (namespace s)
         _ (when-let [[m] (seq (remove symbol? (keys mths)))]
-            (int-error (str "Method names to ann-protocol must be symbols, found: " (pr-str m))))
+            (@int-error (str "Method names to ann-protocol must be symbols, found: " (pr-str m))))
         _ (doseq [n1 (keys mths)
                   n2 (keys mths)]
             (when (and (not= n1 n2)
                        (= (munge n1) (munge n2)))
-              (int-error 
+              (@int-error 
                 (str "Protocol methods for " vsym " must have distinct representations: "
                      "both " n1 " and " n2 " compile to " (munge n1)))))
         ; add a Name so the methods can be parsed
         _ (declare-protocol* s)
         parsed-binder (when binder 
                         (delay
-                          (let [_ (require 'clojure.core.typed.parse-unparse)
-                                parse-free-binder-with-variance 
-                                (v 'clojure.core.typed.parse-unparse/parse-free-binder-with-variance)
-                                with-parse-ns* (v 'clojure.core.typed.parse-unparse/with-parse-ns*)]
-                            (with-parse-ns* current-ns
-                              #(parse-free-binder-with-variance binder)))))
+                          (@with-parse-ns* current-ns
+                            #(@parse-free-binder-with-variance binder))))
         fs (when parsed-binder
              (delay 
-               (let [_ (require 'clojure.core.typed.type-rep)
-                     make-F (v 'clojure.core.typed.type-rep/make-F)]
-                 (map (comp make-F :fname) (force parsed-binder)))))
+               (map (comp @make-F :fname) (force parsed-binder))))
         bnds (when parsed-binder
                (delay (map :bnd (force parsed-binder))))
         ms (into {} (for [[knq v*] mths]
                       (let [_ (when (namespace knq)
-                                (int-error "Protocol method should be unqualified"))
+                                (@int-error "Protocol method should be unqualified"))
                             mtype 
                             (delay
-                              (let [_ (require 'clojure.core.typed.free-ops
-                                               'clojure.core.typed.parse-unparse)
-                                    with-bounded-frees* (v 'clojure.core.typed.free-ops/with-bounded-frees*)
-                                    with-parse-ns* (v 'clojure.core.typed.parse-unparse/with-parse-ns*)
-                                    unparse-type (v 'clojure.core.typed.parse-unparse/unparse-type)
-                                    parse-type (v 'clojure.core.typed.parse-unparse/parse-type)
-                                    mtype (with-bounded-frees* (zipmap (force fs) (force bnds))
+                              (let [mtype (@with-bounded-frees* (zipmap (force fs) (force bnds))
                                             #(binding [vs/*current-env* current-env]
-                                               (with-parse-ns* current-ns
+                                               (@with-parse-ns* current-ns
                                                  (fn []
-                                                   (parse-type v*)))))
-                                    _ (let [_ (require 'clojure.core.typed.type-ctors
-                                                       'clojure.core.typed.type-rep)
-                                            fully-resolve-type (v 'clojure.core.typed.type-ctors/fully-resolve-type)
-                                            Poly? (v 'clojure.core.typed.type-rep/Poly?)
-                                            Poly-fresh-symbols* (v 'clojure.core.typed.type-ctors/Poly-fresh-symbols*)
-                                            Poly-body* (v 'clojure.core.typed.type-ctors/Poly-body*)
-                                            PolyDots? (v 'clojure.core.typed.type-rep/PolyDots?)
-                                            PolyDots-fresh-symbols* (v 'clojure.core.typed.type-ctors/PolyDots-fresh-symbols*)
-                                            PolyDots-body* (v 'clojure.core.typed.type-ctors/PolyDots-body*)
-                                            FnIntersection? (v 'clojure.core.typed.type-rep/FnIntersection?)
-                                            rt (fully-resolve-type mtype)
+                                                   (@parse-type v*)))))
+                                    _ (let [rt (@fully-resolve-type mtype)
                                             fin? (fn [f]
-                                                   (let [f (fully-resolve-type f)]
+                                                   (let [f (@fully-resolve-type f)]
                                                      (boolean
-                                                       (when (FnIntersection? f)
+                                                       (when (@FnIntersection? f)
                                                          (every? seq (map :dom (:types f)))))))]
                                         (when-not 
                                           (or
                                             (fin? rt)
-                                            (when (Poly? rt) 
-                                              (let [names (Poly-fresh-symbols* rt)]
-                                                (fin? (Poly-body* names rt))))
-                                            (when (PolyDots? rt) 
-                                              (let [names (PolyDots-fresh-symbols* rt)]
-                                                (fin? (PolyDots-body* names rt)))))
+                                            (when (@Poly? rt) 
+                                              (let [names (@Poly-fresh-symbols* rt)]
+                                                (fin? (@Poly-body* names rt))))
+                                            (when (@PolyDots? rt) 
+                                              (let [names (@PolyDots-fresh-symbols* rt)]
+                                                (fin? (@PolyDots-body* names rt)))))
                                           ;(prn "throwing method type")
-                                          (int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
+                                          (@int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
                                                               " taking at least one fixed argument: "
-                                                              (unparse-type mtype)))))]
+                                                              (@unparse-type mtype)))))]
                                 mtype))]
                          [knq mtype])))
         ;_ (prn "collect protocol methods" (into {} ms))
         t (delay
-            (let [_ (require 'clojure.core.typed.type-ctors)
-                  Protocol* (v 'clojure.core.typed.type-ctors/Protocol*)
-                  Protocol-var->on-class (v 'clojure.core.typed.type-ctors/Protocol-var->on-class)]
-              (Protocol* (map :name (force fs)) (map :variance (force parsed-binder) )
-                         (force fs) s (Protocol-var->on-class s) 
-                         (into {} (map (fn [[k v]] [k (force v)])) ms) 
-                         (map :bnd (force parsed-binder)))))]
+            (@Protocol* (map :name (force fs)) (map :variance (force parsed-binder) )
+                        (force fs) s (@Protocol-var->on-class s) 
+                        (into {} (map (fn [[k v]] [k (force v)])) ms) 
+                        (map :bnd (force parsed-binder))))]
     ;(prn "Adding protocol" s t)
     (add-protocol s t)
     ; annotate protocol var as Any
     (add-nocheck-var s)
-    (add-tc-var-type s (delay 
-                              (let [_ (require 'clojure.core.typed.type-rep)
-                                    -any (v 'clojure.core.typed.type-rep/-any)]
-                                -any)))
+    (add-tc-var-type s (delay @-any))
     (doseq [[kuq mt] ms]
       (assert (not (namespace kuq))
               "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
       (let [kq (symbol protocol-defined-in-nstr (name kuq))
             mt-ann (delay 
-                     (let [_ (require 'clojure.core.typed.collect-utils)
-                           protocol-method-var-ann (v 'clojure.core.typed.collect-utils/protocol-method-var-ann)]
-                       (protocol-method-var-ann (force mt) (map :name (force fs)) (force bnds))))]
+                     (@protocol-method-var-ann (force mt) (map :name (force fs)) (force bnds)))]
         (add-nocheck-var kq)
         (add-tc-var-type kq mt-ann)))
     ;(prn "end gen-protocol" s)
@@ -827,6 +861,23 @@ Transducer
   nil)
 
 #?(:clj
+(def ^:private demunge (delay (dynaload 'clojure.repl/demunge))))
+#?(:clj
+(def ^:private abstract-many (delay (dynaload 'clojure.core.typed.type-ctors/abstract-many))))
+#?(:clj
+(def ^:private with-frees* (delay (dynaload 'clojure.core.typed.free-ops/with-frees*))))
+#?(:clj
+(def ^:private -val (delay (dynaload 'clojure.core.typed.type-rep/-val))))
+#?(:clj
+(def ^:private -nil (delay (dynaload 'clojure.core.typed.type-rep/-nil))))
+#?(:clj
+(def ^:private fv (delay (dynaload 'clojure.core.typed.frees/fv))))
+#?(:clj
+(def ^:private fi (delay (dynaload 'clojure.core.typed.frees/fi))))
+#?(:clj
+(def ^:private make-HMap (delay (dynaload 'clojure.core.typed.type-ctors/make-HMap))))
+
+#?(:clj
 (defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
   {:pre [(symbol? current-ns)]}
   (with-clojure-impl
@@ -834,12 +885,8 @@ Transducer
           ancests (or ancests (:extends opt))
           parsed-binders (when vbnd
                            (delay
-                             (let [_ (require 'clojure.core.typed.parse-unparse)
-                                   parse-free-binder-with-variance 
-                                   (v 'clojure.core.typed.parse-unparse/parse-free-binder-with-variance)
-                                   with-parse-ns* (v 'clojure.core.typed.parse-unparse/with-parse-ns*)]
-                               (with-parse-ns* current-ns
-                                 #(parse-free-binder-with-variance vbnd)))))
+                             (@with-parse-ns* current-ns
+                               #(@parse-free-binder-with-variance vbnd))))
           ;variances
           vs (when parsed-binders
                (delay (seq (map :variance (force parsed-binders)))))
@@ -853,9 +900,7 @@ Transducer
                             (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str)))))
                             (str (munge current-ns)))
             ;_ (prn "munged-ns-str" munged-ns-str)
-            _ (require 'clojure.repl)
-            demunge (v 'clojure.repl/demunge)
-            demunged-ns-str (str (demunge munged-ns-str))
+            demunged-ns-str (str (@demunge munged-ns-str))
             ;_ (prn "demunged-ns-str" demunged-ns-str)
             local-name (if (some #(= \. %) provided-name-str)
                          (symbol (apply str (last (partition-by #(= \. %) (str provided-name-str)))))
@@ -863,102 +908,54 @@ Transducer
             ;_ (prn "local-name" local-name)
             s (symbol (str munged-ns-str \. local-name))
             fs (delay
-                 (let [_ (require 'clojure.core.typed.parse-unparse
-                                  'clojure.core.typed.type-rep
-                                  'clojure.core.typed.type-ctors
-                                  'clojure.core.typed.free-ops)
-                       with-parse-ns* (v 'clojure.core.typed.parse-unparse/with-parse-ns*)
-                       parse-type (v 'clojure.core.typed.parse-unparse/parse-type)
-                       make-F (v 'clojure.core.typed.type-rep/make-F)
-                       abstract-many (v 'clojure.core.typed.type-ctors/abstract-many)
-                       with-frees* (v 'clojure.core.typed.free-ops/with-frees*)
-                       parse-field (fn [[n _ t]] [n (parse-type t)])
-                       ]
-                   (apply array-map (apply concat (with-frees* (mapv make-F (force args))
+                 (let [parse-field (fn [[n _ t]] [n (@parse-type t)])]
+                   (apply array-map (apply concat (@with-frees* (mapv @make-F (force args))
                                                     (fn []
                                                       (binding [vs/*current-env* current-env]
-                                                        (with-parse-ns* current-ns
+                                                        (@with-parse-ns* current-ns
                                                           #(mapv parse-field (partition 3 fields))))))))))
             as (into {}
                      (map
                        (fn [an]
                          [an (delay
-                               (let [_ (require 'clojure.core.typed.parse-unparse
-                                                'clojure.core.typed.type-rep
-                                                'clojure.core.typed.type-ctors
-                                                'clojure.core.typed.free-ops)
-                                     with-parse-ns* (v 'clojure.core.typed.parse-unparse/with-parse-ns*)
-                                     parse-type (v 'clojure.core.typed.parse-unparse/parse-type)
-                                     make-F (v 'clojure.core.typed.type-rep/make-F)
-                                     with-frees* (v 'clojure.core.typed.free-ops/with-frees*)
-                                     abstract-many (v 'clojure.core.typed.type-ctors/abstract-many)]
-                                 (with-frees* (mapv make-F (force args))
-                                   (fn []
-                                     (binding [vs/*current-env* current-env]
-                                       (with-parse-ns* current-ns
-                                         #(let [t (parse-type an)]
-                                            (abstract-many (force args) t))))))))]))
+                               (@with-frees* (mapv @make-F (force args))
+                                 (fn []
+                                   (binding [vs/*current-env* current-env]
+                                     (@with-parse-ns* current-ns
+                                       #(let [t (@parse-type an)]
+                                          (@abstract-many (force args) t)))))))]))
                      ancests)
             ;_ (prn "collected ancestors" as)
             _ (add-datatype-ancestors s as)
             pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
             map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
             dt (delay 
-                 (let [_ (require 'clojure.core.typed.type-ctors
-                                  'clojure.core.typed.type-rep)
-                       DataType* (v 'clojure.core.typed.type-ctors/DataType*)
-                       make-F (v 'clojure.core.typed.type-rep/make-F)]
-                   (DataType* (force args) (force vs) (map make-F (force args)) s (force bnds) (force fs) record?)))
+                 (@DataType* (force args) (force vs) (map @make-F (force args)) s (force bnds) (force fs) record?))
             _ (add-datatype s dt)
             pos-ctor (delay
-                       (let [_ (require 'clojure.core.typed.subtype
-                                        'clojure.core.typed.type-rep
-                                        'clojure.core.typed.frees
-                                        'clojure.core.typed.type-ctors)
-                             Poly* (v 'clojure.core.typed.type-ctors/Poly*)
-                             make-FnIntersection (v 'clojure.core.typed.type-rep/make-FnIntersection)
-                             make-Function (v 'clojure.core.typed.type-rep/make-Function)
-                             make-F (v 'clojure.core.typed.type-rep/make-F)
-                             DataType-of (v 'clojure.core.typed.type-ctors/DataType-of)
-                             ]
-                         (if args
-                           (Poly* (force args) (force bnds)
-                                  (make-FnIntersection
-                                    (make-Function (vec (vals (force fs))) (DataType-of s (map make-F (force args))))))
-                           (make-FnIntersection
-                             (make-Function (vec (vals (force fs))) (DataType-of s))))))
+                       (if args
+                         (@Poly* (force args) (force bnds)
+                                 (@make-FnIntersection
+                                   (@make-Function (vec (vals (force fs))) (@DataType-of s (map @make-F (force args))))))
+                         (@make-FnIntersection
+                           (@make-Function (vec (vals (force fs))) (@DataType-of s)))))
             map-ctor (delay
-                       (let [_ (require 'clojure.core.typed.subtype
-                                        'clojure.core.typed.type-rep
-                                        'clojure.core.typed.frees
-                                        'clojure.core.typed.type-ctors)
-                             subtype? (v 'clojure.core.typed.subtype/subtype?)
-                             -val (v 'clojure.core.typed.type-rep/-val)
-                             -nil (v 'clojure.core.typed.type-rep/-nil)
-                             fv (v 'clojure.core.typed.frees/fv)
-                             fi (v 'clojure.core.typed.frees/fi)
-                             make-HMap (v 'clojure.core.typed.type-ctors/make-HMap)
-                             Poly* (v 'clojure.core.typed.type-ctors/Poly*)
-                             make-FnIntersection (v 'clojure.core.typed.type-rep/make-FnIntersection)
-                             make-Function (v 'clojure.core.typed.type-rep/make-Function)
-                             make-F (v 'clojure.core.typed.type-rep/make-F)
-                             DataType-of (v 'clojure.core.typed.type-ctors/DataType-of)]
-                         (when record?
-                           (let [hmap-arg ; allow omission of keys if nil is allowed and field is monomorphic
-                                 (let [{optional true mandatory false} 
-                                       (group-by (fn [[_ t]] (and (empty? (fv t))
-                                                                  (empty? (fi t))
-                                                                  (subtype? -nil t)))
-                                                 (zipmap (map (comp -val keyword) (keys (force fs)))
-                                                         (vals (force fs))))]
-                                   (make-HMap :optional (into {} optional)
-                                              :mandatory (into {} mandatory)))]
-                             (if args
-                               (Poly* (force args) (force bnds)
-                                      (make-FnIntersection
-                                        (make-Function [hmap-arg] (DataType-of s (map make-F (force args))))))
-                               (make-FnIntersection
-                                 (make-Function [hmap-arg] (DataType-of s))))))))]
+                       (when record?
+                         (let [hmap-arg ; allow omission of keys if nil is allowed and field is monomorphic
+                               (let [{optional true mandatory false} 
+                                     (group-by (fn [[_ t]] (and (empty? (@fv t))
+                                                                (empty? (@fi t))
+                                                                (@subtype? @-nil t)))
+                                               (zipmap (map (comp @-val keyword) (keys (force fs)))
+                                                       (vals (force fs))))]
+                                 (@make-HMap :optional (into {} optional)
+                                             :mandatory (into {} mandatory)))]
+                           (if args
+                             (@Poly* (force args) (force bnds)
+                                     (@make-FnIntersection
+                                       (@make-Function [hmap-arg] (@DataType-of s (map @make-F (force args))))))
+                             (@make-FnIntersection
+                               (@make-Function [hmap-arg] (@DataType-of s)))))))]
         (do 
           ;(when vs
           ;  (let [f (mapv r/make-F (repeatedly (count vs) gensym))]

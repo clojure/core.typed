@@ -3,25 +3,25 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.load-if-needed :refer [load-if-needed]]))
 
-(defn name-env []
-  (load-if-needed)
-  (let [nme-env ((impl/v 'clojure.core.typed.name-env/name-env))]
-    (binding [vs/*verbose-types* true]
-      (into {}
-            (for [[k v] nme-env]
-              (when-not (keyword? v)
-                [k ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
-                    v)]))))))
+(def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type)))
 
-(defn var-env []
-  (load-if-needed)
-  (let [var-env ((impl/v 'clojure.core.typed.var-env/var-annotations))]
-    (assert var-env)
+(let [nme-env (delay (impl/dynaload 'clojure.core.typed.name-env/name-env))]
+  (defn name-env []
+    (load-if-needed)
     (binding [vs/*verbose-types* true]
       (into {}
-            (for [[k v] var-env]
-              [k ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
-                  (force v))])))))
+            (for [[k v] (@nme-env)]
+              (when-not (keyword? v)
+                [k (@unparse-type v)]))))))
+
+(let [venv (delay (impl/dynaload 'clojure.core.typed.var-env/var-annotations))]
+  (defn var-env []
+    (load-if-needed)
+      (assert var-env)
+      (binding [vs/*verbose-types* true]
+        (into {}
+              (for [[k v] (@venv)]
+                [k (@unparse-type (force v))])))))
 
 (defn all-envs-clj []
   (impl/with-clojure-impl
