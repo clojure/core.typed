@@ -4,15 +4,15 @@
              [clojure.core.typed.test.test-utils :refer :all]))
 
 (deftest atom?-test
-  (is-tc-e (atom? "abc") Boolean
+  (is-tc-e #(atom? "abc") [-> Boolean]
            :requires [[clojure.inspector :refer [atom?]]])
-  (is-tc-err (atom? "abc") String
+  (is-tc-err #(atom? "abc") [-> String]
              :requires [[clojure.inspector :refer [atom?]]]))
 
 (deftest collection-tag-test
-  (is-tc-e (collection-tag "abc") Keyword
+  (is-tc-e #(collection-tag "abc") [-> Keyword]
            :requires [[clojure.inspector :refer [collection-tag]]])
-  (is-tc-err (collection-tag "abc") String
+  (is-tc-err #(collection-tag "abc") [-> String]
              :requires [[clojure.inspector :refer [collection-tag]]]))
 
 (deftest tree-model-test
@@ -34,7 +34,7 @@
 (deftest inspect-tree-test
   (is-tc-e #(inspect-tree "abc") [-> javax.swing.JFrame]
            :requires [[clojure.inspector :refer [inspect-tree]]])
-  (is-tc-err (inspect-tree "abc") String
+  (is-tc-err #(inspect-tree "abc") [-> String]
              :requires [[clojure.inspector :refer [inspect-tree]]]))
 
 (deftest inspect-table-test
