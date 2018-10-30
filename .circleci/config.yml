@@ -1,98 +1,15 @@
 version: 2
 
 jobs:
-  core_typed_dependencies:
-    docker:
-      - image: circleci/openjdk:8-jdk
-    working_directory: ~/core.typed
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}
-            - v1-core-typed-{{ .Branch }}
-            - v1-core-typed-
-      - run:
-          name: Resolve dependencies
-          command: mvn -DskipTests clean install dependency:resolve-plugins dependency:go-offline
-      - save_cache:
-          key: v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
-          paths:
-            - "~/.m2"
-
-  core_typed_tests:
-    docker:
-      - image: circleci/openjdk:8-jdk
-    working_directory: ~/core.typed
-    #Actually run our tests
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}
-            - v1-core-typed-{{ .Branch }}
-            - v1-core-typed-
+  test:
+    unit-test:
       - run:
           name: Unit Tests
-          command: mvn -o test
-
-  rti_tests:
-    docker:
-      - image: circleci/openjdk:8-jdk
-    working_directory: ~/core.typed
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}-{{ checksum "module-cljs/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}-{{ checksum "module-rt/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}-{{ checksum "module-check/pom.xml" }}
-            - v1-core-typed-{{ .Branch }}-{{ checksum "pom.xml" }}
-            - v1-core-typed-{{ .Branch }}
-            - v1-core-typed-
-      - run:
-          name: Install leiningen
-          command: |
-            mkdir ~/bin
-            cd ~/bin
-            wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
-            chmod +x lein
-            ./lein
-      - run:
-          name: Clone tests
-          command: git clone https://github.com/frenchy64/runtime-type-inference-lein.git ~/rti-tests
-      - run:
-          name: Run tests
-          command: |
-            cd ~/core.typed
-            export CORETYPEDVERSION="$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive org.codehaus.mojo:exec-maven-plugin:1.3.1:exec)"
-            mvn -DskipTests clean install
-            cd ~/rti-tests
-            echo "Using core.typed version: $CORETYPEDVERSION"
-            PATH=$PATH:~/bin ./infer-types.sh "$CORETYPEDVERSION"
-      #- save_cache:
-      #    key: rti-tests-{{ .Branch }}-{{ ??? }}
-      #    paths:
-      #      - "~/.m2"
-      - store_artifacts:
-          path: ~/rti-tests/out
-          destination: rti
+          command: mvn clean test
 
 workflows:
   version: 2
   #parallelism: 2
   build_and_test:
     jobs:
-      - core_typed_dependencies
-      - core_typed_tests:
-          requires:
-            - core_typed_dependencies
-      - rti_tests:
-          requires:
-            - core_typed_dependencies
+      - test
