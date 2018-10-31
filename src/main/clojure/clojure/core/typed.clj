@@ -1286,8 +1286,9 @@ for checking namespaces, cf for checking individual forms."}
                                              @Compiler/COLUMN)}]
        ~@body)))
 
-(def ^:private parse-clj (delay (impl/dynaload 'clojure.core.typed.parse-ast/parse-clj)))
-(def ^:private with-parse-ns* (delay (impl/dynaload 'clojure.core.typed.parse-ast/with-parse-ns*)))
+(def ^:private parse-clj-rt (delay (impl/dynaload 'clojure.core.typed.parse-ast/parse-clj)))
+(def ^:private parse-clj-tc (delay (impl/dynaload 'clojure.core.typed.parse-unparse/parse-clj)))
+(def ^:private with-parse-ns* (delay (impl/dynaload 'clojure.core.typed.parse-unparse/with-parse-ns*)))
 
 (defmacro ^:private delay-rt-parse
   "We can type check c.c.t/parse-ast if we replace all instances
@@ -1297,7 +1298,7 @@ for checking namespaces, cf for checking individual forms."}
   `(let [t# ~t
          app-outer-context# (bound-fn [f# t#] (f# t#))]
      (delay
-       (app-outer-context# @parse-clj t#))))
+       (app-outer-context# @parse-clj-rt t#))))
 
 (defmacro ^:private delay-tc-parse
   [t]
@@ -1308,7 +1309,7 @@ for checking namespaces, cf for checking individual forms."}
          (fn []
            (@with-parse-ns*
              (ns-name *ns*)
-             #(@parse-clj t#)))))))
+             #(@parse-clj-rt t#)))))))
 
 (defn ^:skip-wiki add-to-rt-alias-env [form qsym t]
   (impl/with-impl impl/clojure
