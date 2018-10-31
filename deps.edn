@@ -26,6 +26,7 @@
             {com.bhauman/rebel-readline {:mvn/version "0.1.4"}}
             :main-opts ["-m" "start-repl"]}
 
+           :clj-1.10.0-beta4 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}}}
            :test
            {:extra-paths ["src/test/clojure"
                           "src/test/resources"]
@@ -44,6 +45,7 @@
             :main-opts ["-m" "cognitect.test-runner"
                         "-d" "src/test/clojure/clojure/core/typed/test"
                         "-r" ".*"
-                        "-w" "clojure.test.junit/with-junit-output"
-                        "-o" "junit-output.xml"
+                        ;"-v" "clojure.core.typed.test.core/CTYP-234-test"
+                        ;"-w" "clojure.test.junit/with-junit-output"
+                        ;"-o" "junit-output.xml"
                         ]}}}
