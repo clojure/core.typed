@@ -113,3 +113,95 @@ Other ideas
   * Keyword [[k :variance :covariant <: (I (Instance Keyword) AnyValue)]]
   * ['{:a t/Int} :-> t/Int] <: (Keyword ':a)
 * add t/ucast for unchecked casts
+
+* don't generate vars for defalias's
+  * eagerly parse 
+    * (defalias foo t/Int)
+      ;compiles to
+      => (swap! registry assoc 'user/foo (parse-type t/Int))
+    * probably not much overhead?
+    * assume registry is stable when expanding aliases
+      * eg. (ann f Int)
+            (ann g f)
+        If `f` changes while parsing `g`, I don't think we should
+        do anything special about that.
+  * lazily parse 
+    * delay
+      * (defalias foo t/Int)
+        ;compiles to
+        => (let [ns *ns*]
+             (swap! registry assoc 'user/foo (delay (binding [*ns* ns]
+                                                      (parse-type 't/Int)))))
+      * probably doesn't work in CLJS?
+        * this would be ideal in terms of collection performance
+          * (swap! registry assoc 'user/foo {:ns 'user :form 't/Int})
+        * actually, since `pred` and `cast` are macros, we can insert
+          the cast when the macro expands
+          * at mexpansion time we can parse the type at the given namespace
+          * then, have an separate type->contract implementations for clj/cljs
+        * this assumes the aliases/requires of a ns only accrues, since collection
+          can happen at any time
+          * reasonable assumption, we make the same assumption already, just we
+            "fix" the meaning of aliases earlier (at type definition time instead of type use time)
+    * or AOT compile annotations?
+      * (defalias foo t/Int)
+        ;compiles to
+        => (swap! registry assoc 'user/foo '{:op :Int})
+  * what about t/pred?
+    * seems like an underused feature
+    * but requires types to be collected
+      * reasonable to expect that users of t/pred will ensure
+        annotations are loaded when they use it
+      * but what about core annotations? what will trigger
+        those to load?
+        * perhaps that's also the responsibility of the user
+          * must (:require [clojure.core.typed.ann.base]) explicitly
+          * (the type checker will automatically trigger collecting clojure.core.typed.ann.base
+            at type-checking time)
+  * can we avoid parsing top-level types altogether at runtime? (since they're only
+    used at compile time)
+    * put annotation deps in ns metadata?
+      {:core.typed {:ann [clojure.core.typed.ann.base
+                          clojure.core.typed.ann.core.async]}}
+  * can we borrow ideas from clojure.spec?
+    ; add to registry
+    * (t/defalias ::foo t/Int)
+      => {::foo t/Int}
+    * (t/HMap :req [::foo] :opt [::bar])
+      * how to deal with s/keys :opt auto-check semantics?
+    * (t/defalias bar t/Int)
+      => {user/bar t/Int}
+    * (t/ann f [t/Int -> t/Int])
+      => {user/f [t/Int -> t/Int]}
+    ; use other var annotations as aliases
+    * (t/ann g f)
+      => {user/f [t/Int -> t/Int]
+          user/g [t/Int -> t/Int]}
+    ; unnamespaced keywords tag unions, fully qualified
+    ; name types (or specs)
+    * (t/U :left ::left :right ::right)
+      * not sure why you'd want this yet
+  * split out things from clojure.core.typed
+    * leave core type system features in clojure.core.typed:
+      * inst, defalias, ann, ann-{datatype,record,protocol,many}, declare-datatypes,
+        override-method, tc-ignore, ann-form, nilable-param, non-nil-return,
+        declare-names, declare-protocols, ...
+    * core macro/fn wrappers => clojure.core.typed.ann.base
+                                or
+                                clojure.core.typed.ann.base.rt
+      * for, doseq, dotimes, atom, ref ...
+    * type checking api => clojure.core.typed.check
+      * check-form-info, check-form*, cf, check-ns-info, check-ns
+    * runtime type inference => clojure.core.typed.infer-ann
+      * prepare-infer-ns, refresh-runtime-infer, runtime-infer,
+        spec-infer, 
+    * experimental features => clojure.core.typed.experimental
+      * infer-unannotated-vars
+    * :lang featuers => clojure.core.typed.lang
+    * internal type checking debugging, 
+      =>  clojure.core.typed.debug
+      * print-filterset, print-env, 
+    * special core types => clojure.core.typed.ann.base
+      * Any, AnyValue, TCError, U, ...
+    * runtime features => clojure.core.typed.rt
+      * pred, contract, cast
