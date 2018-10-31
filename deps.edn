@@ -45,7 +45,6 @@
             :main-opts ["-m" "cognitect.test-runner"
                         "-d" "src/test/clojure/clojure/core/typed/test"
                         "-r" ".*"
-                        ;"-v" "clojure.core.typed.test.core/CTYP-234-test"
                         ;"-w" "clojure.test.junit/with-junit-output"
                         ;"-o" "junit-output.xml"
                         ]}}}
