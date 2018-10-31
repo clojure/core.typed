@@ -1309,7 +1309,7 @@ for checking namespaces, cf for checking individual forms."}
          (fn []
            (@with-parse-ns*
              (ns-name *ns*)
-             #(@parse-clj-rt t#)))))))
+             #(@parse-clj-tc t#)))))))
 
 (defn ^:skip-wiki add-to-rt-alias-env [form qsym t]
   (impl/with-impl impl/clojure
