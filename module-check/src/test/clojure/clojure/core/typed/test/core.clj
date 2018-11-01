@@ -5246,8 +5246,7 @@
          (ndu/should-check-ns-form?
            '(ns foo
               {:core.typed {:collect-only true}}))
-         (ndu/should-check-ns?
-           u/spec-ns))))
+         (ndu/should-check-ns? 'clojure.spec.alpha))))
   (testing ":collect-only should not check"
     (is-clj
       (= false

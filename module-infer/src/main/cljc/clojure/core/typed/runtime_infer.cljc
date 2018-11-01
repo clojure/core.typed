@@ -10,8 +10,7 @@
                                time-if-slow
                                debug-output
                                debug-output-when
-                               when-fuel
-                               ]]))
+                               when-fuel]]))
   (:require [#?(:clj clojure.pprint :cljs cljs.pprint) :as pp]
             [#?(:clj clojure.core :cljs cljs.core) :as core]
             [clojure.set :as set]
@@ -27,12 +26,8 @@
                       [clojure.java.io :as io]
                       [clojure.core.typed.ast-utils :as ast]
                       [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-                      [clojure.core.typed.coerce-utils :as coerce]
-                      ])
-            )
-  )
+                      [clojure.core.typed.coerce-utils :as coerce]])))
 
-;; START copied from clojure.core.typed.utils
 #?(:clj
 (defn ^:private try-resolve-nsyms [nsyms]
   (reduce (fn [_ s]
@@ -49,7 +44,6 @@
 (def core-specs-ns'
   #?(:clj (try-resolve-nsyms '[clojure.core.specs clojure.core.specs.alpha])
      :cljs 'clojure.core.specs.alpha))
-;; END copied from clojure.core.typed.utils
 
 (def spec-ns (or spec-ns' 'clojure.spec.alpha))
 (def core-specs-ns (or core-specs-ns' 'clojure.core.specs.alpha))

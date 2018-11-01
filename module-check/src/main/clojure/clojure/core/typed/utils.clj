@@ -12,7 +12,6 @@
             [clojure.string :as str]
             [clojure.java.io :as io]))
 
-(t/ann ^:no-check taoensso.timbre/logging-enabled? [t/Any -> t/Any])
 (t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> t/Any])
 
 (t/ann subtype-exn Exception)
@@ -43,10 +42,6 @@
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
     `(clojure.core/defprotocol ~name ~@args)))
-
-(t/tc-ignore
-(def third (comp second next))
-)
 
 (defmacro ann-record 
   "Like ann-record, but also adds an unchecked annotation for core.contract's generated
@@ -255,34 +250,11 @@
 (defn demunge-ns [nsym]
   (symbol (clojure.repl/demunge (str nsym))))
 
-
-; debug code from https://groups.google.com/d/msg/clojure/cOXClow1Wn4/UkvtICjvgrIJ
-(t/ann ^:no-check pprint-str [t/Any -> t/Any])
-(defn pprint-str
-  [x]
-  (with-out-str (pprint/pprint x)))
-
-(defmacro dbg
-  [x]
-  `(let [x# ~x]
-     (printf "dbg %s:%s> %s is %s\n"
-             ~*ns*
-             ~(:line (meta &form))
-             ~(pr-str x)
-             (pprint-str x#))
-     (flush)
-     x#))
-
 (t/tc-ignore
 ;; multimethods for dispatching on special forms like (do ::special-form ::foobar ...)
 (defn internal-dispatch-val [expr]
   (:form (second (:statements expr))))
 
-(defn enforce-do-folding [{:keys [statements] :as expr} kw]
-  (when-not (#{0 1} (count 
-                      (filter #{kw} 
-                              (map :val statements))))
-    (err/int-error (str "Folded special-forms detected " (au/emit-form-fn expr)))))
 
 (defmacro special-do-op
   "Define a multimethod that takes an expr and an expected type
@@ -375,23 +347,4 @@
 (defn should-runtime-infer-ns?
   [ns]
   (ns-has-feature? ns :runtime-infer))
-
-;; START copied to clojure.core.typed.runtime-infer
-(defn ^:private try-resolve-nsyms [nsyms]
-  (reduce (fn [_ s]
-            (try
-              (require [s])
-              (reduced s)
-              (catch Throwable e
-                nil)))
-          nil
-          nsyms))
-
-(def spec-ns
-  (try-resolve-nsyms '[clojure.spec clojure.spec.alpha]))
-
-(def core-specs-ns 
-  (try-resolve-nsyms '[clojure.core.specs clojure.core.specs.alpha]))
-;; END copied to clojure.core.typed.runtime-infer
-
 )
