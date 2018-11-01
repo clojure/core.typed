@@ -28,31 +28,15 @@
           </execution>
         </executions>
         <configuration>
-          <!-- need to set perm gen size for build.clojure.org CI -->
-          <vmargs>-Xmx2048m -XX:MaxPermSize=512M</vmargs>
-          <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
-          <!--<vmargs>-verbose:class</vmargs>-->
-          <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
-          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
-          <testDeclaredNamespaceOnly>true</testDeclaredNamespaceOnly>
-          <!-- Don't put AOT files in jar -->
+          <!-- Put AOT files in jar -->
           <temporaryOutputDirectory>false</temporaryOutputDirectory>
+          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
           <namespaces>
-            <!-- depends on core.async -->
             <namespace>clojure.core.typed.*</namespace>
-            <namespace>clojure.core.typed.test.pred</namespace>
-            <namespace>!clojure.core.typed.test.core</namespace>
-            <namespace>!clojure.core.typed.test.*</namespace>
-            <namespace>!cljs.core.typed.*</namespace>
-            <!-- depends on tools.nrepl -->
-            <!--<namespace>!clojure.core.typed.repl</namespace>
-            <namespace>!clojure.core.typed.load</namespace>-->
           </namespaces>
+          <testDeclaredNamespaceOnly>true</testDeclaredNamespaceOnly>
           <testNamespaces>
             <namespace>clojure.core.typed.test.*</namespace>
-            <!-- testing runtime errors -->
-            <!-- depends on tools.nrepl -->
-            <!-- <namespace>!clojure.core.typed.test.repl</namespace>-->
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
@@ -197,4 +181,3 @@
     </dependency>
   </dependencies>
 </project>
-
