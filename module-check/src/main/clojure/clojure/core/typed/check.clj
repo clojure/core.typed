@@ -186,9 +186,7 @@
 
 (t/ann check-ns-and-deps [t/Sym -> nil])
 (defn check-ns-and-deps
-  "Type check a namespace and its dependencies.
-  Assumes type annotations in each namespace
-  has already been collected."
+  "Type check a namespace and its dependencies."
   ([nsym]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
