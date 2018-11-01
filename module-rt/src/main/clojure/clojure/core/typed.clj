@@ -2851,5 +2851,4 @@ for checking namespaces, cf for checking individual forms."}
   (check-ns 'clojure.core.typed.test.conduit)
   (check-ns 'clojure.core.typed.test.person)
   (check-ns 'clojure.core.typed.test.core-logic)
-  (check-ns 'clojure.core.typed.test.ckanren)
   )
