@@ -13,7 +13,6 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check.method :as method]
-            [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.indirect-ops :as ind])
   (:import (clojure.lang ISeq Seqable)))

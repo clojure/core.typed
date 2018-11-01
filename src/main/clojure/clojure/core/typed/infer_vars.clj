@@ -4,7 +4,6 @@
     [clojure.core.typed.type-ctors :as c]
     [clojure.core.typed.parse-unparse :as prs]
     [clojure.core.typed.current-impl :as impl]
-    [clojure.core.typed.debug :refer [dbg]]
     [clojure.core.typed.env :as env]))
 
 (defn add-inferred-type 

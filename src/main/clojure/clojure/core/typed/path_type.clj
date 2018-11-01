@@ -2,13 +2,11 @@
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed :as t]
-            #_[clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.errors :as err])
   (:import (clojure.lang Keyword Symbol)))
 
@@ -128,5 +126,4 @@
            :else (c/Un r/-nil (c/RClass-of Keyword)))
          (next ps))
 
-       :else (err/int-error (str "Bad call to path-type: " (pr-str t) ", " (pr-str ps) ", " (mapv class ps)))
-       ))))
+       :else (err/int-error (str "Bad call to path-type: " (pr-str t) ", " (pr-str ps) ", " (mapv class ps)))))))

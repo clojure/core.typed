@@ -5,7 +5,6 @@
             [clojure.java.io :as io]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as readers]
-            [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
@@ -1333,7 +1332,7 @@
             (doall
               (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
                 (r/make-Function (mapv prs/parse-type dom-syntax)
-                                 (if (dbg has-rng?)
+                                 (if has-rng?
                                    (prs/parse-type rng-syntax)
                                    ; in fn-method-one, this triggers the body to be inferred
                                    (do (err/deprecated-warn "fn> without expected return type always infers Any, use c.c.t/fn")
