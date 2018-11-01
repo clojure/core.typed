@@ -17,6 +17,12 @@
 (defn internal-form? [expr]
   (u/internal-form? expr spec/special-form))
 
+(defn enforce-do-folding [{:keys [statements] :as expr} kw]
+  (when-not (#{0 1} (count 
+                      (filter #{kw}
+                              (map :val statements))))
+    (err/int-error (str "Folded special-forms detected " (ast-u/emit-form-fn expr)))))
+
 (defn check-do [check internal-special-form expr expected]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:statements %))]}
