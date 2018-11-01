@@ -247,41 +247,6 @@
 
 )
 
-(defmacro add-defmethod-generator 
-  "Generates a macro called mm-name, which can be used instead
-  of defmethod of the multimethod called mm-name.
-  The generated macro adds a meaningful name to the local function
-  of the defmethod.
-  
-  Usage: (add-mm-name-method check)
-
-  (defmethod check  ...) then becomes (add-check-method ...)"
-  [mm-name]
-  `(defmacro ~(symbol (str "add-" mm-name "-method")) 
-     [~'disp ~'params & ~'body]
-     (assert (vector? ~'params)
-             ~'params)
-     (let [[~'assertmap ~'body] (if (and (map? (first ~'body))
-                                         (< 1 (count ~'body)))
-                                  [(first ~'body) (next ~'body)]
-                                  [nil ~'body])
-           ~'disp-string (str (or (when (vector? ~'disp)
-                                    (first (filter symbol? ~'disp)))
-                                  "unknown"))]
-       `(defmethod 
-          ;the multimethod to install methods to
-          ~'~mm-name 
-          ;the dispatch value
-          ~~'disp
-          ;the local fn name of this defmethod, gensymed to
-          ;avoid reloading conflicts
-          ~(gensym (str ~(str mm-name) "-" ~'disp-string))
-          ;the param list
-          ~~'params
-          ;the pre/post condition map
-          ~~'assertmap
-          (do ~@~'body)))))
-
 (t/ann typed-ns-opts [t/Any -> t/Any])
 (defn typed-ns-opts [ns]
   (-> ns meta :core.typed))

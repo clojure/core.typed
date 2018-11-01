@@ -119,9 +119,7 @@
 (t/ann frees [t/Any -> VarianceMap])
 (defmulti ^:private frees (fn [t] [*frees-mode* (class t)]))
 
-(u/add-defmethod-generator frees)
-
-(add-frees-method [::any-var Result]
+(defmethod frees [::any-var Result]
   [t]
   (t/ann-form t Result)
   (let [{:keys [t fl o]} t]
@@ -131,71 +129,71 @@
 
 ;; Filters
 
-(add-frees-method [::any-var FilterSet]
+(defmethod frees [::any-var FilterSet]
   [{:keys [then else]}]
   (combine-frees (frees then)
                  (frees else)))
 
-(add-frees-method [::any-var TypeFilter]
+(defmethod frees [::any-var TypeFilter]
   [{:keys [type]}]
   (frees type))
 
-(add-frees-method [::any-var NotTypeFilter]
+(defmethod frees [::any-var NotTypeFilter]
   [{:keys [type]}] 
   (flip-variances (frees type)))
 
-(add-frees-method [::any-var ImpFilter]
+(defmethod frees [::any-var ImpFilter]
   [{:keys [a c]}] 
   (combine-frees (frees a)
                  (frees c)))
 
-(add-frees-method [::any-var AndFilter]
+(defmethod frees [::any-var AndFilter]
   [{:keys [fs]}] 
   (apply combine-frees (mapv frees fs)))
 
-(add-frees-method [::any-var OrFilter]
+(defmethod frees [::any-var OrFilter]
   [{:keys [fs]}]
   (apply combine-frees (mapv frees fs)))
 
-(add-frees-method [::any-var TopFilter] [t] {})
-(add-frees-method [::any-var BotFilter] [t] {})
+(defmethod frees [::any-var TopFilter] [t] {})
+(defmethod frees [::any-var BotFilter] [t] {})
 
 ;; Objects
 
-(add-frees-method [::any-var Path]
+(defmethod frees [::any-var Path]
   [{:keys [path]}]
   (apply combine-frees (mapv frees path)))
 
-(add-frees-method [::any-var EmptyObject] [t] {})
-(add-frees-method [::any-var NoObject] [t] {})
+(defmethod frees [::any-var EmptyObject] [t] {})
+(defmethod frees [::any-var NoObject] [t] {})
 
-(add-frees-method [::any-var NthPE] [t] {})
-(add-frees-method [::any-var NextPE] [t] {})
-(add-frees-method [::any-var ClassPE] [t] {})
-(add-frees-method [::any-var CountPE] [t] {})
-(add-frees-method [::any-var KeyPE] [t] {})
-(add-frees-method [::any-var KeysPE] [t] {})
-(add-frees-method [::any-var ValsPE] [t] {})
-(add-frees-method [::any-var KeywordPE] [t] {})
+(defmethod frees [::any-var NthPE] [t] {})
+(defmethod frees [::any-var NextPE] [t] {})
+(defmethod frees [::any-var ClassPE] [t] {})
+(defmethod frees [::any-var CountPE] [t] {})
+(defmethod frees [::any-var KeyPE] [t] {})
+(defmethod frees [::any-var KeysPE] [t] {})
+(defmethod frees [::any-var ValsPE] [t] {})
+(defmethod frees [::any-var KeywordPE] [t] {})
 
 
-(add-frees-method [::frees F]
+(defmethod frees [::frees F]
   [{:keys [name] :as t}]
   {name :covariant})
 
-(add-frees-method [::idxs F] [t] {})
+(defmethod frees [::idxs F] [t] {})
 
-(add-frees-method [::any-var TCError] [t] {})
-(add-frees-method [::any-var B] [t] {})
-(add-frees-method [::any-var CountRange] [t] {})
-(add-frees-method [::any-var Value] [t] {})
-(add-frees-method [::any-var AnyValue] [t] {})
-(add-frees-method [::any-var Top] [t] {})
-(add-frees-method [::any-var Unchecked] [t] {})
-(add-frees-method [::any-var Name] [t] {})
-(add-frees-method [::any-var TypeOf] [t] {})
+(defmethod frees [::any-var TCError] [t] {})
+(defmethod frees [::any-var B] [t] {})
+(defmethod frees [::any-var CountRange] [t] {})
+(defmethod frees [::any-var Value] [t] {})
+(defmethod frees [::any-var AnyValue] [t] {})
+(defmethod frees [::any-var Top] [t] {})
+(defmethod frees [::any-var Unchecked] [t] {})
+(defmethod frees [::any-var Name] [t] {})
+(defmethod frees [::any-var TypeOf] [t] {})
 
-(add-frees-method [::any-var DataType]
+(defmethod frees [::any-var DataType]
   [{varis :variances args :poly? :as t}]
   (assert (= (count args) (count varis)))
   (apply combine-frees (t/for [[arg va] :- '[t/Any r/Variance], (map (-> vector 
@@ -208,7 +206,7 @@
                            :invariant (let [fvs (frees arg)]
                                         (zipmap (keys fvs) (repeat :invariant)))))))
 
-(add-frees-method [::any-var App]
+(defmethod frees [::any-var App]
   [{:keys [rator rands]}]
   (apply combine-frees (mapv frees (cons rator rands))))
 
@@ -216,7 +214,7 @@
 
 ;FIXME flow error during checking
 (t/tc-ignore
-(add-frees-method [::any-var TApp]
+(defmethod frees [::any-var TApp]
   [{:keys [rator rands] :as tapp}]
   (apply combine-frees
          (let [tfn (loop [rator rator]
@@ -252,21 +250,21 @@
                  (map vector (:variances tfn) (map frees rands))))))
   )
 
-(add-frees-method [::any-var PrimitiveArray]
+(defmethod frees [::any-var PrimitiveArray]
   [{:keys [input-type output-type]}] 
   (combine-frees (flip-variances (frees input-type))
                  (frees output-type)))
 
-(add-frees-method [::any-var HeterogeneousMap]
+(defmethod frees [::any-var HeterogeneousMap]
   [{:keys [types optional]}]
   (apply combine-frees (mapv frees (concat (keys types) (vals types)
                                            (keys optional) (vals optional)))))
 
-(add-frees-method [::any-var JSObj]
+(defmethod frees [::any-var JSObj]
   [{:keys [types]}]
   (apply combine-frees (mapv frees (vals types))))
 
-(add-frees-method [::any-var HSequential]
+(defmethod frees [::any-var HSequential]
   [{:keys [types fs objects rest drest]}]
   (apply combine-frees (concat (mapv frees (concat types fs objects))
                                (when rest [(frees rest)])
@@ -274,15 +272,15 @@
                                  [(dissoc (-> (:pre-type drest) frees)
                                           (:name drest))]))))
 
-(add-frees-method [::any-var HSet]
+(defmethod frees [::any-var HSet]
   [{:keys [fixed]}]
   (mapv combine-frees fixed))
 
-(add-frees-method [::any-var Extends]
+(defmethod frees [::any-var Extends]
   [{:keys [extends without]}] 
   (apply combine-frees (mapv frees (concat extends without))))
 
-(add-frees-method [::frees AssocType]
+(defmethod frees [::frees AssocType]
   [{:keys [target entries dentries]}]
   (apply combine-frees (concat [(frees target)]
                                (mapv frees (apply concat entries))
@@ -290,7 +288,7 @@
                                  [(dissoc (-> (:pre-type dentries) frees)
                                           (:name dentries))]))))
 
-(add-frees-method [::idxs AssocType]
+(defmethod frees [::idxs AssocType]
   [{:keys [target entries dentries]}]
   (apply combine-frees (concat [(frees target)]
                                (mapv frees (apply concat entries))
@@ -300,28 +298,28 @@
                                     (frees pre-type)]))))
 
 ; are negative types covariant?
-(add-frees-method [::any-var NotType]
+(defmethod frees [::any-var NotType]
   [{:keys [type]}] 
   (frees type))
 
-(add-frees-method [::any-var Intersection]
+(defmethod frees [::any-var Intersection]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
 ; are negative types covariant?
-(add-frees-method [::any-var DifferenceType]
+(defmethod frees [::any-var DifferenceType]
   [{:keys [type without]}] 
   (apply combine-frees (frees type) (mapv frees without)))
 
-(add-frees-method [::any-var Union]
+(defmethod frees [::any-var Union]
   [{:keys [types]}]
   (apply combine-frees (mapv frees types)))
 
-(add-frees-method [::any-var FnIntersection]
+(defmethod frees [::any-var FnIntersection]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
-(add-frees-method [::frees Function]
+(defmethod frees [::frees Function]
   [{:keys [dom rng rest drest kws prest pdot]}]
   (apply combine-frees (concat (mapv (comp flip-variances frees)
                                      (concat dom
@@ -339,7 +337,7 @@
                                  [(dissoc (-> (:pre-type pdot) frees flip-variances)
                                           (:name pdot))]))))
 
-(add-frees-method [::idxs Function]
+(defmethod frees [::idxs Function]
   [{:keys [dom rng rest drest kws prest pdot]}]
   (apply combine-frees (concat (mapv #(-> % frees flip-variances)
                                      (concat dom
@@ -365,7 +363,7 @@
 
 
 (t/tc-ignore
-(add-frees-method [::any-var RClass]
+(defmethod frees [::any-var RClass]
   [t]
   (let [varis (:variances t)
         args (:poly? t)]
@@ -383,7 +381,7 @@
   )
 
 (t/tc-ignore
-(add-frees-method [::any-var Protocol]
+(defmethod frees [::any-var Protocol]
   [{varis :variances, args :poly?, :as t}]
   (assert (= (count args) (count varis)))
   (apply combine-frees (t/for
@@ -398,46 +396,46 @@
                                         (zipmap (keys fvs) (repeat :invariant)))))))
   )
 
-(add-frees-method [::any-var Scope]
+(defmethod frees [::any-var Scope]
   [{:keys [body]}]
   (frees body))
 
-(add-frees-method [::any-var Bounds]
+(defmethod frees [::any-var Bounds]
   [{:keys [upper-bound lower-bound]}]
   (combine-frees (frees upper-bound)
                  (frees lower-bound)))
 
 ;FIXME Type variable bounds should probably be checked for frees
-(add-frees-method [::any-var TypeFn]
+(defmethod frees [::any-var TypeFn]
   [{:keys [scope bbnds]}]
   (let [_ (assert (every? empty? (map frees bbnds))
                   "NYI Handle frees in bounds")]
     (frees scope)))
 
-(add-frees-method [::any-var Poly]
+(defmethod frees [::any-var Poly]
   [{:keys [scope bbnds]}]
   (let [_ (when-not (every? empty? (map frees bbnds))
             (err/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
-(add-frees-method [::any-var Mu]
+(defmethod frees [::any-var Mu]
   [{:keys [scope]}]
   (frees scope))
 
-(add-frees-method [::any-var PolyDots]
+(defmethod frees [::any-var PolyDots]
   [{:keys [scope bbnds]}]
   (let [_ (when-not (every? empty? (map frees bbnds))
             (err/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
 ;;js types
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSBoolean] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSObject] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSString] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSSymbol] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSNumber] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.CLJSInteger] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.ArrayCLJS] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.FunctionCLJS] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSUndefined] [t] {})
-(add-frees-method [::any-var clojure.core.typed.type_rep.JSNull] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSBoolean] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSObject] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSString] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSSymbol] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSNumber] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.CLJSInteger] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.ArrayCLJS] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.FunctionCLJS] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSUndefined] [t] {})
+(defmethod frees [::any-var clojure.core.typed.type_rep.JSNull] [t] {})
