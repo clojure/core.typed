@@ -1,6 +1,5 @@
 (ns clojure.core.typed.abo
   (:require [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.fold-rep :as fold]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.contract-utils :as con]
@@ -138,10 +137,9 @@
          (every? symbol? arg-names)]
    :post [(r/Result? %)]}
   ;(prn "abstract result" result arg-names)
-  (u/p :check/abstract-result
   (let [keys (range (count arg-names))]
     (r/make-Result
       (abstract-type   arg-names keys (r/ret-t result))
       (abstract-filter arg-names keys (r/ret-f result))
       (abstract-object arg-names keys (r/ret-o result))
-      (abstract-flow   arg-names keys (r/ret-flow result))))))
+      (abstract-flow   arg-names keys (r/ret-flow result)))))

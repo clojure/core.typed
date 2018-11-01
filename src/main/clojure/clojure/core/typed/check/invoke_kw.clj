@@ -21,7 +21,6 @@
          ((some-fn nil? r/TCResult?) expected-ret)
          ((some-fn nil? map?) expr)]
    :post [(r/TCResult? %)]}
-  (u/p :check/invoke-keyword
   (let [targett (c/-resolve (r/ret-t target-ret))
         kwt (r/ret-t kw-ret)
         defaultt (or (when default-ret
@@ -62,4 +61,4 @@
             expected-ret)))
 
       :else (err/int-error (str "keyword-invoke only supports keyword lookup, no default. Found " 
-                              (prs/unparse-type kwt)))))))
+                              (prs/unparse-type kwt))))))

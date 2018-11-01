@@ -1,8 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.cs-gen
-  (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.type-rep :as r]
@@ -67,24 +65,11 @@
 
 (t/ann subtype? [r/AnyType r/AnyType -> Boolean])
 (defn ^:private subtype? [s t]
-  (u/p :cs-gen/subtype-via-csgen
-    #_(spit "subtype-cache.dump" 
-          (str (prn-str "FROM CSGEN"))
-          :append true)
-  (clojure.core.typed.subtype/subtype? s t)))
+  (sub/subtype? s t))
 
 (t/ann fail! [t/Any t/Any -> t/Nothing])
 (defn fail! [s t]
-;  (try (throw (Exception. ""))
-;       (catch Exception e 
-;         (prn "csgen fail!:")
-;         (prn (when (r/Type? s)
-;                (prs/unparse-type s))
-;              (when (r/Type? t)
-;                (prs/unparse-type t)))
-;         (binding [*err* *out*] (clojure.repl/pst e 40))))
-(p/p :cs-gen/fail!
-  (throw u/cs-gen-exn)))
+  (throw u/cs-gen-exn))
 
 (defmacro handle-failure [& body]
   `(u/handle-cs-gen-failure ~@body))
@@ -128,7 +113,6 @@
   {:pre [(cr/cset? x)
          (cr/cset? y)]
    :post [(cr/cset? %)]}
-  (u/p :cs-gen/cset-meet
   (let [maps (filter (t/inst identity (t/U false cset-entry))
                      (doall (t/for
                               [{map1 :fixed dmap1 :dmap} :- cset-entry, maps1
@@ -140,16 +124,15 @@
                                   (dmap-meet dmap1 dmap2))))))]
     (when (empty? maps)
       (fail! maps1 maps2))
-    (cr/cset-maker maps))))
+    (cr/cset-maker maps)))
 
 (t/ann cset-meet* [(t/U nil (t/Seqable cset)) -> cset])
 (defn cset-meet* [args]
   {:pre [(every? cr/cset? args)]
    :post [(cr/cset? %)]}
-  (u/p :cs-gen/cset-meet*
   (reduce cset-meet
           (cr/cset-maker [(cr/cset-entry-maker {} (cr/dmap-maker {}))])
-          args)))
+          args))
 
 (t/ann cset-combine [(t/U nil (t/Seqable cset)) -> cset])
 (defn cset-combine [l]
@@ -185,7 +168,6 @@
   {:pre [(cr/dcon-c? dc1)
          (cr/dcon-c? dc2)]
    :post [(cr/dcon-c? %)]}
-  (u/p :cs-gen/dcon-meet
   (cond
     (and (cr/dcon-exact? dc1)
          (or (cr/dcon? dc2) 
@@ -339,7 +321,7 @@
             (c-meet c1 c2 (:X c1))))
         merged-repeat))
 
-    :else (err/nyi-error (str "NYI dcon-meet " dc1 dc2)))))
+    :else (err/nyi-error (str "NYI dcon-meet " dc1 dc2))))
 
 (t/ann dmap-meet [dmap dmap -> dmap])
 (defn dmap-meet [dm1 dm2]
@@ -390,8 +372,7 @@
          (r/AnyType? T)]
    :post [(cr/cset? %)]}
   ;(prn "cs-gen" S T)
-  (u/p :cs-gen/cs-gen
-  (if (or (u/p :cs-gen/cs-gen-current-seen-lookup (*cs-current-seen* [S T]) )
+  (if (or (*cs-current-seen* [S T])
           (subtype? S T))
     ;already been around this loop, is a subtype
     (cr/empty-cset X Y)
@@ -413,7 +394,6 @@
         (and (r/Value? S)
              (impl/checking-clojure?))
         (let [^Value S S]
-          (u/p :cs-gen/Value-on-left
           (impl/impl-case
             :clojure (if (nil? (.val S))
                        (fail! S T)
@@ -432,7 +412,7 @@
                     (con/boolean? (.val S)) (cs-gen V X Y (r/JSBoolean-maker) T)
                     (symbol? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Symbol) T)
                     (keyword? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Keyword) T)
-                    :else (fail! S T)))))
+                    :else (fail! S T))))
 
         (r/Name? S)
         (cs-gen V X Y (c/resolve-Name S) T)
@@ -894,7 +874,7 @@
         :else
         (do (when-not (subtype? S T) 
               (fail! S T))
-            (cr/empty-cset X Y)))))))
+            (cr/empty-cset X Y))))))
 
 (declare var-store-take move-vars-to-dmap)
 
@@ -1022,7 +1002,6 @@
          (fr/Filter? s)
          (fr/Filter? t)]
    :post [(cr/cset? %)]}
-  (u/p :cs-gen/cs-gen-filter
   (cond
     (= s t) (cr/empty-cset X Y)
     (fr/TopFilter? t) (cr/empty-cset X Y)
@@ -1048,7 +1027,7 @@
 ;         (= 1 (count (filter fr/TypeFilter? (:fs s)))))
 ;    (let [tf (first (filter fr/TypeFilter? (:fs s)))]
 ;      (cs-gen-filter V X Y tf t))
-    :else (fail! s t))))
+    :else (fail! s t)))
 
 ;must be *latent* flow sets
 (t/ann cs-gen-flow-set [NoMentions ConstrainVars ConstrainVars FlowSet FlowSet
@@ -1197,7 +1176,7 @@
   [V X Y S T]
   {:pre [(r/RClass? S)
          (r/RClass? T)]}
-  (let [rsupers (u/p :cs-gen*/cs-gen*-RClass-RClass-inner-RClass-supers (c/RClass-supers* S))
+  (let [rsupers (c/RClass-supers* S)
         relevant-S (some #(when (r/RClass? %)
                             (and (= (:the-class %) (:the-class T))
                                  %))
@@ -1675,19 +1654,17 @@
          (r/Function? T)]
    :post [(cr/cset? %)]}
   ;(prn "cs-gen-Function" (prs/unparse-type S) (prs/unparse-type T))
-  (u/p :cs-gen/cs-gen-Function
   (letfn> [cg :- [r/AnyType r/AnyType -> cset]
            (cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws, prest
       (not-any? (some-fn :rest :drest :kws :prest) [S T])
       ; contravariant
-      (u/p :cs-gen/cs-gen-Function-easy-case
       (let [;_ (prn "easy case")
             ]
         (cset-meet* [(cs-gen-list V X Y (:dom T) (:dom S))
                      ; covariant
-                     (cg (:rng S) (:rng T))])))
+                     (cg (:rng S) (:rng T))]))
 
       ;just a rest arg, no drest, no keywords, no prest
       (and (some-fn :rest [S T])
@@ -1736,7 +1713,7 @@
       (cs-gen-Function-dots-<-star cg V X Y S T)
 
       :else 
-      (err/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
+      (err/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T))))))
 
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries
@@ -1749,7 +1726,6 @@
          (r/AnyType? R)
          (every? r/Type? T)]
    :post [((some-fn nil? cr/substitution-c?) %)]}
-  (u/p :cs-gen/subst-gen
   (let [var-hash (apply frees/combine-frees
                         (frees/fv-variances R)
                         (mapv frees/fv-variances T))
@@ -1914,7 +1890,7 @@
                                         (and entry (cr/t-subst? entry))))
                                     (frees/fv R)))
                           (extend-idxs subst))]
-          r))))))
+          r)))))
 
 ;; V : a set of variables not to mention in the constraints
 ;; X : the set of type variables to be constrained mapped to their bounds
@@ -1939,10 +1915,8 @@
 ;       V X Y
 ;       (map prs/unparse-type S)
 ;       (map prs/unparse-type T))
-  (u/p :cs-gen/cs-gen-list
   (when-not (= (count S) (count T))
     (fail! S T))
-  (u/p :cs-gen/cs-gen-list-meet-csets
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids
@@ -1950,7 +1924,6 @@
     (cons
       (cr/empty-cset X Y)
       (let [vector' (t/inst vector t/Any r/Type r/Type)]
-        (u/p :cs-gen/cs-gen-list-gen-csets
         (doall 
           (t/for [[s t] :- '[r/Type r/Type], (map vector' S T)] 
             :- cset
@@ -1969,7 +1942,7 @@
               ;(prn "meet:")
               ;(clojure.pprint/pprint m)
               ;(flush)
-              m))))))))))
+              m)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Infer
@@ -1998,7 +1971,6 @@
    :post [(cr/substitution-c? %)]}
 ;  (prn "infer-dots")
 ;  (prn "must-vars" must-vars)
-  (u/p :cs-gen/infer-dots
   (let [[short-S rest-S] (split-at (count T) S)
 ;        _ (prn "short-S" (map prs/unparse-type short-S))
 ;        _ (prn "T" (map prs/unparse-type T))
@@ -2027,7 +1999,7 @@
         ;_ (prn "cs" cs)
         ]
     ;; FIXME pass variances via :T
-    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
+    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
 
 (declare infer)
 
@@ -2056,7 +2028,6 @@
          ((some-fn nil? r/Type?) expected)]
    :post [(cr/substitution-c? %)]}
   ;(prn "infer-pdot")
-  (u/p :cs-gen/infer-pdot
   (let [[short-S rest-S] (split-at (count T) S)
         _ (when-not (zero? (rem (- (count S) (count T))
                                 (-> T-dotted :types count)))
@@ -2096,7 +2067,7 @@
         ;_ (prn "cs" cs)
         ]
     ;; FIXME pass variances via :T
-    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
+    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
 
 ;; like infer-vararg, but T-var is the prest type:
 (t/ann infer-prest
@@ -2121,14 +2092,13 @@
            "T" T "\n"
            "T-var" T-var "\n"
            )
-  (u/p :cs-gen/infer-prest
   (and (>= (count S) (count T))
        (let [[short-S rest-S] (split-at (count T) S)
              ; wrap rest-S into HeterogeneousVector, this is semantic meaning of <*
              new-rest-S (r/-hvec (vec rest-S))
              new-S (concat short-S [new-rest-S])
              new-T (concat T [T-var])]
-         (infer X Y new-S new-T R expected)))))
+         (infer X Y new-S new-T R expected))))
 
 ;; like infer, but T-var is the vararg type:
 (t/ann infer-vararg
@@ -2152,7 +2122,6 @@
     :post [(or (nil? %)
                (cr/substitution-c? %))]}
    ;(prn "infer-vararg" "X:" X)
-   (u/p :cs-gen/infer-vararg
    (let [new-T (if T-var
                  ;Pad out T
                  (concat T (repeat (- (count S) (count T)) T-var))
@@ -2162,7 +2131,7 @@
      ;    (prn "R" (unparse-type R))
      ;    (prn "expected" (class expected) (when expected (unparse-type expected)))
      (and (>= (count S) (count T))
-          (infer X Y S new-T R expected))))))
+          (infer X Y S new-T R expected)))))
 
 ;; X : variables to infer mapped to their bounds
 ;; Y : indices to infer mapped to their bounds
@@ -2200,21 +2169,17 @@
    ;    (prn "R:" (class R) (prs/unparse-type R)))
    ;  (when expected
    ;    (prn "expected:" (class expected) (prs/unparse-type expected)))
-   (u/p :cs-gen/infer
    (let [;_ (prn "before expected cset" R expected)
          expected-cset (if expected
                          (cs-gen #{} X Y R expected)
                          (cr/empty-cset {} {}))
          ;_ (prn "expected cset" expected-cset)
-         cs (u/p :cs-gen/infer-inner-csgen
-              (cs-gen-list #{} X Y S T :expected-cset expected-cset))
-         cs* (u/p :cs-gen/infer-inner-cset-meet
-               (cset-meet cs expected-cset))]
+         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
+         cs* (cset-meet cs expected-cset)]
      ;(prn "final cs" cs*)
      (if R
-       (u/p :cs-gen/infer-inner-subst-gen
-         (subst-gen cs* (set (keys Y)) R :T T))
-       true)))))
+       (subst-gen cs* (set (keys Y)) R :T T)
+       true))))
 
 (ind-u/add-indirection ind/infer infer)
 

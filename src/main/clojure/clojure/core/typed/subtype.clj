@@ -1,11 +1,9 @@
 (ns ^:skip-wiki clojure.core.typed.subtype
-  (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-protocols :as tp]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.profiling :refer [defn]]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]
@@ -92,15 +90,12 @@
 (defn subtype? [s t]
   {:post [(con/boolean? %)]}
   (letfn [(do-subtype []
-            (u/p :subtype/subtype?
-               (boolean
-                 (handle-failure
-                   (subtype s t)))))]
-    (if-let [[_ res] (u/p :subtype-cache-lookup (find @subtype-cache [s t]))]
-      (u/p :subtype-cache-hit 
-       res)
-      (let [_ (u/p :subtype-cache-miss)
-            res (do-subtype)]
+            (boolean
+              (handle-failure
+                (subtype s t))))]
+    (if-let [[_ res] (find @subtype-cache [s t])]
+      res
+      (let [res (do-subtype)]
         (when-not (currently-subtyping?)
           (swap! subtype-cache assoc [s t] res))
         res))))
@@ -117,10 +112,9 @@
 ;[(Map Symbol Bounds) (Map Symbol Bounds) (t/Seqable Type) (t/Seqable Type)
 ;  -> Boolean]
 (defn unify [X Y S T R]
-  (u/p :subtype/unify
-   (boolean 
-     (u/handle-cs-gen-failure
-       (ind/infer X Y S T R)))))
+  (boolean 
+    (u/handle-cs-gen-failure
+      (ind/infer X Y S T R))))
 
 (declare protocol-extenders subtype-TypeFn-rands?
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
@@ -151,8 +145,7 @@
          (r/AnyType? t)]
    :post [(set? %)]}
   ;(prn "subtypeA*" s t)
-  (if (or (u/p :subtype/query-current-seen
-            (contains? A [s t]))
+  (if (or (contains? A [s t])
           (= s t)
           ; FIXME TypeFn's probably are not between Top/Bottom
           (r/Top? t)
@@ -163,7 +156,7 @@
           ;TCError is top and bottom
           (some r/TCError? [s t]))
     A
-    (binding [*sub-current-seen* (u/p :subtype/extend-current-seen (conj A [s t]))]
+    (binding [*sub-current-seen* (conj A [s t])]
       (cond
         (or (r/TCResult? s)
             (r/TCResult? t))
@@ -309,19 +302,15 @@
 
         (r/Union? s)
         ;use subtypeA*, throws error
-        (u/p :subtype-union-l
         (if (every? (fn union-left [s] (subtypeA* *sub-current-seen* s t)) (:types s))
           *sub-current-seen*
           (fail! s t))
-           )
 
         ;use subtypeA*?, boolean result
         (r/Union? t)
-        (u/p :subtype-union-r
         (if (some (fn union-right [t] (subtypeA*? *sub-current-seen* s t)) (:types t))
           *sub-current-seen*
           (fail! s t))
-           )
 
         (and (r/FnIntersection? s)
              (r/FnIntersection? t))
@@ -814,7 +803,7 @@
 
         (and (r/RClass? s)
              (r/RClass? t))
-        (u/p :subtype/RClass (subtype-RClass s t))
+        (subtype-RClass s t)
 
         (and (r/DataType? s)
              (r/RClass? t))
@@ -900,7 +889,6 @@
   (defn protocol-extenders [^Protocol p]
     {:pre [(r/Protocol? p)]
      :post [(every? r/Type? %)]}
-    (u/p :subtype/protocol-extenders
     (impl/impl-case
       :clojure (let [exts (c/Protocol-normal-extenders p)]
                  (for [ext exts]
@@ -913,7 +901,7 @@
                 (cond
                   (symbol? ext) (resolve-JS-reference ext)
                   (nil? ext) r/-nil
-                  :else (throw (Exception. (str "What is this?" ext))))))))))
+                  :else (throw (Exception. (str "What is this?" ext)))))))))
 
 ;[Type Type -> (IPersistentSet '[Type Type])]
 (defn- subtype [s t]
@@ -922,7 +910,7 @@
 ;  (if-let [hit (@subtype-cache (set [s t]))]
 ;    (do #_(prn "subtype hit")
 ;        hit)
-    (let [res (u/p :subtype-top-subtypeA* (subtypeA* *sub-current-seen* s t))]
+    (let [res (subtypeA* *sub-current-seen* s t)]
       ;(swap! subtype-cache assoc (set [s t]) res)
       res))
 
@@ -1399,7 +1387,6 @@
   [{:keys [the-class] :as dt}]
   {:pre [(r/DataType? dt)]}
   (impl/assert-clojure)
-  (u/p :subtype/datatype-ancestors
   (let [overidden-by (fn [sym o]
                        ;(prn "overriden by" sym (class o) o)
                        (cond
@@ -1434,7 +1421,7 @@
                                 (c/Protocol-with-unknown-params protocol-varsym)
                                 ;... or we make an RClass from the actual ancestor.
                                 (c/RClass-of-with-unknown-params sym))))))]
-    post-override)))
+    post-override))
 
 (defn ^:private subtype-rclass-protocol
   [s t]

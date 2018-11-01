@@ -8,13 +8,11 @@
             [clojure.repl :as repl]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.profiling :as profiling]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.java.io :as io]))
 
 (t/ann ^:no-check taoensso.timbre/logging-enabled? [t/Any -> t/Any])
-(t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 t/Any))
 (t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> t/Any])
 
 (t/ann subtype-exn Exception)
@@ -83,10 +81,9 @@
   (swap! next-sequence-number inc))
 
 (defn get-and-inc-id []
-  (profiling/p :utils/get-and-inc-id
   (let [id @next-sequence-number
         _ (inc-sequence-number)]
-    id)))
+    id))
 
 (def default-xor 1)
 
@@ -212,12 +209,10 @@
        ; (Atom1 (Map t/Any Number))
        (defn ~maker [~@fields & {meta# :meta :as opt#}]
          {:pre ~invariants}
-         (profiling/p ~(keyword "maker" (str name-sym))
-          (profiling/p ~(keyword "maker" (str name-sym "-meta-check"))
-           (let [extra# (set/difference (set (keys opt#)) #{:meta})]
-             (assert (empty? extra#) (str "Extra arguments:" extra#))))
-          ; ~@fields are in scope above
-          (~->ctor ~@fields nil meta#))))))
+         (let [extra# (set/difference (set (keys opt#)) #{:meta})]
+           (assert (empty? extra#) (str "Extra arguments:" extra#)))
+         ; ~@fields are in scope above
+         (~->ctor ~@fields nil meta#)))))
 
 (defmacro mk [original-ns def-kind name-sym fields invariants & {:keys [methods]}]
   (when-not (resolve name-sym)
@@ -256,8 +251,7 @@
   "Generates a macro called mm-name, which can be used instead
   of defmethod of the multimethod called mm-name.
   The generated macro adds a meaningful name to the local function
-  of the defmethod, and profiling information via timbre for each
-  defmethod.
+  of the defmethod.
   
   Usage: (add-mm-name-method check)
 
@@ -286,17 +280,7 @@
           ~~'params
           ;the pre/post condition map
           ~~'assertmap
-          ;the body, wrapped in a profiling macro
-          (u/p ~(keyword (str '~mm-name) (str ~'disp-string))
-               (trace '~(symbol (str '~mm-name) (str ~'disp-string)))
-               ~@~'body)))))
-
-;; Aliases for profiling stuff
-(defmacro p [& args]
-  `(profiling/p ~@args))
-
-(defmacro profile [& args]
-  `(profiling/profile ~@args))
+          (do ~@~'body)))))
 
 (t/ann typed-ns-opts [t/Any -> t/Any])
 (defn typed-ns-opts [ns]

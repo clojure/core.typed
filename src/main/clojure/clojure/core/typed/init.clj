@@ -1,7 +1,5 @@
 (ns clojure.core.typed.init
-  (:require [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.profiling :as p]
-            [clojure.java.io :as io]))
+  (:require [clojure.core.typed.current-impl :as impl]))
 
 (defonce ^:private attempted-loading? (atom false))
 (defonce ^:private successfully-loaded? (atom false))

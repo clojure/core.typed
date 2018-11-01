@@ -3,7 +3,6 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.analyze-clj :as ana]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
@@ -345,25 +344,16 @@
 
 (defn method-nilable-param? [msym nparams n]
   {:post [(con/boolean? %)]}
-  (let [n (mtd-param-nil/nilable-param? msym nparams n)]
-    (if n
-      (u/p :check.method/has-nilable-param)
-      (u/p :check.method/no-nilable-param))
-    n))
+  (mtd-param-nil/nilable-param? msym nparams n))
 
 (defn method-nonnilable-return? [msym nparams]
   {:post [(con/boolean? %)]}
-  (let [n (mtd-ret-nil/nonnilable-return? msym nparams)]
-    (if n
-      (u/p :check.method/has-nonnilable-return)
-      (u/p :check.method/no-nonnilable-return))
-    n))
+  (mtd-ret-nil/nonnilable-return? msym nparams))
 
 ;[clojure.reflect.Method -> Type]
 (defn Method->Type [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(r/FnIntersection? %)]}
-  (p/p :check.method/inside-Method->Type)
   (let [msym (Method->symbol method)
         nparams (count parameter-types)]
     (r/make-FnIntersection (r/make-Function (mapv (fn [[n tsym]]
@@ -439,8 +429,7 @@
 
 (defn check-deps [nsym {:keys [check-ns] :as config}]
   (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
-    (let [deps (u/p :check/ns-immediate-deps 
-                    (ns-deps/typed-deps nsym))]
+    (let [deps (ns-deps/typed-deps nsym)]
       (checked-ns! nsym)
       ;check deps added with typed-deps
       (doseq [dep deps]
@@ -460,7 +449,6 @@
                  check-ns] :as config}]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
-   (u/p :check/check-ns-and-deps
    (let []
      (cond 
        (already-checked? nsym) (do
@@ -482,7 +470,7 @@
                                (not (ns-depsu/requires-tc? ns-form)) " (does not depend on clojure.core.typed)")))
                (flush))
              (let [start (. System (nanoTime))
-                   asts (u/p :check/gen-analysis (ast-for-ns nsym))
+                   asts (ast-for-ns nsym)
                    _ (println "Start checking" nsym)
                    _ (flush)
                    casts (check-asts asts)
@@ -492,7 +480,7 @@
                    _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
                    _ (flush)
                    ]
-         nil)))))))))
+         nil))))))))
 
 (defn find-updated-locals [env1 env2]
   {:pre [(map? env1)

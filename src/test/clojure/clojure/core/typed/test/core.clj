@@ -12,7 +12,6 @@
             [clojure.core.typed.unsafe]
             [clojure.core.typed.init]
             [clojure.core.typed.utils :as u :refer [expr-type]]
-            [clojure.core.typed.profiling :as p :refer [profile]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check :as chk]
@@ -5158,23 +5157,6 @@
                     (java.io.File. a)))))))))
 
 
-(deftest profile-inline-test
-  ;; should have :check/instance-call-clojure-lang-probably-inline 1
-  (is (profile :info :bar
-               (tc-e
-                 #(.getName (java.io.File. "a")))
-               true))
-  ;; should have :check/instance-call-clojure-lang-probably-inline
-  (is (profile :info :bar
-               (tc-e
-                 #(nil? nil))
-               true))
-  ;; has :check/static-call-clojure-lang-probably-inline
-  (is (profile :info :bar
-               (tc-e
-                 (zero? 0))
-               true)))
-
 ;; unclear what this is testing, but it's been fixed sometime after 0.2.11
 (deftest CTYP-80-test
   (is-tc-e (do (defalias SLiteral (U Sym (Option (Seqable SLiteral))))
@@ -5322,16 +5304,6 @@
                (impl/impl-case
                  :clojure 1
                  :cljs 2))))
-
-(deftest tc-e-perf-test
-  (is (profile :info :bar
-        (tc-e nil)))
-  (is (profile :info :bar
-        (cf nil)))
-  (is (binding [*ns* *ns*]
-        (profile :info :bar
-          (cf (ns foo (:require [clojure.core.typed :as t]))))))
-  (is (tc-e (ns foo) nil)))
 
 (deftest gradual-untyped-import-test
   (is (try

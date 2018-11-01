@@ -1,5 +1,5 @@
 (ns clojure.core.typed.update
-  (:refer-clojure :exclude [update defn])
+  (:refer-clojure :exclude [update])
   (:require [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.utils :as u]
@@ -16,8 +16,6 @@
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.profiling :as p :refer [defn]]
-            [clojure.core.typed.debug :refer [dbg]]
             [clojure.set :as set]
             [clojure.core.typed.remove :as remove])
   (:import (clojure.lang IPersistentMap Keyword)))
@@ -138,7 +136,6 @@
          (con/boolean? pos?)
          (pr/path-elems? lo)]
    :post [(r/Type? %)]}
-  (u/p :check/update
   (let [t (c/fully-resolve-type t)]
     (cond
       ; The easy cases: we have a filter without a further path to travel down.
@@ -388,7 +385,7 @@
                  :else r/-nothing)
                pos? (next lo))
 
-      :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (mapv prs/unparse-path-elem lo)))))))
+      :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (mapv prs/unparse-path-elem lo))))))
 
 (defn update [t lo]
   {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]

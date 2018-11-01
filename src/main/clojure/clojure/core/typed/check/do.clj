@@ -1,7 +1,6 @@
 (ns clojure.core.typed.check.do
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
@@ -66,7 +65,6 @@
                                    (update/env+ env [flow] reachable-atom))
                             _ (u/trace-when-let
                                 [ls (seq (cu/find-updated-locals (:l env) (:l nenv)))]
-                                (p/p :check.do/updated-exceptional-control-flow)
                                 (str "Updated local in exceptional control flow (do): " ls))
                             ;_ (prn nenv)
                             ]

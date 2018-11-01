@@ -54,8 +54,6 @@
                      (:op method))
     ; is there a better :op check here?
     :cljs (assert method))
-  #_(prn "checking syntax:" (ast-u/emit-form-fn method))
-  (u/p :check/check-fn-method1
   (let [ignore-rng (or ignore-rng
                        (r/infer-any? (-> expected :rng :t)))
         ;_ (prn "ignore-rng" ignore-rng)
@@ -128,7 +126,6 @@
         ; if this fn method is a multimethod dispatch method, then infer
         ; a new filter that results from being dispatched "here"
         mm-filter (when-let [{:keys [dispatch-fn-type dispatch-val-ret]} multi-u/*current-mm*]
-                    (u/p :check/check-fn-method1-inner-mm-filter-calc
                     (assert (and dispatch-fn-type dispatch-val-ret))
                     (assert (not (or drest rest rest-param)))
                     (let [disp-app-ret (funapp/check-funapp nil nil 
@@ -142,7 +139,7 @@
                           isa-ret (isa/tc-isa? disp-app-ret dispatch-val-ret nil)
                           then-filter (-> isa-ret r/ret-f :then)
                           _ (assert then-filter)]
-                      then-filter)))
+                      then-filter))
         ;_ (prn "^^^ mm-filter" multi-u/*current-mm*)
 
         ;_ (prn "funapp1: inferred mm-filter" mm-filter)
@@ -166,7 +163,6 @@
         _ (assert check-fn-method1-checkfn "No check-fn bound for method1")
         ; rng before adding new filters
         crng-nopass
-        (u/p :check/check-fn-method1-chk-rng-pass1
         (binding [multi-u/*current-mm* nil]
           (var-env/with-lexical-env env
             (let [rec (or ; if there's a custom recur behaviour, use the provided
@@ -200,16 +196,15 @@
                                                             (:env method))})
                                     ana/run-passes))
                              body)]
-                  (check-fn-method1-checkfn body expected-rng)))))))
+                  (check-fn-method1-checkfn body expected-rng))))))
 
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
 
-        then-env (u/p :check/check-fn-method1-env+-rng
-                      (let [{:keys [then]} (-> crng-nopass u/expr-type r/ret-f)]
-                        (if (fl/NoFilter? then)
-                          env
-                          (update/env+ env [then] (atom true)))))
+        then-env (let [{:keys [then]} (-> crng-nopass u/expr-type r/ret-f)]
+                   (if (fl/NoFilter? then)
+                     env
+                     (update/env+ env [then] (atom true))))
         new-then-props (reduce (fn [fs [sym t]]
                                  {:pre [((con/set-c? fl/Filter?) fs)]}
                                  (if (= t (get-in env [:l sym]))
@@ -220,10 +215,9 @@
                                #{}
                                (:l then-env))
 
-        crng (u/p :check/check-fn-method1-add-rng-filters
-               (update-in crng-nopass [u/expr-type :fl :then] 
-                          (fn [f]
-                            (apply fo/-and f new-then-props))))
+        crng (update-in crng-nopass [u/expr-type :fl :then]
+                        (fn [f]
+                          (apply fo/-and f new-then-props)))
         ;_ (prn "crng" (u/expr-type crng))
         rest-param-name (when rest-param
                           (:name rest-param))
@@ -250,4 +244,4 @@
         _ (assert (vector? (:params cmethod)))
         _ (assert (every? (comp r/TCResult? u/expr-type) (:params cmethod)))]
      {:ftype ftype
-      :cmethod cmethod})))
+      :cmethod cmethod}))

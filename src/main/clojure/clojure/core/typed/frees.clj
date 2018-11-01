@@ -114,8 +114,7 @@
 (t/ann frees-in [r/AnyType -> VarianceMap])
 (defn frees-in [t]
   {:post [(variance-map? %)]}
-  (u/p :frees/frees-in
-  (frees t)))
+  (frees t))
 
 (t/ann frees [t/Any -> VarianceMap])
 (defmulti ^:private frees (fn [t] [*frees-mode* (class t)]))
@@ -442,7 +441,3 @@
 (add-frees-method [::any-var clojure.core.typed.type_rep.FunctionCLJS] [t] {})
 (add-frees-method [::any-var clojure.core.typed.type_rep.JSUndefined] [t] {})
 (add-frees-method [::any-var clojure.core.typed.type_rep.JSNull] [t] {})
-
-(comment
-(u/profile :info :foo (t/check-ns))
-  )

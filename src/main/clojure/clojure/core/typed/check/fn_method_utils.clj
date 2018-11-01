@@ -28,7 +28,6 @@
 (defn FnResult->Function [{:keys [args kws rest drest prest pdot body] :as fres}]
   {:pre [(FnResult? fres)]
    :post [(r/Function? %)]}
-  (u/p :check/FnResult->Function
   (let [; names of formal parameters to abstract from result type
         rest-param-name (or (first rest)
                             (first drest)
@@ -50,4 +49,4 @@
       (when prest
         (second prest))
       (when pdot
-        (second pdot))))))
+        (second pdot)))))

@@ -1,9 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.filter-ops
-  (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.type-rep :as r] 
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.profiling :refer [defn] :as p]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
@@ -282,19 +280,17 @@
   (letfn [(mk [& fs]
             {:pre [(every? fr/Filter? fs)]
              :post [(fr/Filter? %)]}
-            (p/p :filter-ops/-or-mk
             (cond
               (empty? fs) fr/-bot
               (= 1 (count fs)) (first fs)
-              :else (fr/OrFilter-maker (set fs)))))
+              :else (fr/OrFilter-maker (set fs))))
           (distribute [args]
-            (p/p :filter-ops/-or-distribute
             (let [{ands true others false} (group-by fr/AndFilter? args)]
               (if (empty? ands)
                 (apply mk others)
                 (let [{elems :fs} (first ands)] ;an AndFilter
                   (apply -and (for [a elems]
-                                (apply -or a (concat (next ands) others)))))))))]
+                                (apply -or a (concat (next ands) others))))))))]
     (loop [fs args
            result nil]
       (assert (every? fr/Filter? fs))
@@ -382,7 +378,6 @@
           :else
            ;; first, remove anything implied by the atomic propositions
            ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
-           (p/p :filter-ops/-and-base-case
           (let [{atomic true not-atomic false} (group-by atomic-filter? result)
                 ;_ (prn "not-atomic" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic))
                 not-atomic* (for [p not-atomic
@@ -390,7 +385,7 @@
                               p)]
             ;(prn "not-atomic*" not-atomic*)
              ;; `compact' takes care of implications between atomic props
-            (apply mk (compact (concat not-atomic* atomic) false)))))
+            (apply mk (compact (concat not-atomic* atomic) false))))
         (let [ffs (first fs)]
           (cond
             (fr/BotFilter? ffs) ffs

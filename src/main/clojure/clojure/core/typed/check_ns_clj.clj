@@ -11,10 +11,12 @@
   - :collect-only    Don't type check the given namespace/s, but collect the 
                      top level type annotations like ann, ann-record.
   - :type-provided?  If true, use the expected type to check the form
-  - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
-                     of (Map '{:line Int :column Int :file Str} Str)."
+                     of (Map '{:line Int :column Int :file Str} Str).
+  
+  Deprecated:
+  - :profile         Use Timbre to profile the type checker. Timbre must be
+                     added as a dependency."
   [ns-or-syms opt] 
   (chk-ns/check-ns-info impl/clojure ns-or-syms opt))
 

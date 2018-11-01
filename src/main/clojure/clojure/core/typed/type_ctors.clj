@@ -1,12 +1,11 @@
 (ns ^:skip-wiki clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed.utils :as u :refer [p]]
+  (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
             clojure.core.typed.coerce-ann
             [clojure.core.typed.impl-protocols :as p]
-            [clojure.core.typed.profiling :as profile]
             [clojure.core.typed.type-rep :as r :refer [ret-t]]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.object-rep :as or]
@@ -287,49 +286,43 @@
 (defn Un [& types]
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
-  ;(prn "Un" (map ind/unparse-type types))
-  (if-let [hit (p :Union-cache-lookup (get @Un-cache (p :Union-calc-hash (set types))))]
-    (do (p :Un-cache-hit)
-        hit)
-  (p :type-ctors/Un-ctor
-  (let [_ (p :Un-cache-miss)
-        res (let []
-              (letfn [;; a is a Type (not a union type)
-                      ;; b is a Set[Type] (non overlapping, non Union-types)
-                      ;; The output is a non overlapping list of non Union types.
-                      (merge-type [a b]
-                        {:pre [(set? b)
-                               (do (assert (r/Type? a) a)
-                                   true)
-                               (not (r/Union? a))]
-                         :post [(set? %)]}
-                        #_(prn "merge-type" a b)
-                        (let [b* (make-Union b)
-                              ;_ (prn "merge-type" a b*)
-                              res (cond
-                                    ; don't resolve type applications in case types aren't
-                                    ; fully defined yet
-                                    ; TODO basic error checking, eg. number of params
-                                    (some (some-fn r/Name? r/TApp?) (conj b a)) (conj b a)
-                                    (@subtype? a b*) b
-                                    (@subtype? b* a) #{a}
-                                    :else (set (cons a 
-                                                     (remove #(@subtype? % a) b))))]
-                          ;(prn "res" res)
-                          res))]
-                (let [types (set types)]
-                  (cond
-                    (empty? types) r/empty-union
-                    (= 1 (count types)) (first types)
-                    :else 
-                    (p :Un-merge-type 
-                       (make-Union
-                         (reduce (fn [acc t] (p :Un-merge-type-inner (merge-type t acc)))
-                                 #{}
-                                 (p :Un-flatten-unions 
-                                    (set (flatten-unions types))))))))))]
-    (swap! Un-cache assoc (set types) res)
-    res))))
+  (if-let [hit (get @Un-cache (set types))]
+    hit
+    (let [res (let []
+                (letfn [;; a is a Type (not a union type)
+                        ;; b is a Set[Type] (non overlapping, non Union-types)
+                        ;; The output is a non overlapping list of non Union types.
+                        (merge-type [a b]
+                          {:pre [(set? b)
+                                 (do (assert (r/Type? a) a)
+                                     true)
+                                 (not (r/Union? a))]
+                           :post [(set? %)]}
+                          #_(prn "merge-type" a b)
+                          (let [b* (make-Union b)
+                                ;_ (prn "merge-type" a b*)
+                                res (cond
+                                      ; don't resolve type applications in case types aren't
+                                      ; fully defined yet
+                                      ; TODO basic error checking, eg. number of params
+                                      (some (some-fn r/Name? r/TApp?) (conj b a)) (conj b a)
+                                      (@subtype? a b*) b
+                                      (@subtype? b* a) #{a}
+                                      :else (set (cons a 
+                                                       (remove #(@subtype? % a) b))))]
+                            ;(prn "res" res)
+                            res))]
+                  (let [types (set types)]
+                    (cond
+                      (empty? types) r/empty-union
+                      (= 1 (count types)) (first types)
+                      :else 
+                      (make-Union
+                        (reduce (fn [acc t] (merge-type t acc))
+                                #{}
+                                (set (flatten-unions types))))))))]
+      (swap! Un-cache assoc (set types) res)
+      res)))
 
 ;; Intersections
 
@@ -392,49 +385,43 @@
          #_(not (r/Union? t1))
          #_(not (r/Union? t2))]
    :post [(r/Type? %)]}
-  (let []
-    ;(prn "intersect" (map ind/unparse-type [t1 t2]))
-    (if-let [hit (@intersect-cache (set [t1 t2]))]
-      (do
-        ;(prn "intersect hit" (ind/unparse-type hit))
-        (p :intersect-cache-hit)
-        hit)
-      (let [_ (p :intersect-cache-miss)
-            t (cond
-                ; Unchecked is "sticky" even though it's a subtype/supertype
-                ; of everything
-                (or (and (r/Unchecked? t1) (not (r/Unchecked? t2)))
-                    (and (not (r/Unchecked? t1)) (r/Unchecked? t2)))
-                (make-Intersection [t1 t2])
+  (if-let [hit (@intersect-cache (set [t1 t2]))]
+    hit
+    (let [t (cond
+              ; Unchecked is "sticky" even though it's a subtype/supertype
+              ; of everything
+              (or (and (r/Unchecked? t1) (not (r/Unchecked? t2)))
+                  (and (not (r/Unchecked? t1)) (r/Unchecked? t2)))
+              (make-Intersection [t1 t2])
 
-                (and (r/HeterogeneousMap? t1)
-                     (r/HeterogeneousMap? t2))
-                  (intersect-HMap t1 t2)
+              (and (r/HeterogeneousMap? t1)
+                   (r/HeterogeneousMap? t2))
+                (intersect-HMap t1 t2)
 
-                ;RClass's with the same base, intersect args pairwise
-                (and (r/RClass? t1)
-                     (r/RClass? t2)
-                     (= (:the-class t1) (:the-class t2)))
-                (let [args (doall (map intersect (:poly? t1) (:poly? t2)))]
-                  ; if a new arg is bottom when none of the old args are bottom,
-                  ; reduce type to bottom
-                  (if (some (fn [[new [old1 old2]]]
-                              (and (every? (complement #{(Un)}) [old1 old2])
-                                   (#{(Un)} new)))
-                            (map vector args (map vector (:poly? t1) (:poly? t2))))
-                    (Un)
-                    (RClass-of (:the-class t1) args)))
+              ;RClass's with the same base, intersect args pairwise
+              (and (r/RClass? t1)
+                   (r/RClass? t2)
+                   (= (:the-class t1) (:the-class t2)))
+              (let [args (doall (map intersect (:poly? t1) (:poly? t2)))]
+                ; if a new arg is bottom when none of the old args are bottom,
+                ; reduce type to bottom
+                (if (some (fn [[new [old1 old2]]]
+                            (and (every? (complement #{(Un)}) [old1 old2])
+                                 (#{(Un)} new)))
+                          (map vector args (map vector (:poly? t1) (:poly? t2))))
+                  (Un)
+                  (RClass-of (:the-class t1) args)))
 
-                (not (overlap t1 t2)) bottom
+              (not (overlap t1 t2)) bottom
 
-                (@subtype? t1 t2) t1
-                (@subtype? t2 t1) t2
-                :else (do
-                        #_(prn "failed to eliminate intersection" (make-Intersection [t1 t2]))
-                        (make-Intersection [t1 t2])))]
-        (swap! intersect-cache assoc (set [t1 t2]) t)
-        ;(prn "intersect miss" (ind/unparse-type t))
-        t))))
+              (@subtype? t1 t2) t1
+              (@subtype? t2 t1) t2
+              :else (do
+                      #_(prn "failed to eliminate intersection" (make-Intersection [t1 t2]))
+                      (make-Intersection [t1 t2])))]
+      (swap! intersect-cache assoc (set [t1 t2]) t)
+      ;(prn "intersect miss" (ind/unparse-type t))
+      t)))
 
 (t/ann ^:no-check flatten-intersections [(t/U nil (t/Seqable r/Type)) -> (t/Seqable r/Type)])
 (defn flatten-intersections [types]
@@ -466,51 +453,40 @@
 (defn In [& types]
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
-  ;(prn "In" types)
-;  (if-let [hit (@In-cache (set types))]
-;    (do #_(prn "In hit" hit)
-;        hit)
-  (p :type-ctors/In-ctor
-    (let [res (let [ts (set (flatten-intersections types))]
-                (cond
-                  ; empty intersection is Top
-                  (empty? ts) r/-any
+  (let [res (let [ts (set (flatten-intersections types))]
+              (cond
+                ; empty intersection is Top
+                (empty? ts) r/-any
 
-                  ; intersection containing Bottom is Bottom
-                  (contains? ts bottom) r/-nothing
+                ; intersection containing Bottom is Bottom
+                (contains? ts bottom) r/-nothing
 
-                  (= 1 (count ts)) (first ts)
+                (= 1 (count ts)) (first ts)
 
-                  ; normalise (I t1 t2 (t/U t3 t4))
-                  ; to (t/U (I t1 t2) (I t1 t2 t3) (t/U t1 t2 t4))
-                  :else (let [{unions true non-unions false} (group-by r/Union? ts)
-                              ;_ (prn "unions" (map ind/unparse-type unions))
-                              ;_ (prn "non-unions" (map ind/unparse-type non-unions))
-                              ;intersect all the non-unions to get a possibly-nil type
-                              intersect-non-unions 
-                              (p :intersect-in-In (when (seq non-unions)
-                                                    (reduce intersect non-unions)))
-                              ;if we have an intersection above, use it to update each
-                              ;member of the unions we're intersecting
-                              flat-unions (set (flatten-unions unions))
-                              intersect-union-ts (cond 
-                                                   intersect-non-unions
-                                                   (if (seq flat-unions)
-                                                     (reduce (fn [acc union-m]
-                                                               (conj acc (intersect intersect-non-unions union-m)))
-                                                             #{} flat-unions)
-                                                     #{intersect-non-unions})
+                ; normalise (I t1 t2 (t/U t3 t4))
+                ; to (t/U (I t1 t2) (I t1 t2 t3) (t/U t1 t2 t4))
+                :else (let [{unions true non-unions false} (group-by r/Union? ts)
+                            ;_ (prn "unions" (map ind/unparse-type unions))
+                            ;_ (prn "non-unions" (map ind/unparse-type non-unions))
+                            ;intersect all the non-unions to get a possibly-nil type
+                            intersect-non-unions (when (seq non-unions)
+                                                   (reduce intersect non-unions))
+                            ;if we have an intersection above, use it to update each
+                            ;member of the unions we're intersecting
+                            flat-unions (set (flatten-unions unions))
+                            intersect-union-ts (cond 
+                                                 intersect-non-unions
+                                                 (if (seq flat-unions)
+                                                   (reduce (fn [acc union-m]
+                                                             (conj acc (intersect intersect-non-unions union-m)))
+                                                           #{} flat-unions)
+                                                   #{intersect-non-unions})
 
-                                                   :else flat-unions)
-                              _ (assert (every? r/Type? intersect-union-ts)
-                                        intersect-union-ts)
-                              ;_ (prn "intersect-union-ts" (map ind/unparse-type intersect-union-ts))
-                              ]
-                          (apply Un intersect-union-ts))))]
-      ;(swap! In-cache assoc (set types) res)
-      #_(prn 'IN res (class res))
-      res))
-  )
+                                                 :else flat-unions)
+                            _ (assert (every? r/Type? intersect-union-ts)
+                                      intersect-union-ts)]
+                        (apply Un intersect-union-ts))))]
+    res))
 
 (declare TypeFn* instantiate-poly instantiate-typefn abstract-many instantiate-many)
 
@@ -742,41 +718,38 @@
    {:pre [((some-fn class? symbol?) sym-or-cls)
           (every? r/Type? args)]
     :post [((some-fn r/RClass? r/DataType?) %)]}
-   (u/p :ctors/RClass-of
    (let [sym (if (class? sym-or-cls)
                (coerce/Class->symbol sym-or-cls)
                sym-or-cls)
          cache-key-hash [(keyword sym) args]
          cache-hit (@RClass-of-cache cache-key-hash)]
      (if cache-hit
-       (u/p :ctors/RClass-of-cache-hit
-            cache-hit)
-       (u/p :ctors/RClass-of-cache-miss
-         (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
-                   sym)
-               _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
-               _ (when-not (or (r/TypeFn? rc) (empty? args))
-                   (err/int-error
-                     (str "Cannot instantiate non-polymorphic RClass " sym
-                          (when *current-RClass-super*
-                            (str " when checking supertypes of RClass " *current-RClass-super*)))))
-               res (cond 
-                     (r/TypeFn? rc) (instantiate-typefn rc args)
-                     ((some-fn r/DataType? r/RClass?) rc) rc
-                     :else
-                     (let [cls (coerce/symbol->Class sym)]
-                       (if (isa-DataType? cls)
-                         (do (println (str "WARNING: Assuming unannotated Clojure type " sym
-                                           " is a datatype"))
-                             (flush)
-                             (when (isa-Record? cls)
-                               (println (str "WARNING: " sym " is probably a record because it extends IRecord."
-                                             " Annotate with ann-record above the first time it is parsed"))
-                               (flush))
-                           (r/DataType-maker sym nil nil (array-map) (isa-Record? cls)))
-                         (r/RClass-maker nil nil sym))))]
-           (swap! RClass-of-cache assoc cache-key-hash res)
-           res)))))))
+       cache-hit
+       (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
+                 sym)
+             _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
+             _ (when-not (or (r/TypeFn? rc) (empty? args))
+                 (err/int-error
+                   (str "Cannot instantiate non-polymorphic RClass " sym
+                        (when *current-RClass-super*
+                          (str " when checking supertypes of RClass " *current-RClass-super*)))))
+             res (cond 
+                   (r/TypeFn? rc) (instantiate-typefn rc args)
+                   ((some-fn r/DataType? r/RClass?) rc) rc
+                   :else
+                   (let [cls (coerce/symbol->Class sym)]
+                     (if (isa-DataType? cls)
+                       (do (println (str "WARNING: Assuming unannotated Clojure type " sym
+                                         " is a datatype"))
+                           (flush)
+                           (when (isa-Record? cls)
+                             (println (str "WARNING: " sym " is probably a record because it extends IRecord."
+                                           " Annotate with ann-record above the first time it is parsed"))
+                             (flush))
+                         (r/DataType-maker sym nil nil (array-map) (isa-Record? cls)))
+                       (r/RClass-maker nil nil sym))))]
+         (swap! RClass-of-cache assoc cache-key-hash res)
+         res)))))
 
 (t/ann ^:no-check most-general-on-variance [(t/Seqable r/Variance) (t/Seqable Bounds) -> r/Type])
 (defn most-general-on-variance [variances bnds]
@@ -901,7 +874,6 @@
   {:pre [((some-fn r/Type? r/Scope?) target)
          (every? r/Type? ts)]
    :post [(r/Type? %)]}
-  (u/p :ctors/inst-and-subst
   (let [subst-all @(subst-all-var)
         ; these names are eliminated immediately, they don't need to be
         ; created with fresh-symbol
@@ -911,7 +883,7 @@
         t (instantiate-many names target)
         _ (assert (r/Type? t))
         subst (make-simple-substitution names ts)]
-    (subst-all subst t))))
+    (subst-all subst t)))
 
 (t/ann ^:no-check RClass-replacements* [RClass -> (t/Map t/Sym r/Type)])
 (let [rclass-replacements (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/rclass-replacements))]
@@ -947,58 +919,54 @@
   [{:keys [the-class] :as rcls}]
   {:pre [(r/RClass? rcls)]
    :post [((con/sorted-set-c? r/Type?) %)]}
-  (u/p :ctors/RClass-supers*
-  ;(prn "RClass-supers*" the-class (ind/unparse-type rcls))
   (let [cache-key rcls
         cache-hit (@supers-cache cache-key)]
     (if cache-hit
-      (u/p :ctors/RClass-supers-cache-hit
-       cache-hit)
-      (u/p :ctors/RClass-supers-cache-miss
-        (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
-              ;_ (prn "unchecked-ancestors" unchecked-ancestors)
-              replacements (RClass-replacements* rcls)
-              ;_ (prn "replacements" (map ind/unparse-type (vals replacements)))
-              ;set of symbols of Classes we haven't explicitly replaced
-              java-supers (set (map coerce/Class->symbol (-> the-class coerce/symbol->Class supers)))
-              replace-keys (set (keys replacements))
-              not-replaced (set/difference java-supers
-                                           replace-keys)
-              ;(prn "not-replaced" not-replaced)
-              bad-replacements (set/difference replace-keys
-                                               java-supers)
-              _ (when (seq bad-replacements)
-                  (err/int-error (str "Bad RClass replacements for " the-class ": " bad-replacements)))
-              res (r/sorted-type-set
-                    (set/union (binding [*current-RClass-super* the-class]
-                                 (let [rs (t/for [csym :- t/Sym, not-replaced] :- r/Type
-                                            (RClass-of-with-unknown-params
-                                              csym
-                                              :warn-msg (when (.contains (str the-class) "clojure.lang")
-                                                          (str "RClass ancestor for " the-class " defaulting "
-                                                               "to most general parameters"))))]
-                                   (apply set/union (set rs) (map (t/fn [r :- r/Type]
-                                                                    {:pre [(r/RClass? r)]}
-                                                                    (RClass-supers* r))
-                                                                  rs))))
-                               (set (vals replacements))
-                               #{(RClass-of Object)}
-                               unchecked-ancestors))]
-          ;(prn "supers" the-class res)
-          (when-not (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
-                        1)
-            (err/int-error 
-              (str "Found more than one function supertype for RClass " (ind/unparse-type rcls) ": \n"
-                   (mapv ind/unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
-                   "\nReplacements:" (into {} (map (t/fn [[k v] :- '[t/Any r/Type]] [k (ind/unparse-type v)])
-                                                   replacements))
-                   "\nNot replaced:" not-replaced
-                   (try (throw (Exception. ""))
-                        (catch Exception e
-                          (with-out-str (clojure.repl/pst e 40)))))))
-          (t/tc-ignore
-            (swap! supers-cache assoc cache-key res))
-          res))))))
+      cache-hit
+      (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
+            ;_ (prn "unchecked-ancestors" unchecked-ancestors)
+            replacements (RClass-replacements* rcls)
+            ;_ (prn "replacements" (map ind/unparse-type (vals replacements)))
+            ;set of symbols of Classes we haven't explicitly replaced
+            java-supers (set (map coerce/Class->symbol (-> the-class coerce/symbol->Class supers)))
+            replace-keys (set (keys replacements))
+            not-replaced (set/difference java-supers
+                                         replace-keys)
+            ;(prn "not-replaced" not-replaced)
+            bad-replacements (set/difference replace-keys
+                                             java-supers)
+            _ (when (seq bad-replacements)
+                (err/int-error (str "Bad RClass replacements for " the-class ": " bad-replacements)))
+            res (r/sorted-type-set
+                  (set/union (binding [*current-RClass-super* the-class]
+                               (let [rs (t/for [csym :- t/Sym, not-replaced] :- r/Type
+                                          (RClass-of-with-unknown-params
+                                            csym
+                                            :warn-msg (when (.contains (str the-class) "clojure.lang")
+                                                        (str "RClass ancestor for " the-class " defaulting "
+                                                             "to most general parameters"))))]
+                                 (apply set/union (set rs) (map (t/fn [r :- r/Type]
+                                                                  {:pre [(r/RClass? r)]}
+                                                                  (RClass-supers* r))
+                                                                rs))))
+                             (set (vals replacements))
+                             #{(RClass-of Object)}
+                             unchecked-ancestors))]
+        ;(prn "supers" the-class res)
+        (when-not (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
+                      1)
+          (err/int-error 
+            (str "Found more than one function supertype for RClass " (ind/unparse-type rcls) ": \n"
+                 (mapv ind/unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
+                 "\nReplacements:" (into {} (map (t/fn [[k v] :- '[t/Any r/Type]] [k (ind/unparse-type v)])
+                                                 replacements))
+                 "\nNot replaced:" not-replaced
+                 (try (throw (Exception. ""))
+                      (catch Exception e
+                        (with-out-str (clojure.repl/pst e 40)))))))
+        (t/tc-ignore
+          (swap! supers-cache assoc cache-key res))
+        res))))
 
 (t/ann ^:no-check DataType-fields* [DataType -> (t/Map t/Sym r/Type)])
 (defn DataType-fields* [^DataType dt]
@@ -1049,7 +1017,6 @@
   (defn TypeFn-body* [names typefn]
     {:pre [(every? symbol? names)
            (r/TypeFn? typefn)]}
-    (u/p :ctors/TypeFn-body*
     (assert (= (:nbound typefn) (count names)) "Wrong number of names")
     (let [bbnds (TypeFn-bbnds* names typefn)
           body (free-ops/with-bounded-frees
@@ -1069,7 +1036,7 @@
                                           "when declared " (name variance)
                                           ", in " (binding [*TypeFn-variance-check* false]
                                                     (ind/unparse-type typefn)))))))))]
-      body))))
+      body)))
 
 (t/ann ^:no-check TypeFn-bbnds* [(t/Seqable t/Sym) TypeFn -> (t/Seqable Bounds)])
 (defn TypeFn-bbnds* [names ^TypeFn typefn]
@@ -1162,12 +1129,11 @@
 (defn Poly-body* [names poly]
   {:pre [(every? symbol? names)
          (r/Poly? poly)]}
-  (u/p :ctors/Poly-body*
   (let [bbnds (Poly-bbnds* names poly)]
     (assert (= (:nbound poly) (count names)) "Wrong number of names")
     (free-ops/with-bounded-frees
       (zipmap (map r/make-F names) bbnds)
-      (instantiate-many names (:scope poly))))))
+      (instantiate-many names (:scope poly)))))
 
 ;; PolyDots
 
@@ -1333,7 +1299,6 @@
 (defn -resolve [ty]
   {:pre [(r/AnyType? ty)]
    :post [(r/AnyType? %)]}
-  (u/p :type-ctors/-resolve
   (cond 
     (r/Name? ty) (resolve-Name ty)
     (r/Mu? ty) (unfold ty)
@@ -1341,19 +1306,18 @@
     (r/TApp? ty) (resolve-TApp ty)
     (r/GetType? ty) (resolve-Get ty)
     (r/TypeOf? ty) (resolve-TypeOf ty)
-    :else ty)))
+    :else ty))
 
 (t/ann requires-resolving? [r/Type -> t/Any])
 (defn requires-resolving? [ty]
   {:pre [(r/AnyType? ty)]}
-  (u/p :ctors/requires-resolving?
   (or (r/Name? ty)
       (r/App? ty)
       (and (r/TApp? ty)
            (not (r/F? (fully-resolve-type (.rator ^TApp ty)))))
       (and (r/GetType? ty)
            (not (r/F? (fully-resolve-type (:target ty)))))
-      (r/Mu? ty))))
+      (r/Mu? ty)))
 
 (t/ann ^:no-check resolve-Name [Name -> r/Type])
 (defn resolve-Name [nme]
@@ -1372,7 +1336,7 @@
      (if (requires-resolving? t)
        (recur (-resolve t) seen)
        t)))
-  ([t] (u/p :ctors/fully-resolve-type (fully-resolve-type t #{}))))
+  ([t] (fully-resolve-type t #{})))
 
 (t/ann fully-resolve-non-rec-type 
        (t/IFn [r/Type -> r/Type]
@@ -2054,7 +2018,6 @@
          (or (r/Scope? sc)
              (empty? images))]
    :post [((some-fn r/Type? r/TypeFn?) %)]}
-  (u/p :ctors/instantiate-many
   (letfn [(replace 
             ([image count type] (replace image count type 0 type))
             ([image count type outer ty]
@@ -2081,7 +2044,7 @@
             (replace (first images) 0 ty)
             (recur (replace (first images) count ty)
                    (next images)
-                   (dec count)))))))))
+                   (dec count))))))))
 
 (t/ann abstract [t/Sym r/Type -> Scope])
 (defn abstract 
@@ -2332,19 +2295,13 @@
                            :else r/-any))
       (r/HeterogeneousMap? t) (let [pres ((:types t) k)
                                     opt  ((:optional t) k)]
-                                (when (complete-hmap? t)
-                                  (profile/p :check/find-val-has-complete))
-                                (profile/p :check/find-val-type-with-hmap)
                                 (cond
                                   ; normal case, we have the key declared present
-                                  pres (profile/p :check/find-val-type-with-hmap-present
-                                            pres)
+                                  pres pres
 
                                   ; absent key, default
                                   ((:absent-keys t) k)
                                   (do
-                                    (profile/p :check/find-val-type-with-hmap-absent)
-
                                     #_(tc-warning
                                         "Looking up key " (ind/unparse-type k) 
                                         " in heterogeneous map type " (ind/unparse-type t)
@@ -2352,18 +2309,15 @@
                                     default)
 
                                   ; if key is optional the result is the val or the default
-                                  opt (profile/p :check/find-val-type-with-hmap-with-optional
-                                           (Un opt default))
+                                  opt (Un opt default)
 
                                   ; if map is complete, entry must be missing
-                                  (complete-hmap? t) (profile/p :check/find-val-type-with-hmap-complete-therefore-missing
-                                                          default)
+                                  (complete-hmap? t) default
 
                                   :else
                                   (do #_(tc-warning "Looking up key " (ind/unparse-type k)
                                                     " in heterogeneous map type " (ind/unparse-type t)
                                                     " which does not declare the key absent ")
-                                      (profile/p :check/find-val-type-with-hmap-fall-through)
                                       r/-any)))
 
       (r/Record? t) (find-val-type (Record->HMap t) k default)
