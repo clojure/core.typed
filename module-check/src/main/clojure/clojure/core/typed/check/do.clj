@@ -26,7 +26,7 @@
 (defn check-do [check internal-special-form expr expected]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:statements %))]}
-  (u/enforce-do-folding expr spec/special-form)
+  (enforce-do-folding expr spec/special-form)
   (cond
     (internal-form? expr)
     (internal-special-form expr expected)
