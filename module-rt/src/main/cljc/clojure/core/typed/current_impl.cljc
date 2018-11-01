@@ -1,8 +1,7 @@
 ; untyped, clojure.core.typed depends on this namespace
 (ns ^:skip-wiki clojure.core.typed.current-impl
   #?(:cljs (:refer-clojure :exclude [-val]))
-  (:require #?(:clj [clojure.core.typed.profiling :as p])
-            [clojure.set :as set]
+  (:require [clojure.set :as set]
             [clojure.core.typed.env :as env]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.util-vars :as vs]))

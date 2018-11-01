@@ -3,7 +3,6 @@
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.tools.namespace.file :as ns-file]
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
@@ -14,12 +13,11 @@
   "Returns the namespace declaration for the file, or
   nil if not found"
   [file]
-  (p/p :ns-deps-utils/ns-form-for-file
-   (some-> (io/resource file)
-           (ns-file/read-file-ns-decl
-             (impl/impl-case
-               :clojure ns-parse/clj-read-opts
-               :cljs ns-parse/cljs-read-opts)))))
+  (some-> (io/resource file)
+          (ns-file/read-file-ns-decl
+            (impl/impl-case
+              :clojure ns-parse/clj-read-opts
+              :cljs ns-parse/cljs-read-opts))))
 
 (defn ns-form-for-ns
   "Returns the namespace declaration for the namespace, or
@@ -36,10 +34,9 @@
   [ns-form]
   {:pre [ns-form]
    :post [((con/set-c? symbol?) %)]}
-  (p/p :ns-deps-utils/ns-form-deps
-   (let [ndeps (ns-parse/deps-from-ns-decl ns-form)]
-     ;; tools.namespace can return nil here
-     (set ndeps))))
+  (let [ndeps (ns-parse/deps-from-ns-decl ns-form)]
+    ;; tools.namespace can return nil here
+    (set ndeps)))
 
 (defn deps-for-ns
   "Returns the dependencies for a namespace"

@@ -8,7 +8,6 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.filter-ops :as fo]
@@ -47,7 +46,6 @@
             _ (when cinit
                 ; now consider this var as checked
                 (var-env/add-checked-var-def vsym))]
-        (p/p :check/checked-def)
         (assoc expr
                :init cinit
                :meta cmeta
@@ -67,7 +65,6 @@
                      (str line ": ")) 
                    "Not checking" vsym "definition")
           (flush)
-          (p/p :check/def-not-checking-definition)
           (assoc expr
                  u/expr-type (below/maybe-check-below
                                (impl/impl-case
@@ -102,7 +99,6 @@
                 (var-env/add-checked-var-def vsym)
                 ; and add the inferred static type (might be Error)
                 (var-env/add-var-type vsym inferred))]
-        (p/p :check/checked-def)
         (assoc expr
                :init cinit
                :meta cmeta
@@ -123,11 +119,10 @@
   "To check a defmacro or declare, just assign it the most general
   Var type and ignore the body."
   [expr expected]
-  (p/p :check/ignored-typed-defmacro
-       (assoc expr
-              u/expr-type (below/maybe-check-below
-                            (r/ret (c/RClass-of Var [r/-nothing r/-any]))
-                            expected))))
+  (assoc expr
+         u/expr-type (below/maybe-check-below
+                       (r/ret (c/RClass-of Var [r/-nothing r/-any]))
+                       expected)))
 
 (defn check-def
   "Check a def. If it is a declare or a defmacro, don't try and check it."

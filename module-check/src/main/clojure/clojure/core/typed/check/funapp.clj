@@ -1,6 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.check.funapp
   (:require [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]
@@ -35,7 +34,6 @@
          (every? r/TCResult? arg-ret-types)
          ((some-fn nil? r/TCResult?) expected)]
    :post [(r/TCResult? %)]}
-  (u/p :check/check-funapp
   (let [fexpr-type (c/fully-resolve-type (r/ret-t fexpr-ret-type))
         arg-types (mapv r/ret-t arg-ret-types)]
     (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
@@ -193,14 +191,13 @@
 ;           (let [[{:keys [drest] :as ft} :as ts] (:types fexpr-type)]
 ;             (and (= 1 (count ts))
 ;                  (not drest))))
-;      (u/p :check/funapp-single-arity-nopoly-nodots
+;      ; check/funapp-single-arity-nopoly-nodots
 ;      (let [argtys arg-ret-types
 ;            {[t] :types} fexpr-type]
 ;        (funapp1/check-funapp1 fexpr args t argtys expected)))
 
       ;ordinary Function, multiple cases
       (r/FnIntersection? fexpr-type)
-      (u/p :check/funapp-nopoly-nodots
       (let [ftypes (:types fexpr-type)
             matching-fns (filter (fn [{:keys [dom rest kws prest] :as f}]
                                    {:pre [(r/Function? f)]}
@@ -212,7 +209,7 @@
                                (funapp1/check-funapp1 fexpr args f arg-ret-types expected :check? false))]
         (if success-ret-type
           success-ret-type
-          (app-err/plainapp-type-error fexpr args fexpr-type arg-ret-types expected))))
+          (app-err/plainapp-type-error fexpr args fexpr-type arg-ret-types expected)))
 
       ;ordinary polymorphic function without dotted rest
       (when (r/Poly? fexpr-type)
@@ -220,7 +217,6 @@
               body (c/Poly-body* names fexpr-type)]
           (when (r/FnIntersection? body)
             (every? (complement :drest) (:types body)))))
-      (u/p :check/funapp-poly-nodots
       (let [fs-names (c/Poly-fresh-symbols* fexpr-type)
             _ (assert (every? symbol? fs-names))
             fin (c/Poly-body* fs-names fexpr-type)
@@ -331,7 +327,7 @@
                              (recur ftypes))))))]
         (if ret-type
           ret-type
-          (app-err/polyapp-type-error fexpr args fexpr-type arg-ret-types expected))))
+          (app-err/polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))
 
       :else ;; any kind of dotted polymorphic function without mandatory or optional keyword args
       (if-let [[pbody fixed-map dotted-map]
@@ -428,6 +424,6 @@
 
         (err/tc-delayed-error (str
                               "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
-                            :return (or expected (r/ret (c/Un))))))))))
+                            :return (or expected (r/ret (c/Un)))))))))
 
 (ind-u/add-indirection ind/check-funapp check-funapp)

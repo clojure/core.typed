@@ -9,7 +9,6 @@
             [clojure.tools.reader.reader-types :as readers]
             [clojure.tools.reader :as reader]
             [clojure.java.io :as io]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.check-form-clj :as chk-frm-clj]
             [clojure.core.typed.check-form-common :as chk-frm]
             [clojure.core.typed.lang :as lang]
@@ -30,8 +29,7 @@
     :post [(nil? %)]}
    ;(prn "load-typed-file" filename)
     (t/load-if-needed)
-    (ta-env/ensure (p/p :typed-load/global-env
-                        (taj/global-env))
+    (ta-env/ensure (taj/global-env)
      (let [should-runtime-infer? vs/*prepare-infer-ns*
            instrument-infer-config vs/*instrument-infer-config*
            _ (when should-runtime-infer?
@@ -66,10 +64,9 @@
                                :instrument-infer-config instrument-infer-config)]
              (impl/with-full-impl (:impl config)
                (loop []
-                 (let [form (p/p :typed-load/read (reader/read opts pbr))]
+                 (let [form (reader/read opts pbr)]
                    (when-not (identical? form eof)
-                     (let [{:keys [ex]} (p/p :typed-load/check-form
-                                             (chk-frm/check-form-info config form))]
+                     (let [{:keys [ex]} (chk-frm/check-form-info config form)]
                        (when ex
                          (throw ex)))
                      ;(ana-clj/analyze+eval form (assoc env :ns (ns-name *ns*)) opts)

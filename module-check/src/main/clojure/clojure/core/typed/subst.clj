@@ -54,7 +54,6 @@
   {:pre [(crep/substitution-c? s)
          (r/AnyType? t)]
    :post [(r/AnyType? %)]}
-  (u/p :subst/subst-all
   (reduce (fn [t [v r]]
             (cond
               (crep/t-subst? r) (substitute (:type r) v t)
@@ -64,7 +63,7 @@
                    (empty? (:types r))) (substitute-dotted (:dty r) (:name (:dbound r)) v t)
               (crep/i-subst-dotted? r) (err/nyi-error "i-subst-dotted nyi")
               :else (err/nyi-error (str "Other substitutions NYI"))))
-          t s)))
+          t s))
 
 ;; Substitute dots
 

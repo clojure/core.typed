@@ -3,7 +3,6 @@
             [clojure.core.typed.check.funapp :as funapp]))
 
 (defn normal-invoke [check-fn expr fexpr args expected & {:keys [cfexpr cargs]}]
-  (u/p :check/normal-invoke
   (let [cfexpr (or cfexpr
                    (check-fn fexpr))
         cargs (or cargs
@@ -14,4 +13,4 @@
     (assoc expr
            :fn cfexpr
            :args cargs
-           u/expr-type actual))))
+           u/expr-type actual)))

@@ -13,8 +13,6 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.load-if-needed :as load]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.profiling :as p]
-            ;[clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.special-form :as spec]
@@ -2324,8 +2322,6 @@ for checking namespaces, cf for checking individual forms."}
     - :expected        Type syntax representing the expected type for this form
                        type-provided? option must be true to utilise the type.
     - :type-provided?  If true, use the expected type to check the form.
-    - :profile         Use Timbre to profile the type checker. Timbre must be
-                       added as a dependency. Must use the \"slim\" JAR.
     - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                        of (Map '{:line Int :column Int :file Str} Str).
     - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
@@ -2343,7 +2339,9 @@ for checking namespaces, cf for checking individual forms."}
     - :ex              If an exception was thrown during evaluation, this key will be present
                        with the exception as the value.
     DEPRECATED
-    - :delayed-errors  A sequence of delayed errors (ex-info instances)"
+    - :delayed-errors  A sequence of delayed errors (ex-info instances)
+    - :profile         Use Timbre to profile the type checker. Timbre must be
+                       added as a dependency. Must use the \"slim\" JAR."
     [form & opt]
     (load-if-needed)
     (apply @chkfi form opt)))

@@ -1,19 +1,6 @@
 (ns clojure.core.typed.collect-utils
-  (:require [clojure.core.typed.errors :as err]
-            [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.name-env :as nme-env]
-            [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.type-rep :as r]
-            [clojure.math.combinatorics :as comb]
-            [clojure.core.typed.ns-deps-utils :as dep-u]
-            [clojure.core.typed.free-ops :as free-ops]
-            [clojure.core.typed.util-vars :as uvar]
-            [clojure.core.typed.protocol-env :as ptl-env]
-            [clojure.core.typed.profiling :as p]
-            [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed :as t]
-            [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.utils :as u]))
+  (:require [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.type-rep :as r]))
 
 (defn protocol-method-var-ann [mt names bnds]
   (cond

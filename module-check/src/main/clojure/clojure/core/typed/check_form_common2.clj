@@ -1,6 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.check-form-common2
-  (:require [clojure.core.typed.profiling :as p]
-            [clojure.core.typed.check :as chk]
+  (:require [clojure.core.typed.check :as chk]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.reset-caches :as reset-caches]
@@ -51,8 +50,6 @@
 ;;  - :expected        Type syntax representing the expected type for this form
 ;;                     type-provided? option must be true to utilise the type.
 ;;  - :type-provided?  If true, use the expected type to check the form.
-;;  - :profile         Use Timbre to profile the type checker. Timbre must be
-;;                     added as a dependency.
 ;;  - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
 ;;                     of (Map '{:line Int :column Int :file Str} Str).
 ;;  - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
@@ -71,6 +68,8 @@
 ;;                     with the exception as the value.
 ;;  DEPRECATED
 ;;  - :delayed-errors  A sequence of delayed errors (ex-info instances)
+;;  - :profile         Use Timbre to profile the type checker. Timbre must be
+;;                     added as a dependency.
 (defn check-form-info
   [{:keys [check-top-level 
            custom-expansions?
@@ -83,12 +82,12 @@
            instrument-infer-config
            unparse-ns
            analyze-bindings-fn]}
-   form & {:keys [expected-ret expected type-provided? profile
+   form & {:keys [expected-ret expected type-provided?
                   checked-ast no-eval bindings-atom beta-limit]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)
          ((some-fn nil? symbol?) unparse-ns)]}
   (assert (not (and expected-ret type-provided?)))
-  (p/profile-if profile
+  (do
     (reset-caches/reset-caches)
     (binding [vs/*already-checked* (atom #{})
               vs/*delayed-errors* (err/-init-delayed-errors)

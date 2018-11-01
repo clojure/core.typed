@@ -1,6 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.check.let
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r]

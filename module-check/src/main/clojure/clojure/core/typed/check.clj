@@ -6,7 +6,6 @@
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as readers]
             [clojure.core.typed.debug :refer [dbg]]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
@@ -144,8 +143,7 @@
 
 (defn check-deps [nsym]
   (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
-    (let [deps (u/p :check/ns-immediate-deps 
-                    (ns-deps/typed-deps nsym))]
+    (let [deps (ns-deps/typed-deps nsym)]
       (checked-ns! nsym)
       ;check deps added with typed-deps
       (doseq [dep deps]
@@ -799,7 +797,6 @@
 
 ;; TODO refactor into own file
 (defn protocol-invoke [check-fn {:keys [protocol-fn target args] :as expr} expected]
-  (u/p :check/protocol-invoke
   (let [cprotocol-fn (check-fn protocol-fn)
         ctarget (check-fn target)
         cargs (mapv check-fn args)
@@ -810,7 +807,7 @@
            :target ctarget
            :protocol-fn cprotocol-fn
            :args cargs
-           u/expr-type actual))))
+           u/expr-type actual)))
 
 (defmethod -check :protocol-invoke ; protocol methods
   [expr expected]
@@ -1830,7 +1827,6 @@
           (not (var-env/check-var? mmsym)))
       (do (u/tc-warning (str "Not checking defmethod " mmsym " with dispatch value: " 
                              (pr-str (ast-u/emit-form-fn dispatch-val-expr))))
-          (p/p :check/skip-MultiFn-addMethod)
           (-> expr
               (update :target ana2/run-passes)
               (update-in [:args 0] ana2/run-passes)
@@ -2220,14 +2216,6 @@
     (= m "java.lang.Object/getClass")))
 
 
-(defmacro profile-inlining [chk-op source]
-  {:pre [(keyword? chk-op)]}
-  `(p/when-profile 
-     (let [mstr# ~source]
-       (when (clojure-lang-call? mstr#)
-         (u/trace mstr# " is inline" ~chk-op)
-         (u/p ~(keyword (str "check/" (name chk-op) "-clojure-lang-probably-inline")))))))
-
 (defmethod -check :static-call
   [expr expected]
   {:post [(-> % u/expr-type r/TCResult?)]}
@@ -2237,8 +2225,6 @@
                       str
                       clojure-lang-call?)]
       (str (when-not inline? "non-inlined ") "static Call: " (cu/MethodExpr->qualsym expr))))
-  (profile-inlining :static-call
-    (str (cu/MethodExpr->qualsym expr)))
   (let [spec (static-method-special expr expected)]
     (if (not= :default spec)
       spec
@@ -2259,14 +2245,10 @@
                           str
                           clojure-lang-call?)]
           (str (when-not inline? "non-inlined ") "static field: " (:type field))))
-      (profile-inlining :static-field
-        (str (:type field)))
       (assert field)
       (assoc expr
              u/expr-type (below/maybe-check-below
-                           (r/ret 
-                             (p/p :check-static-field/calling-Field->Type
-                                  (cu/Field->Type field)))
+                           (r/ret (cu/Field->Type field))
                            expected)))))
 
 (defmethod -check :instance-field
@@ -2316,8 +2298,7 @@
                        override
                        ; if not a datatype field, convert as normal
                        (if field
-                         (p/p :check-instance-field/calling-Field->Type
-                           (cu/Field->Type field))
+                         (cu/Field->Type field)
                          (err/tc-delayed-error (str "Instance field " fsym " needs type hints")
                                              :form (ast-u/emit-form-fn expr)
                                              :return (r/TCError-maker))))] 
@@ -2443,10 +2424,6 @@
                 (str (when-not inline? "non-inlined ") "new Call: " (-> expr
                                                                         ast-u/new-op-class 
                                                                         coerce/Class->symbol))))
-          _ (profile-inlining :new
-                              (str (-> expr
-                                       ast-u/new-op-class 
-                                       coerce/Class->symbol)))
           spec (new-special expr expected)]
       (cond
         (not= cu/not-special spec) spec

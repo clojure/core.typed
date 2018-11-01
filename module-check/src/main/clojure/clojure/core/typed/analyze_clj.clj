@@ -30,7 +30,6 @@
             [clojure.core.typed :as t]
             [clojure.core.cache :as cache]
             [clojure.core.typed.special-form :as spec]
-            [clojure.core.typed.profiling :as p]
             [clojure.core.typed.errors :as err]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -322,11 +321,10 @@
                     (unanalyzed-expr mform)
                     ;; rebinds *ns* during analysis
                     ;; FIXME unclear which map needs to have *ns*, especially post TAJ 0.3.0
-                    (eval-fn (p/p :analyze-clj/analyze-no-eval
-                               (taj/analyze mform (assoc env :ns (ns-name *ns*))
-                                            (-> opts 
-                                                (dissoc :bindings-atom)
-                                                (assoc-in [:bindings #'*ns*] *ns*))))
+                    (eval-fn (taj/analyze mform (assoc env :ns (ns-name *ns*))
+                                          (-> opts 
+                                              (dissoc :bindings-atom)
+                                              (assoc-in [:bindings #'*ns*] *ns*)))
                              opts))
                   {:raw-forms raw-forms}))))))
 
@@ -596,25 +594,23 @@
   {:pre [((some-fn symbol? #(instance? clojure.lang.Namespace %)) 
           nsym)]
    :post [(vector? %)]}
-  (u/p :analyze/ast-for-ns
-       ;(prn "ast-for-ns" nsym)
-   (let [nsym (or (when (instance? clojure.lang.Namespace nsym)
-                    (ns-name nsym))
-                  ; don't call ns-name on symbols in case the namespace
-                  ; doesn't exist yet
-                  nsym)
-         _ (assert (symbol? nsym))
-         cache vs/*analyze-ns-cache*]
-     (if (and cache (cache/has? cache nsym))
-       (-> cache
-           (cache/hit nsym)
-           (cache/lookup nsym))
-       ;copied basic approach from tools.emitter.jvm
-       (let [p (coerce/ns->file nsym)
-             asts (ast-for-file p)]
-         (when cache
-           (cache/miss cache nsym asts))
-         asts)))))
+  (let [nsym (or (when (instance? clojure.lang.Namespace nsym)
+                   (ns-name nsym))
+                 ; don't call ns-name on symbols in case the namespace
+                 ; doesn't exist yet
+                 nsym)
+        _ (assert (symbol? nsym))
+        cache vs/*analyze-ns-cache*]
+    (if (and cache (cache/has? cache nsym))
+      (-> cache
+          (cache/hit nsym)
+          (cache/lookup nsym))
+      ;copied basic approach from tools.emitter.jvm
+      (let [p (coerce/ns->file nsym)
+            asts (ast-for-file p)]
+        (when cache
+          (cache/miss cache nsym asts))
+        asts))))
 
 ; eval might already be monkey-patched, eval' avoids infinite looping
 (defn eval' [frm]
