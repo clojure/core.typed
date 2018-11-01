@@ -17,7 +17,7 @@
             [clojure.core.typed.fold-default]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.subst]
-            [clojure.core.typed.current-impl :as impl :refer [v]]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :refer [Any Nothing TFn Rec
                                         Pred U I All IFn
                                         HVec HSequential Keyword]
@@ -2080,46 +2080,44 @@ clojure.lang.Delay (All [x]
 ;; not added in refresh
 (delay-and-cache-env ^:private init-datatype-ancestor-env {})
 
-(defn reset-clojure-envs! []
-  (impl/with-clojure-impl
-    (reset-alias-env!)
-    ((v 'clojure.core.typed.var-env/reset-var-type-env!)
-     (init-var-env) 
-     (init-var-nochecks))
-    ((v 'clojure.core.typed.method-return-nilables/reset-nonnilable-method-return-env!) 
-     (init-method-nonnilable-return-env))
-    ((v 'clojure.core.typed.method-param-nilables/reset-method-nilable-param-env!)
-     (init-method-nilable-param-env))
-    ((v 'clojure.core.typed.method-override-env/reset-method-override-env!)
-     (init-method-override-env))
-    ((v 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!) 
-     (init-ctor-override-env))
-    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
-     (init-protocol-env))
-    (base-rclass/reset-rclass-env!)
-    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     (init-declared-kinds))
-    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
-     (init-datatype-env))
-    ((v 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!)
-     (init-datatype-ancestor-env)))
-  nil)
+(let [reset-var-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/reset-var-type-env!))
+      reset-nonnilable-method-return-env!
+      (delay (impl/dynaload 'clojure.core.typed.method-return-nilables/reset-nonnilable-method-return-env!))
+      reset-method-nilable-param-env! (delay (impl/dynaload 'clojure.core.typed.method-param-nilables/reset-method-nilable-param-env!))
+      reset-method-override-env! (delay (impl/dynaload 'clojure.core.typed.method-override-env/reset-method-override-env!))
+      reset-constructor-override-env! (delay (impl/dynaload 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!))
+      reset-protocol-env! (delay (impl/dynaload 'clojure.core.typed.protocol-env/reset-protocol-env!))
+      reset-declared-kinds! (delay (impl/dynaload 'clojure.core.typed.declared-kind-env/reset-declared-kinds!))
+      reset-datatype-env! (delay (impl/dynaload 'clojure.core.typed.datatype-env/reset-datatype-env!))
+      reset-datatype-ancestors! (delay (impl/dynaload 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!))]
+  (defn reset-clojure-envs! []
+    (impl/with-clojure-impl
+      (reset-alias-env!)
+      (@reset-var-type-env! (init-var-env) (init-var-nochecks))
+      (@reset-nonnilable-method-return-env! (init-method-nonnilable-return-env))
+      (@reset-method-nilable-param-env! (init-method-nilable-param-env))
+      (@reset-method-override-env! (init-method-override-env))
+      (@reset-constructor-override-env! (init-ctor-override-env))
+      (@reset-protocol-env! (init-protocol-env))
+      (base-rclass/reset-rclass-env!)
+      (@reset-declared-kinds! (init-declared-kinds))
+      (@reset-datatype-env! (init-datatype-env))
+      (@reset-datatype-ancestors! (init-datatype-ancestor-env)))
+    nil))
 
-(defn refresh-core-clojure-envs! []
-  (impl/with-clojure-impl
-    (refresh-core-alias-env!)
-    ((v 'clojure.core.typed.protocol-env/merge-protocol-env!) 
-     (init-protocol-env))
-    ((v 'clojure.core.typed.var-env/refresh-var-type-env!)
-     (init-var-env) 
-     (init-var-nochecks))
-    ((v 'clojure.core.typed.method-param-nilables/merge-method-nilable-param-env!)
-     (init-method-nilable-param-env))
-    ((v 'clojure.core.typed.method-return-nilables/merge-nonnilable-method-return-env!) 
-     (init-method-nonnilable-return-env))
-    ((v 'clojure.core.typed.method-override-env/merge-method-override-env!)
-     (init-method-override-env))
-    ((v 'clojure.core.typed.ctor-override-env/merge-constructor-override-env!) 
-     (init-ctor-override-env))
-    )
-  nil)
+(let [merge-protocol-env! (delay (impl/dynaload 'clojure.core.typed.protocol-env/merge-protocol-env!))
+      refresh-var-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/refresh-var-type-env!))
+      merge-method-nilable-param-env! (delay (impl/dynaload 'clojure.core.typed.method-param-nilables/merge-method-nilable-param-env!))
+      merge-nonnilable-method-return-env! (delay (impl/dynaload 'clojure.core.typed.method-return-nilables/merge-nonnilable-method-return-env!))
+      merge-method-override-env! (delay (impl/dynaload 'clojure.core.typed.method-override-env/merge-method-override-env!))
+      merge-constructor-override-env! (delay (impl/dynaload 'clojure.core.typed.ctor-override-env/merge-constructor-override-env!))]
+  (defn refresh-core-clojure-envs! []
+    (impl/with-clojure-impl
+      (refresh-core-alias-env!)
+      (@merge-protocol-env! (init-protocol-env))
+      (@refresh-var-type-env! (init-var-env) (init-var-nochecks))
+      (@merge-method-nilable-param-env! (init-method-nilable-param-env))
+      (@merge-nonnilable-method-return-env! (init-method-nonnilable-return-env))
+      (@merge-method-override-env! (init-method-override-env))
+      (@merge-constructor-override-env! (init-ctor-override-env)))
+    nil))

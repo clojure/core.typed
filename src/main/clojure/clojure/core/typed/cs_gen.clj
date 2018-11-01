@@ -5,7 +5,7 @@
             [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.type-rep :as r :refer []]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fo]
