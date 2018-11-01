@@ -161,26 +161,23 @@
                                                  eval-out-ast)
                                                (fn [ast _] ast))
                                  _ (when file-mapping
-                                     (p/p :check-form/file-mapping
-                                       (swap! file-mapping-atom
-                                              (fn [v]
-                                                (reduce 
-                                                  conj v
-                                                  (file-map/ast->file-mapping c-ast))))))]
+                                     (swap! file-mapping-atom
+                                            (fn [v]
+                                              (reduce 
+                                                conj v
+                                                (file-map/ast->file-mapping c-ast)))))]
                              (or (some-> (seq (delayed-errors-fn)) 
                                          err/print-errors!)
-                                 (p/p :check-form/eval-ast
-                                   (eval-cexp c-ast opt))))))
+                                 (eval-cexp c-ast opt)))))
             terminal-error (atom nil)
             c-ast (try
-                    (p/p :check-form/ast-for-form
-                      (ast-for-form form
-                                    {:bindings-atom bindings-atom
-                                     :analyze-bindings-fn analyze-bindings-fn
-                                     :eval-fn eval-ast
-                                     :expected expected
-                                     :stop-analysis stop-analysis
-                                     :env env}))
+                    (ast-for-form form
+                                  {:bindings-atom bindings-atom
+                                   :analyze-bindings-fn analyze-bindings-fn
+                                   :eval-fn eval-ast
+                                   :expected expected
+                                   :stop-analysis stop-analysis
+                                   :env env})
                     (catch Throwable e
                       (let [e (if (some-> e ex-data err/tc-error?)
                                 (try
