@@ -26,7 +26,6 @@
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.repl :as repl]
-            [clojure.core.typed.debug :refer [dbg]]
             [clojure.core.cache :as cache])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass

@@ -8,13 +8,8 @@
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.path-rep :as pr]
-            [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.debug :refer [dbg]]
-            [clojure.core.typed.path-type :as path-type]))
+            [clojure.core.typed.check.utils :as cu]))
 
 (defn local-ret [sym]
   {:pre [(symbol? sym)]

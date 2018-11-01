@@ -11,7 +11,6 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.debug :as dbg]
             [clojure.core.typed.infer-vars :as infer-vars]))
 
 ;; returns true when f1 <: f2
