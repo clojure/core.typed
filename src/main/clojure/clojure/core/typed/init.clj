@@ -79,7 +79,6 @@
                  '[clojure.core.typed.check-ns-clj]
                  '[clojure.core.typed.check-form-common]
                  '[clojure.core.typed.check-form-clj]
-                 '[clojure.core.typed.statistics]
                  '[clojure.core.typed.load1]
 
                  '[clojure.core.typed.parse-ast]
