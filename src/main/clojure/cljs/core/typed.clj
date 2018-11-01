@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [fn loop let defn atom defprotocol])
   (:require [clojure.core.typed.load-if-needed :as load]
             [clojure.core :as core]
-            [clojure.core.typed.current-impl :as impl :refer [v]]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
