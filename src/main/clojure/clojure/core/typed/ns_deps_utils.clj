@@ -88,12 +88,6 @@
    :post [(con/boolean? %)]}
   (boolean (-> (ns-meta ns-form) :core.typed :collect-only)))
 
-(defn should-collect-ns-form?
-  [ns-form]
-  {:post [(con/boolean? %)]}
-  (and (boolean ns-form)
-       (requires-tc? ns-form)))
-
 (defn should-check-ns-form?
   [ns-form]
   {:post [(con/boolean? %)]}
@@ -107,15 +101,6 @@
   (let [m (ns-meta ns-form)]
     (-> m :core.typed :experimental
         (contains? :custom-expansions))))
-
-(defn should-collect-ns?
-  "Returns true if the given namespace should be collected for
-  type annotations. Currently, if the namespace depends on
-  core.typed, then it should be collected."
-  [nsym]
-  {:pre [(symbol? nsym)]
-   :post [(con/boolean? %)]}
-  (should-collect-ns-form? (ns-form-for-ns nsym)))
 
 (defn should-check-ns?
   "Returns true if the given namespace should be type checked"

@@ -44,10 +44,7 @@
             [clojure.core.typed.internal]
             [clojure.core.typed.path-type :refer :all]
             [clojure.core.typed.load :as load]
-            [clojure.core.typed.ns-deps-utils :refer [should-collect-ns-form?
-                                                      should-check-ns-form?
-                                                      should-collect-ns?
-                                                      should-check-ns?]]
+            [clojure.core.typed.ns-deps-utils :as ndu]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]])
 ; we want clojure.lang.Seqable to be scoped here. 
@@ -5257,49 +5254,33 @@
       (defn foo []
         (let [x :- (Promise Int) (promise)])))))
 
-(defn should-check-or-collect [nf]
-  (clj
-    (set (concat
-           (when (should-collect-ns-form? nf)
-             [:collect])
-           (when (should-check-ns-form? nf)
-             [:check])))))
-
-(defn should-check-or-collect-file [nsym]
-  (clj
-    (set (concat
-           (when (should-collect-ns? nsym)
-             [:collect])
-           (when (should-check-ns? nsym)
-             [:check])))))
-
-(deftest should-collect-or-check-ns-form-test
-  (testing "does not depend on core.typed, don't collect or check"
+(deftest should-check-ns-form-test
+  (testing "does not depend on core.typed, don't check"
     (is-clj
-      (= #{}
-         (should-check-or-collect
+      (= false
+         (ndu/should-check-ns-form?
            '(ns foo))
-         (should-check-or-collect
+         (ndu/should-check-ns-form?
            '(ns foo
               {:core.typed {:collect-only true}}))
-         (should-check-or-collect-file
+         (ndu/should-check-ns?
            u/spec-ns))))
-  (testing ":collect-only should collect but not check"
+  (testing ":collect-only should not check"
     (is-clj
-      (= #{:collect}
-         (should-check-or-collect
+      (= false
+         (ndu/should-check-ns-form?
            '(ns foo
               {:core.typed {:collect-only true}}
               (:require [clojure.core.typed])))
-         (should-check-or-collect-file
+         (ndu/should-check-ns?
            'clojure.core.typed.test.CTYP-234.dep))))
-  (testing "plain :require of clojure.core.typed should collect and check"
+  (testing "plain :require of clojure.core.typed should trigger check"
     (is-clj
-      (= #{:collect :check}
-         (should-check-or-collect
+      (= true
+         (ndu/should-check-ns-form?
            '(ns foo
               (:require [clojure.core.typed])))
-         (should-check-or-collect-file
+         (ndu/should-check-ns?
            'clojure.core.typed.test.CTYP-234.core)))))
 
 (deftest CTYP-234-test
