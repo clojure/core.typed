@@ -35,6 +35,7 @@
     (do
       (try
         (reset! attempted-loading? true)
+        #_
         (require '[clojure.core.typed.utils]
                  '[clojure.core.typed.type-rep]
                  '[clojure.core.typed.type-ctors]
@@ -95,6 +96,7 @@
           (do
             (println "Found ClojureScript, loading ...")
             (flush)
+            #_
             (require
               '[cljs.analyzer]
               '[cljs.util]
