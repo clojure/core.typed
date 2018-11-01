@@ -19,7 +19,6 @@
   (:import (clojure.lang ExceptionInfo)))
 
 (def ^:private ns->relpath (delay (impl/dynaload 'cljs.util/ns->relpath)))
-(def ^:private collect-cljs-ns (delay (impl/dynaload 'clojure.core.typed.collect-cljs/collect-ns)))
 (def ^:private check-cljs-ns (delay (impl/dynaload 'clojure.core.typed.check-cljs/check-ns)))
 
 (defn cljs-reader [nsym]
@@ -66,19 +65,6 @@
               ;(reset-caches)
               ;; handle terminal type error
               (try
-                ;-------------------------
-                ; Collect phase
-                ;-------------------------
-                (impl/impl-case
-                  :clojure nil
-                  :cljs (let [_ (doseq [nsym nsym-coll]
-                                  (@collect-cljs-ns nsym))
-                              ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                              collected (if-let [c vs/*already-collected*]
-                                          @c
-                                          (err/int-error "*already-collected* unbound"))]
-                          (println "Collected" (count collected) "namespaces in" ms "msecs")
-                          (flush)))
                 ;-------------------------
                 ; Check phase
                 ;-------------------------
