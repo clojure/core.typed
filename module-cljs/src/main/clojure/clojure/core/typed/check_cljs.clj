@@ -76,37 +76,38 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Check CLJS AST
 
-(defmulti check (fn [expr & [expected]] 
-                  (:op expr)))
+(defmulti -check (fn [expr expected]
+                   (:op expr)))
 
-(u/add-defmethod-generator check)
+(defn check [expr & [expected]]
+  (-check expr expected))
 
-(add-check-method :no-op
-  [expr & [expected]]
+(defmethod -check :no-op
+  [expr expected]
   (assoc expr
          expr-type (below/maybe-check-below
                      (ret r/-any)
                      expected)))
 
-(add-check-method :const
- [{:keys [val] :as expr} & [expected]]
+(defmethod -check :const
+ [{:keys [val] :as expr} expected]
  ;; FIXME probably want a custom `constant-type` function
  (const/check-const constant-type/constant-type false expr expected))
 
-(add-check-method :vector
-  [expr & [expected]]
+(defmethod -check :vector
+  [expr expected]
   (vec/check-vector check expr expected))
 
-(add-check-method :set
-  [expr & [expected]]
+(defmethod -check :set
+  [expr expected]
   (set/check-set check expr expected))
 
-(add-check-method :map
-  [expr & [expected]]
+(defmethod -check :map
+  [expr expected]
   (map/check-map check expr expected))
 
-(add-check-method :def
-  [{:keys [init] :as expr} & [expected]]
+(defmethod -check :def
+  [{:keys [init] :as expr} expected]
   (if init
     (def/check-normal-def check expr expected)
     (assoc expr
@@ -114,8 +115,8 @@
                          (ret r/-any)
                          expected))))
 
-(add-check-method :js
-  [{:keys [js-op args env] :as expr} & [expected]]
+(defmethod -check :js
+  [{:keys [js-op args env] :as expr} expected]
   (cond
     js-op (let [res (expr-type (check {:op :invoke
                                        :from-js-op expr
@@ -204,8 +205,8 @@
         (assoc :args cargs
                u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected)))))
 
-(add-check-method :invoke
-  [{fexpr :fn :keys [args] :as expr} & [expected]]
+(defmethod -check :invoke
+  [{fexpr :fn :keys [args] :as expr} expected]
   (let [e (invoke-special expr)]
     (cond
       (not= e ::not-special) e
@@ -229,8 +230,8 @@
         (ret t)
         expected))))
 
-(add-check-method :var
-  [{vname :name :as expr} & [expected]]
+(defmethod -check :var
+  [{vname :name :as expr} expected]
   (assoc expr expr-type
          (js-var-result expr vname expected)))
 
@@ -283,61 +284,61 @@
   [expr expected]
   (err/int-error (str "No such internal form: " (ast-u/emit-form-fn expr))))
 
-(add-check-method :do
-  [expr & [expected]]
+(defmethod -check :do
+  [expr expected]
   (do/check-do check-expr internal-special-form expr expected))
 
-(add-check-method :fn
-  [{:keys [methods] :as expr} & [expected]]
+(defmethod -check :fn
+  [{:keys [methods] :as expr} expected]
   (prepare-check-fn
     (if expected
       (fn/check-fn expr expected)
       (special-fn/check-core-fn-no-expected check-expr expr))))
 
-(add-check-method :set!
-  [{:keys [target val] :as expr} & [expected]]
+(defmethod -check :set!
+  [{:keys [target val] :as expr} expected]
   (set!/check-set! check-expr expr expected))
 
-(add-check-method :if
-  [{:keys [test then else] :as expr} & [expected]]
+(defmethod -check :if
+  [{:keys [test then else] :as expr} expected]
   (if/check-if check-expr expr expected))
 
-(add-check-method :let
-  [expr & [expected]]
+(defmethod -check :let
+  [expr expected]
   (let/check-let check-expr expr expected))
 
-(add-check-method :letfn
-  [{:keys [bindings body env] :as expr} & [expected]]
+(defmethod -check :letfn
+  [{:keys [bindings body env] :as expr} expected]
   (letfn/check-letfn bindings body expr expected check-expr))
 
-(add-check-method :recur
-  [{:keys [exprs env] :as recur-expr} & [expected]]
+(defmethod -check :recur
+  [{:keys [exprs env] :as recur-expr} expected]
   (recur/check-recur exprs env recur-expr expected check-expr))
 
-(add-check-method :loop
-  [{:keys [] :as loop-expr} & [expected]]
+(defmethod -check :loop
+  [{:keys [] :as loop-expr} expected]
   (loop/check-loop check-expr loop-expr expected))
 
-(add-check-method :ns
-  [expr & [expected]]
+(defmethod -check :ns
+  [expr expected]
   (assoc expr
          expr-type (below/maybe-check-below
                      (ret r/-any)
                      expected)))
 
-(add-check-method :ns*
-  [expr & [expected]]
+(defmethod -check :ns*
+  [expr expected]
   (assoc expr 
          u/expr-type (below/maybe-check-below
                        (r/ret r/-any)
                        expected)))
 
-(add-check-method :binding
-  [expr & [expected]]
+(defmethod -check :binding
+  [expr expected]
   (binding/check-binding check-expr expr expected))
 
-(add-check-method :quote
-  [expr & [expected]]
+(defmethod -check :quote
+  [expr expected]
   (quote/check-quote check-expr constant-type/constant-type expr expected))
 
 ;; adding a bunch of missing methods: 
@@ -345,8 +346,8 @@
 (defn fail-empty [expr]
   (throw (Exception. (str "Not implemented, yet: " (:op expr)))))
 
-(add-check-method :new
-  [{:keys [ctor args] :as expr} & [expected]]
+(defmethod -check :new
+  [{:keys [ctor args] :as expr} expected]
   (let [;; TODO check ctor
         cargs (mapv check-expr args)]
     (u/tc-warning (str "`new` special form is Unchecked"))
@@ -357,8 +358,8 @@
                          expected))))
 
 ;; TODO does this actually work?
-(add-check-method :case
-  [{:keys [test nodes default :as expr]} & [expected]]
+(defmethod -check :case
+  [{:keys [test nodes default :as expr]} expected]
   (chk/check
    {:op :case
     :test test
@@ -367,43 +368,43 @@
     :thens (map :then nodes)}
    expected))
 
-(add-check-method :case-node
-  [expr & [expected]]
+(defmethod -check :case-node
+  [expr expected]
   (fail-empty expr))
 
-(add-check-method :case-test
-  [expr & [expected]]
+(defmethod -check :case-test
+  [expr expected]
   (fail-empty expr))
 
-(add-check-method :case-then
-  [expr & [expected]]
+(defmethod -check :case-then
+  [expr expected]
   (fail-empty expr))
 
 ;TODO
-(add-check-method :defrecord
-  [expr & [expected]]
+(defmethod -check :defrecord
+  [expr expected]
   (u/tc-warning (str "`defrecord` special form is Unchecked"))
   (assoc expr
          u/expr-type (below/maybe-check-below
                        (r/ret (r/-unchecked))
                        expected)))
 
-(add-check-method :deftype
-  [expr & [expected]]
+(defmethod -check :deftype
+  [expr expected]
   (u/tc-warning (str "`deftype` special form is Unchecked"))
   (assoc expr
          u/expr-type (below/maybe-check-below
                        (r/ret (r/-unchecked))
                        expected)))
 
-(add-check-method :fn-method
-  [expr & [expected]]
+(defmethod -check :fn-method
+  [expr expected]
   (fail-empty expr))
 
 ; see clojure.core.typed.check.dot-cljs
 ;; TODO check
-(add-check-method :host-call
-  [{:keys [method target args] :as expr} & [expected]]
+(defmethod -check :host-call
+  [{:keys [method target args] :as expr} expected]
   (let [ctarget (check-expr target)
         cargs (mapv check-expr args)]
     (u/tc-warning (str "`.` special form is Unchecked"))
@@ -416,8 +417,8 @@
 
 ; see clojure.core.typed.check.dot-cljs
 ;; TODO check
-(add-check-method :host-field
-  [{:keys [target] :as expr} & [expected]]
+(defmethod -check :host-field
+  [{:keys [target] :as expr} expected]
   (let [ctarget (check-expr target)]
     (u/tc-warning (str "`.` special form is Unchecked"))
     (assoc expr 
@@ -427,8 +428,8 @@
                          expected))))
 
 ;; TODO check
-(add-check-method :js-array
-  [{:keys [items] :as expr} & [expected]]
+(defmethod -check :js-array
+  [{:keys [items] :as expr} expected]
   (let [citems (mapv check-expr items)]
     (u/tc-warning (str "`#js []` special form is Unchecked"))
     (assoc expr 
@@ -437,8 +438,8 @@
                          (r/ret (r/-unchecked))
                          expected))))
 
-(add-check-method :js-object
-  [{:keys [keys vals] :as expr} & [expected]]
+(defmethod -check :js-object
+  [{:keys [keys vals] :as expr} expected]
   (let [cvals (mapv check-expr vals)]
     (assoc expr
            :vals cvals
@@ -449,37 +450,37 @@
                          expected))))
 
 ; TODO check
-(add-check-method :js-var
-  [{:keys [name] :as expr} & [expected]]
+(defmethod -check :js-var
+  [{:keys [name] :as expr} expected]
   (u/tc-warning (str "Assuming JS variable is unchecked " name))
   (assoc expr 
          u/expr-type (below/maybe-check-below
                        (r/ret (r/-unchecked))
                        expected)))
 
-(add-check-method :local
-  [expr & [expected]]
+(defmethod -check :local
+  [expr expected]
   (local/check-local expr expected))
 
 
 ; TODO check
-(add-check-method :the-var
-  [expr & [expected]]
+(defmethod -check :the-var
+  [expr expected]
   (u/tc-warning (str "`var` special form is Unchecked"))
   (assoc expr 
          u/expr-type (below/maybe-check-below
                        (r/ret (r/-unchecked))
                        expected)))
 
-(add-check-method :throw
-  [expr & [expected]]
+(defmethod -check :throw
+  [expr expected]
   (throw/check-throw check-expr expr expected nil))
 
 ; TODO check
-(add-check-method :try
-  [expr & [expected]]
+(defmethod -check :try
+  [expr expected]
   (fail-empty expr))
 
-(add-check-method :with-meta
-  [expr & [expected]]
+(defmethod -check :with-meta
+  [expr expected]
   (with-meta/check-with-meta check-expr expr expected))

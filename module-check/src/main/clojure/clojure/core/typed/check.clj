@@ -496,10 +496,9 @@
                             (when-let [var (:var fexpr)]
                               (coerce/var->symbol var)))))
 
-(defmulti static-method-special (fn [expr & args]
-                                  {:post [((some-fn nil? symbol?) %)]}
-                                  (cu/MethodExpr->qualsym expr)))
-(u/add-defmethod-generator static-method-special)
+(defmulti -static-method-special (fn [expr & args]
+                                   {:post [((some-fn nil? symbol?) %)]}
+                                   (cu/MethodExpr->qualsym expr)))
 
 (defn host-call-qname [expr]
   {:pre [(= :host-call (:op expr))]
@@ -728,7 +727,7 @@
       (invoke/normal-invoke check-expr expr fexpr args expected
                      :cargs cargs))))
 
-(add-static-method-special-method 'clojure.lang.RT/get
+(defmethod -static-method-special 'clojure.lang.RT/get
   [{:keys [args] :as expr} & [expected]]
   {:pre [args]
    :post [(-> % u/expr-type r/TCResult?)]}
@@ -740,7 +739,7 @@
                                   :cargs cargs))))
 
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
-(add-static-method-special-method 'clojure.lang.PersistentHashMap/create
+(defmethod -static-method-special 'clojure.lang.PersistentHashMap/create
   [{:keys [args] :as expr} & [expected]]
   {:post [(or (#{:default} %)
               (and (-> % u/expr-type r/TCResult?)
@@ -1090,7 +1089,7 @@
                u/expr-type (equiv/tc-equiv := (map u/expr-type cargs) expected)))))
 
 ;identical
-(add-static-method-special-method 'clojure.lang.Util/identical
+(defmethod -static-method-special 'clojure.lang.Util/identical
   [{:keys [args] :as expr} & [expected]]
   {:post [(vector? (:args %))
           (-> % u/expr-type r/TCResult?)]}
@@ -1100,7 +1099,7 @@
            u/expr-type (equiv/tc-equiv :identical? (map u/expr-type cargs) expected))))
 
 ;equiv
-(add-static-method-special-method 'clojure.lang.Util/equiv
+(defmethod -static-method-special 'clojure.lang.Util/equiv
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check-expr args)]
     (assoc expr
@@ -1484,7 +1483,7 @@
 
 
 ;nth
-(add-static-method-special-method 'clojure.lang.RT/nth
+(defmethod -static-method-special 'clojure.lang.RT/nth
   [{:keys [args] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)]}
   (when-not (#{2 3} (count args))
@@ -1858,7 +1857,7 @@
                 (assoc-in [:args 1] cmethod-expr))))))))
 
 (defmethod -invoke-special :default [& args] :default)
-(add-static-method-special-method :default [& args] :default)
+(defmethod -static-method-special :default [& args] :default)
 (defmethod -host-call-special :default [& args] :default)
 
 (defn maybe-special-apply [check-expr expr expected]
@@ -2225,7 +2224,7 @@
                       str
                       clojure-lang-call?)]
       (str (when-not inline? "non-inlined ") "static Call: " (cu/MethodExpr->qualsym expr))))
-  (let [spec (static-method-special expr expected)]
+  (let [spec (-static-method-special expr expected)]
     (if (not= :default spec)
       spec
       (method/check-invoke-method check-expr expr expected))))
@@ -2354,14 +2353,13 @@
                                         (fo/-not-filter-at inst-of (r/ret-o expr-tr))))
                          expected))))
 
-(defmulti new-special (fn [expr & [expected]]
-                        {:post [(symbol? %)]}
-                        (-> expr
-                            ast-u/new-op-class
-                            coerce/Class->symbol)))
-(u/add-defmethod-generator new-special)
+(defmulti -new-special (fn [expr & [expected]]
+                         {:post [(symbol? %)]}
+                         (-> expr
+                             ast-u/new-op-class
+                             coerce/Class->symbol)))
 
-(add-new-special-method 'clojure.lang.MultiFn
+(defmethod -new-special 'clojure.lang.MultiFn
   [expr & [expected]]
   (when-not (== 4 (count (:args expr)))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
@@ -2404,7 +2402,7 @@
                                           expected-t))
                              expected)))))
 
-(defmethod new-special :default [expr & [expected]] cu/not-special)
+(defmethod -new-special :default [expr & [expected]] cu/not-special)
 
 (defmethod -check :new
   [expr expected]
@@ -2424,7 +2422,7 @@
                 (str (when-not inline? "non-inlined ") "new Call: " (-> expr
                                                                         ast-u/new-op-class 
                                                                         coerce/Class->symbol))))
-          spec (new-special expr expected)]
+          spec (-new-special expr expected)]
       (cond
         (not= cu/not-special spec) spec
         :else
