@@ -99,7 +99,6 @@
             (require
               '[cljs.analyzer]
               '[cljs.util]
-              '[clojure.core.typed.collect-cljs]
               '[clojure.core.typed.check-cljs]
               '[clojure.core.typed.jsnominal-env]
               '[clojure.core.typed.base-env-cljs]
