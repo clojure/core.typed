@@ -285,8 +285,6 @@
   [& args]
   `(typed-deps* '~args))
 
-(defonce ^:dynamic *already-collected* nil)
-
 (let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-cljs))]
   (defn cf* 
     "Check a single form with an optional expected type.
