@@ -1,0 +1,3 @@
+#!/bin/sh
+
+git grep --files-without-match "Copyright" -- '*.clj' '*.cljs' '*.cljc' '*.java' | grep src/main

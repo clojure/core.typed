@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Usage:
+# ./script/test-all
+#
+# Note: must be executed at the root of this repository.
+
 # fail on error
 set -e
 

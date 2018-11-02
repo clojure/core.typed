@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Usage:
+# ./script/add-copyright module-rt/src/main/clojure/cljs/core/typed.clj
+#
+# Note: must be executed at root of repository.
+
+FILE=$1
+
+if [ -z "$FILE" ]; then
+  echo "Must provide file name"
+  exit 1;
+fi
+
+# adds an empty line between copyright notice and ns form
+echo "$(cat script/copyright-template.txt)
+
+$(cat $FILE)" > $FILE

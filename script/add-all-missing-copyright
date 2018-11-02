@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Usage:
+# ./script/add-all-missing-copyright
+#
+# Note: must execute at root of repository.
+
+for f in $( ./script/missing-copyright ); do
+  ./script/add-copyright $f
+done
