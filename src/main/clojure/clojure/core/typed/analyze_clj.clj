@@ -176,7 +176,7 @@
       (get *typed-macros* var)
       var))
 
-;; copied from tools.analyze.jvm to insert `*typed-macros*`
+;; copied from tools.analyzer.jvm to insert `*typed-macros*`
 (T/ann ^:no-check macroexpand-1 
        (T/IFn [T/Any -> T/Any] 
               [T/Any (T/Map T/Any T/Any) -> T/Any]))
