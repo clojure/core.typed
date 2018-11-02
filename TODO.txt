@@ -205,3 +205,109 @@ Other ideas
       * Any, AnyValue, TCError, U, ...
     * runtime features => clojure.core.typed.rt
       * pred, contract, cast
+  * Gilardi scenario custom type rules??
+    * e.g. deftype
+
+# [WIP] Upgrading from 0.5.x to 0.6.x
+
+- core.typed.common
+- core.typed.jvm
+- core.typed.js
+- core.typed.lang.jvm
+- core.typed.checker.jvm
+- core.typed.analyzer.jvm
+- core.typed.annotator.jvm
+- core.typed.annotator.jvm
+
+- Audiences
+  - End users of Clojure type checker
+    - Description: Full usage of JVM type checker, type collection. Lazily loaded type checker.
+    - Usage:
+      (ns ...
+        (:require [clojure.core.typed :as t]))
+      (t/ann foo t/Any)
+      ;(t/check-ns)
+    - Contains:
+      - `clojure.core.typed.check.jvm`
+      - `clojure.core.typed.check.jvm.case`
+      - `clojure.core.typed.check.jvm.method`
+      - `clojure.core.typed.check.jvm.new`
+      - `clojure.core.typed.check.jvm.set-bang`
+      - `clojure.core.typed.check.jvm.constant-type`
+    - Dependency: [org.clojure/core.typed.check.jvm "version"]
+      - Transitive:
+        - `org.clojure/core.typed.check`
+        - `org.clojure/core.typed.ann.jvm`
+          - `org.clojure/core.typed.ann`
+  - End users of ClojureScript type checker
+    - Description: Full usage of JS type checker, type collection. Lazily loaded type checker.
+    - `org.clojure/core.typed.check.js`
+      - Transitive:
+        - `org.clojure/core.typed.check`
+        - `org.clojure/core.typed.ann.js`
+          - `org.clojure/core.typed.ann`
+  - Author of new checker (e.g. clr)
+    - `org.clojure/core.typed.check`
+      - Transitive:
+        - `org.clojure/core.typed.ann`
+  - End users of Clojure runtime type inferencer
+    - `org.clojure/core.typed.infer.jvm`
+      - Transitive:
+        - `org.clojure/core.typed.infer`
+        - `org.clojure/core.typed.analyzer.jvm`
+  - End users of ClojureScript runtime type inferencer
+    - `org.clojure/core.typed.infer.js`
+      - Transitive:
+        - `org.clojure/core.typed.infer`
+  - Author of new runtime type inferencer (e.g. clr)
+    - `org.clojure/core.typed.infer`
+  - End users of single-pass Clojure analyzer
+    - `org.clojure/core.typed.analyzer.jvm`
+      - Transitive:
+        - `org.clojure/core.typed.analyzer`
+  - End users of single-pass ClojureScript analyzer
+    - `org.clojure/core.typed.analyzer.js`
+      - Transitive:
+        - `org.clojure/core.typed.analyzer`
+  - Author of new extension to single-pass analyzer (eg. clr)
+    - `org.clojure/core.typed.analyzer`
+  - Library annotators (platform agnostic annotations)
+    - `org.clojure/core.typed.ann`
+  - Library annotators (+ JVM specific annotations)
+    - `org.clojure/core.typed.ann.jvm`
+  - Library annotators (+ JS specific annotations)
+    - `org.clojure/core.typed.ann.js`
+
+- New `org.clojure/core.typed.ann` jar for annotation only
+  - contains `registry`, `ann`, `defalias`, `ann-{datatype,record,protocol,many}`,
+    `override-method`, `nilable-param`, `non-nil-return`
+  - delete?
+    - declare-datatypes, declare-names, declare-protocols,
+
+`org.clojure/core.typed.ann`
+- clojure.core.typed.ann
+`org.clojure/core.typed.ann.jvm`
+- clojure.core.typed.ann.jvm
+`org.clojure/core.typed.ann.js`
+- clojure.core.typed.ann.js
+`org.clojure/core.typed.check`
+`org.clojure/core.typed.check.jvm`
+`org.clojure/core.typed.check.js`
+`org.clojure/core.typed.infer`
+`org.clojure/core.typed.check.jvm`
+`org.clojure/core.typed.check.js`
+
+`org.clojure/core.typed`
+`org.clojure/core.typed.jvm`
+`org.clojure/core.typed.js`
+
+`org.clojure/core.typed.analyzer.jvm`
+
+- need home:
+  - tc-ignore, ann-form, 
+
+## (Temporary) clojure.core.typed2 namespace
+
+- `clojure.core.typed/{def,fn,loop,let,defprotocol,defn,atom,ref}` moved to `clojure.core.typed.ann.base`
+- `clojure.core.typed/when-let-fail` removed
+
