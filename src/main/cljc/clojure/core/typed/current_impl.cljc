@@ -90,15 +90,15 @@
 (defn add-nonnilable-method-return [sym m]
   {:pre [((every-pred namespace symbol?) sym)
          ((some-fn #(= :all %)
-                   (con/set-c? con/znat?))
+                   (con/set-c? nat-int?))
           m)]}
   (env/swap-checker! assoc-in [method-return-nonnilable-env-kw sym] m)
   nil)
 
 (defn add-method-nilable-param [sym a]
   {:pre [((every-pred namespace symbol?) sym)
-         ((con/hash-c? (some-fn #{:all} con/znat?)
-                       (some-fn #{:all} (con/set-c? con/znat?)))
+         ((con/hash-c? (some-fn #{:all} nat-int?)
+                       (some-fn #{:all} (con/set-c? nat-int?)))
           a)]}
   (env/swap-checker! assoc-in [method-param-nilable-env-kw sym] a)
   nil)

@@ -1,7 +1,6 @@
 (ns clojure.core.typed.contract-utils
   {:skip-wiki true
    :core.typed {:collect-only true}}
-  (:refer-clojure :exclude [boolean?])
   (:require [clojure.set :as set])
   #?(:clj (:import (clojure.lang PersistentArrayMap))))
 
@@ -13,14 +12,8 @@
 
 (def nne-seq? (some-fn nil? (every-pred seq seq?)))
 
-(def znat? (every-pred integer? (complement neg?)))
-
-(def boolean? (some-fn true? false?))
-
 #?(:clj
 (def namespace? #(instance? clojure.lang.Namespace %)))
-
-(def character? char?)
 
 (defn =-c? [& as]
   #(apply = (concat as %&)))

@@ -181,7 +181,7 @@
 
 (defn variadic-method? [m]
   {:pre [((some-fn fn-method? deftype-method?) m)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (cond
     (fn-method? m) (:variadic? m)
     ; :method does not have :variadic? field
