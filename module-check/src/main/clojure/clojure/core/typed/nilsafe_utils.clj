@@ -2,10 +2,6 @@
   (:require [clojure.set :as set]
             [clojure.core.typed :as t]))
 
-(t/tc-ignore
-(alter-meta! *ns* assoc :skip-wiki true)
-)
-
 (t/ann ^:no-check set-union 
        (t/All [x] 
               (t/IFn [-> (t/Set x)]

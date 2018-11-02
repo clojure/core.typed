@@ -1,13 +1,10 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.tvar-bnds
-  (:require [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed :as t])
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.type-rep :as r])
   (:import (clojure.core.typed.type_rep Bounds)))
-
-(alter-meta! *ns* assoc :skip-wiki true
-             :core.typed {:collect-only true})
 
 ;; this implements an environment from (fresh) type variable names
 ;; to their bounds.

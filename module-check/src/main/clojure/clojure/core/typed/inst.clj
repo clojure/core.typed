@@ -1,7 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.inst
-  (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.errors :as err]
+  (:require [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
@@ -9,11 +7,7 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.trans :as trans]
-            [clojure.string :as string]
-            [clojure.pprint :as pprint])
-  (:import (clojure.core.typed.type_rep Poly Bounds PolyDots F)))
-
-(alter-meta! *ns* assoc :skip-wiki true)
+            [clojure.string :as string]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Polymorphic type instantiation
@@ -23,7 +17,7 @@
   [bounds arg-bounds]
   {:pre [(r/Bounds? bounds)
          (r/Bounds? arg-bounds)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (and (sub/subtype? (:lower-bound bounds) (:lower-bound arg-bounds))
        (sub/subtype? (:upper-bound arg-bounds) (:upper-bound bounds))
        ; make sure bounds make sense

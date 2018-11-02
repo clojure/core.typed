@@ -1,15 +1,14 @@
 (ns ^:skip-wiki 
   clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.impl-protocols :as p]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             clojure.core.typed.contract-ann
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.indirect-ops :as ind]
-            [clojure.core.typed :as t]
-            [clojure.set :as set]
-            [clojure.core.typed.current-impl :as impl]))
+            [clojure.set :as set]))
 
 (t/defalias SeqNumber Long)
 
@@ -166,7 +165,7 @@
 (u/def-type B [idx]
   "de Bruijn indices - should never appear outside of this file.
   Bound type variables"
-  [(con/znat? idx)]
+  [(nat-int? idx)]
   :methods
   [p/TCType])
 
@@ -227,7 +226,7 @@
   "True if scope is has depth number of scopes nested"
   [scope depth]
   {:pre [(Scope? scope)
-         (con/znat? depth)]}
+         (nat-int? depth)]}
   (Type? (last (take (inc depth) (iterate #(and (Scope? %)
                                                 (:body %))
                                           scope)))))
@@ -343,7 +342,7 @@
 (u/def-type TypeFn [nbound variances bbnds scope]
   "A type function containing n bound variables with variances.
   It is of a higher kind"
-  [(con/znat? nbound)
+  [(nat-int? nbound)
    (every? variance? variances)
    (every? Bounds? bbnds)
    (apply = nbound (map count [variances bbnds]))
@@ -359,7 +358,7 @@
 (u/def-type Poly [nbound bbnds scope named]
   "A polymorphic type containing n bound variables.
   `named` is a map of free variable names to de Bruijn indices (range nbound)"
-  [(con/znat? nbound)
+  [(nat-int? nbound)
    (every? Bounds? bbnds)
    (apply = nbound (map count [bbnds]))
    (scope-depth? scope nbound)
@@ -516,8 +515,8 @@
 (u/def-type DottedPretype [pre-type name partition-count]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn symbol? con/znat?) name)
-   (con/znat? partition-count)]
+   ((some-fn symbol? nat-int?) name)
+   (nat-int? partition-count)]
   :methods
   [p/TCAnyType])
 
@@ -811,9 +810,9 @@
 (u/def-type CountRange [lower upper]
   "A sequence of count between lower (inclusive) and upper (inclusive).
   If upper is nil, between lower and infinity."
-  [(con/znat? lower)
+  [(nat-int? lower)
    (or (nil? upper)
-       (and (con/znat? upper)
+       (and (nat-int? upper)
             (<= lower upper)))]
   :methods
   [p/TCType])
@@ -840,7 +839,7 @@
 
 (t/ann make-ExactCountRange (t/IFn [Number -> CountRange]))
 (defn make-ExactCountRange [c]
-  {:pre [(con/znat? c)]}
+  {:pre [(nat-int? c)]}
   (make-CountRange c c))
 
 (declare Result-maker)

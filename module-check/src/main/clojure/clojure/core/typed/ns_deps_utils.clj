@@ -1,6 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.ns-deps-utils
   (:require [clojure.tools.namespace.parse :as ns-parse]
-            [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.tools.namespace.file :as ns-file]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
@@ -51,7 +50,7 @@
   "Returns true if the ns-form refers to clojure.core.typed"
   [ns-form]
   {:pre [ns-form]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (if-let [deps (ns-parse/deps-from-ns-decl ns-form)]
     (contains? deps (impl/impl-case
                       :clojure 'clojure.core.typed

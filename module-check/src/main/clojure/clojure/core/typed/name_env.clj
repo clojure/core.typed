@@ -1,7 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.name-env
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.datatype-env :as dtenv]

@@ -1,10 +1,10 @@
 (ns ^:skip-wiki clojure.core.typed.parse-unparse
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
@@ -17,12 +17,10 @@
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.name-env :as name-env]
             [clojure.core.typed.hset-utils :as hset]
-            [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
-  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousMap

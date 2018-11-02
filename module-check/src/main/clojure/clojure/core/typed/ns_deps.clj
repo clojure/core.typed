@@ -3,7 +3,6 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.nilsafe-utils :as nilsafe]
-            [clojure.set :as set]
             [clojure.core.typed.env :as env]))
 
 (t/defalias DepMap

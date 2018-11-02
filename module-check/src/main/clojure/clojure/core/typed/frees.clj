@@ -25,8 +25,6 @@
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
            (clojure.core.typed.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE KeywordPE)))
 
-;(t/typed-deps clojure.core.typed.type-rep)
-
 ;TODO make this an argument
 (t/ann *frees-mode* (t/U nil t/Kw))
 (defonce ^:dynamic *frees-mode* nil)

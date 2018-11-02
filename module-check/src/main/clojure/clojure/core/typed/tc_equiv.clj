@@ -4,7 +4,6 @@
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.check-below :as below]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.math.combinatorics :as comb]
             [clojure.core.typed.current-impl :as impl]))
 

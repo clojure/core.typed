@@ -1,4 +1,4 @@
-(ns clojure.core.typed.reflect-utils
+(ns ^:skip-wiki clojure.core.typed.reflect-utils
   (:require [clojure.reflect :as reflect]
             [clojure.string :as str])
   (:import (clojure.lang RT)))

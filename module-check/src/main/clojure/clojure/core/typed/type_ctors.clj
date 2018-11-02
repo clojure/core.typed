@@ -1,13 +1,13 @@
 (ns ^:skip-wiki clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
             clojure.core.typed.coerce-ann
             [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.type-rep :as r :refer [ret-t]]
-            [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.path-rep :as path]
             [clojure.core.typed.rclass-env :as rcls]
@@ -21,8 +21,6 @@
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.core.typed.indirect-ops :as ind]
             clojure.core.typed.indirect-ann
-            [clojure.core.typed :as t]
-            [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.repl :as repl]
@@ -31,8 +29,7 @@
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
                                         JSNominal Protocol GetType HSequential
-                                        HSet AssocType TypeOf)
-           (clojure.lang IPersistentMap IPersistentVector Var)))
+                                        HSet AssocType TypeOf)))
 
 (t/ann ^:no-check with-original-names [r/Type (t/U t/Sym (t/Seqable t/Sym)) -> r/Type])
 (defn- with-original-names [t names]
@@ -612,7 +609,7 @@
         var-sym (symbol (apply str (apply concat segs)))]
     var-sym))
 
-(t/ann resolve-Protocol [Protocol -> (Var t/Nothing t/Any)])
+(t/ann resolve-Protocol [Protocol -> (t/Var2 t/Nothing t/Any)])
 (defn resolve-Protocol
   [{:keys [the-var]}]
   {:post [(var? %)]}
