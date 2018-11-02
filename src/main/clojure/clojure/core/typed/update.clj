@@ -3,7 +3,6 @@
   (:require [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.filter-ops :as fo]
@@ -16,8 +15,8 @@
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.subtype :as sub]
-            [clojure.set :as set]
-            [clojure.core.typed.remove :as remove])
+            [clojure.core.typed.remove :as remove]
+            [clojure.set :as set])
   (:import (clojure.lang IPersistentMap Keyword)))
 
 ;[(Seqable Filter) Filter -> Filter]
@@ -57,7 +56,7 @@
 (defn combine-props [new-props old-props flag]
   {:pre [(every? fl/Filter? (concat new-props old-props))
          (instance? clojure.lang.Atom flag)
-         (con/boolean? @flag)]
+         (boolean? @flag)]
    :post [(let [[derived-props derived-atoms] %]
             (and (every? (some-fn fl/ImpFilter? fl/OrFilter? fl/AndFilter?) derived-props)
                  (every? (some-fn fl/TypeFilter? fl/NotTypeFilter?) derived-atoms)))]}
@@ -133,7 +132,7 @@
 (defn update* [t ft pos? lo]
   {:pre [(r/Type? t)
          (r/Type? ft)
-         (con/boolean? pos?)
+         (boolean? pos?)
          (pr/path-elems? lo)]
    :post [(r/Type? %)]}
   (let [t (c/fully-resolve-type t)]
@@ -398,10 +397,10 @@
   {:pre [(lex/PropEnv? env)
          (every? (every-pred fl/Filter? (complement fl/NoFilter?)) 
                  fs)
-         (con/boolean? @flag)]
+         (boolean? @flag)]
    :post [(lex/PropEnv? %)
           ; flag should be updated by the time this function exits
-          (con/boolean? @flag)]}
+          (boolean? @flag)]}
   (let [[props atoms] (combine-props fs (:props env) flag)]
     (reduce (fn [env f]
               ;post-condition checked in env+

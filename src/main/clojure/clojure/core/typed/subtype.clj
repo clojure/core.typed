@@ -1,13 +1,11 @@
 (ns ^:skip-wiki clojure.core.typed.subtype
   (:require [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-protocols :as tp]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fops]
@@ -19,15 +17,8 @@
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.assoc-utils :as assoc-u]
-            [clojure.set :as set]
-            [clojure.repl :as repl])
-  (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
-                                        Result Protocol TypeFn Name F Bounds
-                                        PrimitiveArray DataType RClass HeterogeneousMap
-                                        CountRange KwArgs
-                                        Extends)
-           (clojure.core.typed.filter_rep FilterSet)
-           (clojure.lang APersistentVector PersistentList ASeq)))
+            [clojure.set :as set])
+  (:import (clojure.lang ASeq)))
 
 (defn ^:private gen-repeat [times repeated]
   (reduce (fn [acc cur]
@@ -357,21 +348,19 @@
           (fail! s t))
 
         (r/Extends? s)
-        (let [^Extends s s]
-          (if (and (some #(subtype? % t) (.extends s))
-                   (not-any? #(subtype? % t) (.without s)))
-            *sub-current-seen*
-            (fail! s t)))
+        (if (and (some #(subtype? % t) (:extends s))
+                 (not-any? #(subtype? % t) (:without s)))
+          *sub-current-seen*
+          (fail! s t))
 
         (r/Extends? t)
-        (let [^Extends t t]
-          (if (and (every? identity 
-                           (doall
-                             (for [e (.extends t)]
-                               (subtype? s e))))
-                   (not-any? #(subtype? s %) (.without t)))
-            *sub-current-seen*
-            (fail! s t)))
+        (if (and (every? identity 
+                         (doall
+                           (for [e (:extends t)]
+                             (subtype? s e))))
+                 (not-any? #(subtype? s %) (:without t)))
+          *sub-current-seen*
+          (fail! s t))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
@@ -748,8 +737,7 @@
 
         ;values are subtypes of their classes
         (r/Value? s)
-        (let [^Value s s
-              sval (.val s)]
+        (let [sval (:val s)]
           (impl/impl-case
             :clojure (cond 
                        ; this is after the nil <: Protocol case, so we fail
@@ -778,12 +766,12 @@
                                                (string? sval) [(r/make-ExactCountRange (count sval))]))
                                       t))
             :cljs (cond
-                    (integer? (.val s)) (subtype (r/CLJSInteger-maker) t)
-                    (number? (.val s)) (subtype (r/JSNumber-maker) t)
-                    (string? (.val s)) (subtype (r/JSString-maker) t)
-                    (con/boolean? (.val s)) (subtype (r/JSBoolean-maker) t)
-                    (symbol? (.val s)) (subtype (c/DataType-of 'cljs.core/Symbol) t)
-                    (keyword? (.val s)) (subtype (c/DataType-of 'cljs.core/Keyword) t)
+                    (integer? sval) (subtype (r/CLJSInteger-maker) t)
+                    (number? sval) (subtype (r/JSNumber-maker) t)
+                    (string? sval) (subtype (r/JSString-maker) t)
+                    (boolean? sval) (subtype (r/JSBoolean-maker) t)
+                    (symbol? sval) (subtype (c/DataType-of 'cljs.core/Symbol) t)
+                    (keyword? sval) (subtype (c/DataType-of 'cljs.core/Keyword) t)
                     :else (fail! s t))))
 
         (and (r/Result? s)
@@ -815,22 +803,21 @@
         (cond
           ; Var doesn't actually have an FnIntersection ancestor,
           ; but this case simulates it.
-          (#{'clojure.lang.Var}
-             (:the-class s))
-            (let [[_ read-type :as poly] (:poly? s)
-                  _ (when-not (#{2} (count (:poly? s)))
-                      (err/int-error
-                        (str "Assuming Var takes 2 arguments, "
-                             "given " (count (:poly? s)))))]
-              (if (subtype? read-type t)
-                *sub-current-seen*
-                (fail! s t)))
-          :else
-            (if (some #(when (r/FnIntersection? %)
-                         (subtype? % t))
-                      (map c/fully-resolve-type (c/RClass-supers* s)))
+          (#{'clojure.lang.Var} (:the-class s))
+          (let [[_ read-type :as poly] (:poly? s)
+                _ (when-not (#{2} (count (:poly? s)))
+                    (err/int-error
+                      (str "Assuming Var takes 2 arguments, "
+                           "given " (count (:poly? s)))))]
+            (if (subtype? read-type t)
               *sub-current-seen*
               (fail! s t)))
+
+          :else (if (some #(when (r/FnIntersection? %)
+                             (subtype? % t))
+                          (map c/fully-resolve-type (c/RClass-supers* s)))
+                  *sub-current-seen*
+                  (fail! s t)))
 
         ; handles classes with heterogeneous vector ancestors (eg. IMapEntry)
         (and (r/RClass? s)
@@ -886,7 +873,7 @@
 
 
 (let [cljs-extenders (delay (impl/dynaload 'clojure.core.typed.analyze-cljs/extenders))]
-  (defn protocol-extenders [^Protocol p]
+  (defn protocol-extenders [p]
     {:pre [(r/Protocol? p)]
      :post [(every? r/Type? %)]}
     (impl/impl-case
@@ -956,7 +943,7 @@
           (fail! (first argtys) (first dom)))))))
 
 ;FIXME
-(defn subtype-kwargs* [^KwArgs s ^KwArgs t]
+(defn subtype-kwargs* [s t]
   {:pre [((some-fn r/KwArgs? nil?) s)
          ((some-fn r/KwArgs? nil?) t)]}
   (if (= s t)
@@ -965,7 +952,7 @@
 
 ;; simple co/contra-variance for ->
 ;[(IPersistentSet '[Type Type]) Function Function -> (IPersistentSet '[Type Type])]
-(defn arr-subtype [A0 ^Function s ^Function t]
+(defn arr-subtype [A0 s t]
   {:pre [(r/Function? s)
          (r/Function? t)]}
   ;; top for functions is above everything
@@ -976,44 +963,44 @@
     (and (not ((some-fn :rest :drest :kws :prest) s))
          (not ((some-fn :rest :drest :kws :prest) t)))
     (do
-      (when-not (= (count (.dom s))
-                   (count (.dom t)))
+      (when-not (= (count (:dom s))
+                   (count (:dom t)))
         (fail! s t))
       (-> *sub-current-seen*
         ((fn [A0]
            (reduce (fn [A* [s t]]
                      (subtypeA* A* s t))
                    A0
-                   (map vector (.dom t) (.dom s)))))
-        (subtypeA* (.rng s) (.rng t))))
+                   (map vector (:dom t) (:dom s)))))
+        (subtypeA* (:rng s) (:rng t))))
 
     (and (:prest s)
          (:prest t))
-    (if (and (= (count (.dom s))
-                (count (.dom t)))
+    (if (and (= (count (:dom s))
+                (count (:dom t)))
              (-> *sub-current-seen*
                ((fn [A0]
                   (reduce (fn [A* [s t]]
                             (subtypeA* A* s t))
                           A0
-                          (map vector (.dom t) (.dom s)))))
-               (subtypeA* (.rng s) (.rng t)))
-             (subtype (.prest s) (.prest t)))
+                          (map vector (:dom t) (:dom s)))))
+               (subtypeA* (:rng s) (:rng t)))
+             (subtype (:prest s) (:prest t)))
       *sub-current-seen*
       (fail! s t))
 
     (and (:rest s)
          (:prest t))
-    (let [_ (subtypeA* *sub-current-seen* (.rng s) (.rng t))
+    (let [_ (subtypeA* *sub-current-seen* (:rng s) (:rng t))
           subtype-list (fn [s t]
                          (for [s s
                                t t]
                            (subtypeA* *sub-current-seen* s t)))
-          s-dom (.dom s)
+          s-dom (:dom s)
           s-dom-count (count s-dom)
-          t-dom (.dom t)
+          t-dom (:dom t)
           t-dom-count (count t-dom)
-          s-rest (.rest s)
+          s-rest (:rest s)
           t-prest-types (-> t :prest :types)
           t-prest-types-count (count t-prest-types)
           _ (subtype-list (repeat t-prest-types-count s-rest) t-prest-types)]
@@ -1041,25 +1028,25 @@
           *sub-current-seen*)))
 
     ;kw args
-    (and (.kws s)
-         (.kws t))
+    (and (:kws s)
+         (:kws t))
     (do
-      (mapv subtype (.dom t) (.dom s))
-      (subtype (.rng s) (.rng t))
-      (subtype-kwargs* (.kws t) (.kws s)))
+      (mapv subtype (:dom t) (:dom s))
+      (subtype (:rng s) (:rng t))
+      (subtype-kwargs* (:kws t) (:kws s)))
 
     (and (:rest s)
          (not ((some-fn :rest :drest :kws :prest) t)))
     (-> *sub-current-seen*
-      (subtypes*-varargs (.dom t) (.dom s) (.rest s) nil)
-      (subtypeA* (.rng s) (.rng t)))
+      (subtypes*-varargs (:dom t) (:dom s) (:rest s) nil)
+      (subtypeA* (:rng s) (:rng t)))
 
     (and (not ((some-fn :rest :drest :kws :prest) s))
          (:rest t))
     (fail! s t)
 
-    (and (.rest s)
-         (.rest t))
+    (and (:rest s)
+         (:rest t))
     (-> *sub-current-seen*
       (subtypes*-varargs (:dom t) (:dom s) (:rest s) nil)
       (subtypeA* (:rest t) (:rest s))
@@ -1210,8 +1197,8 @@
     (= n1 n2)))
 
 (defn subtype-Result
-  [{t1 :t ^FilterSet f1 :fl o1 :o flow1 :flow :as s}
-   {t2 :t ^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
+  [{t1 :t f1 :fl o1 :o flow1 :flow :as s}
+   {t2 :t f2 :fl o2 :o flow2 :flow :as t}]
   (cond
     ;trivial case
     (and (= o1 o2)
@@ -1246,8 +1233,8 @@
     :else (fail! t1 t2)))
 
 (defn subtype-TCResult-ignore-type?
-  [{^FilterSet f1 :fl o1 :o flow1 :flow :as s}
-   {^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
+  [{f1 :fl o1 :o flow1 :flow :as s}
+   {f2 :fl o2 :o flow2 :flow :as t}]
   {:pre [(r/TCResult? s)
          (r/TCResult? t)]
    :post [(con/boolean? %)]}
@@ -1367,15 +1354,14 @@
       (fail! S T))))
 
 (defn subtype-PrimitiveArray
-  [^PrimitiveArray s 
-   ^PrimitiveArray t]
+  [s t]
   (if (and ;(= (.jtype s) (.jtype t))
            ;contravariant
-           (subtype? (.input-type t)
-                     (.input-type s))
+           (subtype? (:input-type t)
+                     (:input-type s))
            ;covariant
-           (subtype? (.output-type s)
-                     (.output-type t)))
+           (subtype? (:output-type s)
+                     (:output-type t)))
     *sub-current-seen*
     (fail! s t)))
 

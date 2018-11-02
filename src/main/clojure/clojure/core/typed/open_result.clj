@@ -5,8 +5,6 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.subst-obj :as subst-obj]))
 
-(alter-meta! *ns* assoc :skip-wiki true)
-
 ;; Used to "instantiate" a Result from a function call.
 ;; eg. (let [a (ann-form [1] (U nil (Seqable Number)))]
 ;;       (if (seq a)

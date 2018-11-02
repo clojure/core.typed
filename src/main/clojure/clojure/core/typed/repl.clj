@@ -1,4 +1,4 @@
-(ns ^:no-wiki clojure.core.typed.repl
+(ns ^:skip-wiki clojure.core.typed.repl
   (:require [clojure.tools.nrepl.middleware :as mid]
             [clojure.tools.nrepl.transport :as transport]
             [clojure.tools.nrepl.misc :as misc]

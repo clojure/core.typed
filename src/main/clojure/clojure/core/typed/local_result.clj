@@ -7,7 +7,6 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.check.utils :as cu]))
 

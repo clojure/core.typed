@@ -2,10 +2,7 @@
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.parse-unparse :as prs]))
-
-(alter-meta! *ns* assoc :skip-wiki true)
+            [clojure.core.typed.type-rep :as r]))
 
 ;; Environment for storing multimethod types and inferred filters
 

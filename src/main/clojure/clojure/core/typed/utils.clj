@@ -1,18 +1,9 @@
 (ns ^:skip-wiki clojure.core.typed.utils
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
-            [clojure.core.typed.impl-protocols :as ps]
-            [clojure.core.typed.ast-utils :as au]
-            [clojure.core.typed.errors :as err]
+            [clojure.core.typed.util-vars :as uvs]
             [clojure.repl :as repl]
-            [clojure.set :as set]
-            [clojure.core.typed.current-impl :as impl]
-            [clojure.pprint :as pprint]
-            [clojure.string :as str]
-            [clojure.java.io :as io]))
-
-(t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> t/Any])
+            [clojure.set :as set]))
 
 (t/ann subtype-exn Exception)
 (def subtype-exn (Exception. "Subtyping failed."))

@@ -1,12 +1,11 @@
 (ns ^:skip-wiki clojure.core.typed.protocol-env
-  (:require [clojure.core.typed.contract-utils :as con]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.contract-ann]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.errors-ann]
-            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

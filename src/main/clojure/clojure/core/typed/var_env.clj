@@ -1,4 +1,4 @@
-(ns clojure.core.typed.var-env
+(ns ^:skip-wiki clojure.core.typed.var-env
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r]
@@ -7,10 +7,9 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
-            [clojure.core.typed :as t]
-            [clojure.set :as set]
             [clojure.core.typed.env :as env]
-            [clojure.core.typed.name-env :as name-env]))
+            [clojure.core.typed.name-env :as name-env]
+            [clojure.set :as set]))
 
 (defn clj-var-annotations []
   (get @(impl/clj-checker) impl/current-var-annotations-kw {}))

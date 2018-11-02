@@ -1,4 +1,4 @@
-(ns clojure.core.typed.remove
+(ns ^:skip-wiki clojure.core.typed.remove
   (:require [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.type-rep :as r]))

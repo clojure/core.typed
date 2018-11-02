@@ -3,13 +3,10 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-ctors :as c]
             [clojure.set :as set])
   (:import [clojure.core.typed.type_rep RClass]))
-
-(alter-meta! *ns* assoc :skip-wiki true)
 
 (t/defalias RClassAncestorEnv 
   (t/Map t/Symbol '{:replacements (t/Map t/Symbol r/MaybeScopedType)

@@ -1,12 +1,11 @@
-(ns clojure.core.typed.subst-obj
+(ns ^:skip-wiki clojure.core.typed.subst-obj
   (:require [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.fold-rep :as fold]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.free-in :as free-in]
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.contract-utils :as con])
+            [clojure.core.typed.object-rep :as obj])
   (:import (clojure.core.typed.type_rep Function)))
 
 (declare subst-type)
@@ -16,7 +15,7 @@
   {:pre [(fl/Filter? f)
          (fl/name-ref? k)
          (obj/RObject? o)
-         (con/boolean? polarity)]
+         (boolean? polarity)]
    :post [(fl/Filter? %)]}
   (letfn [(ap [f] (subst-filter f k o polarity))
           (tf-matcher [t p i k o polarity maker]
@@ -111,7 +110,7 @@
   {:pre [(obj/RObject? t)
          (fl/name-ref? k)
          (obj/RObject? o)
-         (con/boolean? polarity)]
+         (boolean? polarity)]
    :post [(obj/RObject? %)]}
   (cond
     ((some-fn obj/NoObject? obj/EmptyObject?) t) t
@@ -161,7 +160,7 @@
   {:pre [(r/AnyType? t)
          (fl/name-ref? k)
          (obj/RObject? o)
-         (con/boolean? polarity)]
+         (boolean? polarity)]
    :post [(r/AnyType? %)]}
   ;(prn "subst-type" (prs/unparse-type t))
   (letfn [(st [t*]
