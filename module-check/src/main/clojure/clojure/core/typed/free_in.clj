@@ -1,9 +1,8 @@
-(ns clojure.core.typed.free-in
+(ns ^:skip-wiki clojure.core.typed.free-in
   (:require [clojure.core.typed.fold-rep :as fold]
-            clojure.core.typed.object-rep
-            clojure.core.typed.filter-rep
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.contract-utils :as con])
+            clojure.core.typed.object-rep
+            clojure.core.typed.filter-rep)
   (:import (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter)
            (clojure.core.typed.type_rep Function)))
@@ -55,7 +54,7 @@
 
 ;[AnyInteger Type -> Boolean]
 (defn index-free-in? [k type]
-  (let [free-in? (atom false :validator con/boolean?)]
+  (let [free-in? (atom false :validator boolean?)]
     (letfn [(for-object [o]
               (fold/fold-rhs ::free-in-for-object
                              {:type-rec for-type

@@ -3,7 +3,6 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.string :as str]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.parse-unparse :as prs]
@@ -63,7 +62,7 @@
                                       :unknown)
                                     (when (contains? options :flag)
                                       (let [flg-form (first (:flag options))]
-                                        (if (con/boolean? flg-form)
+                                        (if (boolean? flg-form)
                                           flg-form
                                           :unknown)))
                                     false)]

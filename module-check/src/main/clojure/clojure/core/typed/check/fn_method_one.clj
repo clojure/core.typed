@@ -150,7 +150,7 @@
                           ;add parameters to scope
                           ;IF UNHYGIENIC order important, (fn [a a & a]) prefers rightmost name
                           (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
-                  flag (atom true :validator con/boolean?)
+                  flag (atom true :validator boolean?)
                   env (if mm-filter
                         (let [t (update/env+ env [mm-filter] flag)]
                           t)
