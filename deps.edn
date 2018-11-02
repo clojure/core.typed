@@ -1,5 +1,6 @@
 {:paths ["src/main/clojure"]
- :deps {org.clojure/core.typed.rt {:local/root "../module-rt"}
+ :deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}
+        org.clojure/core.typed.rt {:local/root "../module-rt"}
         org.clojure/core.typed.infer {:local/root "../module-infer"}
         org.clojure/core.typed.analyzer.jvm {:local/root "../module-analyzer-jvm"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
