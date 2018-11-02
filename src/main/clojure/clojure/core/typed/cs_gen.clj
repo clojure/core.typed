@@ -23,13 +23,8 @@
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed :as t :refer [letfn>]]
             [clojure.set :as set])
-  (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
-                                        Result AnyValue Top RClass
-                                        DataType HeterogeneousMap PrimitiveArray
-                                        Function Protocol Bounds FlowSet TCResult HSequential)
-           (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)
-           (clojure.core.typed.filter_rep TypeFilter)
-           (clojure.lang ISeq IPersistentList APersistentVector)))
+  (:import (clojure.core.typed.type_rep F DataType Function Protocol Bounds FlowSet TCResult HSequential)
+           (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)))
 
 (t/typed-deps clojure.core.typed.free-ops
               clojure.core.typed.promote-demote)
@@ -383,35 +378,35 @@
 
         ;IMPORTANT: handle frees first
         (and (r/F? S)
-             (contains? X (.name ^F S)))
+             (contains? X (:name S)))
         (cs-gen-left-F V X Y S T)
 
         (and (r/F? T)
-             (contains? X (.name ^F T)))
+             (contains? X (:name T)))
         (cs-gen-right-F V X Y S T)
         
         ;values are subtypes of their classes
         (and (r/Value? S)
              (impl/checking-clojure?))
-        (let [^Value S S]
+        (let [sval (:val S)]
           (impl/impl-case
-            :clojure (if (nil? (.val S))
+            :clojure (if (nil? sval)
                        (fail! S T)
                        (cs-gen V X Y
-                               (apply c/In (c/RClass-of (class (.val S)))
+                               (apply c/In (c/RClass-of (class sval))
                                       (cond 
                                         ;keyword values are functions
-                                        (keyword? (.val S)) [(c/keyword->Fn (.val S))]
+                                        (keyword? sval) [(c/keyword->Fn sval)]
                                         ;strings have a known length as a seqable
-                                        (string? (.val S)) [(r/make-ExactCountRange (count (.val S)))]))
+                                        (string? sval) [(r/make-ExactCountRange (count sval))]))
                                T))
             :cljs (cond
-                    (integer? (.val S)) (cs-gen V X Y (r/CLJSInteger-maker) T)
-                    (number? (.val S)) (cs-gen V X Y (r/JSNumber-maker) T)
-                    (string? (.val S)) (cs-gen V X Y (r/JSString-maker) T)
-                    (con/boolean? (.val S)) (cs-gen V X Y (r/JSBoolean-maker) T)
-                    (symbol? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Symbol) T)
-                    (keyword? (.val S)) (cs-gen V X Y (c/DataType-of 'cljs.core/Keyword) T)
+                    (integer? sval) (cs-gen V X Y (r/CLJSInteger-maker) T)
+                    (number? sval) (cs-gen V X Y (r/JSNumber-maker) T)
+                    (string? sval) (cs-gen V X Y (r/JSString-maker) T)
+                    (boolean? sval) (cs-gen V X Y (r/JSBoolean-maker) T)
+                    (symbol? sval) (cs-gen V X Y (c/DataType-of 'cljs.core/Symbol) T)
+                    (keyword? sval) (cs-gen V X Y (c/DataType-of 'cljs.core/Keyword) T)
                     :else (fail! S T))))
 
         (r/Name? S)
@@ -457,12 +452,12 @@
         (r/Union? S)
         (cset-meet*
           (cons (cr/empty-cset X Y)
-                (mapv #(cs-gen V X Y % T) (.types ^Union S))))
+                (mapv #(cs-gen V X Y % T) (:types S))))
 
         ;; find *an* element of T which can be made a supertype of S
         (r/Union? T)
         (if-let [cs (seq (filter identity (mapv #(handle-failure (cs-gen V X Y S %))
-                                                (.types ^Union T))))]
+                                                (:types T))))]
           (cset-combine cs)
           (fail! S T))
 
@@ -783,14 +778,12 @@
         (and (r/PrimitiveArray? S)
              (r/PrimitiveArray? T)
              (impl/checking-clojure?))
-        (let [^PrimitiveArray S S 
-              ^PrimitiveArray T T]
-          (cs-gen-list 
-            V X Y
-            ;input contravariant
-            ;output covariant
-            [(.input-type T) (.output-type S)]
-            [(.input-type S) (.output-type T)]))
+        (cs-gen-list 
+          V X Y
+          ;input contravariant
+          ;output covariant
+          [(:input-type T) (:output-type S)]
+          [(:input-type S) (:output-type T)])
 
         ; some RClass's have heterogeneous vector ancestors (in "unchecked ancestors")
         ; It's useful to also trigger this case with HSequential, as that's more likely
@@ -1091,19 +1084,19 @@
       (:rands S) (:rands T))))
 
 (defn cs-gen-FnIntersection
-  [V X Y ^FnIntersection S ^FnIntersection T] 
+  [V X Y S T] 
   {:pre [(r/FnIntersection? S)
          (r/FnIntersection? T)]}
   ;(prn "cs-gen FnIntersections")
   (cset-meet*
     (doall
       (t/for
-        [t-arr :- Function, (.types T)] :- cset
+        [t-arr :- Function, (:types T)] :- cset
         ;; for each t-arr, we need to get at least s-arr that works
         (let [results (filter (t/inst identity (t/U false cset))
                               (doall
                                 (t/for
-                                  [s-arr :- Function, (.types S)] :- (t/U false cset)
+                                  [s-arr :- Function, (:types S)] :- (t/U false cset)
                                   (let [r (handle-failure
                                             (cs-gen-Function V X Y s-arr t-arr))]
                                     r))))
@@ -1253,15 +1246,14 @@
       (insert-constraint name ps r/-any bnd))))
 
 (t/ann cs-gen-left-F [NoMentions ConstrainVars ConstrainVars F r/Type -> cset])
-(defn cs-gen-left-F [V X Y ^F S T]
+(defn cs-gen-left-F [V X Y S T]
   {:pre [(r/F? S)]}
-  #_(prn "cs-gen* [F Type]" S T)
   (cond
-    (contains? X (.name S))
+    (contains? X (:name S))
     (demote-F V X Y S T)
 
     (and (r/F? T)
-         (contains? X (.name ^F T)))
+         (contains? X (:name T)))
     (promote-F V X Y S T)
 
     :else (fail! S T)))
@@ -1269,7 +1261,6 @@
 (t/ann cs-gen-right-F [NoMentions ConstrainVars ConstrainVars r/Type F -> cset])
 (defn cs-gen-right-F [V X Y S T]
   {:pre [(r/F? T)]}
-  ;(prn "cs-gen* [Type F]" S T X)
   (cond
     (contains? X (:name T))
     (promote-F V X Y S T)

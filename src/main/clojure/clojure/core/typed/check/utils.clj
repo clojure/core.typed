@@ -142,7 +142,7 @@
 ;[t/Sym Boolean -> Type]
 (defn Java-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)
-         (con/boolean? nilable?)]
+         (boolean? nilable?)]
    :post [(r/Type? %)]}
   (if-let [typ (or ((prs/clj-primitives-fn) sym)
                    (symbol->PArray sym nilable?)
@@ -156,7 +156,7 @@
 ;[t/Sym Boolean -> (Option Type)]
 (defn- symbol->PArray [sym nilable?]
   {:pre [(symbol? sym)
-         (con/boolean? nilable?)]
+         (boolean? nilable?)]
    :post [((some-fn nil? r/PrimitiveArray?) %)]}
   (let [s (str sym)]
     (when (.endsWith s "<>")
@@ -342,11 +342,11 @@
   (symbol (name declaring-class) (name name-sym)))
 
 (defn method-nilable-param? [msym nparams n]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (mtd-param-nil/nilable-param? msym nparams n))
 
 (defn method-nonnilable-return? [msym nparams]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (mtd-ret-nil/nonnilable-return? msym nparams))
 
 ;[clojure.reflect.Method -> Type]

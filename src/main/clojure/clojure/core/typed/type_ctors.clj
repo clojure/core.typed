@@ -160,7 +160,7 @@
           (pr-str optional))
   (assert ((con/set-c? r/Type?) absent-keys)
           (pr-str absent-keys))
-  (assert (con/boolean? complete?)
+  (assert (boolean? complete?)
           (pr-str complete?))
   ; simplifies to bottom with contradictory keys
   (cond 
@@ -1706,7 +1706,7 @@
 (defn add-scopes 
   "Wrap type in n Scopes"
   [n t]
-  {:pre [(con/znat? n)
+  {:pre [(nat-int? n)
          (r/Type? t)]
    :post [((some-fn r/Scope? r/Type?) %)]}
   (last 
@@ -1716,7 +1716,7 @@
 (defn remove-scopes 
   "Unwrap n Scopes"
   [^long n sc]
-  {:pre [(con/znat? n)
+  {:pre [(nat-int? n)
          (or (zero? n)
              (r/Scope? sc))]
    :post [(r/Type? %)]}

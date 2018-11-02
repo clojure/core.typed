@@ -3,7 +3,6 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
@@ -79,7 +78,7 @@
 
 ;[Type Type -> Boolean]
 (defn subtype? [s t]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (letfn [(do-subtype []
             (boolean
               (handle-failure
@@ -1136,7 +1135,7 @@
 (defn subtype-filter-set? [f1 f2]
   {:pre [(fr/FilterSet? f1)
          (fr/FilterSet? f2)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (boolean
     (or (= f2 (fops/-FS fr/-top fr/-top))
         (letfn [(sub-helper [f1 f2 pred field sub?]
@@ -1157,7 +1156,7 @@
          (not (fr/NoFilter? f1))
          (fr/Filter? f2)
          (not (fr/NoFilter? f2))]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   ; assume conjunctive normal form
   ; ie. (V (^ ...) (^ ...))
   (cond
@@ -1237,7 +1236,7 @@
    {f2 :fl o2 :o flow2 :flow :as t}]
   {:pre [(r/TCResult? s)
          (r/TCResult? t)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (cond
     ;trivial case
     (and (= o1 o2)
@@ -1274,7 +1273,7 @@
   {:pre [(r/TypeFn? tfn)
          (every? r/Type? rands1)
          (every? r/Type? rands2)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (and (== (count rands1)
            (count rands2)
            (count (:variances tfn)))

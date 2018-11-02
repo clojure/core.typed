@@ -1,20 +1,17 @@
-(ns clojure.core.typed.check.if
+(ns ^:skip-wiki clojure.core.typed.check.if
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.errors :as err]
-            [clojure.core.typed.check-below :as below]))
+            [clojure.core.typed.var-env :as var-env]))
 
 (defn update-lex+reachable [fs]
-  (let [reachable (atom true :validator con/boolean?)
+  (let [reachable (atom true :validator boolean?)
         env (update/env+ (lex/lexical-env) [fs] reachable)]
     [env @reachable]))
 

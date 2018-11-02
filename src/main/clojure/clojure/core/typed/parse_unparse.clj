@@ -1587,7 +1587,7 @@
             [:flow (unparse-flow-set flow)])))
 
 (defn unparse-bound [name]
-  {:pre [((some-fn symbol? con/znat?) name)]}
+  {:pre [((some-fn symbol? nat-int?) name)]}
   (if (symbol? name)
     (-> name r/make-F r/F-original-name)
     `(~'B ~name)))

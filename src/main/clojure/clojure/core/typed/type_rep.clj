@@ -1,5 +1,4 @@
-(ns ^:skip-wiki 
-  clojure.core.typed.type-rep
+(ns ^:skip-wiki clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.impl-protocols :as p]
@@ -299,7 +298,7 @@
    (= (count variances) (count poly?))
    (symbol? the-class)
    ((con/array-map-c? symbol? (some-fn Scope? Type?)) fields)
-   (con/boolean? record?)]
+   (boolean? record?)]
   :methods
   [p/TCType])
 
@@ -331,7 +330,7 @@
    (= (count poly?) (count variances))
    (symbol? on-class)
    ((con/hash-c? (every-pred symbol? (complement namespace)) (some-fn Scope? Type?)) methods)
-   (con/boolean? declared?)]
+   (boolean? declared?)]
   :methods
   [p/TCType])
 
@@ -498,7 +497,7 @@
              (set (keys types))
              (set (keys optional))
              absent-keys))
-   (con/boolean? other-keys?)]
+   (boolean? other-keys?)]
   :methods
   [p/TCType])
 
@@ -620,7 +619,7 @@
   "A constant set"
   [(every? Type? fixed)
    (set? fixed)
-   (con/boolean? complete?)]
+   (boolean? complete?)]
   :methods
   [p/TCType])
 
@@ -715,8 +714,8 @@
   [(every? (con/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
                             (set (keys optional))))
-   (con/boolean? nilable-non-empty?)
-   (con/boolean? complete?)]
+   (boolean? nilable-non-empty?)
+   (boolean? complete?)]
   :methods
   [p/TCType])
 

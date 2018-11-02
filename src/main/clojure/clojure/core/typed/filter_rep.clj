@@ -1,15 +1,14 @@
 (ns ^:skip-wiki clojure.core.typed.filter-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.impl-protocols :as p]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.indirect-utils :as ind-u]
-            [clojure.core.typed.indirect-ops :as ind]
-            [clojure.core.typed :as t]
-            [clojure.core.typed.contract-utils :as con])
-  (:import (clojure.lang Symbol Seqable IPersistentSet)
-           (clojure.core.typed.path_rep IPathElem)))
+            [clojure.core.typed.indirect-ops :as ind])
+  ;; FIXME should this import be a var, since IPathElem is a protocol?
+  (:import (clojure.core.typed.path_rep IPathElem)))
 
 (t/defalias Filter
   "A filter"
@@ -20,7 +19,7 @@
 
 (t/defalias NameRef
   "A name for a type variable, either a symbol or a number."
-  (t/U Symbol Number))
+  (t/U t/Sym Number))
 
 (t/ann ^:no-check name-ref? (t/Pred NameRef))
 (def name-ref? (some-fn symbol? (every-pred integer?
@@ -73,7 +72,7 @@
 (def -no-filter (NoFilter-maker))
 
 (u/ann-record TypeFilter [type :- r/Type,
-                          path :- (t/U nil (Seqable IPathElem))
+                          path :- (t/U nil (t/Seqable IPathElem))
                           id :- NameRef])
 (u/def-filter TypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is of given type"
@@ -84,7 +83,7 @@
   [p/IFilter])
 
 (u/ann-record NotTypeFilter [type :- r/Type,
-                             path :- (t/U nil (Seqable IPathElem))
+                             path :- (t/U nil (t/Seqable IPathElem))
                              id :- NameRef])
 (u/def-filter NotTypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is NOT of given type"
@@ -97,7 +96,7 @@
 ; id and path should be merged
 (defn equal-paths? [f1 f2]
   {:pre [((some-fn TypeFilter? NotTypeFilter?) f1 f2)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (and (= (:id f1) (:id f2))
        (= (:path f1) (:path f2))))
 
@@ -111,7 +110,7 @@
    :post [(name-ref? %)]}
   (:id f))
 
-(u/ann-record AndFilter [fs :- (IPersistentSet Filter)])
+(u/ann-record AndFilter [fs :- (t/Set Filter)])
 (u/def-filter AndFilter [fs]
   "Logical conjunction of filters"
   [(set? fs)
@@ -126,7 +125,7 @@
    :post [(AndFilter? %)]}
   (AndFilter-maker (set fs)))
 
-(u/ann-record OrFilter [fs :- (IPersistentSet Filter)])
+(u/ann-record OrFilter [fs :- (t/Set Filter)])
 (u/def-filter OrFilter [fs]
   "Logical disjunction of filters"
   [(seq fs)

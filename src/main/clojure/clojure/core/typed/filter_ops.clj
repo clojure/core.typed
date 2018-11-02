@@ -5,10 +5,8 @@
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
-            [clojure.math.combinatorics :as comb]
             [clojure.set :as set])
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
                                           OrFilter TypeFilter NotTypeFilter ImpFilter)))
@@ -52,7 +50,7 @@
 (defn opposite? [f1 f2]
   {:pre [(fr/Filter? f1)
          (fr/Filter? f2)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (let [subtype? @(subtype?-var)]
     (cond
       (and (fr/TypeFilter? f1)
@@ -78,7 +76,7 @@
 ;; or? : is this an OrFilter (alternative is AndFilter)
 (defn compact [props or?]
   {:pre [(every? fr/Filter? props)
-         (con/boolean? or?)]
+         (boolean? or?)]
    :post [(every? fr/Filter? %)]}
 ;  (prn "compact")
 ;  (prn "props" (map clojure.core.typed.parse-unparse/unparse-filter props))
@@ -415,7 +413,7 @@
 
 (defn atomic-filter? [a]
   {;TODO :pre [(fr/Filter? a)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (boolean 
     ((some-fn fr/TypeFilter? fr/NotTypeFilter?
               fr/TopFilter? fr/BotFilter?) 
@@ -433,7 +431,7 @@
 (defn implied-atomic? [f1 f2]
   {:pre [(fr/Filter? f1)
          (fr/Filter? f2)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   ;(prn "implied-atomic?" f1 f2)
   (let [subtype? @(subtype?-var)]
     (if (= f1 f2)

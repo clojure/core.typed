@@ -81,19 +81,19 @@
   "Returns true if the ns-form has collect-only metadata."
   [ns-form]
   {:pre [ns-form]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (boolean (-> (ns-meta ns-form) :core.typed :collect-only)))
 
 (defn should-check-ns-form?
   [ns-form]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (and (boolean ns-form)
        (requires-tc? ns-form)
        (not (collect-only-ns? ns-form))))
 
 (defn should-custom-expand-ns-form?
   [ns-form]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (let [m (ns-meta ns-form)]
     (-> m :core.typed :experimental
         (contains? :custom-expansions))))
@@ -102,19 +102,19 @@
   "Returns true if the given namespace should be type checked"
   [nsym]
   {:pre [(symbol? nsym)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (should-check-ns-form? (ns-form-for-ns nsym)))
 
 (defn ns-has-core-typed-metadata?
   "Returns true if the given ns form has :core.typed metadata."
   [rcode]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (boolean (-> (ns-meta rcode) :core.typed)))
 
 (defn should-use-typed-load?
   "Returns true if typed load should be triggered for this namespace."
   [ns-form]
-  {:post [(con/boolean? %)]}
+  {:post [(boolean? %)]}
   (let [m (ns-meta ns-form)]
     (and (= :core.typed (:lang m))
          (not (-> m :core.typed :no-typed-load)))))
@@ -123,7 +123,7 @@
   "Returns true if the given file has :core.typed metadata."
   [res]
   {:pre [(string? res)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (if-let [ns-form (ns-form-for-file res)]
     (boolean (some-> ns-form ns-has-core-typed-metadata?))
     false))
@@ -132,7 +132,7 @@
   "Returns true if the given file should be loaded with typed load."
   [res]
   {:pre [(string? res)]
-   :post [(con/boolean? %)]}
+   :post [(boolean? %)]}
   (if-let [ns-form (ns-form-for-file res)]
     (boolean (some-> ns-form should-use-typed-load?))
     false))

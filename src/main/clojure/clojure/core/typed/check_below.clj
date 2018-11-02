@@ -4,7 +4,6 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.cs-gen :as cgen]
@@ -58,7 +57,7 @@
                            {f2+ :then f2- :else :as f2}]
             {:pre [(fl/FilterSet? f1)
                    (fl/FilterSet? f2)]
-             :post [(con/boolean? %)]}
+             :post [(boolean? %)]}
             (cond
               (= f1 f2) true
               :else
@@ -69,7 +68,7 @@
           (object-better? [o1 o2]
             {:pre [(obj/RObject? o1)
                    (obj/RObject? o2)]
-             :post [(con/boolean? %)]}
+             :post [(boolean? %)]}
             (cond
               (= o1 o2) true
               ((some-fn obj/NoObject? obj/EmptyObject?) o2) true
@@ -78,7 +77,7 @@
           (flow-better? [{flow1 :normal :as f1}
                          {flow2 :normal :as f2}]
             {:pre [((every-pred r/FlowSet?) f1 f2)]
-             :post [(con/boolean? %)]}
+             :post [(boolean? %)]}
             (cond
               (= flow1 flow2) true
               (fl/NoFilter? flow2) true
@@ -226,4 +225,3 @@
   (if expected
     (check-below tr1 expected)
     tr1))
-

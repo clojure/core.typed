@@ -1,13 +1,12 @@
-(ns clojure.core.typed.check.funapp-one
+(ns ^:skip-wiki clojure.core.typed.check.funapp-one
   (:require [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.errors :as err]
-            [clojure.set :as set]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.open-result :as open-result]))
+            [clojure.core.typed.open-result :as open-result]
+            [clojure.set :as set]))
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
 (defn check-funapp1 [fexpr arg-exprs {{optional-kw :optional mandatory-kw :mandatory :as kws} :kws
@@ -16,7 +15,7 @@
   {:pre [(r/Function? ftype0)
          (every? r/TCResult? argtys)
          ((some-fn nil? r/TCResult?) expected)
-         (con/boolean? check?)]
+         (boolean? check?)]
    :post [(r/TCResult? %)]}
   (when drest 
     (err/nyi-error "funapp with drest args NYI"))

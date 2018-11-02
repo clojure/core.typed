@@ -1,16 +1,14 @@
-(ns clojure.core.typed.check.special.fn
-  (:require [clojure.core.typed.parse-unparse :as prs]
+(ns ^:skip-wiki clojure.core.typed.check.special.fn
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.dvar-env :as dvar]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed :as t]
             [clojure.core.typed.lex-env :as lex]
-            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
@@ -18,9 +16,7 @@
             [clojure.core.typed.check.fn-method-one :as fn-method-one]
             [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check-below :as below]
-            [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.analyzer2 :as ana2]
-            [clojure.core.typed.subtype :as sub]))
+            [clojure.core.typed.analyzer2 :as ana2]))
 
 (declare wrap-poly)
 
@@ -238,7 +234,7 @@
 
           good-expected? (fn [expected]
                            {:pre [((some-fn nil? r/TCResult?) expected)]
-                            :post [(con/boolean? %)]}
+                            :post [(boolean? %)]}
                            (boolean
                              (when expected
                                (seq (fn-methods/function-types (r/ret-t expected))))))

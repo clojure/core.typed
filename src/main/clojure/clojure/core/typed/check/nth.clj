@@ -1,10 +1,9 @@
-(ns clojure.core.typed.check.nth
+(ns ^:skip-wiki clojure.core.typed.check.nth
   (:require [clojure.core.typed :as t] 
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-ops :as fo]
@@ -28,7 +27,7 @@
 
 (defn nth-type [types idx default-t]
   {:pre [(every? r/Type? types)
-         (con/znat? idx)
+         (nat-int? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(r/Type? %)]}
   (apply c/Un
@@ -54,7 +53,7 @@
 (defn ^:private nth-positive-filter-default-falsy [target-o default-o idx]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)
-         (con/znat? idx)]
+         (nat-int? idx)]
    :post [(fl/Filter? %)]}
   (fo/-and (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
                                 (r/make-CountRange (inc idx)))
@@ -65,14 +64,14 @@
 (defn ^:private nth-positive-filter-default [target-o default-o idx]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)
-         (con/znat? idx)]
+         (nat-int? idx)]
    :post [(fl/Filter? %)]}
   (fo/-or (nth-positive-filter-default-truthy target-o default-o)
           (nth-positive-filter-default-falsy target-o default-o idx)))
 
 (defn ^:private nth-positive-filter-no-default [target-o idx]
   {:pre [(obj/RObject? target-o)
-         (con/znat? idx)]
+         (nat-int? idx)]
    :post [(fl/Filter? %)]}
   (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
                        (r/make-CountRange (inc idx)))
@@ -81,7 +80,7 @@
 (defn ^:private nth-filter [target-expr default-expr idx default-t]
   {:pre [(expression? target-expr)
          ((some-fn nil? expression?) default-expr)
-         (con/znat? idx)
+         (nat-int? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(fl/Filter? %)]}
   (let [target-o (expr->object target-expr)
@@ -96,17 +95,17 @@
 
 (defn ^:private nth-object [target-expr idx]
   {:pre [(expression? target-expr)
-         (con/znat? idx)]
+         (nat-int? idx)]
    :post [(obj/RObject? %)]}
   (let [target-o (expr->object target-expr)]
     (if (obj/Path? target-o)
       (update-in target-o [:path] concat [(pe/NthPE-maker idx)])
       target-o)))
 
-(def nat-value? (every-pred r/Value? (comp con/znat? :val)))
+(def nat-value? (every-pred r/Value? (comp nat-int? :val)))
 
 (defn nth-function-type [n]
-  {:pre [(con/znat? n)]
+  {:pre [(nat-int? n)]
    :post [(r/Type? %)]}
   (let [; gensyms are too ugly to read in errors
         x 'x
