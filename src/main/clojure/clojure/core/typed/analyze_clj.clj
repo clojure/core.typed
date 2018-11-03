@@ -193,7 +193,7 @@
         (let [[op & args] form]
           (if (taj/specials op)
             form
-            (let [v (ta-utils/resolve-sym op env)
+            (let [v (ana2/resolve-sym op env)
                   m (meta v)
                   local? (-> env :locals (get op))
                   macro? (and (not local?) (:macro m)) ;; locals shadow macros
@@ -467,6 +467,8 @@
      #'pre/pre-parse      jpre/pre-parse
      #'ana2/var?          var?
      #'ana2/create-var    taj/create-var
+     #'ana2/resolve-ns    jana2/resolve-ns
+     #'ana2/resolve-sym   jana2/resolve-sym
      #'*ns*               (the-ns (or (-> opts :env :ns)
                                       *ns*))}))
 
@@ -476,7 +478,7 @@
       (when (seq? form)
         (let [[op & args] form]
           (when-not (taj/specials op)
-            (let [v (ta-utils/resolve-sym op env)
+            (let [v (ana2/resolve-sym op env)
                   m (meta v)
                   local? (-> env :locals (get op))
                   macro? (and (not local?) (:macro m)) ;; locals shadow macros
