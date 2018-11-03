@@ -240,14 +240,6 @@
         :else
         form)))))
 
-;; Syntax Expected -> ChkAST
-
-(defn unanalyzed-expr [form]
-  {:op :const
-   :type :nil
-   :form form
-   ::unanalyzed true})
-
 (T/ann ^:no-check special-form? [T/Any :-> T/Any])
 (defn special-form? [mform]
   (and (seq? mform)
@@ -256,86 +248,6 @@
            (= (second mform) ::T/special-collect))))
 
 (declare eval-ast)
-(T/ann ^:no-check eval-ast [(T/Map T/Any T/Any) (T/Map T/Any T/Any) :-> T/Any])
-(T/ann ^:no-check analyze+eval [T/Any :-> T/Any])
-;; UNUSED ATM - see jana2/analyze+eval
-(defn analyze+eval
-  "Like analyze but evals the form after the analysis and attaches the
-   returned value in the :result field of the AST node.
-   If evaluating the form will cause an exception to be thrown, the exception
-   will be caught and the :result field will hold an ExceptionThrown instance
-   with the exception in the \"e\" field.
-
-   Useful when analyzing whole files/namespaces.
-  
-  Mandatory keyword arguments
-   :expected Takes :expected option, the expected static type or nil.
-
-  Optional keyword arguments
-   :eval-fn  Takes :eval-fn option that takes an AST and an option map and returns an 
-             evaluated and possibly type-checked AST.
-   :stop-analysis   an atom that, when set to true, will stop the next form from analysing.
-                    This is helpful if in a top-level do and one of the do statements 
-                    has a type error and is not evaluated."
-  ([form] (analyze+eval form (taj/empty-env) {}))
-  ([form env] (analyze+eval form env {}))
-  ([form env {:keys [eval-fn stop-analysis] :or {eval-fn eval-ast} :as opts}]
-   {:pre [(map? env)]}
-     (ta-env/ensure (taj/global-env)
-       (taj/update-ns-map!) 
-       ;(prn "analyze+eval" form *ns* (ns-aliases *ns*))
-       (let [[mform raw-forms] (binding [ta/macroexpand-1 (get-in opts [:bindings #'ta/macroexpand-1] 
-                                                                  ;; use custom macroexpand-1
-                                                                  macroexpand-1)]
-                                 (loop [form form raw-forms []]
-                                   (let [mform (ta/macroexpand-1 form env)]
-                                     (if (= mform form)
-                                       [mform (seq raw-forms)]
-                                       (recur mform (conj raw-forms form))))))]
-         (if (and (seq? mform) (= 'do (first mform)) (next mform)
-                  ;; if this is a typed special form like an ann-form, don't treat like
-                  ;; a top-level do.
-                  (not (special-form? mform)))
-           ;; handle the Gilardi scenario.
-           ;; we don't track exceptional control flow on a top-level do, which
-           ;; probably won't be an issue.
-           (let [[statements ret] (ta-utils/butlast+last (rest mform))
-                 statements-expr (mapv (fn [s] 
-                                         (if (some-> stop-analysis deref)
-                                           (unanalyzed-expr s)
-                                           (analyze+eval s (-> env
-                                                               (ta-utils/ctx :statement)
-                                                               (assoc :ns (ns-name *ns*)))
-                                                         (dissoc opts :expected))))
-                                       statements)
-                 ret-expr (if (some-> stop-analysis deref)
-                            (unanalyzed-expr ret)
-                            ;; NB: in TAJ 0.3.0 :ns doesn't do anything.
-                            ;; later versions rebind *ns*.
-                            (analyze+eval ret (assoc env :ns (ns-name *ns*)) opts))]
-             (-> {:op         :do
-                  :top-level  true
-                  :form       mform
-                  :statements statements-expr
-                  :ret        ret-expr
-                  :children   [:statements :ret]
-                  :env        env
-                  :result     (:result ret-expr)
-                  ;; could be nil if ret is unanalyzed
-                  u/expr-type (u/expr-type ret-expr)
-                  :raw-forms  raw-forms}
-               source-info/source-info))
-           (merge (if (some-> stop-analysis deref)
-                    (unanalyzed-expr mform)
-                    ;; rebinds *ns* during analysis
-                    ;; FIXME unclear which map needs to have *ns*, especially post TAJ 0.3.0
-                    (eval-fn (taj/analyze mform (assoc env :ns (ns-name *ns*))
-                                          (-> opts 
-                                              (dissoc :bindings-atom)
-                                              (assoc-in [:bindings #'*ns*] *ns*)))
-                             opts))
-                  {:raw-forms raw-forms}))))))
-
 ;; reflect-validated from eastwood
 ;========================
 (T/ann ^:no-check reflect-validated [(T/Map T/Any T/Any) :-> T/Any])
@@ -423,36 +335,6 @@
     (assoc ast :reflected-method (@#'reflect/method->map (get-method ast)))
     ast))
 ;========================
-
-;; old tools.analyzer.jvm config
-(comment
-(def typed-passes
-  (-> jana2/default-passes
-      ; this pass is manually inserted as we check
-      ; in functions like clojure.core.typed.check.utils/FieldExpr->Field
-      ;(conj #'reflect-validated)
-      (disj
-        ;; trim conflicts with current approach of special typed forms implemented
-        ;; as `do` nodes with constants.
-        ;; also, seems to rewrite (let [] ...) as (do ...), which conflicts
-        ;; with the Gilardi scenario, especially in the expansion of (binding [...] ...)
-        #'trim/trim
-        ;; We either rewrite reflective calls or throw a type error.
-        ;; Reflective calls in untyped (tc-ignore'd) code will be signalled
-        ;; by the Clojure compiler once evaluated.
-        #'warn-reflect/warn-on-reflection)))
-
-(def typed-schedule
-  (passes/schedule typed-passes #_{:debug? true}))
-
-(comment
-  (clojure.pprint/pprint
-    (passes/schedule typed-passes {:debug? true}))
-  )
-
-(defn run-passes [ast]
-  (typed-schedule ast))
-)
 
 (declare scheduled-passes-for-custom-expansions)
 
@@ -554,73 +436,11 @@
            (reset! bindings-atom (select-keys (get-thread-bindings) (keys old-bindings))))
          ana)))))
 
-(defn ast-for-form-in-ns
-  "Returns an AST node for the form 
-  analyzed in the given namespace"
-  [nsym form]
-  (binding [*ns* (or (find-ns nsym)
-                     *ns*)]
-    (analyze1 form)))
-
 (defn ast-for-form
   "Returns an AST node for the form"
   ([form] (ast-for-form form {}))
   ([form opt]
    (analyze1 form (taj/empty-env) opt)))
-
-(t/ann ^:no-check ast-for-file [t/Str -> t/Any])
-(defn ast-for-file
-  "Returns a vector of AST nodes contained
-  in the given file"
-  [p]
-  {:pre [(string? p)]}
-  (let [pres (io/resource p)
-        _ (when-not (instance? java.net.URL pres)
-            (err/int-error (str "Cannot find file: " p)))
-        file (-> pres io/reader slurp)
-        reader (readers/indexing-push-back-reader file 1 p)
-        eof  (reify)
-        reader-opts (if (.endsWith ^String p ".cljc")
-                      {:eof eof :read-cond :allow
-                       :features #{(impl/impl-case
-                                     :clojure :clj
-                                     :cljs (assert nil "Not allowed"))}}
-                      {:eof eof})
-        asts (binding [*ns* *ns*
-                       *file* p]
-               (loop [asts []]
-                 (let [form (tr/read reader-opts reader)]
-                   (if (not= eof form)
-                     (let [a (analyze1 form (taj/empty-env)
-                                       {:eval-fn eval-ast})]
-                       (recur (conj asts a)))
-                     asts))))]
-    asts))
-
-(defn ast-for-ns 
-  "Returns a vector of AST nodes contained
-  in the given namespace symbol nsym"
-  [nsym]
-  {:pre [((some-fn symbol? #(instance? clojure.lang.Namespace %)) 
-          nsym)]
-   :post [(vector? %)]}
-  (let [nsym (or (when (instance? clojure.lang.Namespace nsym)
-                   (ns-name nsym))
-                 ; don't call ns-name on symbols in case the namespace
-                 ; doesn't exist yet
-                 nsym)
-        _ (assert (symbol? nsym))
-        cache vs/*analyze-ns-cache*]
-    (if (and cache (cache/has? cache nsym))
-      (-> cache
-          (cache/hit nsym)
-          (cache/lookup nsym))
-      ;copied basic approach from tools.emitter.jvm
-      (let [p (coerce/ns->file nsym)
-            asts (ast-for-file p)]
-        (when cache
-          (cache/miss cache nsym asts))
-        asts))))
 
 ; eval might already be monkey-patched, eval' avoids infinite looping
 (defn eval' [frm]
