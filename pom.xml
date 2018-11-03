@@ -48,11 +48,12 @@
           </testNamespaces>
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>
-            <sourceDirectory>src/main/java</sourceDirectory>
             <sourceDirectory>src/main/cljs</sourceDirectory>
-            <sourceDirectory>src/test/clojure</sourceDirectory>
-            <sourceDirectory>src/test/cljs</sourceDirectory>
           </sourceDirectories>
+          <testDirectories>
+            <testDirectory>src/test/clojure</testDirectory>
+            <testDirectory>src/test/cljs</testDirectory>
+          </testDirectories>
         </configuration>
       </plugin>
       <plugin>
