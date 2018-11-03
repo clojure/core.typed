@@ -182,7 +182,7 @@
                        :assignable? (boolean mutable)
                        ;; don't walk :init, but keep in AST
                        :children    (vec (remove #{:init} children))})
-               (if-let [var (let [v (u/resolve-sym sym env)]
+               (if-let [var (let [v (ana/resolve-sym sym env)]
                               (and (ana/var? v) v))]
                  (let [m (meta var)]
                    {:op          :var
@@ -215,7 +215,7 @@
         (pre-parse mform env)
         (-> (pre-analyze-form mform env)
             (update-in [:raw-forms] (fnil conj ())
-                       (vary-meta form assoc ::resolved-op (u/resolve-sym op env))))))))
+                       (vary-meta form assoc ::resolved-op (ana/resolve-sym op env))))))))
 
 (defn pre-parse-do
   [[_ & exprs :as form] env]
@@ -739,7 +739,7 @@
     (throw (ex-info (str "Wrong number of args to var, had: " (dec (count form)))
                     (merge {:form form}
                            (u/-source-info form env)))))
-  (if-let [var (u/resolve-sym var env)]
+  (if-let [var (ana/resolve-sym var env)]
     {:op   :the-var
      :env  env
      :form form

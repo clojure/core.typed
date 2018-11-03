@@ -365,6 +365,6 @@
                             (ana/run-passes
                               (-> (pre/pre-analyze-form mform env)
                                   (update-in [:raw-forms] (fnil conj ())
-                                             (vary-meta form assoc ::pre/resolved-op (u/resolve-sym (first form) env)))))))))))
+                                             (vary-meta form assoc ::pre/resolved-op (ana/resolve-sym (first form) env)))))))))))
       ast)))
 
