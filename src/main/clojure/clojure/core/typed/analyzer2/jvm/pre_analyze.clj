@@ -11,33 +11,9 @@
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer.utils :as u]
             [clojure.tools.analyzer.jvm.utils :as ju]
-            [clojure.tools.analyzer.env :as env]
-            [clojure.tools.analyzer :as ta]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.tools.analyzer.passes :as passes]
-            [clojure.tools.analyzer.passes.trim :as trim]
-            [clojure.tools.analyzer.passes.jvm.box :as box]
-            [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-on-reflection]
-            [clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
-            [clojure.tools.analyzer.passes.uniquify :as uniquify]
-            [clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
-            [clojure.tools.analyzer.passes.jvm.fix-case-test :as fix-case-test]
-            [clojure.tools.analyzer.passes.jvm.infer-tag :as infer-tag]
-            [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-            [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
-            [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
-            [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.tools.analyzer.passes.jvm.validate-loop-locals :as validate-loop-locals]
-            [clojure.tools.analyzer.passes.jvm.validate-recur :as validate-recur]
-            [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
-            [clojure.tools.analyzer.passes.source-info :as source-info]
-            [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
-            [clojure.tools.analyzer.passes.jvm.classify-invoke :as classify-invoke]
-            [clojure.core.typed.analyzer2 :as ana]
             [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.memoize :as memo])
-  (:import (clojure.lang IObj RT Var)))
+  (:import (clojure.lang IObj)))
 
 (defn pre-parse-monitor-enter
   [[_ target :as form] env]
@@ -106,6 +82,8 @@
       :name     (symbol (name method))
       :children (into [:this] (:children method-expr)))))
 
+; copied from tools.analyzer.jvm
+; - removed *env* update
 ;; HACK
 (defn -deftype [cname class-name args interfaces]
 
@@ -116,11 +94,7 @@
   (let [interfaces (mapv #(symbol (.getName ^Class %)) interfaces)]
     (eval (list 'let []
                 (list 'deftype* cname class-name args :implements interfaces)
-                (list 'import class-name))))
-  
-  (when-let [env env/*env*]
-    (swap! env update-in [:namespaces (ns-name *ns*) :mappings]
-           merge (select-keys (ns-map *ns*) [(symbol (name cname))]))))
+                (list 'import class-name)))))
 
 (defn pre-parse-reify*
   [[_ interfaces & methods :as form] env]

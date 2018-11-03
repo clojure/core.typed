@@ -3,7 +3,6 @@
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.env :as env]
             [clojure.tools.analyzer.ast :as ast]
             [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
@@ -40,7 +39,12 @@
                    (:require [clojure.core.typed :as t]))
                  (t/ann-form 'foo 'a)))
         :ret))
-  (is (not= :maybe-class (:op (ast Number))))
+  (is (= [:const Number]
+         ((juxt :op :val) (ast Number))))
+  (is (= [:const clojure.lang.Compiler]
+         ((juxt :op :val) (ast clojure.lang.Compiler))))
+  (is (= [:static-field 'LOADER]
+         ((juxt :op :field) (ast clojure.lang.Compiler/LOADER))))
   )
 
 (deftest async-test
