@@ -9,7 +9,7 @@
 (ns clojure.core.typed.analyzer2.passes.uniquify
   (:require [clojure.tools.analyzer.ast :refer [update-children children]]
             [clojure.tools.analyzer.utils :refer [update-vals]]
-            [clojure.tools.analyzer.env :as env]))
+            [clojure.core.typed.analyzer2.env :as env]))
 
 (def ^:dynamic *locals-counter*) ;; global counter, map sym -> count
 (def ^:dynamic *locals-frame*)   ;; holds the id for the locals in the current frame

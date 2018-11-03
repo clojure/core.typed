@@ -11,7 +11,8 @@
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer.utils :as u]
             [clojure.tools.analyzer.jvm.utils :as ju]
-            [clojure.tools.analyzer.env :as env]
+            [clojure.core.typed.analyzer2.jvm.utils :as jana2-utils]
+            [clojure.core.typed.analyzer2.env :as env]
             [clojure.tools.analyzer :as ta]
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
@@ -22,23 +23,70 @@
             #_[clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-on-reflection]
             #_[clojure.tools.analyzer.passes.warn-earmuff :as warn-earmuff]
             [clojure.core.typed.analyzer2.passes.jvm.infer-tag :as infer-tag]
-            [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             #_[clojure.tools.analyzer.passes.jvm.validate-loop-locals :as validate-loop-locals]
             [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
+            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.core.typed.analyzer2.passes.jvm.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
             [clojure.core.typed.analyzer2.passes.jvm.validate :as validate]
             [clojure.core.typed.analyzer2 :as ana]
             [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre])
-  (:import (clojure.lang IObj RT Var)))
+  (:import (clojure.lang RT Var)))
 
 (def specials
   "Set of the special forms for clojure in the JVM"
   (into ana/specials
         '#{monitor-enter monitor-exit clojure.core/import* reify* deftype* case*}))
+
+(declare resolve-ns)
+
+;; copied from tools.analyzer.jvm to replace `resolve-ns` and `taj-utils/maybe-class-literal`
+(defn desugar-symbol [form env]
+  (let [sym-ns (namespace form)]
+    (if-let [target (and sym-ns
+                         (not (resolve-ns (symbol sym-ns) env))
+                         (jana2-utils/maybe-class-literal sym-ns))]          ;; Class/field
+      (with-meta (list '. target (symbol (str "-" (name form)))) ;; transform to (. Class -field)
+                 (meta form))
+      form)))
+
+;; copied from tools.analyzer.jvm to replace `resolve-ns` and `taj-utils/maybe-class-literal`
+(defn desugar-host-expr [form env]
+  (let [[op & expr] form]
+    (if (symbol? op)
+      (let [opname (name op)
+            opns   (namespace op)]
+        (if-let [target (and opns
+                             (not (resolve-ns (symbol opns) env))
+                             (jana2-utils/maybe-class-literal opns))] ; (class/field ..)
+
+          (let [op (symbol opname)]
+            (with-meta (list '. target (if (zero? (count expr))
+                                         op
+                                         (list* op expr)))
+                       (meta form)))
+
+          (cond
+            (.startsWith opname ".")     ; (.foo bar ..)
+            (let [[target & args] expr
+                  target (if-let [target (jana2-utils/maybe-class-literal target)]
+                           (with-meta (list 'do target)
+                                      {:tag 'java.lang.Class})
+                           target)
+                  args (list* (symbol (subs opname 1)) args)]
+              (with-meta (list '. target (if (= 1 (count args)) ;; we don't know if (.foo bar) is
+                                           (first args) args))  ;; a method call or a field access
+                         (meta form)))
+
+            (.endsWith opname ".") ;; (class. ..)
+            (with-meta (list* 'new (symbol (subs opname 0 (dec (count opname)))) expr)
+                       (meta form))
+
+            :else form)))
+      form)))
 
 (defn macroexpand-1
   "If form represents a macro form or an inlineable function, returns its expansion,
@@ -78,10 +126,10 @@
                    res))
 
                :else
-               (taj/desugar-host-expr form env)))))
+               (desugar-host-expr form env)))))
 
         (symbol? form)
-        (taj/desugar-symbol form env)
+        (desugar-symbol form env)
 
         :else
         form)))
@@ -224,7 +272,7 @@
               (nil? %))]}
   (when ns-sym
     (some-> (or (get (ns-aliases ns) ns-sym)
-                (find-ns ns))
+                (find-ns ns-sym))
             ns-name)))
 
 ;Any -> Any
@@ -233,6 +281,27 @@
   [sym {:keys [ns] :as env}]
   (when (symbol? sym)
     (ns-resolve ns sym)))
+
+; copied from tools.analyzer.jvm
+; - remove usage of *env*
+(defn create-var
+  "Creates a Var for sym and returns it.
+   The Var gets interned in the env namespace."
+  [sym {:keys [ns]}]
+  (let [v (get (ns-interns ns) (symbol (name sym)))]
+    (if (and v (or (class? v)
+                   (= ns (ns-name (.ns ^Var v) ))))
+      v
+      (let [meta (dissoc (meta sym) :inline :inline-arities :macro)
+            meta (if-let [arglists (:arglists meta)]
+                   (assoc meta :arglists (taj/qualify-arglists arglists))
+                   meta)]
+       (intern ns (with-meta sym meta))))))
+
+; no global namespaces tracking (since resolve-{sym,ns} is now platform dependent),
+; mostly used for passes configuration.
+(defn global-env []
+  (atom {}))
 
 (defn analyze
   "Analyzes a clojure form using tools.analyzer augmented with the JVM specific special ops
@@ -256,7 +325,7 @@
   ([form env opts]
      (with-bindings (merge {Compiler/LOADER     (RT/makeClassLoader)
                             #'ana/macroexpand-1 macroexpand-1
-                            #'ana/create-var    taj/create-var
+                            #'ana/create-var    create-var
                             #'ana/scheduled-passes    scheduled-default-passes
                             #'pre/pre-parse     jpre/pre-parse
                             #'ana/var?          var?
@@ -264,10 +333,9 @@
                             #'ana/resolve-sym   resolve-sym
                             #'*ns*              (the-ns (:ns env))}
                            (:bindings opts))
-       (env/ensure (taj/global-env)
-         (doto (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
-                 (ana/run-passes (pre/pre-analyze-child form env)))
-           (do (taj/update-ns-map!)))))))
+       (env/ensure (global-env)
+         (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
+           (ana/run-passes (pre/pre-analyze-child form env)))))))
 
 (deftype ExceptionThrown [e ast])
 
@@ -322,8 +390,7 @@
                    stop-gildardi-check (fn [form env] false)
                    analyze-fn analyze}
               :as opts}]
-     (env/ensure (taj/global-env)
-       (taj/update-ns-map!)
+     (env/ensure (global-env)
        (let [env (merge env (u/-source-info form env))
              [mform raw-forms] (with-bindings {Compiler/LOADER     (RT/makeClassLoader)
                                                #'*ns*              (the-ns (:ns env))
@@ -339,8 +406,8 @@
                                        [mform (seq raw-forms)]
                                        (recur mform (conj raw-forms
                                                           (if-let [[op & r] (and (seq? form) form)]
-                                                            (if (or (ju/macro? op  env)
-                                                                    (ju/inline? op r env))
+                                                            (if (or (jana2-utils/macro? op  env)
+                                                                    (jana2-utils/inline? op r env))
                                                               (vary-meta form assoc ::ana/resolved-op (ana/resolve-sym op env))
                                                               form)
                                                             form)))))))]

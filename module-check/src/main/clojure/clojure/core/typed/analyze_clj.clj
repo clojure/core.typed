@@ -10,9 +10,10 @@
   (:refer-clojure :exclude [macroexpand-1 get-method eval])
   (:require [clojure.tools.analyzer :as ta]
             [clojure.pprint :as pp]
-            [clojure.tools.analyzer.env :as ta-env]
+            [clojure.core.typed.analyzer2.env :as env]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.utils :as ta-utils]
+            [clojure.tools.analyzer.jvm.utils :as taj-utils]
             [clojure.tools.analyzer.passes :as passes]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.cleanup :as cleanup]
@@ -20,6 +21,7 @@
             [clojure.tools.analyzer.passes.trim :as trim]
             [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-reflect]
             [clojure.core.typed.analyzer2.jvm :as jana2]
+            [clojure.core.typed.analyzer2.jvm.utils :as jana2-utils]
             [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
@@ -187,7 +189,7 @@
   ([form env]
    ;(prn "macroexpand-1" form)
    (binding [*analyze-env* env]
-    (ta-env/ensure (taj/global-env)
+    (env/ensure (jana2/global-env)
       (cond
         (seq? form)
         (let [[op & args] form]
@@ -217,14 +219,12 @@
 
                 macro?
                 (let [res (apply (typed-macro-lookup v) form (:locals env) (rest form))] ; (m &form &env & args)
-                  (taj/update-ns-map!)
                   (if (ta-utils/obj? res)
                     (vary-meta res merge (meta form))
                     res))
 
                 inline?
                 (let [res (apply inline? args)]
-                  (taj/update-ns-map!)
                   (if (ta-utils/obj? res)
                     (vary-meta res merge
                                (and t {:tag t})
@@ -232,10 +232,10 @@
                     res))
 
                 :else
-                (taj/desugar-host-expr form env)))))
+                (jana2/desugar-host-expr form env)))))
 
         (symbol? form)
-        (taj/desugar-symbol form env)
+        (jana2/desugar-symbol form env)
 
         :else
         form)))))
@@ -348,7 +348,7 @@
                                jana2/scheduled-default-passes)
      #'pre/pre-parse      jpre/pre-parse
      #'ana2/var?          var?
-     #'ana2/create-var    taj/create-var
+     #'ana2/create-var    jana2/create-var
      #'ana2/resolve-ns    jana2/resolve-ns
      #'ana2/resolve-sym   jana2/resolve-sym
      #'*ns*               (the-ns (or (-> opts :env :ns)

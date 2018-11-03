@@ -36,8 +36,3 @@
 
 (defn swap-checker! [& args]
   (apply swap! (checker) args))
-
-#?(:clj
-(defmacro with-checker [c & body]
-  `(binding [*checker* ~c]
-     ~@body)))

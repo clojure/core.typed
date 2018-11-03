@@ -9,7 +9,6 @@
 ;; adapted from tools.analyzer
 (ns clojure.core.typed.analyzer2.pre-analyze
   (:require [clojure.tools.analyzer.utils :as u]
-            [clojure.tools.analyzer.env :as env]
             [clojure.core.typed.analyzer2 :as ana])
   (:import (clojure.lang Symbol IPersistentVector IPersistentMap IPersistentSet ISeq IType IRecord)))
 
@@ -652,8 +651,6 @@
                      (u/-source-info form env)))
 
         var (ana/create-var sym env) ;; interned var will have quoted arglists, replaced on evaluation
-        _ (env/deref-env) ;; make sure *env* is bound
-        _ (swap! env/*env* assoc-in [:namespaces ns :mappings sym] var)
 
         meta (merge (meta sym)
                     (when arglists

@@ -8,10 +8,9 @@
 
 ;; should be a JVM pass since it calls `run-passes`
 (ns clojure.core.typed.analyzer2.passes.beta-reduce
-  (:require [clojure.core.typed.analyzer2.passes.add-binding-atom :as add-binding-atom]
-            [clojure.core.typed.analyzer2.passes.jvm.classify-invoke :as classify-invoke]
+  (:require [clojure.core.typed.analyzer2.passes.jvm.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-            [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.ast :as ast]
