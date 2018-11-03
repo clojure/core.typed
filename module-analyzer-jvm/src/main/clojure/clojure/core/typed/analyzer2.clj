@@ -41,6 +41,14 @@
                  "}
   scheduled-passes)
 
+(def ^{:dynamic  true
+       :doc      "Resolves the value mapped by the given sym in the global env"}
+  resolve-sym)
+
+(def ^{:dynamic  true
+       :doc      "Resolves the ns mapped by the given sym in the global env"}
+  resolve-ns)
+
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different

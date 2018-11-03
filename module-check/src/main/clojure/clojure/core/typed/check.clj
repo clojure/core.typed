@@ -455,7 +455,7 @@
                   (let [cred (-> mform
                                  (pre/pre-analyze-form env)
                                  (update-in [:raw-forms] (fnil conj ())
-                                            (vary-meta form assoc ::pre/resolved-op (tau/resolve-sym (first form) env)))
+                                            (vary-meta form assoc ::pre/resolved-op (ana2/resolve-sym (first form) env)))
                                  ana2/run-passes
                                  (check-expr (::invoke-expected expr)))]
                     (set-erase-atoms expr cred)
