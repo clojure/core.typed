@@ -87,7 +87,9 @@
             unannotated-def (some-> vs/*check-config* deref :unannotated-def)
             ;_ (prn "unannotated-def" unannotated-def)
             cinit (when init-provided
-                    (check-fn init))
+                    (case unannotated-def
+                      :unchecked (assoc init u/expr-type (r/ret (r/-unchecked vsym)))
+                      (check-fn init)))
             cmeta (when meta
                     (binding [vs/*current-env* (:env meta)
                               vs/*current-expr* meta
@@ -95,10 +97,7 @@
                               ;; emit :meta nodes in a :def. Don't
                               ;; try and rewrite it, just type check.
                               vs/*can-rewrite* false]
-                      (check-fn meta
-                                (case unannotated-def
-                                  :unchecked (r/ret (r/-unchecked vsym))
-                                  nil))))
+                      (check-fn meta)))
             inferred (r/ret-t (u/expr-type cinit))
             _ (assert (r/Type? inferred))
             _ (when (and (not= unannotated-def :unchecked)
