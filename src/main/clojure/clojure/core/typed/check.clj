@@ -19,14 +19,14 @@
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.jvm :as ana]
-            [clojure.tools.analyzer.env :as env]
+            [clojure.core.typed.analyzer2.env :as env]
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.utils :as tau]
             [clojure.tools.analyzer.jvm.utils :as jtau]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.tools.analyzer.passes.jvm.analyze-host-expr :as ana-host]
+            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2 :as ana2]
@@ -167,7 +167,7 @@
   "Type checks an entire namespace."
   ([ns] (check-ns1 ns (taj/empty-env)))
   ([ns env]
-     (env/ensure (taj/global-env)
+     (env/ensure (ana/global-env)
        (let [^java.net.URL res (jtau/ns-url ns)]
          (assert res (str "Can't find " ns " in classpath"))
          (let [filename (str res)
@@ -283,7 +283,6 @@
           ;_ (clojure.pprint/pprint form)
           ;_ (prn "refers defmacro" ('defmacro (ns-refers *ns*)))
           result (clojure.lang.Compiler/eval form)]
-      (taj/update-ns-map!)
       ;(prn "after eval" *ns*)
       (assoc ast :result result))
     (cond-> ast
@@ -314,13 +313,12 @@
                                                                         ((comp post-gilardi post))
                                                                         true
                                                                         (assoc :post-done true)))))))
-    (env/ensure (taj/global-env)
-                (taj/update-ns-map!)
-                (let [res (-> form
-                              (pre/pre-analyze-child (or env (taj/empty-env)))
-                              (assoc-in [::pre/config :top-level] true)
-                              (check-expr expected))]
-                  res)))))
+    (env/ensure (ana/global-env)
+      (let [res (-> form
+                    (pre/pre-analyze-child (or env (taj/empty-env)))
+                    (assoc-in [::pre/config :top-level] true)
+                    (check-expr expected))]
+        res)))))
 
 (defmethod -check :const [expr expected]
   (const/check-const constant-type/constant-type false expr expected))

@@ -12,7 +12,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.tools.analyzer.env :as ta-env]
+            [clojure.core.typed.analyzer2.env :as env]
             [clojure.core.typed.current-impl :as impl]
             [clojure.tools.reader.reader-types :as readers]
             [clojure.tools.reader :as reader]
@@ -21,6 +21,7 @@
             [clojure.core.typed.check-form-common :as chk-frm]
             [clojure.core.typed.lang :as lang]
             [clojure.tools.analyzer.jvm :as taj]
+            [clojure.core.typed.analyzer2.jvm :as ana2]
             [clojure.core.typed.util-vars :as vs])
   (:import java.net.URL))
 
@@ -37,7 +38,7 @@
     :post [(nil? %)]}
    ;(prn "load-typed-file" filename)
     (t/load-if-needed)
-    (ta-env/ensure (taj/global-env)
+    (env/ensure (ana2/global-env)
      (let [should-runtime-infer? vs/*prepare-infer-ns*
            instrument-infer-config vs/*instrument-infer-config*
            _ (when should-runtime-infer?
