@@ -126,7 +126,7 @@
   (:import (clojure.lang IPersistentMap Var Seqable)))
 
 (t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (t/U nil t/Sym))
-(t/ann ^:no-check clojure.core.typed.util-vars/*already-checked* (t/U nil (t/Atom1 (t/Vec t/Sym))))
+(t/ann ^:no-check clojure.core.typed.util-vars/*already-checked* (t/U nil (t/Atom1 (t/Set t/Sym))))
 
 ;==========================================================
 ; # Type Checker
@@ -135,7 +135,7 @@
 
 (declare check-expr)
 
-(t/ann checked-ns! [t/Sym -> nil])
+(t/ann ^:no-check checked-ns! [t/Sym -> nil])
 (defn- checked-ns! [nsym]
   (t/when-let-fail [a vs/*already-checked*]
     (swap! a conj nsym))
@@ -1221,7 +1221,9 @@
                              expected))))))
 
 (defonce ^:dynamic *inst-ctor-types* nil)
+(t/tc-ignore
 (set-validator! #'*inst-ctor-types* (some-fn nil? (con/every-c? r/Type?)))
+)
 
 ;TODO this should be a special :do op
 ;manual instantiation for calls to polymorphic constructors
@@ -1825,8 +1827,16 @@
                                   (below/maybe-check-below
                                     (r/ret (c/RClass-of clojure.lang.MultiFn))
                                     expected)))
-        default? (cu/default-defmethod? var (ast-u/emit-form-fn dispatch-val-expr))]
+        default? (cu/default-defmethod? var (ast-u/emit-form-fn dispatch-val-expr))
+        unannotated-def (some-> vs/*check-config* deref :unannotated-def)]
     (cond
+      (and (= :unchecked unannotated-def)
+           (not (var-env/lookup-Var-nofail mmsym)))
+      (-> expr
+          (update :target ana2/run-passes)
+          (update-in [:args 0] ana2/run-passes)
+          (update-in [:args 1] ana2/run-passes))
+
       ;skip if warn-on-unannotated-vars is in effect
       (or (and (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
                (not (var-env/lookup-Var-nofail mmsym)))
