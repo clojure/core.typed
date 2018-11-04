@@ -10,7 +10,8 @@
 (ns clojure.core.typed.analyzer2.js.pre-analyze
   (:require [clojure.core.typed.analyzer2.js.utils
              :refer [desugar-ns-specs validate-ns-specs ns-resource ns->relpath res-path]]
-            [clojure.core.typed.analyzer2 :as ana])
+            [clojure.core.typed.analyzer2 :as ana]
+            cljs.tagged-literals)
   (:import cljs.tagged_literals.JSValue))
 
 ; (U ':deftype ':defrecord) Any Config -> AST
@@ -179,5 +180,5 @@
        ns         pre-parse-ns
        def        pre-parse-def
        js*        pre-parse-js*
-       #_:else    ana/-pre-parse)
+       #_:else    ana/-parse)
      form env)))
