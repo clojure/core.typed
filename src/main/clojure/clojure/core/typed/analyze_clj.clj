@@ -344,7 +344,7 @@
      #'ana2/scheduled-passes (if vs/*custom-expansions*
                                @scheduled-passes-for-custom-expansions
                                jana2/scheduled-default-passes)
-     #'ana2/pre-parse     jana2/pre-parse
+     #'ana2/parse         jana2/parse
      #'ana2/var?          var?
      #'ana2/create-var    jana2/create-var
      #'ana2/resolve-ns    jana2/resolve-ns
