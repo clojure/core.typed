@@ -45,36 +45,22 @@
   [ast]
   (assoc ast :tag 'function))
 
+; copied from analyze-form in cljs.analyzer
+(defn tag-const [form]
+  (cond
+    (nil? form) 'clj-nil
+    (number? form) 'number
+    (string? form) 'string
+    (instance? Character form) 'string
+    (true? form) 'boolean
+    (false? form) 'boolean
+    (= () form) 'cljs.core/IList))
+
 (defmethod -annotate-tag :const
   [ast]
-  (let [ast ((get-method -annotate-tag (:type ast)) ast)]
-    (if (:tag ast)
-      ast
-      (assoc ast :tag 'any))))
-
-(defmethod -annotate-tag :nil
-  [ast]
-  (assoc ast :tag 'clj-nil))
-
-(defmethod -annotate-tag :number
-  [ast]
-  (assoc ast :tag 'number))
-
-(defmethod -annotate-tag :string
-  [ast]
-  (assoc ast :tag 'string))
-
-(defmethod -annotate-tag :bool
-  [ast]
-  (assoc ast :tag 'boolean))
-
-(defmethod -annotate-tag :symbol
-  [ast]
-  (assoc ast :tag 'cljs.core/Symbol))
-
-(defmethod -annotate-tag :keyword
-  [ast]
-  (assoc ast :tag 'cljs.core/Keyword))
+  (if-let [tag (tag-const (:form ast))]
+    (assoc ast :tag tag)
+    (assoc ast :tag 'any)))
 
 (defmethod -annotate-tag :default [ast] ast)
 
