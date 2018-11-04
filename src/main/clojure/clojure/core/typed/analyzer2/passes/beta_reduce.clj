@@ -51,7 +51,7 @@
 (defn unwrap-with-meta [ast]
   (case (:op ast)
     :with-meta (recur (:expr ast))
-    :unanalyzed (recur (-> (jana2/pre-analyze ast)
+    :unanalyzed (recur (-> (ana/analyze-outer ast)
                            ana/run-passes))
     ast))
 
@@ -109,9 +109,9 @@
   "
   [{:keys [op env] :as ast}]
   {:post [((some-fn nil? vector?) %)]}
-  (prn "splice-seqable-expr" op (emit-form ast))
+  ;(prn "splice-seqable-expr" op (emit-form ast))
   (case op
-    :unanalyzed (splice-seqable-expr (-> (jana2/pre-analyze ast)
+    :unanalyzed (splice-seqable-expr (-> (ana/analyze-outer ast)
                                          ana/run-passes))
     :local (when (#{:let} (:local ast))
              (some-> (:init ast) splice-seqable-expr))

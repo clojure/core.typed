@@ -157,8 +157,6 @@
               (pre-passes (assoc-in ast [:env ::ana/state] state))))
      :post post-passes}))
 
-(declare pre-analyze)
-
 (defn schedule
   "Takes a set of Vars that represent tools.analyzer passes and returns a map
    m of two functions, such that (ast/walk ast (:pre m) (:post m)) runs all
@@ -197,7 +195,7 @@
              {post-passes :passes :as post}
              :as ps]
             (-> (passes/schedule-passes info)
-                (update-in [0 :passes] #(vec (cons #'pre-analyze %))))
+                (update-in [0 :passes] #(vec (cons #'ana/analyze-outer %))))
 
             _ (assert (= 2 (count ps)))
             _ (assert (= :pre (:walk pre)))
@@ -492,20 +490,6 @@
      case*                parse-case*
      #_:else              ana/-parse)
    form env))
-
-;; should this be in an implementation agnostic ns?
-(defn pre-analyze
-  ""
-  [ast]
-  {:post [(not= :unanalyzed (:op %))]}
-  (case (:op ast)
-    :unanalyzed (let [{:keys [form env ::ana/config]} ast
-                      ast (-> form
-                              (ana/pre-analyze-form env)
-                              ;TODO rename to ::ana/inherited
-                              (assoc ::ana/config config))]
-                    ast)
-    ast))
 
 (declare parse)
 

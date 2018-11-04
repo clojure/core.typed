@@ -150,6 +150,19 @@
    ;; this :unanalyzed node becomes when analyzed
    ::config {}})
 
+(defn analyze-outer
+  ""
+  [ast]
+  {:post [(not= :unanalyzed (:op %))]}
+  (case (:op ast)
+    :unanalyzed (let [{:keys [form env ::config]} ast
+                      ast (-> form
+                              (pre-analyze-form env)
+                              ;TODO rename to ::inherited
+                              (assoc ::config config))]
+                    ast)
+    ast))
+
 (defn unanalyzed-in-env
   "Takes an env map and returns a function that analyzes a form in that env"
   [env]
