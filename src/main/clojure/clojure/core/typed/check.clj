@@ -296,7 +296,7 @@
   ;(prn "*ns*" *ns*)
   (with-bindings (assoc (dissoc (ana-clj/thread-bindings) #'*ns*)
                         #'ana2/macroexpand-1 #'ana-clj/macroexpand-1
-                        #'ana2/scheduled-passes (-> ana/scheduled-default-passes
+                        #'ana2/scheduled-passes (-> @ana/scheduled-default-passes
                                                     (update :pre (fn [pre]
                                                                    (fn [ast]
                                                                      (cond-> ast
