@@ -480,8 +480,8 @@
      :skip-check? skip-check?
      :children    [:test :tests :thens :default]}))
 
-(defn pre-parse
-  "Extension to clojure.core.typed.analyzer2/-pre-parse for JVM special forms"
+(defn parse
+  "Extension to clojure.core.typed.analyzer2/-parse for JVM special forms"
   [form env]
   ((case (first form)
      monitor-enter        parse-monitor-enter
@@ -490,7 +490,7 @@
      reify*               parse-reify*
      deftype*             parse-deftype*
      case*                parse-case*
-     #_:else              ana/-pre-parse)
+     #_:else              ana/-parse)
    form env))
 
 ;; should this be in an implementation agnostic ns?
@@ -507,7 +507,7 @@
                     ast)
     ast))
 
-(declare pre-parse)
+(declare parse)
 
 (defn analyze
   "Analyzes a clojure form using tools.analyzer augmented with the JVM specific special ops
@@ -533,7 +533,7 @@
                             #'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    create-var
                             #'ana/scheduled-passes    scheduled-default-passes
-                            #'ana/pre-parse     pre-parse
+                            #'ana/parse         parse
                             #'ana/var?          var?
                             #'ana/resolve-ns    resolve-ns
                             #'ana/resolve-sym   resolve-sym

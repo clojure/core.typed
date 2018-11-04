@@ -157,8 +157,8 @@
 
 (def ^{:dynamic  true
        :arglists '([[op & args] env])
-       :doc      "Function that dispatches on op, should default to -pre-parse"}
-  pre-parse)
+       :doc      "Function that dispatches on op, should default to -parse"}
+  parse)
 
 ;; this node wraps non-quoted collections literals with metadata attached
 ;; to them, the metadata will be evaluated at run-time, not treated like a constant
@@ -268,7 +268,7 @@
                              (u/-source-info form env)))))
     (let [mform (macroexpand-1 form env)]
       (if (= form mform) ;; function/special-form invocation
-        (pre-parse mform env)
+        (parse mform env)
         (-> (pre-analyze-form mform env)
             (update-in [:raw-forms] (fnil conj ())
                        (vary-meta form assoc ::resolved-op (resolve-sym op env))))))))
@@ -353,7 +353,7 @@
 
 (defn pre-analyze-body [body env]
   ;; :body is used by emit-form to remove the artificial 'do
-  (assoc (pre-parse (cons 'do body) env) :body? true))
+  (assoc (parse (cons 'do body) env) :body? true))
 
 (defn valid-binding-symbol? [s]
   (and (symbol? s)
@@ -800,7 +800,7 @@
      :var  var}
     (throw (ex-info (str "var not found: " var) {:var var}))))
 
-(defn -pre-parse
+(defn -parse
   "Takes a form and an env map and dispatches on the head of the form, that is
    a special form."
   [form env]
