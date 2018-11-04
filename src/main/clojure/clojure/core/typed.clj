@@ -15,20 +15,14 @@ for checking namespaces, cf for checking individual forms."}
                             defn atom ref cast
                             #_filter #_remove])
   (:require [clojure.core :as core]
-            [clojure.pprint :as pprint]
-            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.load-if-needed :as load]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.import-macros :as import-m]
-            [clojure.core.typed.macros :as macros]
-            [clojure.core.typed.contract :as con]
-            [clojure.core.typed.load :as typed-load]
-            [clojure.java.io :as io])
+            [clojure.core.typed.macros :as macros])
   (:import (clojure.lang Compiler)))
 
 (import-m/import-macros clojure.core.typed.macros
@@ -93,28 +87,29 @@ for checking namespaces, cf for checking individual forms."}
                    (@Method->Type m)))
         (flush)))))
 
-(defn install
-  "Install the :core.typed :lang. Takes an optional set of features
-  to install, defaults to `:all`, which is equivalent to the set of
-  all features.
+(let [tl-install (delay (impl/dynaload 'clojure.core.typed.load/install))]
+  (defn install
+    "Install the :core.typed :lang. Takes an optional set of features
+    to install, defaults to `:all`, which is equivalent to the set of
+    all features.
 
-  Features:
-    - :load    Installs typed `load` over `clojure.core/load`, which type checks files
-               on the presence of a {:lang :core.typed} metadata entry in the `ns` form.
-               The metadata must be inserted in the actual `ns` form saved to disk,
-               as it is read directly from the file instead of the current Namespace
-               metadata.
-    - :eval    Installs typed `eval` over `clojure.core/eval`.
-               If `(= :core.typed (:lang (meta *ns*)))` is true, the form will be implicitly
-               type checked. The syntax save to disk is ignored however.
+    Features:
+      - :load    Installs typed `load` over `clojure.core/load`, which type checks files
+                 on the presence of a {:lang :core.typed} metadata entry in the `ns` form.
+                 The metadata must be inserted in the actual `ns` form saved to disk,
+                 as it is read directly from the file instead of the current Namespace
+                 metadata.
+      - :eval    Installs typed `eval` over `clojure.core/eval`.
+                 If `(= :core.typed (:lang (meta *ns*)))` is true, the form will be implicitly
+                 type checked. The syntax save to disk is ignored however.
 
-  eg. (install)            ; installs `load` and `eval`
-  eg. (install :all)       ; installs `load` and `eval`
-  eg. (install #{:eval})   ; installs `eval`
-  eg. (install #{:load})   ; installs `load`"
-  ([] (install :all))
-  ([features]
-   (typed-load/install features)))
+    eg. (install)            ; installs `load` and `eval`
+    eg. (install :all)       ; installs `load` and `eval`
+    eg. (install #{:eval})   ; installs `eval`
+    eg. (install #{:load})   ; installs `load`"
+    ([] (install :all))
+    ([features]
+     (@tl-install features))))
 
 ;=============================================================
 ; Special functions
@@ -761,47 +756,49 @@ for checking namespaces, cf for checking individual forms."}
 
 
 
-(defmacro pfn> 
-  "Define a polymorphic typed anonymous function.
-  (pfn> name? [binder+] :- type? [[param :- type]* & [param :- type *]?] exprs*)
-  (pfn> name? [binder+] (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
-  [& forms]
-  (let [{:keys [poly fn parsed-methods]} (internal/parse-fn> true forms)]
-    `(pfn>-ann ~fn '~poly '~parsed-methods)))
+(let [parse-fn> (delay (impl/dynaload 'clojure.core.typed.internal/parse-fn>))]
+  (defmacro pfn> 
+    "Define a polymorphic typed anonymous function.
+    (pfn> name? [binder+] :- type? [[param :- type]* & [param :- type *]?] exprs*)
+    (pfn> name? [binder+] (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
+    [& forms]
+    (let [{:keys [poly fn parsed-methods]} (@parse-fn> true forms)]
+      `(pfn>-ann ~fn '~poly '~parsed-methods))))
 
 
-(defmacro 
-  ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
-             (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
-  ^{:deprecated "0.2.45"}
-  fn> 
-  "DEPRECATED: use clojure.core.typed/fn
+(let [parse-fn> (delay (impl/dynaload 'clojure.core.typed.internal/parse-fn>))]
+  (defmacro 
+    ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
+               (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+    ^{:deprecated "0.2.45"}
+    fn> 
+    "DEPRECATED: use clojure.core.typed/fn
 
-  Like fn, but with annotations. Annotations are mandatory
-  for parameters, with optional annotations for return type.
-  If fn is named, return type annotation is mandatory.
+    Like fn, but with annotations. Annotations are mandatory
+    for parameters, with optional annotations for return type.
+    If fn is named, return type annotation is mandatory.
 
-  Suggested idiom: use commas between parameter annotation triples.
+    Suggested idiom: use commas between parameter annotation triples.
 
-  eg. (fn> [a :- Number, b :- (U Symbol nil)] ...)
+    eg. (fn> [a :- Number, b :- (U Symbol nil)] ...)
 
-      ;annotate return
-      (fn> :- String [a :- String] ...)
+        ;annotate return
+        (fn> :- String [a :- String] ...)
 
-      ;named fn
-      (fn> fname :- String [a :- String] ...)
+        ;named fn
+        (fn> fname :- String [a :- String] ...)
 
-      ;multi-arity
-      (fn> fname 
-        (:- String [a :- String] ...)
-        (:- Long   [a :- String, b :- Number] ...))"
-  [& forms]
-  (err/deprecated-macro-syntax
-    &form
-    (str "clojure.core.typed/fn> renamed to clojure.core.typed/fn. "
-         "Note return type annotation now goes after the binder: (fn [a :- t] :- r, b)"))
-  (let [{:keys [fn parsed-methods]} (internal/parse-fn> false forms)]
-    `(fn>-ann ~fn '~parsed-methods)))
+        ;multi-arity
+        (fn> fname 
+          (:- String [a :- String] ...)
+          (:- Long   [a :- String, b :- Number] ...))"
+    [& forms]
+    (err/deprecated-macro-syntax
+      &form
+      (str "clojure.core.typed/fn> renamed to clojure.core.typed/fn. "
+           "Note return type annotation now goes after the binder: (fn [a :- t] :- r, b)"))
+    (let [{:keys [fn parsed-methods]} (@parse-fn> false forms)]
+      `(fn>-ann ~fn '~parsed-methods))))
 
 
 (defn- defn>-parse-typesig 
@@ -813,69 +810,71 @@ for checking namespaces, cf for checking individual forms."}
       `[~@args ~'-> ~ret])
     `(IFn ~@(map defn>-parse-typesig forms))))
 
-(defmacro
-  ^{:deprecated "0.2.57"}
-  ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
-             (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
-  defn>
-  "DEPRECATED: Use defn
-  
-  Like defn, but with annotations. Annotations are mandatory for
-  parameters and for return type.
+(let [take-when (delay (impl/dynaload 'clojure.core.typed.internal/take-when))]
+  (defmacro
+    ^{:deprecated "0.2.57"}
+    ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
+               (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
+    defn>
+    "DEPRECATED: Use defn
+    
+    Like defn, but with annotations. Annotations are mandatory for
+    parameters and for return type.
 
-  eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
+    eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
 
-  ;annotate return
-  (defn> fname :- String [a :- String] ...)
+    ;annotate return
+    (defn> fname :- String [a :- String] ...)
 
-  ;multi-arity
-  (defn> fname 
-    (:- String [a :- String] ...)
-    (:- Long   [a :- String, b :- Number] ...))"
-  [name & fdecl]
-  (err/deprecated-renamed-macro
-    &form
-    'defn>
-    'defn)
-  (let [[docstring fdecl] (internal/take-when string? fdecl)
-        signature (defn>-parse-typesig fdecl)]
-    `(do (ann ~name ~signature)
-         ~(list* 'def name 
-                 (concat
-                   (when docstring [docstring])
-                   [`(fn> ~name ~@fdecl)])))))
+    ;multi-arity
+    (defn> fname 
+      (:- String [a :- String] ...)
+      (:- Long   [a :- String, b :- Number] ...))"
+    [name & fdecl]
+    (err/deprecated-renamed-macro
+      &form
+      'defn>
+      'defn)
+    (let [[docstring fdecl] (@take-when string? fdecl)
+          signature (defn>-parse-typesig fdecl)]
+      `(do (ann ~name ~signature)
+           ~(list* 'def name 
+                   (concat
+                     (when docstring [docstring])
+                     [`(fn> ~name ~@fdecl)]))))))
 
 
-(defmacro
-  ^{:forms '[(def> name docstring? :- type expr)]}
-  ^{:deprecated "0.2.45"}
-  def>
-  "DEPRECATED: use clojure.core.typed/def
+(let [take-when (delay (impl/dynaload 'clojure.core.typed.internal/take-when))]
+  (defmacro
+    ^{:forms '[(def> name docstring? :- type expr)]}
+    ^{:deprecated "0.2.45"}
+    def>
+    "DEPRECATED: use clojure.core.typed/def
 
-  Like def, but with annotations.
+    Like def, but with annotations.
 
-  eg. (def> vname :- Long 1)
+    eg. (def> vname :- Long 1)
 
-  ;doc
-  (def> vname
-    \"Docstring\"
-    :- Long
-    1)"
-  [name & fdecl]
-  (err/deprecated-macro-syntax
-    &form
-    (str "clojure.core.typed/def> renamed to clojure.core.typed/def."
-         " Note that it is impossible to :refer to a var called def."))
-  (let [[docstring fdecl] (internal/take-when string? fdecl)
-        _ (assert (and (#{3} (count fdecl))
-                       (#{:-} (first fdecl)))
-                  (str "Bad def> syntax: " fdecl))
-        [_ tsyn body] fdecl]
-    `(do (ann ~name ~tsyn)
-         ~(list* 'def name 
-                 (concat
-                   (when docstring [docstring])
-                   [body])))))
+    ;doc
+    (def> vname
+      \"Docstring\"
+      :- Long
+      1)"
+    [name & fdecl]
+    (err/deprecated-macro-syntax
+      &form
+      (str "clojure.core.typed/def> renamed to clojure.core.typed/def."
+           " Note that it is impossible to :refer to a var called def."))
+    (let [[docstring fdecl] (@take-when string? fdecl)
+          _ (assert (and (#{3} (count fdecl))
+                         (#{:-} (first fdecl)))
+                    (str "Bad def> syntax: " fdecl))
+          [_ tsyn body] fdecl]
+      `(do (ann ~name ~tsyn)
+           ~(list* 'def name 
+                   (concat
+                     (when docstring [docstring])
+                     [body]))))))
 
 
 (defmacro 
@@ -1405,33 +1404,34 @@ for checking namespaces, cf for checking individual forms."}
      'defalias)
    `(defalias ~sym ~t)))
 
-(defmacro defalias 
-  "Define a recursive type alias. Takes an optional doc-string as a second
-  argument.
+(let [pprint (delay (impl/dynaload 'clojure.pprint/pprint))]
+  (defmacro defalias 
+    "Define a recursive type alias. Takes an optional doc-string as a second
+    argument.
 
-  Updates the corresponding var with documentation.
-  
-  eg. (defalias MyAlias
-        \"Here is my alias\"
-        (U nil String))
-  
-      ;; recursive alias
-      (defalias Expr
-        (U '{:op ':if :test Expr :then Expr :else Expr}
-           '{:op ':const :val Any}))"
-  ([sym doc-str t]
-   (assert (string? doc-str) "Doc-string passed to defalias must be a string")
-   `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
-  ([sym t]
-   (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
-   (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
-   (let [m (vary-meta sym
-                      update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t))))
-         qsym (-> (symbol (-> *ns* ns-name str) (str sym))
-                  (with-meta (meta m)))]
-     `(tc-ignore
-        (declare ~sym)
-        (def-alias* '~qsym '~t '~&form)))))
+    Updates the corresponding var with documentation.
+    
+    eg. (defalias MyAlias
+          \"Here is my alias\"
+          (U nil String))
+    
+        ;; recursive alias
+        (defalias Expr
+          (U '{:op ':if :test Expr :then Expr :else Expr}
+             '{:op ':const :val Any}))"
+    ([sym doc-str t]
+     (assert (string? doc-str) "Doc-string passed to defalias must be a string")
+     `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
+    ([sym t]
+     (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
+     (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
+     (let [m (vary-meta sym
+                        update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (@pprint t))))
+           qsym (-> (symbol (-> *ns* ns-name str) (str sym))
+                    (with-meta (meta m)))]
+       `(tc-ignore
+          (declare ~sym)
+          (def-alias* '~qsym '~t '~&form))))))
 
 (def ^{:doc "Any is the top type that contains all possible values."
        :forms '[Any]
@@ -2544,42 +2544,43 @@ for checking namespaces, cf for checking individual forms."}
                                             (when (var? v)
                                               (-> v meta ::special-type))))))})))
 
-(defn prepare-infer-ns
-  "Instruments the current namespace to prepare for runtime type
-  or spec inference.
+(let [load-typed-file (delay (impl/dynaload 'clojure.core.typed.load/load-typed-file))]
+  (defn prepare-infer-ns
+    "Instruments the current namespace to prepare for runtime type
+    or spec inference.
 
-  Optional keys:
-    :ns     The namespace to infer types for. (Symbol/Namespace)
-            Default: *ns*
-    :strategy  Choose which inference preparation strategy to use.
-               - :compile      recompile the namespace and wrap at compilation-time.
-                               Supports local annotation inference. Source is analyzed
-                               via core.typed's custom analyzer.
-               - :instrument   wrap top-level vars without recompilation.
-                               No support for local annotations, but the default
-                               Clojure analyzer is used.
-               Default: :compile
-    :track-strategy  Choose which track strategy to use.
-                     - :lazy    wrap hash maps and possibly other data structures, and
-                                lazily track values as they are used.
-                     - :eager   eagerly walk over all values, a la clojure.spec checking.
-                     Default: :lazy
-  "
-  [& {:keys [ns strategy] :as config
-      :or {strategy :compile
-           ns *ns*}}]
-  (load-if-needed)
-  (case strategy
-    :compile
-    (impl/with-impl impl/clojure
-      (binding [vs/*prepare-infer-ns* true
-                vs/*instrument-infer-config* (-> config
-                                                 (dissoc :ns))]
-        (typed-load/load-typed-file 
-          (subs (@#'clojure.core/root-resource (if (symbol? ns) ns (ns-name ns))) 1))))
-    :instrument
-    (throw (Exception. ":instrument not yet implemented")))
-  :ok)
+    Optional keys:
+      :ns     The namespace to infer types for. (Symbol/Namespace)
+              Default: *ns*
+      :strategy  Choose which inference preparation strategy to use.
+                 - :compile      recompile the namespace and wrap at compilation-time.
+                                 Supports local annotation inference. Source is analyzed
+                                 via core.typed's custom analyzer.
+                 - :instrument   wrap top-level vars without recompilation.
+                                 No support for local annotations, but the default
+                                 Clojure analyzer is used.
+                 Default: :compile
+      :track-strategy  Choose which track strategy to use.
+                       - :lazy    wrap hash maps and possibly other data structures, and
+                                  lazily track values as they are used.
+                       - :eager   eagerly walk over all values, a la clojure.spec checking.
+                       Default: :lazy
+    "
+    [& {:keys [ns strategy] :as config
+        :or {strategy :compile
+             ns *ns*}}]
+    (load-if-needed)
+    (case strategy
+      :compile
+      (impl/with-impl impl/clojure
+        (binding [vs/*prepare-infer-ns* true
+                  vs/*instrument-infer-config* (-> config
+                                                   (dissoc :ns))]
+          (@load-typed-file 
+            (subs (@#'clojure.core/root-resource (if (symbol? ns) ns (ns-name ns))) 1))))
+      :instrument
+      (throw (Exception. ":instrument not yet implemented")))
+    :ok))
 
 (let [rfrsh (delay (impl/dynaload 'clojure.core.typed.runtime-infer/refresh-runtime-infer))]
   (defn refresh-runtime-infer 
@@ -2753,74 +2754,77 @@ for checking namespaces, cf for checking individual forms."}
             '~(ns-name *ns*)
             ~(@type-syntax->pred t))))
 
-(def ^:private type-syntax->contract (delay (impl/dynaload 'clojure.core.typed.type-contract/type-syntax->contract)))
+(let [load-contracts (delay (do
+                              (require 'clojure.core.typed.type-contract)
+                              (require 'clojure.core.typed.contract)))]
+  (defmacro cast
+    "Cast a value to a type. Returns a new value that conforms
+    to the given type, otherwise throws an error with blame.
 
-(defmacro cast
-  "Cast a value to a type. Returns a new value that conforms
-  to the given type, otherwise throws an error with blame.
+    eg. (cast Int 1)
+        ;=> 1
 
-  eg. (cast Int 1)
-      ;=> 1
+        (cast Int nil)
+        ; Fail, <blame positive ...>
 
-      (cast Int nil)
-      ; Fail, <blame positive ...>
+        ((cast [Int -> Int] identity)
+         1)
+        ;=> 1
 
-      ((cast [Int -> Int] identity)
-       1)
-      ;=> 1
+        ((cast [Int -> Int] identity)
+         nil)
+        ; Fail, <blame negative ...>
 
-      ((cast [Int -> Int] identity)
-       nil)
-      ; Fail, <blame negative ...>
+        (cast [Int -> Int] nil)
+        ; Fail, <blame positive ...>
 
-      (cast [Int -> Int] nil)
-      ; Fail, <blame positive ...>
+    (defalias Options
+      (HMap :optional {:positive (U Sym Str),
+                       :negative (U Sym Str)
+                       :file (U Str nil)
+                       :line (U Int nil)
+                       :column (U Int nil)}))
 
-  (defalias Options
-    (HMap :optional {:positive (U Sym Str),
-                     :negative (U Sym Str)
-                     :file (U Str nil)
-                     :line (U Int nil)
-                     :column (U Int nil)}))
+    (IFn [Contract Any -> Any]
+         [Contract Any Options -> Any])
 
-  (IFn [Contract Any -> Any]
-       [Contract Any Options -> Any])
-
-  Options:
-  - :positive   positive blame, (U Sym Str)
-  - :negative   negative blame, (U Sym Str)
-  - :file       file name where contract is checked, (U Str nil)
-  - :line       line number where contract is checked, (U Int nil)
-  - :column     column number where contract is checked, (U Int nil)"
-  ([t x] `(cast ~t ~x {}))
-  ([t x opt]
-   `(do ~spec/special-form
-        ::cast
-        {:type '~t}
-        ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
-        ;; - clojure.core.typed.check.add-cast
-        ;; - clojure.core.typed.check.special.cast
-        ((fn [x#]
-           (con/contract (with-current-location '~&form
-                           ;; this compiles code so needs to be in same phase
-                           (binding [*ns* ~*ns*]
-                             (@@#'type-syntax->contract '~t)))
-                         x#
-                         (let [opt# ~opt]
-                           (con/make-blame
-                             :positive (or (:positive opt#)
-                                           "cast")
-                             :negative (or (:negative opt#)
-                                           "cast")
-                             :file (or (:file opt#)
-                                       ~*file*)
-                             :line (or (:line opt#)
-                                       ~(or (-> &form meta :line)
-                                            @Compiler/LINE))
-                             :column (or (:column opt#)
-                                         ~(or (-> &form meta :column)
-                                              @Compiler/COLUMN))))))
-         ~x))))
+    Options:
+    - :positive   positive blame, (U Sym Str)
+    - :negative   negative blame, (U Sym Str)
+    - :file       file name where contract is checked, (U Str nil)
+    - :line       line number where contract is checked, (U Int nil)
+    - :column     column number where contract is checked, (U Int nil)"
+    ([t x] `(cast ~t ~x {}))
+    ([t x opt]
+     @load-contracts
+     `(do ~spec/special-form
+          ::cast
+          {:type '~t}
+          ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
+          ;; - clojure.core.typed.check.add-cast
+          ;; - clojure.core.typed.check.special.cast
+          ((fn [x#]
+             (clojure.core.typed.contract/contract
+               (with-current-location '~&form
+                 ;; this compiles code so needs to be in same phase
+                 (binding [*ns* ~*ns*]
+                   (clojure.core.typed.type-contract/type-syntax->contract '~t)))
+               x#
+               (let [opt# ~opt]
+                 (clojure.core.typed.contract/make-blame
+                   :positive (or (:positive opt#)
+                                 "cast")
+                   :negative (or (:negative opt#)
+                                 "cast")
+                   :file (or (:file opt#)
+                             ~*file*)
+                   :line (or (:line opt#)
+                             ~(or (-> &form meta :line)
+                                  @Compiler/LINE))
+                   :column (or (:column opt#)
+                               ~(or (-> &form meta :column)
+                                    @Compiler/COLUMN))))))
+           ~x)))))
 
 (let [infuv (delay (impl/dynaload 'clojure.core.typed.infer-vars/infer-unannotated-vars))]
   (defn infer-unannotated-vars
