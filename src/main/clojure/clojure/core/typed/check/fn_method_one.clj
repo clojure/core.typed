@@ -194,7 +194,7 @@
                                                                       (beta-reduce/make-var-expr
                                                                         #'cu/special-typed-expression
                                                                         (:env method))
-                                                                      [(ana/pre-parse-quote
+                                                                      [(ana/parse-quote
                                                                          (binding [vs/*verbose-types* true]
                                                                            `'~(prs/unparse-type t))
                                                                          (:env method))]
