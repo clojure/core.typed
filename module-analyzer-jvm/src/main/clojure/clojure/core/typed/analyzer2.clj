@@ -273,7 +273,7 @@
             (update-in [:raw-forms] (fnil conj ())
                        (vary-meta form assoc ::resolved-op (resolve-sym op env))))))))
 
-(defn pre-parse-do
+(defn parse-do
   [[_ & exprs :as form] env]
   (let [statements-env (u/ctx env :ctx/statement)
         [statements ret] (loop [statements [] [e & exprs] exprs]
@@ -289,7 +289,7 @@
      :ret        ret
      :children   [:statements :ret]}))
 
-(defn pre-parse-if
+(defn parse-if
   [[_ test then else :as form] env]
   (let [formc (count form)]
     (when-not (or (= formc 3) (= formc 4))
@@ -307,7 +307,7 @@
      :else     else-expr
      :children [:test :then :else]}))
 
-(defn pre-parse-new
+(defn parse-new
   [[_ class & args :as form] env]
   (when-not (>= (count form) 2)
     (throw (ex-info (str "Wrong number of args to new, had: " (dec (count form)))
@@ -322,7 +322,7 @@
      :args        args
      :children    [:class :args]}))
 
-(defn pre-parse-quote
+(defn parse-quote
   [[_ expr :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to quote, had: " (dec (count form)))
@@ -336,7 +336,7 @@
      :literal? true
      :children [:expr]}))
 
-(defn pre-parse-set!
+(defn parse-set!
   [[_ target val :as form] env]
   (when-not (= 3 (count form))
     (throw (ex-info (str "Wrong number of args to set!, had: " (dec (count form)))
@@ -369,8 +369,8 @@
           [(seq take) drop]))
       [(seq take) ()])))
 
-(declare pre-parse-catch)
-(defn pre-parse-try
+(declare parse-catch)
+(defn parse-try
   [[_ & body :as form] env]
   (let [catch? (every-pred seq? #(= (first %) 'catch))
         finally? (every-pred seq? #(= (first %) 'finally))
@@ -390,7 +390,7 @@
     (let [env' (assoc env :in-try true)
           body (pre-analyze-body body env')
           cenv (u/ctx env' :ctx/expr)
-          cblocks (mapv #(pre-parse-catch % cenv) cblocks)
+          cblocks (mapv #(parse-catch % cenv) cblocks)
           fblock (when-not (empty? fblock)
                    (pre-analyze-body (rest fblock) (u/ctx env :ctx/statement)))]
       (merge {:op      :try
@@ -403,7 +403,7 @@
              {:children (into [:body :catches]
                               (when fblock [:finally]))}))))
 
-(defn pre-parse-catch
+(defn parse-catch
   [[_ etype ename & body :as form] env]
   (when-not (valid-binding-symbol? ename)
     (throw (ex-info (str "Bad binding form: " ename)
@@ -424,7 +424,7 @@
      :body        (pre-analyze-body body (assoc-in env [:locals ename] (u/dissoc-env local)))
      :children    [:class :local :body]}))
 
-(defn pre-parse-throw
+(defn parse-throw
   [[_ throw :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to throw, had: " (dec (count form)))
@@ -452,7 +452,7 @@
                             :bindings bindings}
                            (u/-source-info form env))))))
 
-(defn pre-parse-letfn*
+(defn parse-letfn*
   [[_ bindings & body :as form] env]
   (validate-bindings form env)
   (let [bindings (apply array-map bindings) ;; pick only one local with the same name, if more are present.
@@ -520,14 +520,14 @@
            :bindings binds
            :children [:bindings :body]})))))
 
-(defn pre-parse-let*
+(defn parse-let*
   [form env]
   (into {:op   :let
          :form form
          :env  env}
         (pre-analyze-let form env)))
 
-(defn pre-parse-loop*
+(defn parse-loop*
   [form env]
   (let [loop-id (gensym "loop_") ;; can be used to find matching recur
         env (assoc env :loop-id loop-id)]
@@ -537,7 +537,7 @@
            :loop-id loop-id}
           (pre-analyze-let form env))))
 
-(defn pre-parse-recur
+(defn parse-recur
   [[_ & exprs :as form] {:keys [context loop-locals loop-id]
                          :as env}]
   (when-let [error-msg
@@ -627,7 +627,7 @@
      (when local
        {:local (u/dissoc-env local)}))))
 
-(defn pre-parse-fn*
+(defn parse-fn*
   [[op & args :as form] env]
   (pre-wrapping-meta
    (let [[n meths] (if (symbol? (first args))
@@ -674,7 +674,7 @@
               {:local name-expr})
             {:children (conj (if n [:local] []) :methods)}))))
 
-(defn pre-parse-def
+(defn parse-def
   [[_ sym & expr :as form] {:keys [ns] :as env}]
   (when (not (symbol? sym))
     (throw (ex-info (str "First argument to def must be a symbol, had: " (class sym))
@@ -732,7 +732,7 @@
            (when-not (empty? children)
              {:children children}))))
 
-(defn pre-parse-dot
+(defn parse-dot
   [[_ target & [m-or-f & args] :as form] env]
   (when-not (>= (count form) 3)
     (throw (ex-info (str "Wrong number of args to ., had: " (dec (count form)))
@@ -772,7 +772,7 @@
              :m-or-f      (symbol (name m-or-f))
              :children    [:target]}))))
 
-(defn pre-parse-invoke
+(defn parse-invoke
   [[f & args :as form] env]
   (let [fenv (u/ctx env :ctx/expr)
         fn-expr (unanalyzed f fenv)
@@ -787,7 +787,7 @@
              {:meta m}) ;; meta on invoke form will not be evaluated
            {:children [:fn :args]})))
 
-(defn pre-parse-var
+(defn parse-var
   [[_ var :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to var, had: " (dec (count form)))
@@ -805,20 +805,20 @@
    a special form."
   [form env]
   ((case (first form)
-     do      pre-parse-do
-     if      pre-parse-if
-     new     pre-parse-new
-     quote   pre-parse-quote
-     set!    pre-parse-set!
-     try     pre-parse-try
-     throw   pre-parse-throw
-     def     pre-parse-def
-     .       pre-parse-dot
-     let*    pre-parse-let*
-     letfn*  pre-parse-letfn*
-     loop*   pre-parse-loop*
-     recur   pre-parse-recur
-     fn*     pre-parse-fn*
-     var     pre-parse-var
-     #_:else pre-parse-invoke)
+     do      parse-do
+     if      parse-if
+     new     parse-new
+     quote   parse-quote
+     set!    parse-set!
+     try     parse-try
+     throw   parse-throw
+     def     parse-def
+     .       parse-dot
+     let*    parse-let*
+     letfn*  parse-letfn*
+     loop*   parse-loop*
+     recur   parse-recur
+     fn*     parse-fn*
+     var     parse-var
+     #_:else parse-invoke)
    form env))
