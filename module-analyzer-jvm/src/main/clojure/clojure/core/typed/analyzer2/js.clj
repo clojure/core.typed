@@ -11,32 +11,21 @@
   "Analyzer for clojurescript code, extends tools.analyzer with JS specific passes/forms"
   (:refer-clojure :exclude [macroexpand-1 var? ns-resolve])
   (:require [clojure.core.typed.analyzer2 :as ana]
-            [clojure.tools.analyzer.utils :refer [resolve-ns ctx -source-info dissoc-env const-val mmerge update-vals] :as u]
+            [clojure.tools.analyzer.utils :refer [ctx -source-info dissoc-env mmerge update-vals] :as u]
             [clojure.tools.analyzer.ast :refer [prewalk postwalk]]
-            [clojure.tools.analyzer.env :as env :refer [*env*]]
-            [clojure.tools.analyzer.passes :refer [schedule]]
+            [clojure.tools.analyzer.env :as env]
+            [clojure.core.typed.analyzer2.passes :as passes]
             [clojure.tools.analyzer.passes.source-info :refer [source-info]]
-            [clojure.tools.analyzer.passes.cleanup :refer [cleanup]]
             [clojure.tools.analyzer.passes.elide-meta :refer [elide-meta elides]]
-            [clojure.tools.analyzer.passes.warn-earmuff :refer [warn-earmuff]]
-            [clojure.tools.analyzer.passes.add-binding-atom :refer [add-binding-atom]]
-            [clojure.tools.analyzer.passes.uniquify :refer [uniquify-locals]]
-            [clojure.core.typed.analyzer2.passes.js.annotate-tag :refer [annotate-tag]]
+            [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
             [clojure.core.typed.analyzer2.passes.js.infer-tag :refer [infer-tag]]
             [clojure.core.typed.analyzer2.passes.js.validate :refer [validate]]
-            [clojure.core.typed.analyzer2.passes.js.collect-keywords :refer [collect-keywords]]
-            [clojure.core.typed.analyzer2.passes.js.analyze-host-expr :refer [analyze-host-expr]]
             [clojure.core.typed.analyzer2.js.utils
              :refer [desugar-ns-specs validate-ns-specs ns-resource ns->relpath res-path]]
             [cljs.env :as cljs-env]
-            [cljs.analyzer :as cljs-ana]
-            [cljs.tagged-literals :as tags]
             [cljs.js-deps :as deps]
-            [clojure.string :as s]
-            [clojure.java.io :as io]
-            [clojure.tools.reader :as reader]
-            [clojure.tools.reader.reader-types :as readers]
-            [clojure.core :as core])
+            [clojure.core :as core]
+            cljs.tagged-literals)
   (:import cljs.tagged_literals.JSValue))
 
 (def specials
@@ -228,7 +217,7 @@
                                               %1)) m refer))
                                {} require-macros)]
 
-    (swap! *env* assoc-in [:namespaces ns-name]
+    (swap! env/*env* assoc-in [:namespaces ns-name]
            {:ns             ns-name
             :mappings       (merge core-mappings require-mappings imports)
             :aliases        require-aliases
@@ -237,26 +226,23 @@
 
 (def default-passes
   "Set of passes that will be run by default on the AST by #'run-passes"
-  #{#'warn-earmuff
-
-    #'uniquify-locals
+  #{#'uniquify2/uniquify-locals
 
     #'source-info
     #'elide-meta
-
-    #'collect-keywords
 
     #'validate
     #'infer-tag})
 
 (def scheduled-default-passes
-  (schedule default-passes))
+  (delay
+    (passes/schedule default-passes)))
 
-(defn ^:dynamic run-passes
-  "Function that will be invoked on the AST tree immediately after it has been constructed,
-   by default set-ups and runs the default passes declared in #'default-passes"
-  [ast]
-  (scheduled-default-passes ast))
+(comment
+  (clojure.pprint/pprint
+    (passes/schedule default-passes
+                     {:debug? true}))
+  )
 
 (declare parse)
 
@@ -282,7 +268,7 @@
   ([form env opts]
      (with-bindings (merge {#'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    create-var
-                            #'ana/scheduled-passes    scheduled-default-passes
+                            #'ana/scheduled-passes    @scheduled-default-passes
                             #'ana/parse         parse
                             #'ana/var?          var?
                             #'elides            (-> elides
@@ -308,7 +294,7 @@
                           fields)
         protocols (-> name meta :protocols)
 
-        _ (swap! *env* assoc-in [:namespaces ns :mappings name]
+        _ (swap! env/*env* assoc-in [:namespaces ns :mappings name]
                  {:op        :var
                   :type      true
                   :name      name
