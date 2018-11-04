@@ -14,7 +14,6 @@
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.jvm :as jana2]
             [clojure.pprint :as pprint]
             [clojure.core.typed.analyzer2 :as ana]
@@ -52,7 +51,7 @@
 (defn unwrap-with-meta [ast]
   (case (:op ast)
     :with-meta (recur (:expr ast))
-    :unanalyzed (recur (-> (jpre/pre-analyze ast)
+    :unanalyzed (recur (-> (jana2/pre-analyze ast)
                            ana/run-passes))
     ast))
 
@@ -112,7 +111,7 @@
   {:post [((some-fn nil? vector?) %)]}
   (prn "splice-seqable-expr" op (emit-form ast))
   (case op
-    :unanalyzed (splice-seqable-expr (-> (jpre/pre-analyze ast)
+    :unanalyzed (splice-seqable-expr (-> (jana2/pre-analyze ast)
                                          ana/run-passes))
     :local (when (#{:let} (:local ast))
              (some-> (:init ast) splice-seqable-expr))

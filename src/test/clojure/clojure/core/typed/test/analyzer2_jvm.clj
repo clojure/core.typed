@@ -4,7 +4,6 @@
             [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.jvm :as ana]))
 
 (defmacro ast' [form]
