@@ -11,7 +11,7 @@
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer.utils :as u]
             [clojure.tools.analyzer.jvm.utils :as ju]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
+            [clojure.core.typed.analyzer2 :as ana]
             [clojure.core.memoize :as memo])
   (:import (clojure.lang IObj)))
 
@@ -24,7 +24,7 @@
   {:op       :monitor-enter
    :env      env
    :form     form
-   :target   (pre/pre-analyze-child target (u/ctx env :ctx/expr))
+   :target   (ana/pre-analyze-child target (u/ctx env :ctx/expr))
    :children [:target]})
 
 (defn pre-parse-monitor-exit
@@ -36,7 +36,7 @@
   {:op       :monitor-exit
    :env      env
    :form     form
-   :target   (pre/pre-analyze-child target (u/ctx env :ctx/expr))
+   :target   (ana/pre-analyze-child target (u/ctx env :ctx/expr))
    :children [:target]})
 
 (defn pre-parse-import*
@@ -74,7 +74,7 @@
                      :tag   (:this env)
                      :local :this}
         env         (assoc-in (dissoc env :this) [:locals this] (u/dissoc-env this-expr))
-        method-expr (pre/pre-analyze-fn-method meth env)]
+        method-expr (ana/pre-analyze-fn-method meth env)]
     (assoc (dissoc method-expr :variadic?)
       :op       :method
       :form     form
@@ -108,7 +108,7 @@
 
     (-deftype name class-name [] interfaces)
 
-    (pre/pre-wrapping-meta
+    (ana/pre-wrapping-meta
      {:op         :reify
       :env        env
       :form       form
@@ -162,10 +162,10 @@
   [[_ expr shift mask default case-map switch-type test-type & [skip-check?] :as form] env]
   (let [[low high] ((juxt first last) (keys case-map)) ;;case-map is a sorted-map
         e (u/ctx env :ctx/expr)
-        test-expr (pre/pre-analyze-child expr e)
+        test-expr (ana/pre-analyze-child expr e)
         [tests thens] (reduce (fn [[te th] [min-hash [test then]]]
-                                (let [test-expr (pre/pre-analyze-const test e)
-                                      then-expr (pre/pre-analyze-child then env)]
+                                (let [test-expr (ana/pre-analyze-const test e)
+                                      then-expr (ana/pre-analyze-child then env)]
                                   [(conj te {:op       :case-test
                                              :form     test
                                              :env      e
@@ -179,7 +179,7 @@
                                              :then     then-expr
                                              :children [:then]})]))
                               [[] []] case-map)
-        default-expr (pre/pre-analyze-child default env)]
+        default-expr (ana/pre-analyze-child default env)]
     {:op          :case
      :form        form
      :env         env
@@ -197,7 +197,7 @@
      :children    [:test :tests :thens :default]}))
 
 (defn pre-parse
-  "Extension to clojure.core.typed.analyzer2.pre-analyze/-pre-parse for JVM special forms"
+  "Extension to clojure.core.typed.analyzer2/-pre-parse for JVM special forms"
   [form env]
   ((case (first form)
      monitor-enter        pre-parse-monitor-enter
@@ -206,7 +206,7 @@
      reify*               pre-parse-reify*
      deftype*             pre-parse-deftype*
      case*                pre-parse-case*
-     #_:else              pre/-pre-parse)
+     #_:else              ana/-pre-parse)
    form env))
 
 ;; should this be in an implementation agnostic ns?
@@ -215,10 +215,10 @@
   [ast]
   {:post [(not= :unanalyzed (:op %))]}
   (case (:op ast)
-    :unanalyzed (let [{:keys [form env ::pre/config]} ast
+    :unanalyzed (let [{:keys [form env ::ana/config]} ast
                       ast (-> form
-                              (pre/pre-analyze-form env)
-                              ;TODO rename to ::pre/inherited
-                              (assoc ::pre/config config))]
+                              (ana/pre-analyze-form env)
+                              ;TODO rename to ::ana/inherited
+                              (assoc ::ana/config config))]
                     ast)
     ast))

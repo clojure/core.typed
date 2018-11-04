@@ -28,7 +28,6 @@
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2 :as ana2]
             [clojure.core.typed.array-ops :as arr-ops]
             [clojure.core.typed.ast-utils :as ast-u]
@@ -264,10 +263,10 @@
 
 (defn pre-gilardi [ast]
   {:pre [(not (= :unanalyzed (:op ast)))]}
-  ;(prn "pre-gilardi" (get-in ast [::pre/config :top-level]))
-  (if (get-in ast [::pre/config :top-level])
+  ;(prn "pre-gilardi" (get-in ast [::ana2/config :top-level]))
+  (if (get-in ast [::ana2/config :top-level])
     (case (:op ast)
-      :do (ast/update-children ast #(assoc-in % [::pre/config :top-level] true))
+      :do (ast/update-children ast #(assoc-in % [::ana2/config :top-level] true))
       (assoc ast ::eval-gildardi? true))
     ast))
 
@@ -276,7 +275,7 @@
   ;(prn "post-gilardi" (::eval-gildardi? ast))
   ;(clojure.pprint/pprint (emit-form/emit-form ast))
   (if (or (::eval-gildardi? ast)
-          (and (get-in ast [::pre/config :top-level])
+          (and (get-in ast [::ana2/config :top-level])
                (::t/tc-ignore ast)))
     (let [form (emit-form/emit-form ast)
           ;_ (prn "before eval" *ns*)
@@ -287,7 +286,7 @@
       (assoc ast :result result))
     (cond-> ast
       (and (= :do (:op ast))
-           (get-in ast [::pre/config :top-level])
+           (get-in ast [::ana2/config :top-level])
            (:result (:ret ast)))
       (assoc :result (:result (:ret ast))))))
 
@@ -315,8 +314,8 @@
                                                                         (assoc :post-done true)))))))
     (env/ensure (ana/global-env)
       (let [res (-> form
-                    (pre/pre-analyze-child (or env (taj/empty-env)))
-                    (assoc-in [::pre/config :top-level] true)
+                    (ana2/pre-analyze-child (or env (taj/empty-env)))
+                    (assoc-in [::ana2/config :top-level] true)
                     (check-expr expected))]
         res)))))
 
@@ -451,9 +450,9 @@
                 (when (not= form mform)
                   (ensure-within-beta-limit)
                   (let [cred (-> mform
-                                 (pre/pre-analyze-form env)
+                                 (ana2/pre-analyze-form env)
                                  (update-in [:raw-forms] (fnil conj ())
-                                            (vary-meta form assoc ::pre/resolved-op (ana2/resolve-sym (first form) env)))
+                                            (vary-meta form assoc ::ana2/resolved-op (ana2/resolve-sym (first form) env)))
                                  ana2/run-passes
                                  (check-expr (::invoke-expected expr)))]
                     (set-erase-atoms expr cred)
@@ -1161,7 +1160,7 @@
                                                                           `(first (nthnext ~gsym ~i)))
                                                                         (range max-realized))))]
                     (-> form
-                        (pre/pre-analyze-form env)
+                        (ana2/pre-analyze-form env)
                         ana2/run-passes
                         (check-expr expected)))))))))
       (check-apply expr expected)))
@@ -2031,7 +2030,7 @@
                                                    (mapv (fn [t a]
                                                            (binding [vs/*verbose-types* true]
                                                              (-> `(t/ann-form ~(ast-u/emit-form-fn a) ~(prs/unparse-type t))
-                                                                 (pre/pre-analyze-form env)
+                                                                 (ana2/pre-analyze-form env)
                                                                  ana2/run-passes)))
                                                          (concat dom (repeat (:rest ft)))
                                                          args)
