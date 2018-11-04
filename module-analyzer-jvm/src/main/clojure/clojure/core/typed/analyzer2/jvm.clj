@@ -334,7 +334,7 @@
                            (:bindings opts))
        (env/ensure (global-env)
          (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
-           (ana/run-passes (ana/pre-analyze-child form env)))))))
+           (ana/run-passes (ana/unanalyzed form env)))))))
 
 (deftype ExceptionThrown [e ast])
 

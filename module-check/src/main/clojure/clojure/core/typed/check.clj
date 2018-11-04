@@ -314,7 +314,7 @@
                                                                         (assoc :post-done true)))))))
     (env/ensure (ana/global-env)
       (let [res (-> form
-                    (ana2/pre-analyze-child (or env (taj/empty-env)))
+                    (ana2/unanalyzed (or env (taj/empty-env)))
                     (assoc-in [::ana2/config :top-level] true)
                     (check-expr expected))]
         res)))))

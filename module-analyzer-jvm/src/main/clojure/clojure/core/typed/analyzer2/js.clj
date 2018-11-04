@@ -281,7 +281,7 @@
      (with-bindings (merge {#'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    create-var
                             #'ana/scheduled-passes    scheduled-default-passes
-                            #'pre/pre-parse     jspre/pre-parse
+                            #'ana/parse         jspre/pre-parse
                             #'ana/var?          var?
                             #'ana/analyze-form  analyze-form
                             #'elides            (-> elides
@@ -292,4 +292,4 @@
                            (:bindings opts))
        (env/ensure (global-env)
          (swap! env/*env* mmerge {:passes-opts (:passes-opts opts)})
-         (ana/run-passes (pre/pre-analyze-child form env))))))
+         (ana/run-passes (ana/unanalyzed form env))))))

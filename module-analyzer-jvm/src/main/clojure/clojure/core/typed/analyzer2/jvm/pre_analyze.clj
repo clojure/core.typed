@@ -24,7 +24,7 @@
   {:op       :monitor-enter
    :env      env
    :form     form
-   :target   (ana/pre-analyze-child target (u/ctx env :ctx/expr))
+   :target   (ana/unanalyzed target (u/ctx env :ctx/expr))
    :children [:target]})
 
 (defn pre-parse-monitor-exit
@@ -36,7 +36,7 @@
   {:op       :monitor-exit
    :env      env
    :form     form
-   :target   (ana/pre-analyze-child target (u/ctx env :ctx/expr))
+   :target   (ana/unanalyzed target (u/ctx env :ctx/expr))
    :children [:target]})
 
 (defn pre-parse-import*
@@ -162,10 +162,10 @@
   [[_ expr shift mask default case-map switch-type test-type & [skip-check?] :as form] env]
   (let [[low high] ((juxt first last) (keys case-map)) ;;case-map is a sorted-map
         e (u/ctx env :ctx/expr)
-        test-expr (ana/pre-analyze-child expr e)
+        test-expr (ana/unanalyzed expr e)
         [tests thens] (reduce (fn [[te th] [min-hash [test then]]]
                                 (let [test-expr (ana/pre-analyze-const test e)
-                                      then-expr (ana/pre-analyze-child then env)]
+                                      then-expr (ana/unanalyzed then env)]
                                   [(conj te {:op       :case-test
                                              :form     test
                                              :env      e
@@ -179,7 +179,7 @@
                                              :then     then-expr
                                              :children [:then]})]))
                               [[] []] case-map)
-        default-expr (ana/pre-analyze-child default env)]
+        default-expr (ana/unanalyzed default env)]
     {:op          :case
      :form        form
      :env         env
