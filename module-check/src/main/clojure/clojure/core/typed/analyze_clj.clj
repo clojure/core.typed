@@ -14,7 +14,7 @@
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.utils :as ta-utils]
             [clojure.tools.analyzer.jvm.utils :as taj-utils]
-            [clojure.tools.analyzer.passes :as passes]
+            [clojure.core.typed.analyzer2.passes :as passes]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.cleanup :as cleanup]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
@@ -343,7 +343,7 @@
      #'ana2/macroexpand-1 macroexpand-1
      #'ana2/scheduled-passes (if vs/*custom-expansions*
                                @scheduled-passes-for-custom-expansions
-                               jana2/scheduled-default-passes)
+                               @jana2/scheduled-default-passes)
      #'ana2/parse         jana2/parse
      #'ana2/var?          var?
      #'ana2/create-var    jana2/create-var
@@ -371,7 +371,7 @@
 
 (comment
   (clojure.pprint/pprint
-    (jana2/schedule (conj jana2/default-passes
+    (passes/schedule (conj jana2/default-passes
                           #'beta-reduce/push-invoke
                           )
                     {:debug? true}))
@@ -379,7 +379,7 @@
 
 (def scheduled-passes-for-custom-expansions
   (delay
-    (jana2/schedule (conj jana2/default-passes
+    (passes/schedule (conj jana2/default-passes
                           ;#'beta-reduce/push-invoke
                           ))))
 
