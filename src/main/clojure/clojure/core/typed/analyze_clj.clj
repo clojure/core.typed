@@ -23,7 +23,6 @@
             [clojure.core.typed.analyzer2.jvm :as jana2]
             [clojure.core.typed.analyzer2.jvm.utils :as jana2-utils]
             [clojure.core.typed.analyzer2 :as ana2]
-            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
             [clojure.tools.reader :as tr]
             [clojure.tools.reader.reader-types :as readers]
@@ -345,7 +344,7 @@
      #'ana2/scheduled-passes (if vs/*custom-expansions*
                                @scheduled-passes-for-custom-expansions
                                jana2/scheduled-default-passes)
-     #'ana2/pre-parse      jpre/pre-parse
+     #'ana2/pre-parse     jana2/pre-parse
      #'ana2/var?          var?
      #'ana2/create-var    jana2/create-var
      #'ana2/resolve-ns    jana2/resolve-ns

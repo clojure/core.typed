@@ -17,7 +17,6 @@
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.jvm :as ana]
             [clojure.core.typed.analyzer2.env :as env]
             [clojure.tools.analyzer.ast :as ast]
