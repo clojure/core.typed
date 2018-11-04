@@ -34,7 +34,7 @@
                   :fields    fields
                   :protocols protocols})
 
-        body-expr (ana/pre-analyze-child
+        body-expr (ana/unanalyzed
                     body
                     (assoc env :locals (zipmap fields (map dissoc-env fields-expr))))]
 
@@ -61,7 +61,7 @@
                     (conj segs s)
                     (recur (conj segs (subs s 0 idx))
                            (subs s (inc (.indexOf s "}" idx)))))))
-        exprs (mapv #(ana/pre-analyze-child % (ctx env :ctx/expr)) args)]
+        exprs (mapv #(ana/unanalyzed % (ctx env :ctx/expr)) args)]
     (merge
      {:op       :js
       :env      env
@@ -76,7 +76,7 @@
   (assert (symbol? test) "case* must switch on symbol")
   (assert (every? vector? tests) "case* tests must be grouped in vectors")
   (let [expr-env (ctx env :expr)
-        test-expr (ana/pre-analyze-child test expr-env)
+        test-expr (ana/unanalyzed test expr-env)
         nodes (mapv (fn [tests then]
                       {:op       :case-node
                        ;; no :form, this is a synthetic grouping node
@@ -85,7 +85,7 @@
                                          {:op       :case-test
                                           :form     test
                                           :env      expr-env
-                                          :test     (ana/pre-analyze-child test expr-env)
+                                          :test     (ana/unanalyzed test expr-env)
                                           :children [:test]})
                                        tests)
                        :then     {:op       :case-then
@@ -145,7 +145,7 @@
                  (update-vals (select-keys meta ks) (fn [x] (list 'quote x)))
                  (when (:test meta)
                    {:test `(.-cljs$lang$test ~sym)}))]
-    (ana/pre-analyze-child (with-meta `(def ~(with-meta sym m) ~@rest) (meta form)) env)))
+    (ana/unanalyzed (with-meta `(def ~(with-meta sym m) ~@rest) (meta form)) env)))
 
 ;; can it be :literal ?
 (defn pre-parse-js-value
@@ -156,13 +156,13 @@
       ;; keys should always be symbols/kewords, do we really need to analyze them?
       {:op       :js-object
        :env      env
-       :keys     (mapv #(ana/pre-analyze-child % items-env) (keys val))
-       :vals     (mapv #(ana/pre-analyze-child % items-env) (vals val))
+       :keys     (mapv (ana/unanalyzed-in-env items-env) (keys val))
+       :vals     (mapv (ana/unanalyzed-in-env items-env) (vals val))
        :form     form
        :children [:keys :vals]}
       {:op       :js-array
        :env      env
-       :items    (mapv #(ana/pre-analyze-child % items-env) val)
+       :items    (mapv (ana/unanalyzed-in-env items-env) val)
        :form     form
        :children [:items]})))
 

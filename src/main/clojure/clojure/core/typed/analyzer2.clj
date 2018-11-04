@@ -141,7 +141,7 @@
   [form env]
   (assoc (pre-analyze-form form env) :top-level true))
 
-(defn pre-analyze-child
+(defn unanalyzed
   [form env]
   {:op :unanalyzed
    :form form
@@ -150,10 +150,10 @@
    ;; this :unanalyzed node becomes when analyzed
    ::config {}})
 
-(defn pre-analyze-child-in-env
+(defn unanalyzed-in-env
   "Takes an env map and returns a function that analyzes a form in that env"
   [env]
-  (fn [form] (pre-analyze-child form env)))
+  (fn [form] (unanalyzed form env)))
 
 (def ^{:dynamic  true
        :arglists '([[op & args] env])
@@ -170,7 +170,7 @@
       {:op       :with-meta
        :env      env
        :form     form
-       :meta     (pre-analyze-child meta (u/ctx env :ctx/expr))
+       :meta     (unanalyzed meta (u/ctx env :ctx/expr))
        :expr     (assoc-in expr [:env :context] :ctx/expr)
        :children [:meta :expr]}
       expr)))
@@ -193,7 +193,7 @@
 (defn pre-analyze-vector
   [form env]
   (let [items-env (u/ctx env :ctx/expr)
-        items (mapv (pre-analyze-child-in-env items-env) form)]
+        items (mapv (unanalyzed-in-env items-env) form)]
     (pre-wrapping-meta
      {:op       :vector
       :env      env
@@ -207,8 +207,8 @@
         [keys vals] (reduce-kv (fn [[keys vals] k v]
                                  [(conj keys k) (conj vals v)])
                                [[] []] form)
-        ks (mapv (pre-analyze-child-in-env kv-env) keys)
-        vs (mapv (pre-analyze-child-in-env kv-env) vals)]
+        ks (mapv (unanalyzed-in-env kv-env) keys)
+        vs (mapv (unanalyzed-in-env kv-env) vals)]
     (pre-wrapping-meta
      {:op       :map
       :env      env
@@ -220,7 +220,7 @@
 (defn pre-analyze-set
   [form env]
   (let [items-env (u/ctx env :ctx/expr)
-        items (mapv (pre-analyze-child-in-env items-env) form)]
+        items (mapv (unanalyzed-in-env items-env) form)]
     (pre-wrapping-meta
      {:op       :set
       :env      env
@@ -280,8 +280,8 @@
                            (if (seq exprs)
                              (recur (conj statements e) exprs)
                              [statements e]))
-        statements (mapv (pre-analyze-child-in-env statements-env) statements)
-        ret (pre-analyze-child ret env)]
+        statements (mapv (unanalyzed-in-env statements-env) statements)
+        ret (unanalyzed ret env)]
     {:op         :do
      :env        env
      :form       form
@@ -296,9 +296,9 @@
       (throw (ex-info (str "Wrong number of args to if, had: " (dec (count form)))
                       (merge {:form form}
                              (u/-source-info form env))))))
-  (let [test-expr (pre-analyze-child test (u/ctx env :ctx/expr))
-        then-expr (pre-analyze-child then env)
-        else-expr (pre-analyze-child else env)]
+  (let [test-expr (unanalyzed test (u/ctx env :ctx/expr))
+        then-expr (unanalyzed then env)
+        else-expr (unanalyzed else env)]
     {:op       :if
      :form     form
      :env      env
@@ -314,7 +314,7 @@
                     (merge {:form form}
                            (u/-source-info form env)))))
   (let [args-env (u/ctx env :ctx/expr)
-        args (mapv (pre-analyze-child-in-env args-env) args)]
+        args (mapv (unanalyzed-in-env args-env) args)]
     {:op          :new
      :env         env
      :form        form
@@ -342,8 +342,8 @@
     (throw (ex-info (str "Wrong number of args to set!, had: " (dec (count form)))
                     (merge {:form form}
                            (u/-source-info form env)))))
-  (let [target (pre-analyze-child target (u/ctx env :ctx/expr))
-        val (pre-analyze-child val (u/ctx env :ctx/expr))]
+  (let [target (unanalyzed target (u/ctx env :ctx/expr))
+        val (unanalyzed val (u/ctx env :ctx/expr))]
     {:op       :set!
      :env      env
      :form     form
@@ -417,7 +417,7 @@
                :name  ename
                :local :catch}]
     {:op          :catch
-     :class       (pre-analyze-child etype (assoc env :locals {}))
+     :class       (unanalyzed etype (assoc env :locals {}))
      :local       local
      :env         env
      :form        form
@@ -433,7 +433,7 @@
   {:op        :throw
    :env       env
    :form      form
-   :exception (pre-analyze-child throw (u/ctx env :ctx/expr))
+   :exception (unanalyzed throw (u/ctx env :ctx/expr))
    :children  [:exception]})
 
 (defn validate-bindings
@@ -474,7 +474,7 @@
           binds (reduce-kv (fn [binds name bind]
                              (assoc binds name
                                     (merge bind
-                                           {:init     (pre-analyze-child (bindings name)
+                                           {:init     (unanalyzed (bindings name)
                                                                          (u/ctx e :ctx/expr))
                                             :children [:init]})))
                            {} binds)
@@ -500,7 +500,7 @@
                           (merge {:form form
                                   :sym  name}
                                  (u/-source-info form env))))
-          (let [init-expr (pre-analyze-child init env)
+          (let [init-expr (unanalyzed init env)
                 bind-expr {:op       :binding
                            :env      env
                            :name     name
@@ -553,7 +553,7 @@
                             :form  form}
                            (u/-source-info form env)))))
 
-  (let [exprs (mapv (pre-analyze-child-in-env (u/ctx env :ctx/expr)) exprs)]
+  (let [exprs (mapv (unanalyzed-in-env (u/ctx env :ctx/expr)) exprs)]
     {:op          :recur
      :env         env
      :form        form
@@ -713,10 +713,10 @@
                     (when arglists
                       {:arglists (list 'quote arglists)}))
 
-        meta-expr (when meta (pre-analyze-child meta (u/ctx env :ctx/expr))) ;; meta on def sym will be evaluated
+        meta-expr (when meta (unanalyzed meta (u/ctx env :ctx/expr))) ;; meta on def sym will be evaluated
 
         args (when-let [[_ init] (find args :init)]
-               (assoc args :init (pre-analyze-child init (u/ctx env :ctx/expr))))
+               (assoc args :init (unanalyzed init (u/ctx env :ctx/expr))))
         init? (:init args)
         children (into (into [] (when meta [:meta]))
                        (when init? [:init]))]
@@ -742,7 +742,7 @@
                                  (= \- (first (name m-or-f))))
                           [(-> m-or-f name (subs 1) symbol) true]
                           [(if args (cons m-or-f args) m-or-f) false])
-        target-expr (pre-analyze-child target (u/ctx env :ctx/expr))
+        target-expr (unanalyzed target (u/ctx env :ctx/expr))
         call? (and (not field?) (seq? m-or-f))]
 
     (when (and call? (not (symbol? (first m-or-f))))
@@ -757,7 +757,7 @@
             call?
             {:op       :host-call
              :method   (symbol (name (first m-or-f)))
-             :args     (mapv (pre-analyze-child-in-env (u/ctx env :ctx/expr)) (next m-or-f))
+             :args     (mapv (unanalyzed-in-env (u/ctx env :ctx/expr)) (next m-or-f))
              :children [:target :args]}
 
             field?
@@ -775,8 +775,8 @@
 (defn pre-parse-invoke
   [[f & args :as form] env]
   (let [fenv (u/ctx env :ctx/expr)
-        fn-expr (pre-analyze-child f fenv)
-        args-expr (mapv (pre-analyze-child-in-env fenv) args)
+        fn-expr (unanalyzed f fenv)
+        args-expr (mapv (unanalyzed-in-env fenv) args)
         m (meta form)]
     (merge {:op   :invoke
             :form form
