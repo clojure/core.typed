@@ -14,7 +14,6 @@
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.jvm :as jana2]
             [clojure.pprint :as pprint]
@@ -125,7 +124,7 @@
     :const (when (seqable? (:val ast))
              [{:op (if (sequential? (:val ast)) :sequential :unordered)
                :ordered (sequential? (:val ast))
-               :expr (pre/pre-analyze-const (:val ast) env)
+               :expr (ana/pre-analyze-const (:val ast) env)
                :min-count (count (:val ast))
                :max-count (count (:val ast))}])
     :do (splice-seqable-expr (:ret ast))
@@ -289,7 +288,7 @@
                              (concat (map emit-form (concat single-args fixed)) [rest-form]))
                        (map emit-form (concat single-args fixed)))]
             (when before-reduce (before-reduce))
-            (ana/run-passes (pre/pre-analyze-form form env))))))))
+            (ana/run-passes (ana/pre-analyze-form form env))))))))
 
 (defn push-invoke
   "Push arguments into the function position of an :invoke
@@ -362,8 +361,8 @@
                             (prn "reparsing invoke" (first mform))
                             ;; TODO like pre-analyze-seq, perhaps we can reuse the implemenation
                             (ana/run-passes
-                              (-> (pre/pre-analyze-form mform env)
+                              (-> (ana/pre-analyze-form mform env)
                                   (update-in [:raw-forms] (fnil conj ())
-                                             (vary-meta form assoc ::pre/resolved-op (ana/resolve-sym (first form) env)))))))))))
+                                             (vary-meta form assoc ::ana/resolved-op (ana/resolve-sym (first form) env)))))))))))
       ast)))
 

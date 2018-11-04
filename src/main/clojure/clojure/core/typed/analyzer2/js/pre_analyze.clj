@@ -10,7 +10,7 @@
 (ns clojure.core.typed.analyzer2.jvm.pre-analyze
   (:require [clojure.core.typed.analyzer2.js.utils
              :refer [desugar-ns-specs validate-ns-specs ns-resource ns->relpath res-path]]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre])
+            [clojure.core.typed.analyzer2 :as ana])
   (:import cljs.tagged_literals.JSValue))
 
 ; (U ':deftype ':defrecord) Any Config -> AST
@@ -34,7 +34,7 @@
                   :fields    fields
                   :protocols protocols})
 
-        body-expr (pre/pre-analyze-child
+        body-expr (ana/pre-analyze-child
                     body
                     (assoc env :locals (zipmap fields (map dissoc-env fields-expr))))]
 
@@ -61,7 +61,7 @@
                     (conj segs s)
                     (recur (conj segs (subs s 0 idx))
                            (subs s (inc (.indexOf s "}" idx)))))))
-        exprs (mapv #(pre/pre-analyze-child % (ctx env :ctx/expr)) args)]
+        exprs (mapv #(ana/pre-analyze-child % (ctx env :ctx/expr)) args)]
     (merge
      {:op       :js
       :env      env
@@ -76,7 +76,7 @@
   (assert (symbol? test) "case* must switch on symbol")
   (assert (every? vector? tests) "case* tests must be grouped in vectors")
   (let [expr-env (ctx env :expr)
-        test-expr (pre/pre-analyze-child test expr-env)
+        test-expr (ana/pre-analyze-child test expr-env)
         nodes (mapv (fn [tests then]
                       {:op       :case-node
                        ;; no :form, this is a synthetic grouping node
@@ -85,7 +85,7 @@
                                          {:op       :case-test
                                           :form     test
                                           :env      expr-env
-                                          :test     (pre/pre-analyze-child test expr-env)
+                                          :test     (ana/pre-analyze-child test expr-env)
                                           :children [:test]})
                                        tests)
                        :then     {:op       :case-then
@@ -145,7 +145,7 @@
                  (update-vals (select-keys meta ks) (fn [x] (list 'quote x)))
                  (when (:test meta)
                    {:test `(.-cljs$lang$test ~sym)}))]
-    (pre/pre-analyze-child (with-meta `(def ~(with-meta sym m) ~@rest) (meta form)) env)))
+    (ana/pre-analyze-child (with-meta `(def ~(with-meta sym m) ~@rest) (meta form)) env)))
 
 ;; can it be :literal ?
 (defn pre-parse-js-value
@@ -156,18 +156,18 @@
       ;; keys should always be symbols/kewords, do we really need to analyze them?
       {:op       :js-object
        :env      env
-       :keys     (mapv #(pre/pre-analyze-child % items-env) (keys val))
-       :vals     (mapv #(pre/pre-analyze-child % items-env) (vals val))
+       :keys     (mapv #(ana/pre-analyze-child % items-env) (keys val))
+       :vals     (mapv #(ana/pre-analyze-child % items-env) (vals val))
        :form     form
        :children [:keys :vals]}
       {:op       :js-array
        :env      env
-       :items    (mapv #(pre/pre-analyze-child % items-env) val)
+       :items    (mapv #(ana/pre-analyze-child % items-env) val)
        :form     form
        :children [:items]})))
 
 (defn pre-parse
-  "Extension to clojure.core.typed.analyzer2.pre-analyze/-pre-parse for JS special forms"
+  "Extension to clojure.core.typed.analyzer2/-pre-parse for JS special forms"
   [form env]
   (cond
     (instance? JSValue form) (pre-parse-js-value form env)
@@ -179,5 +179,5 @@
        ns         pre-parse-ns
        def        pre-parse-def
        js*        pre-parse-js*
-       #_:else    pre/-pre-parse)
+       #_:else    ana/-pre-parse)
      form env)))

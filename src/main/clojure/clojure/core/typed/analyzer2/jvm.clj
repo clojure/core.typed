@@ -32,7 +32,6 @@
             [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
             [clojure.core.typed.analyzer2.passes.jvm.validate :as validate]
             [clojure.core.typed.analyzer2 :as ana]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre])
   (:import (clojure.lang RT Var)))
 
@@ -327,7 +326,7 @@
                             #'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    create-var
                             #'ana/scheduled-passes    scheduled-default-passes
-                            #'pre/pre-parse     jpre/pre-parse
+                            #'ana/pre-parse     jpre/pre-parse
                             #'ana/var?          var?
                             #'ana/resolve-ns    resolve-ns
                             #'ana/resolve-sym   resolve-sym
@@ -335,7 +334,7 @@
                            (:bindings opts))
        (env/ensure (global-env)
          (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
-           (ana/run-passes (pre/pre-analyze-child form env)))))))
+           (ana/run-passes (ana/pre-analyze-child form env)))))))
 
 (deftype ExceptionThrown [e ast])
 
