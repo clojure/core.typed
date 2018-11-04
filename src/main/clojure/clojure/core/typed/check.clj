@@ -9,29 +9,17 @@
 (ns clojure.core.typed.check
   {:skip-wiki true}
   (:require [clojure.core.typed :as t]
-            [clojure.set :as cljset]
-            [clojure.java.io :as io]
-            [clojure.tools.reader :as reader]
-            [clojure.tools.reader.reader-types :as readers]
-            [clojure.core.typed.rules :as rules]
-            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.abo :as abo]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.analyzer2.jvm :as ana]
-            [clojure.core.typed.analyzer2.env :as env]
-            [clojure.tools.analyzer.ast :as ast]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.utils :as tau]
-            [clojure.tools.analyzer.jvm.utils :as jtau]
-            [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as ana-host]
-            [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.analyzer2 :as ana2]
+            [clojure.core.typed.analyzer2.env :as env]
+            [clojure.core.typed.analyzer2.jvm :as jana2]
+            [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.array-ops :as arr-ops]
-            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.assoc-utils :as assoc-u]
-            [clojure.core.typed.constant-type :as constant-type]
+            [clojure.core.typed.ast-utils :as ast-u]
+            [clojure.core.typed.check-below :as below]
             [clojure.core.typed.check.apply :as apply]
             [clojure.core.typed.check.binding :as binding]
             [clojure.core.typed.check.case :as case]
@@ -66,20 +54,20 @@
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.check.set :as set]
             [clojure.core.typed.check.set-bang :as set!]
+            [clojure.core.typed.check.special.ann-form :as ann-form]
+            [clojure.core.typed.check.special.cast :as cast]
+            [clojure.core.typed.check.special.fn :as special-fn]
+            [clojure.core.typed.check.special.loop :as special-loop]
+            [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
             [clojure.core.typed.check.throw :as throw]
             [clojure.core.typed.check.try :as try]
             [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.with-meta :as with-meta]
-            [clojure.core.typed.check.special.ann-form :as ann-form]
-            [clojure.core.typed.check.special.cast :as cast]
-            [clojure.core.typed.check.special.fn :as special-fn]
-            [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
-            [clojure.core.typed.check.special.loop :as special-loop]
             [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.constant-type :as constant-type]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.ctor-override-env :as ctor-override]
@@ -107,6 +95,8 @@
             [clojure.core.typed.protocol-env :as ptl-env]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.reflect-utils :as reflect-u]
+            [clojure.core.typed.rules :as rules]
+            [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.subst-obj :as subst-obj]
             [clojure.core.typed.subtype :as sub]
@@ -116,10 +106,20 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.update :as update]
-            [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.var-env :as var-env]
+            [clojure.java.io :as io]
             [clojure.pprint :as pprint]
+            [clojure.set :as cljset]
+            [clojure.tools.analyzer.ast :as ast]
+            [clojure.tools.analyzer.jvm :as taj]
+            [clojure.tools.analyzer.jvm.utils :as jtau]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.tools.analyzer.passes.jvm.validate :as validate]
+            [clojure.tools.analyzer.utils :as tau]
+            [clojure.tools.reader :as reader]
+            [clojure.tools.reader.reader-types :as readers]
             [clojure.repl :as repl])
   (:import (clojure.lang IPersistentMap Var Seqable)))
 
@@ -165,7 +165,7 @@
   "Type checks an entire namespace."
   ([ns] (check-ns1 ns (taj/empty-env)))
   ([ns env]
-     (env/ensure (ana/global-env)
+     (env/ensure (jana2/global-env)
        (let [^java.net.URL res (jtau/ns-url ns)]
          (assert res (str "Can't find " ns " in classpath"))
          (let [filename (str res)
@@ -244,7 +244,7 @@
                          expr)
     (= :unanalyzed op) (let [{:keys [pre post]} ana2/scheduled-passes]
                          (-> expr
-                             ;; ensures ::ana/state is propagated properly,
+                             ;; ensures ::jana2/state is propagated properly,
                              ;; instead of simply calling analyze
                              pre
                              (check-expr expected)))
@@ -296,7 +296,7 @@
   ;(prn "*ns*" *ns*)
   (with-bindings (assoc (dissoc (ana-clj/thread-bindings) #'*ns*)
                         #'ana2/macroexpand-1 #'ana-clj/macroexpand-1
-                        #'ana2/scheduled-passes (-> @ana/scheduled-default-passes
+                        #'ana2/scheduled-passes (-> @jana2/scheduled-default-passes
                                                     (update :pre (fn [pre]
                                                                    (fn [ast]
                                                                      (cond-> ast
@@ -311,7 +311,7 @@
                                                                         ((comp post-gilardi post))
                                                                         true
                                                                         (assoc :post-done true)))))))
-    (env/ensure (ana/global-env)
+    (env/ensure (jana2/global-env)
       (let [res (-> form
                     (ana2/unanalyzed (or env (taj/empty-env)))
                     (assoc-in [::ana2/config :top-level] true)
