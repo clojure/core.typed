@@ -332,7 +332,7 @@
    :form  form
    :class class})
 
-(defn pre-analyze-method-impls
+(defn analyze-method-impls
   [[method [this & params :as args] & body :as form] env]
   (when-let [error-msg (cond
                         (not (symbol? method))
@@ -385,7 +385,7 @@
         name (gensym "reify__")
         class-name (symbol (str (namespace-munge *ns*) "$" name))
         menv (assoc env :this class-name)
-        methods (mapv #(assoc (pre-analyze-method-impls % menv) :interfaces interfaces)
+        methods (mapv #(assoc (analyze-method-impls % menv) :interfaces interfaces)
                       methods)]
 
     (-deftype name class-name [] interfaces)
@@ -425,7 +425,7 @@
                :locals  (zipmap fields (map u/dissoc-env fields-expr))
                :this    class-name)
         [opts methods] (parse-opts+methods methods)
-        methods (mapv #(assoc (pre-analyze-method-impls % menv) :interfaces interfaces)
+        methods (mapv #(assoc (analyze-method-impls % menv) :interfaces interfaces)
                       methods)]
 
     (-deftype name class-name fields interfaces)

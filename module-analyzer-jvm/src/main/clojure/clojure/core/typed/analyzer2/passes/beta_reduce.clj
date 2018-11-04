@@ -322,10 +322,10 @@
                           form (with-meta
                                  (list* fn-form (map emit-form args))
                                  (meta fn-form))
-                          _ (prn "form" form)
+                          ;_ (prn "form" form)
                           env (:env tail-ast)
                           mform (ana/macroexpand-1 form env)]
-                      (prn "mform" mform)
+                      ;(prn "mform" mform)
                       (if (= mform form)
                         (let [ufn (unwrap-with-meta tail-ast)
                               special-case
@@ -357,7 +357,7 @@
                                        :env env
                                        :children [:fn :args]})))
                         (do (swap! state update ::expansions inc)
-                            (prn "reparsing invoke" (first mform))
+                            ;(prn "reparsing invoke" (first mform))
                             ;; TODO like analyze-seq, perhaps we can reuse the implemenation
                             (ana/run-passes
                               (-> (ana/analyze-form mform env)

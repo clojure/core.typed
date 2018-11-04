@@ -281,7 +281,7 @@
      (with-bindings (merge {#'ana/macroexpand-1 macroexpand-1
                             #'ana/create-var    create-var
                             #'ana/scheduled-passes    scheduled-default-passes
-                            #'ana/parse         jspre/pre-parse
+                            #'ana/parse         jspre/parse
                             #'ana/var?          var?
                             #'ana/analyze-form  analyze-form
                             #'elides            (-> elides
