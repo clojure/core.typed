@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;; adapted from tools.analyzer.js
-(ns clojure.core.typed.analyzer2.jvm.pre-analyze
+(ns clojure.core.typed.analyzer2.js.pre-analyze
   (:require [clojure.core.typed.analyzer2.js.utils
              :refer [desugar-ns-specs validate-ns-specs ns-resource ns->relpath res-path]]
             [clojure.core.typed.analyzer2 :as ana])
