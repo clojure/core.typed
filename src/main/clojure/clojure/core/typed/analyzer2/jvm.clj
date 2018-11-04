@@ -299,7 +299,7 @@
 (defn global-env []
   (atom {}))
 
-(defn pre-parse-monitor-enter
+(defn parse-monitor-enter
   [[_ target :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to monitor-enter, had: " (dec (count form)))
@@ -311,7 +311,7 @@
    :target   (ana/unanalyzed target (u/ctx env :ctx/expr))
    :children [:target]})
 
-(defn pre-parse-monitor-exit
+(defn parse-monitor-exit
   [[_ target :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to monitor-exit, had: " (dec (count form)))
@@ -323,7 +323,7 @@
    :target   (ana/unanalyzed target (u/ctx env :ctx/expr))
    :children [:target]})
 
-(defn pre-parse-import*
+(defn parse-import*
   [[_ class :as form] env]
   (when-not (= 2 (count form))
     (throw (ex-info (str "Wrong number of args to import*, had: " (dec (count form)))
@@ -380,7 +380,7 @@
                 (list 'deftype* cname class-name args :implements interfaces)
                 (list 'import class-name)))))
 
-(defn pre-parse-reify*
+(defn parse-reify*
   [[_ interfaces & methods :as form] env]
   (let [interfaces (conj (disj (set (mapv ju/maybe-class interfaces)) Object)
                          IObj)
@@ -407,7 +407,7 @@
       (recur (assoc opts (first methods) (second methods)) (nnext methods))
       [opts methods])))
 
-(defn pre-parse-deftype*
+(defn parse-deftype*
   [[_ name class-name fields _ interfaces & methods :as form] env]
   (let [interfaces (disj (set (mapv ju/maybe-class interfaces)) Object)
         fields-expr (mapv (fn [name]
@@ -442,7 +442,7 @@
      :interfaces interfaces
      :children   [:fields :methods]}))
 
-(defn pre-parse-case*
+(defn parse-case*
   [[_ expr shift mask default case-map switch-type test-type & [skip-check?] :as form] env]
   (let [[low high] ((juxt first last) (keys case-map)) ;;case-map is a sorted-map
         e (u/ctx env :ctx/expr)
@@ -484,12 +484,12 @@
   "Extension to clojure.core.typed.analyzer2/-pre-parse for JVM special forms"
   [form env]
   ((case (first form)
-     monitor-enter        pre-parse-monitor-enter
-     monitor-exit         pre-parse-monitor-exit
-     clojure.core/import* pre-parse-import*
-     reify*               pre-parse-reify*
-     deftype*             pre-parse-deftype*
-     case*                pre-parse-case*
+     monitor-enter        parse-monitor-enter
+     monitor-exit         parse-monitor-exit
+     clojure.core/import* parse-import*
+     reify*               parse-reify*
+     deftype*             parse-deftype*
+     case*                parse-case*
      #_:else              ana/-pre-parse)
    form env))
 
