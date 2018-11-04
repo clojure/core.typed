@@ -50,7 +50,7 @@
      :children  [:fields :body]}))
 
 ;; no ~{foo} support since cljs itself doesn't use it anywhere
-(defn pre-parse-js*
+(defn parse-js*
   [[_ jsform & args :as form] env]
   (when-not (string? jsform)
     (throw (ex-info "Invalid js* form"
@@ -72,7 +72,7 @@
        {:args     exprs
         :children [:args]}))))
 
-(defn pre-parse-case*
+(defn parse-case*
   [[_ test tests thens default :as form] env]
   (assert (symbol? test) "case* must switch on symbol")
   (assert (every? vector? tests) "case* tests must be grouped in vectors")
@@ -109,7 +109,7 @@
      :default  default-expr
      :children [:test :nodes :default]}))
 
-(defn pre-parse-ns
+(defn parse-ns
   [[_ name & args :as form] env]
   (when-not (symbol? name)
     (throw (ex-info (str "Namespaces must be named by a symbol, had: "
@@ -138,7 +138,8 @@
      (when metadata
        {:meta metadata}))))
 
-(defn pre-parse-def
+(declare parse)
+(defn parse-def
   [[_ sym & rest :as form] env]
   (let [ks #{:ns :name :doc :arglists :file :line :column}
         meta (meta sym)
@@ -146,10 +147,10 @@
                  (update-vals (select-keys meta ks) (fn [x] (list 'quote x)))
                  (when (:test meta)
                    {:test `(.-cljs$lang$test ~sym)}))]
-    (ana/unanalyzed (with-meta `(def ~(with-meta sym m) ~@rest) (meta form)) env)))
+    (ana/analyze-form (with-meta `(def ~(with-meta sym m) ~@rest) (meta form)) env)))
 
 ;; can it be :literal ?
-(defn pre-parse-js-value
+(defn parse-js-value
   [form env]
   (let [val (.val ^JSValue form)
         items-env (ctx env :expr)]
@@ -167,18 +168,18 @@
        :form     form
        :children [:items]})))
 
-(defn pre-parse
-  "Extension to clojure.core.typed.analyzer2/-pre-parse for JS special forms"
+(defn parse
+  "Extension to clojure.core.typed.analyzer2/-parse for JS special forms"
   [form env]
   (cond
-    (instance? JSValue form) (pre-parse-js-value form env)
+    (instance? JSValue form) (parse-js-value form env)
     :else
     ((case (first form)
-       deftype*   #(pre-parse-deftype* :deftype %1 %2)
-       defrecord* #(pre-parse-deftype* :defrecord %1 %2)
-       case*      pre-parse-case*
-       ns         pre-parse-ns
-       def        pre-parse-def
-       js*        pre-parse-js*
+       deftype*   #(parse-type :deftype %1 %2)
+       defrecord* #(parse-type :defrecord %1 %2)
+       case*      parse-case*
+       ns         parse-ns
+       def        parse-def
+       js*        parse-js*
        #_:else    ana/-parse)
      form env)))
