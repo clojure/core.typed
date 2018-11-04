@@ -356,7 +356,7 @@
                      :tag   (:this env)
                      :local :this}
         env         (assoc-in (dissoc env :this) [:locals this] (u/dissoc-env this-expr))
-        method-expr (ana/pre-analyze-fn-method meth env)]
+        method-expr (ana/analyze-fn-method meth env)]
     (assoc (dissoc method-expr :variadic?)
       :op       :method
       :form     form
@@ -446,7 +446,7 @@
         e (u/ctx env :ctx/expr)
         test-expr (ana/unanalyzed expr e)
         [tests thens] (reduce (fn [[te th] [min-hash [test then]]]
-                                (let [test-expr (ana/pre-analyze-const test e)
+                                (let [test-expr (ana/analyze-const test e)
                                       then-expr (ana/unanalyzed then env)]
                                   [(conj te {:op       :case-test
                                              :form     test

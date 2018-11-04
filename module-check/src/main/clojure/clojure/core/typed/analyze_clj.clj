@@ -145,7 +145,7 @@
 
 (defn custom-expansion-opts []
   (let [analyze (fn [form & [env]]
-                  (#'ana2/run-passes (ana2/pre-analyze-form form (or env *analyze-env*))))]
+                  (#'ana2/run-passes (ana2/analyze-form form (or env *analyze-env*))))]
     {:internal-error (fn [s & [opts]]
                        ;; TODO opts (line numbers, blame form etc.)
                        (let [;; can't access check.utils ns from here (circular deps)

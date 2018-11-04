@@ -123,7 +123,7 @@
     :const (when (seqable? (:val ast))
              [{:op (if (sequential? (:val ast)) :sequential :unordered)
                :ordered (sequential? (:val ast))
-               :expr (ana/pre-analyze-const (:val ast) env)
+               :expr (ana/analyze-const (:val ast) env)
                :min-count (count (:val ast))
                :max-count (count (:val ast))}])
     :do (splice-seqable-expr (:ret ast))
@@ -287,7 +287,7 @@
                              (concat (map emit-form (concat single-args fixed)) [rest-form]))
                        (map emit-form (concat single-args fixed)))]
             (when before-reduce (before-reduce))
-            (ana/run-passes (ana/pre-analyze-form form env))))))))
+            (ana/run-passes (ana/analyze-form form env))))))))
 
 (defn push-invoke
   "Push arguments into the function position of an :invoke
@@ -358,9 +358,9 @@
                                        :children [:fn :args]})))
                         (do (swap! state update ::expansions inc)
                             (prn "reparsing invoke" (first mform))
-                            ;; TODO like pre-analyze-seq, perhaps we can reuse the implemenation
+                            ;; TODO like analyze-seq, perhaps we can reuse the implemenation
                             (ana/run-passes
-                              (-> (ana/pre-analyze-form mform env)
+                              (-> (ana/analyze-form mform env)
                                   (update-in [:raw-forms] (fnil conj ())
                                              (vary-meta form assoc ::ana/resolved-op (ana/resolve-sym (first form) env)))))))))))
       ast)))

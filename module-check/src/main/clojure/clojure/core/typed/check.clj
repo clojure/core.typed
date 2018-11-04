@@ -245,7 +245,7 @@
     (= :unanalyzed op) (let [{:keys [pre post]} ana2/scheduled-passes]
                          (-> expr
                              ;; ensures ::ana/state is propagated properly,
-                             ;; instead of simply calling pre-analyze
+                             ;; instead of simply calling analyze
                              pre
                              (check-expr expected)))
     :else
@@ -449,7 +449,7 @@
                 (when (not= form mform)
                   (ensure-within-beta-limit)
                   (let [cred (-> mform
-                                 (ana2/pre-analyze-form env)
+                                 (ana2/analyze-form env)
                                  (update-in [:raw-forms] (fnil conj ())
                                             (vary-meta form assoc ::ana2/resolved-op (ana2/resolve-sym (first form) env)))
                                  ana2/run-passes
@@ -1159,7 +1159,7 @@
                                                                           `(first (nthnext ~gsym ~i)))
                                                                         (range max-realized))))]
                     (-> form
-                        (ana2/pre-analyze-form env)
+                        (ana2/analyze-form env)
                         ana2/run-passes
                         (check-expr expected)))))))))
       (check-apply expr expected)))
@@ -2029,7 +2029,7 @@
                                                    (mapv (fn [t a]
                                                            (binding [vs/*verbose-types* true]
                                                              (-> `(t/ann-form ~(ast-u/emit-form-fn a) ~(prs/unparse-type t))
-                                                                 (ana2/pre-analyze-form env)
+                                                                 (ana2/analyze-form env)
                                                                  ana2/run-passes)))
                                                          (concat dom (repeat (:rest ft)))
                                                          args)
