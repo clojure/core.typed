@@ -23,7 +23,6 @@
             [clojure.core.typed.analyzer2.jvm :as jana2]
             [clojure.core.typed.analyzer2.jvm.utils :as jana2-utils]
             [clojure.core.typed.analyzer2 :as ana2]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.jvm.pre-analyze :as jpre]
             [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
             [clojure.tools.reader :as tr]
@@ -147,7 +146,7 @@
 
 (defn custom-expansion-opts []
   (let [analyze (fn [form & [env]]
-                  (#'ana2/run-passes (pre/pre-analyze-form form (or env *analyze-env*))))]
+                  (#'ana2/run-passes (ana2/pre-analyze-form form (or env *analyze-env*))))]
     {:internal-error (fn [s & [opts]]
                        ;; TODO opts (line numbers, blame form etc.)
                        (let [;; can't access check.utils ns from here (circular deps)
@@ -346,7 +345,7 @@
      #'ana2/scheduled-passes (if vs/*custom-expansions*
                                @scheduled-passes-for-custom-expansions
                                jana2/scheduled-default-passes)
-     #'pre/pre-parse      jpre/pre-parse
+     #'ana2/pre-parse      jpre/pre-parse
      #'ana2/var?          var?
      #'ana2/create-var    jana2/create-var
      #'ana2/resolve-ns    jana2/resolve-ns

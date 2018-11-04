@@ -3,7 +3,6 @@
     ; this loads the type system, must go first
     [clojure.core.typed.test.test-utils :as tu]
     [clojure.test :refer :all]
-    [clojure.core.typed.analyzer2.pre-analyze :as pre]
     [clojure.core.typed.analyzer2.jvm :as ana]
     [clojure.core.typed.analyze-clj :as ana-clj]
     [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]

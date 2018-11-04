@@ -32,7 +32,6 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer2 :as ana]
-            [clojure.core.typed.analyzer2.pre-analyze :as pre]
             [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]))
 
 ;check method is under a particular Function, and return inferred Function
@@ -195,7 +194,7 @@
                                                                       (beta-reduce/make-var-expr
                                                                         #'cu/special-typed-expression
                                                                         (:env method))
-                                                                      [(pre/pre-parse-quote
+                                                                      [(ana/pre-parse-quote
                                                                          (binding [vs/*verbose-types* true]
                                                                            `'~(prs/unparse-type t))
                                                                          (:env method))]
