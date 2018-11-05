@@ -1,17 +1,18 @@
 # 0.6.0 - SNAPSHOT
 
-- Breaking: Removed deprecated/unsupported macros to improve loading times
-  [x] clojure.core.typed/dotimes>
-  [x] clojure.core.typed/for>
-  [x] clojure.core.typed/doseq>
-  [ ] clojure.core.typed/fn>
-  [ ] clojure.core.typed/def>
-  [ ] clojure.core.typed/defprotocol>
-  [ ] clojure.core.typed/loop>
-  [ ] clojure.core.typed/atom>
-  [ ] clojure.core.typed/def-alias
-  [ ] clojure.core.typed/ann-precord
-  [ ] clojure.core.typed/ann-pprotocol
+- Breaking: Removed deprecated/replaced macros to improve loading times
+  [x] clojure.core.typed/dotimes> (use t/dotimes)
+  [x] clojure.core.typed/for> (use t/for)
+  [x] clojure.core.typed/doseq> (use t/doseq)
+  [x] clojure.core.typed/pfn> (use t/fn)
+  [ ] clojure.core.typed/fn> (use t/fn)
+  [ ] clojure.core.typed/def> (use t/def)
+  [ ] clojure.core.typed/defprotocol> (use t/defprotocol)
+  [ ] clojure.core.typed/loop> (use t/loop)
+  [ ] clojure.core.typed/atom> (use t/atom)
+  [ ] clojure.core.typed/def-alias (use t/defalias)
+  [ ] clojure.core.typed/ann-precord (use t/ann-record)
+  [ ] clojure.core.typed/ann-pprotocol (use t/ann-protocol)
 
 # 0.5.4 - 13 September 2018
 

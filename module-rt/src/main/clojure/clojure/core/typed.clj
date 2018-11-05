@@ -168,26 +168,10 @@ for checking namespaces, cf for checking individual forms."}
   fn-of)
 
 (core/defn ^:skip-wiki
-  pfn>-ann 
-  "Internal use only. Use pfn>."
-  [fn-of polys param-types-syn]
-  fn-of)
-
-(core/defn ^:skip-wiki
   loop>-ann 
   "Internal use only. Use loop>"
   [loop-of bnding-types]
   loop-of)
-
-(core/let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))]
-  (defmacro pfn> 
-    "Define a polymorphic typed anonymous function.
-    (pfn> name? [binder+] :- type? [[param :- type]* & [param :- type *]?] exprs*)
-    (pfn> name? [binder+] (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
-    [& forms]
-    (core/let [{:keys [poly fn parsed-methods]} (@parse-fn> true forms)]
-      `(pfn>-ann ~fn '~poly '~parsed-methods))))
-
 
 (core/let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))
            deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
