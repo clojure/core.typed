@@ -662,25 +662,6 @@ for checking namespaces, cf for checking individual forms."}
     nil))
 
 (core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
-  (defmacro
-    ^{:deprecated "0.2.58"}
-    ref>
-    "DEPRECATED: use clojure.core.typed/ref
-
-    Like ref, but creates a Ref1 of type t.
-    
-    Same as (ref (ann-form init t) args*)
-    
-    eg. (ref> Number 1)
-        (ref> (Vec Any) [])"
-    [t init & args]
-    (@deprecated-renamed-macro
-      &form
-      'ref>
-      'ref)
-    `(core/ref (ann-form ~init ~t) ~@args)))
-
-(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro 
     ^{:deprecated "0.2.45"}
     def-alias 
