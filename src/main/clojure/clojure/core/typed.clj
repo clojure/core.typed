@@ -1511,21 +1511,6 @@ Transducer
           args)]
     `(tc-ignore (ann-record* '~vbnd '~dname '~fields '~opt '~&form))))
 
-
-(core/defn ^:skip-wiki
-  ann-precord* 
-  "Internal use only. Use ann-precord."
-  [dname vbnd fields opt]
-  nil)
-
-(defmacro ann-precord 
-  "Annotate record Class name dname with a polymorphic binder and expected fields.
-  If unqualified, qualify in the current namespace."
-  [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
-  (println "WARNING: ann-precord is deprecated, use ann-record")
-  (flush)
-  `(tc-ignore (ann-precord* '~dname '~vbnd '~fields '~opt)))
-
 (core/let [add-protocol-env (delay (dynaload 'clojure.core.typed.current-impl/add-protocol-env))
            gen-protocol* (delay (dynaload 'clojure.core.typed.current-impl/gen-protocol*))]
   (core/defn ^:skip-wiki
