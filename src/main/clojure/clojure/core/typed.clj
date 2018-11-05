@@ -202,41 +202,6 @@ for checking namespaces, cf for checking individual forms."}
     (core/let [{:keys [fn parsed-methods]} (@parse-fn> false forms)]
       `(fn>-ann ~fn '~parsed-methods))))
 
-(core/let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
-           deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
-  (defmacro
-    ^{:forms '[(def> name docstring? :- type expr)]}
-    ^{:deprecated "0.2.45"}
-    def>
-    "DEPRECATED: use clojure.core.typed/def
-
-    Like def, but with annotations.
-
-    eg. (def> vname :- Long 1)
-
-    ;doc
-    (def> vname
-      \"Docstring\"
-      :- Long
-      1)"
-    [name & fdecl]
-    (@deprecated-macro-syntax
-      &form
-      (str "clojure.core.typed/def> renamed to clojure.core.typed/def."
-           " Note that it is impossible to :refer to a var called def."))
-    (core/let
-         [[docstring fdecl] (@take-when string? fdecl)
-          _ (assert (and (#{3} (count fdecl))
-                         (#{:-} (first fdecl)))
-                    (str "Bad def> syntax: " fdecl))
-          [_ tsyn body] fdecl]
-      `(do (ann ~name ~tsyn)
-           ~(list* 'def name 
-                   (concat
-                     (when docstring [docstring])
-                     [body]))))))
-
-
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
   letfn>
