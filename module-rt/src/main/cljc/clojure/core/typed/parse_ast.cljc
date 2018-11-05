@@ -49,6 +49,28 @@
       (ns-resolve ns sym)
       (err/int-error (str "Cannot find namespace: " sym)))))
 
+(defn- resolve-alias-clj 
+  "Returns a symbol if sym maps to a type alias, otherwise nil"
+  [sym]
+  {:pre [(symbol? sym)]
+   :post [((some-fn symbol? nil?) %)]}
+  (impl/assert-clojure)
+  (let [nsym (parse-in-ns)
+        nsp (some-> (namespace sym) symbol)]
+    (if-let [ns (find-ns nsym)]
+      (let [qual (if nsp
+                   (or (some-> (or ((ns-aliases ns) nsp)
+                                   (find-ns nsp))
+                               ns-name)
+                       (err/int-error (str "Cannot resolve namespace " nsp " in namespace " (ns-name ns))))
+                   (ns-name ns))
+            _ (assert (and (symbol? qual)
+                           (not (namespace qual))))
+            qsym (symbol (name qual) (name sym))]
+        (when (contains? (impl/alias-env) qsym)
+          qsym))
+      (err/int-error (str "Cannot find namespace: " sym)))))
+
 (declare parse parse-path-elem)
 
 (t/ann ^:no-check parse [t/Any -> Type])
@@ -1114,13 +1136,15 @@
                                           {:op :Name :name vsym}
                                           {:op :Protocol :name vsym}))
                            (symbol? sym)
-                           ;an annotated datatype that hasn't been defined yet
-                           ; assume it's in the current namespace
-                                    ; do we want to munge the sym also?
-                           (let [qname (symbol (str (namespace-munge *ns*) "." sym))]
-                             (when (contains? (impl/datatype-env) qname)
-                               {:op :DataType :name qname}))
-                           ))
+                           (if-let [qsym (resolve-alias-clj sym)]
+                             ; a type alias without an interned var
+                             {:op :Name :name qsym}
+                             ;an annotated datatype that hasn't been defined yet
+                             ; assume it's in the current namespace
+                                      ; do we want to munge the sym also?
+                             (let [qname (symbol (str (namespace-munge (parse-in-ns)) "." sym))]
+                               (when (contains? (impl/datatype-env) qname)
+                                 {:op :DataType :name qname})))))
               :cljs (assert nil)
                #_(when-let [res (when (symbol? sym)
                                       (resolve-type-cljs sym))]
