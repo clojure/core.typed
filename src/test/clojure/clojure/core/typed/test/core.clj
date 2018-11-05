@@ -2611,16 +2611,6 @@
 ;TODO (apply == (non-empty-seq))
 ;TODO tests for inferring upper/lower bounds
 
-(deftest defn>-test
-  (is-tc-e (defn> add-two :- Int [a :- Int]
-             (+ a 2))
-           (Var1 [Int -> Int]))
-  (is-tc-e (defn> add-three 
-             (:- Int 
-              [a :- Int]
-              (+ a 3)))
-           #_(Var1 [Int -> Int])))
-
 (deftest def>-test
   (is (check-ns 'clojure.core.typed.test.def-arrow))
   (is-tc-e (def> a :- Num 1)
@@ -3493,6 +3483,15 @@
   (is (check-ns 'clojure.core.typed.test.CTYP146)))
 
 (deftest defn-test
+  (is-tc-e (defn add-two :- Int [a :- Int]
+             (+ a 2))
+           (Var1 [Int -> Int]))
+  (is-tc-e (defn add-three 
+             (:- Int 
+              [a :- Int]
+              (+ a 3)))
+           #_(Var1 [Int -> Int])))
+
   (is-tc-e (do
              (defn foo [a :- Number]
                (inc a))
