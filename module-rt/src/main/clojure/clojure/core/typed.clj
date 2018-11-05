@@ -17,7 +17,6 @@ for checking namespaces, cf for checking individual forms."}
   (:require [clojure.core :as core]
             [clojure.string :as str]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.load-if-needed :as load]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.special-form :as spec]
@@ -50,10 +49,11 @@ for checking namespaces, cf for checking individual forms."}
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
-(defn load-if-needed
-  "Load and initialize all of core.typed if not already"
-  []
-  (load/load-if-needed))
+(let [lin (delay (impl/dynaload 'clojure.core.typed.load-if-needed/load-if-needed))]
+  (defn load-if-needed
+    "Load and initialize all of core.typed if not already"
+    []
+    (@lin)))
 
 (let [rset (delay (impl/dynaload 'clojure.core.typed.reset-caches/reset-caches))]
   (defn reset-caches
