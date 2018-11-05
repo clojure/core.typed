@@ -916,6 +916,27 @@
       (ns-resolve ns sym)
       (err/int-error (str "Cannot find namespace: " sym)))))
 
+(defn- resolve-alias-clj 
+  "Returns a symbol if sym maps to a type alias, otherwise nil"
+  [sym]
+  {:pre [(symbol? sym)]
+   :post [((some-fn symbol? nil?) %)]}
+  (impl/assert-clojure)
+  (let [nsym (parse-in-ns)
+        nsp (some-> (namespace sym) symbol)]
+    (if-let [ns (find-ns nsym)]
+      (when-let [qual (if nsp
+                        (some-> (or ((ns-aliases ns) nsp)
+                                    (find-ns nsp))
+                                ns-name)
+                        (ns-name ns))]
+        (let [_ (assert (and (symbol? qual)
+                             (not (namespace qual))))
+              qsym (symbol (name qual) (name sym))]
+          (when (contains? (nme-env/name-env) qsym)
+            qsym)))
+      (err/int-error (str "Cannot find namespace: " sym)))))
+
 (let [cljs-resolve-var (delay (impl/dynaload 'clojure.core.typed.util-cljs/resolve-var))]
   (defn- resolve-type-cljs 
     "Returns a qualified symbol or nil"
@@ -1104,8 +1125,10 @@
                                                       (symbol (str ns) (str sym)))
                                           ddatatype (if (some #{\.} (str sym))
                                                       sym
-                                                      (symbol (str (munge ns)) (str sym)))]
+                                                      (symbol (str (munge ns)) (str sym)))
+                                          nmesym (resolve-alias-clj sym)]
                                       (cond
+                                        nmesym nmesym
                                         (nme-env/declared-protocol? dprotocol) dprotocol
                                         (nme-env/declared-datatype? ddatatype) ddatatype))))
                  :cljs (when (symbol? sym)
