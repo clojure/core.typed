@@ -2604,9 +2604,9 @@
 ;TODO (apply == (non-empty-seq))
 ;TODO tests for inferring upper/lower bounds
 
-(deftest def>-test
+(deftest def-test
   (is (check-ns 'clojure.core.typed.test.def-arrow))
-  (is-tc-e (def> a :- Num 1)
+  (is-tc-e (clojure.core.typed/def a :- Num 1)
            (Var1 Num)))
 
 (deftest nested-keyword-update-test
@@ -5374,8 +5374,8 @@
                (def foo 1)
                (ann foo Bool)
                (def foo false)))
-  (is-tc-e (do (def> foo :- Num 1)
-               (def> foo :- Bool false)))
+  (is-tc-e (do (clojure.core.typed/def foo :- Num 1)
+               (clojure.core.typed/def foo :- Bool false)))
   )
 
 (deftest subtype-heterogeneous*-with-repeat
