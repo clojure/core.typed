@@ -159,7 +159,6 @@ clojure.core.typed/ann-protocol* [Any Any Any -> Any]
 clojure.core.typed/ann-pprotocol* [Any Any Any -> Any] ; REMOVED
 clojure.core.typed/ann-record* [Any Any Any Any -> Any]
 clojure.core.typed/ann-pdatatype* [Any Any Any Any -> Any]
-clojure.core.typed/ann-precord* [Any Any Any Any -> Any]
 clojure.core.typed/declare-datatypes* [Any -> Any]
 clojure.core.typed/declare-protocols* [Any -> Any]
 clojure.core.typed/non-nil-return* [Any Any -> Any]

@@ -54,16 +54,6 @@
        ~(-> `(clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list `t/Pred nme))
             (with-meta (meta &form)))))
 
-(defmacro ann-precord 
-  "Like ann-precord, but also adds an unchecked annotation for core.contract's generated
-  nme? predicate."
-  [nme & args]
-  `(do (clojure.core.typed/ann-precord ~nme ~@args)
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list `t/Pred nme))))
-
-
-
-
 (t/tc-ignore
 ;(t/ann next-sequence-number (t/Atom1 SeqNumber))
 (defonce ^:private 
