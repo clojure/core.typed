@@ -208,51 +208,6 @@ for checking namespaces, cf for checking individual forms."}
     (core/let [{:keys [fn parsed-methods]} (@parse-fn> false forms)]
       `(fn>-ann ~fn '~parsed-methods))))
 
-
-(core/defn- defn>-parse-typesig 
-  "Helper for parsing type signatures out of defn> forms"
-  [forms]
-  (if (= :- (first forms))
-    (core/let [ret (second forms)
-               args (take-nth 3 (drop 2 (first (drop 2 forms))))]
-      `[~@args ~'-> ~ret])
-    `(IFn ~@(map defn>-parse-typesig forms))))
-
-(core/let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
-           deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
-  (defmacro
-    ^{:deprecated "0.2.57"}
-    ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
-               (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
-    defn>
-    "DEPRECATED: Use defn
-    
-    Like defn, but with annotations. Annotations are mandatory for
-    parameters and for return type.
-
-    eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
-
-    ;annotate return
-    (defn> fname :- String [a :- String] ...)
-
-    ;multi-arity
-    (defn> fname 
-      (:- String [a :- String] ...)
-      (:- Long   [a :- String, b :- Number] ...))"
-    [name & fdecl]
-    (@deprecated-renamed-macro
-      &form
-      'defn>
-      'defn)
-    (core/let [[docstring fdecl] (@take-when string? fdecl)
-               signature (defn>-parse-typesig fdecl)]
-      `(do (ann ~name ~signature)
-           ~(list* 'def name 
-                   (concat
-                     (when docstring [docstring])
-                     [`(fn> ~name ~@fdecl)]))))))
-
-
 (core/let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
            deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro
