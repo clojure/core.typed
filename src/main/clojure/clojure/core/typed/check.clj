@@ -1043,7 +1043,7 @@
         ]
     (if deref-type
       (cond
-        ; TODO if this is a lambda we can do better eg. (swap! (atom> Number 1) (fn [a] a))
+        ; TODO if this is a lambda we can do better eg. (swap! (atom :- Number 1) (fn [a] a))
         ;(#{:fn} (:op (second args)))
 
         :else
