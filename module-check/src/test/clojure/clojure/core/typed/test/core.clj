@@ -2014,10 +2014,6 @@
 (deftest CTYP-42
   (is (check-ns 'clojure.core.typed.test.succeed.CTYP-42-record-extend-protocol)))
 
-(deftest atom>-test
-  (is-tc-e (atom> (Vec Any) [])
-           (Atom1 (Vec Any))))
-
 (deftest CTYP-48
   (is-tc-e (fn [a] (:a a))
            [Nothing -> Any]))
@@ -3514,6 +3510,7 @@
   )
 
 (deftest atom-test
+  (is-tc-e (atom :- (Vec Any) []) (Atom1 (Vec Any)))
   (is-tc-e @(atom 1) Any)
   (is-tc-e @(atom :- Number 1) Number)
   (is-tc-e (atom :- Number 1) (Atom1 Number))

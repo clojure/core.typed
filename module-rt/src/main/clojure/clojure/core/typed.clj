@@ -664,25 +664,6 @@ for checking namespaces, cf for checking individual forms."}
 (core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro
     ^{:deprecated "0.2.58"}
-    atom>
-    "DEPRECATED: use clojure.core.typed/atom
-    
-    Like atom, but creates an Atom1 of type t.
-    
-    Same as (atom (ann-form init t) args*)
-    
-    eg. (atom> Number 1)
-        (atom> (Vec Any) [])"
-    [t init & args]
-    (@deprecated-renamed-macro
-      &form
-      'atom>
-      'atom)
-    `(core/atom (ann-form ~init ~t) ~@args)))
-
-(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
-  (defmacro
-    ^{:deprecated "0.2.58"}
     ref>
     "DEPRECATED: use clojure.core.typed/ref
 

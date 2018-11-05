@@ -10,7 +10,7 @@
   [ ] clojure.core.typed/def> (use t/defn)
   [ ] clojure.core.typed/defprotocol> (use t/defprotocol)
   [x] clojure.core.typed/loop> (use t/loop)
-  [ ] clojure.core.typed/atom> (use t/atom)
+  [x] clojure.core.typed/atom> (use t/atom)
   [ ] clojure.core.typed/def-alias (use t/defalias)
   [ ] clojure.core.typed/ann-precord (use t/ann-record)
   [ ] clojure.core.typed/ann-pprotocol (use t/ann-protocol)
