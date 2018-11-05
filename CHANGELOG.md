@@ -13,7 +13,7 @@
   [x] clojure.core.typed/atom> (use t/atom)
   [x] clojure.core.typed/ref> (use t/ref)
   [x] clojure.core.typed/def-alias (use t/defalias)
-  [ ] clojure.core.typed/ann-precord (use t/ann-record)
+  [x] clojure.core.typed/ann-precord (use t/ann-record)
   [ ] clojure.core.typed/ann-pprotocol (use t/ann-protocol)
 
 # 0.5.4 - 13 September 2018
