@@ -22,24 +22,19 @@ for checking namespaces, cf for checking individual forms."}
             clojure.core.typed.macros)
   (:import (clojure.lang Compiler)))
 
-(import-m/import-macros clojure.core.typed.macros
-  [def fn loop let ann-form tc-ignore defprotocol
-   when-let-fail defn atom ref])
-
-; must go after importing core macros
-(defn- dynaload
+(core/defn- dynaload
   [s]
-  (let [ns (namespace s)]
+  (core/let [ns (namespace s)]
     (assert ns)
     (require (symbol ns))
-    (let [v (resolve s)]
+    (core/let [v (resolve s)]
       (if v
         @v
         (throw (RuntimeException. (str "Var " s " is not on the classpath")))))))
 
 (def ^:private with-clojure-impl* (delay (dynaload 'clojure.core.typed.current-impl/with-clojure-impl*)))
 (defmacro ^:private with-clojure-impl [& body]
-  `(@with-clojure-impl* (fn [] (do ~@body))))
+  `(@with-clojure-impl* (core/fn [] (do ~@body))))
 
 ;=============================================================
 ; # core.typed
@@ -62,14 +57,14 @@ for checking namespaces, cf for checking individual forms."}
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
-(let [lin (delay (dynaload 'clojure.core.typed.load-if-needed/load-if-needed))]
-  (defn load-if-needed
+(core/let [lin (delay (dynaload 'clojure.core.typed.load-if-needed/load-if-needed))]
+  (core/defn load-if-needed
     "Load and initialize all of core.typed if not already"
     []
     (@lin)))
 
-(let [rset (delay (dynaload 'clojure.core.typed.reset-caches/reset-caches))]
-  (defn reset-caches
+(core/let [rset (delay (dynaload 'clojure.core.typed.reset-caches/reset-caches))]
+  (core/defn reset-caches
     "Reset internal type caches."
     []
     (load-if-needed)
@@ -77,21 +72,20 @@ for checking namespaces, cf for checking individual forms."}
     nil))
 
 ;(ann method-type [Symbol -> nil])
-(let [type-reflect (delay (dynaload 'clojure.reflect/type-reflect))
-      Method->Type (delay (dynaload 'clojure.core.typed.check/Method->Type))
-      unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))]
-  (defn method-type
+(core/let [type-reflect (delay (dynaload 'clojure.reflect/type-reflect))
+           Method->Type (delay (dynaload 'clojure.core.typed.check/Method->Type))
+           unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))]
+  (core/defn method-type
     "Given a method symbol, print the core.typed types assigned to it.
     Intended for use at the REPL."
     [mname]
     (load-if-needed)
-    (let [
-          ms (->> (@type-reflect (Class/forName (namespace mname)))
-                  :members
-                  (core/filter #(and (instance? clojure.reflect.Method %)
-                                     (= (str (:name %)) (name mname))))
-                  set)
-          _ (assert (seq ms) (str "Method " mname " not found"))]
+    (core/let [ms (->> (@type-reflect (Class/forName (namespace mname)))
+                       :members
+                       (core/filter #(and (instance? clojure.reflect.Method %)
+                                          (= (str (:name %)) (name mname))))
+                       set)
+               _ (assert (seq ms) (str "Method " mname " not found"))]
       (println "Method name:" mname)
       (flush)
       (core/doseq [m ms]
@@ -99,8 +93,8 @@ for checking namespaces, cf for checking individual forms."}
                    (@Method->Type m)))
         (flush)))))
 
-(let [tl-install (delay (dynaload 'clojure.core.typed.load/install))]
-  (defn install
+(core/let [tl-install (delay (dynaload 'clojure.core.typed.load/install))]
+  (core/defn install
     "Install the :core.typed :lang. Takes an optional set of features
     to install, defaults to `:all`, which is equivalent to the set of
     all features.
@@ -126,7 +120,7 @@ for checking namespaces, cf for checking individual forms."}
 ;=============================================================
 ; Special functions
 
-(defn print-filterset
+(core/defn print-filterset
   "During type checking, print the filter set attached to form, 
   preceeded by literal string debug-string.
   Returns nil.
@@ -136,13 +130,13 @@ for checking namespaces, cf for checking individual forms."}
   [debug-string frm]
   frm)
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   inst-poly 
   "Internal use only. Use inst."
   [inst-of types-syn]
   inst-of)
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   inst-poly-ctor 
   "Internal use only. Use inst-ctor"
   [inst-of types-syn]
@@ -167,25 +161,25 @@ for checking namespaces, cf for checking individual forms."}
   [inst-of & types]
   `(inst-poly-ctor ~inst-of '~types))
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   fn>-ann 
   "Internal use only. Use fn>."
   [fn-of param-types-syn]
   fn-of)
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   pfn>-ann 
   "Internal use only. Use pfn>."
   [fn-of polys param-types-syn]
   fn-of)
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   loop>-ann 
   "Internal use only. Use loop>"
   [loop-of bnding-types]
   loop-of)
 
-(let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
+(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro ^{:deprecated "0.2.45"} dotimes>
     "DEPRECATED: Use clojure.core.typed/dotimes
 
@@ -201,42 +195,16 @@ for checking namespaces, cf for checking individual forms."}
     (@#'core/assert-args
        (vector? bindings) "a vector for its binding"
        (= 2 (count bindings)) "exactly 2 forms in binding vector")
-    (let [i (first bindings)
-          n (second bindings)]
-      `(let [n# (long ~n)]
+    (core/let [i (first bindings)
+               n (second bindings)]
+      `(core/let [n# (long ~n)]
          (loop> [~i :- ~'clojure.core.typed/AnyInteger 0]
            (when (< ~i n#)
              ~@body
              (recur (unchecked-inc ~i))))))))
 
-(defmacro dotimes
-  "Like clojure.core/dotimes, but with optional annotations.
 
-  If annotation for binding is omitted, defaults to Int.
-  
-  eg. (dotimes [_ 100]
-        (println \"like normal\"))
-
-      (dotimes [x :- Num, 100.123]
-        (println \"like normal\" x))"
-  [bindings & body]
-  (@#'core/assert-args
-     (vector? bindings) "a vector for its binding"
-     (= 2 (count bindings)) "exactly 2 forms in binding vector")
-  (let [[i t? t n] (if (= :- (second bindings))
-                     (let [[i _ t n] bindings]
-                       (assert (== (count bindings) 4) "Bad arguments to dotimes")
-                       [i true t n])
-                     (let [[i n] bindings]
-                       (assert (== (count bindings) 2) "Bad arguments to dotimes")
-                       [i nil nil n]))]
-    `(let [n# (long ~n)]
-       (loop [~i :- ~(if t? t `Int) 0]
-         (when (< ~i n#)
-           ~@body
-           (recur (unchecked-inc ~i)))))))
-
-(let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
+(core/let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro ^{:deprecated "0.2.45"} for>
     "DEPRECATED: use clojure.core.typed/for
 
@@ -256,310 +224,125 @@ for checking namespaces, cf for checking individual forms."}
        (vector? seq-exprs) "a vector for its binding"
        (even? (count seq-exprs)) "an even number of forms in binding vector")
     (assert (#{:-} tk) "Must provide return type annotation for for>.")
-    (let [normalise-args
-          ; change [a :- b c] to [[a :- b] c]
-          (fn [seq-exprs]
-            (loop [flat-result ()
-                   seq-exprs seq-exprs]
-              (cond
-                (empty? seq-exprs) flat-result
-                (keyword? (first seq-exprs)) (recur (concat flat-result (take 2 seq-exprs))
-                                                    (drop 2 seq-exprs))
-                (and (vector? (first seq-exprs))
-                     (#{:-} (-> seq-exprs first second))) (do
-                                                            (@deprecated-macro-syntax 
-                                                              &form
-                                                              "for> syntax has changed, use [b :- t i] for clauses")
-                                                            (recur (concat flat-result (take 2 seq-exprs))
-                                                                   (drop 2 seq-exprs)))
-                :else (do (assert (#{:-} (second seq-exprs))
-                                  "Incorrect syntax in for>.")
-                          (recur (concat flat-result [(vec (take 3 seq-exprs))
-                                                      (nth seq-exprs 3)])
-                                 (drop 4 seq-exprs))))))
-
-          ; normalise seq-exprs to be flat pairs
-          seq-exprs (normalise-args seq-exprs)
-
-          to-groups (fn [seq-exprs]
-                      (@#'core/reduce1 (fn [groups [k v]]
-                                                 (if (keyword? k)
-                                                   (conj (pop groups) (conj (peek groups) [k v]))
-                                                   (conj groups [k v])))
-                                               [] (partition 2 seq-exprs)))
-          err (fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
-          emit-bind (fn emit-bind [[[bind expr & mod-pairs]
-                                    & [[_ next-expr] :as next-groups]]]
-                      (let [_ (assert (and (vector? bind)
-                                           (#{3} (count bind))
-                                           (#{:-} (second bind))) 
-                                      "Binder must be of the form [lhs :- type]")
-                            bind-ann (nth bind 2)
-                            bind (nth bind 0)
-                            giter (gensym "iter__")
-                            gxs (gensym "s__")
-                            do-mod (fn do-mod [[[k v :as pair] & etc]]
-                                     (cond
-                                       (= k :let) `(core/let ~v ~(do-mod etc))
-                                       (= k :while) `(when ~v ~(do-mod etc))
-                                       (= k :when) `(if ~v
-                                                      ~(do-mod etc)
-                                                      (recur (rest ~gxs)))
-                                       (keyword? k) (err "Invalid 'for' keyword " k)
-                                       next-groups
-                                        `(core/let [iterys# ~(emit-bind next-groups)
-                                                    fs# (seq (iterys# ~next-expr))]
-                                           (if fs#
-                                             (concat fs# (~giter (rest ~gxs)))
-                                             (recur (rest ~gxs))))
-                                       :else `(cons ~body-expr
-                                                    (~giter (rest ~gxs)))))]
-                        (if next-groups
-                          #_"not the inner-most loop"
-                          `(ann-form
-                             (fn ~giter [~gxs]
-                               (lazy-seq
-                                 (loop> [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
-                                   (when-first [~bind ~gxs]
-                                     ~(do-mod mod-pairs)))))
-                             [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'-> (~'clojure.core.typed/Seq ~ret-ann)])
-                          #_"inner-most loop"
-                          (let [gi (gensym "i__")
-                                gb (gensym "b__")
-                                do-cmod (fn do-cmod [[[k v :as pair] & etc]]
+    (core/let [normalise-args
+               ; change [a :- b c] to [[a :- b] c]
+               (core/fn [seq-exprs]
+                 (core/loop [flat-result ()
+                             seq-exprs seq-exprs]
+                   (cond
+                     (empty? seq-exprs) flat-result
+                     (keyword? (first seq-exprs)) (recur (concat flat-result (take 2 seq-exprs))
+                                                         (drop 2 seq-exprs))
+                     (and (vector? (first seq-exprs))
+                          (#{:-} (-> seq-exprs first second))) (do
+                                                                 (@deprecated-macro-syntax 
+                                                                   &form
+                                                                   "for> syntax has changed, use [b :- t i] for clauses")
+                                                                 (recur (concat flat-result (take 2 seq-exprs))
+                                                                        (drop 2 seq-exprs)))
+                     :else (do (assert (#{:-} (second seq-exprs))
+                                       "Incorrect syntax in for>.")
+                               (recur (concat flat-result [(vec (take 3 seq-exprs))
+                                                           (nth seq-exprs 3)])
+                                      (drop 4 seq-exprs))))))
+ 
+               ; normalise seq-exprs to be flat pairs
+               seq-exprs (normalise-args seq-exprs)
+ 
+               to-groups (core/fn [seq-exprs]
+                           (@#'core/reduce1 (core/fn [groups [k v]]
+                                                      (if (keyword? k)
+                                                        (conj (pop groups) (conj (peek groups) [k v]))
+                                                        (conj groups [k v])))
+                                                    [] (partition 2 seq-exprs)))
+               err (core/fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
+               emit-bind (core/fn emit-bind [[[bind expr & mod-pairs]
+                                         & [[_ next-expr] :as next-groups]]]
+                           (core/let 
+                                [_ (assert (and (vector? bind)
+                                                (#{3} (count bind))
+                                                (#{:-} (second bind))) 
+                                           "Binder must be of the form [lhs :- type]")
+                                 bind-ann (nth bind 2)
+                                 bind (nth bind 0)
+                                 giter (gensym "iter__")
+                                 gxs (gensym "s__")
+                                 do-mod (core/fn do-mod [[[k v :as pair] & etc]]
                                           (cond
-                                            (= k :let) `(core/let ~v ~(do-cmod etc))
-                                            (= k :while) `(when ~v ~(do-cmod etc))
+                                            (= k :let) `(core/let ~v ~(do-mod etc))
+                                            (= k :while) `(when ~v ~(do-mod etc))
                                             (= k :when) `(if ~v
-                                                           ~(do-cmod etc)
-                                                           (recur
-                                                             (unchecked-inc ~gi)))
-                                            (keyword? k)
-                                              (err "Invalid 'for' keyword " k)
-                                            :else
-                                              `(do (chunk-append ~gb 
-                                                                 ; put an ann-form here so at least one error message
-                                                                 ; points to code the user can recognise.
-                                                                 (ann-form ~body-expr
-                                                                           ~ret-ann))
-                                                   (recur (unchecked-inc ~gi)))))]
-                            `(ann-form
-                               (fn ~giter [~gxs]
-                                 (lazy-seq
-                                   (loop> [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
-                                          (when-let [~gxs (seq ~gxs)]
-                                            (if (chunked-seq? ~gxs)
-                                              (core/let [c# (chunk-first ~gxs)
-                                                         size# (int (count c#))
-                                                         ~gb (ann-form (chunk-buffer size#)
-                                                                       (~'clojure.lang.ChunkBuffer ~ret-ann))]
-                                                (if (loop> [~gi :- AnyInteger, (int 0)]
-                                                           (if (< ~gi size#)
-                                                             (core/let [;~bind (.nth c# ~gi)]
-                                                                        ~bind (nth c# ~gi)]
-                                                               ~(do-cmod mod-pairs))
-                                                             true))
-                                                  (chunk-cons
-                                                    (chunk ~gb)
-                                                    (~giter (chunk-rest ~gxs)))
-                                                  (chunk-cons (chunk ~gb) nil)))
-                                              (core/let [~bind (first ~gxs)]
-                                                ~(do-mod mod-pairs)))))))
-                               [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'->
-                                (~'clojure.core.typed/Seq ~ret-ann)])))))]
-      `(core/let [iter# ~(emit-bind (to-groups seq-exprs))]
-          (iter# ~(second seq-exprs))))))
+                                                           ~(do-mod etc)
+                                                           (recur (rest ~gxs)))
+                                            (keyword? k) (err "Invalid 'for' keyword " k)
+                                            next-groups
+                                             `(core/let [iterys# ~(emit-bind next-groups)
+                                                         fs# (seq (iterys# ~next-expr))]
+                                                (if fs#
+                                                  (concat fs# (~giter (rest ~gxs)))
+                                                  (recur (rest ~gxs))))
+                                            :else `(cons ~body-expr
+                                                         (~giter (rest ~gxs)))))]
+                             (if next-groups
+                               #_"not the inner-most loop"
+                               `(ann-form
+                                  (core/fn ~giter [~gxs]
+                                    (lazy-seq
+                                      (loop> [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                        (when-first [~bind ~gxs]
+                                          ~(do-mod mod-pairs)))))
+                                  [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'-> (~'clojure.core.typed/Seq ~ret-ann)])
+                               #_"inner-most loop"
+                               (core/let 
+                                    [gi (gensym "i__")
+                                     gb (gensym "b__")
+                                     do-cmod (core/fn do-cmod [[[k v :as pair] & etc]]
+                                               (cond
+                                                 (= k :let) `(core/let ~v ~(do-cmod etc))
+                                                 (= k :while) `(when ~v ~(do-cmod etc))
+                                                 (= k :when) `(if ~v
+                                                                ~(do-cmod etc)
+                                                                (recur
+                                                                  (unchecked-inc ~gi)))
+                                                 (keyword? k)
+                                                   (err "Invalid 'for' keyword " k)
+                                                 :else
+                                                   `(do (chunk-append ~gb 
+                                                                      ; put an ann-form here so at least one error message
+                                                                      ; points to code the user can recognise.
+                                                                      (ann-form ~body-expr
+                                                                                ~ret-ann))
+                                                        (recur (unchecked-inc ~gi)))))]
+                                 `(ann-form
+                                    (core/fn ~giter [~gxs]
+                                      (lazy-seq
+                                        (loop> [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                               (when-let [~gxs (seq ~gxs)]
+                                                 (if (chunked-seq? ~gxs)
+                                                   (core/let [c# (chunk-first ~gxs)
+                                                              size# (int (count c#))
+                                                              ~gb (ann-form (chunk-buffer size#)
+                                                                            (~'clojure.lang.ChunkBuffer ~ret-ann))]
+                                                     (if (loop> [~gi :- AnyInteger, (int 0)]
+                                                                (if (< ~gi size#)
+                                                                  (core/let [;~bind (.nth c# ~gi)]
+                                                                             ~bind (nth c# ~gi)]
+                                                                    ~(do-cmod mod-pairs))
+                                                                  true))
+                                                       (chunk-cons
+                                                         (chunk ~gb)
+                                                         (~giter (chunk-rest ~gxs)))
+                                                       (chunk-cons (chunk ~gb) nil)))
+                                                   (core/let [~bind (first ~gxs)]
+                                                     ~(do-mod mod-pairs)))))))
+                                    [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'->
+                                     (~'clojure.core.typed/Seq ~ret-ann)])))))]
+           `(core/let [iter# ~(emit-bind (to-groups seq-exprs))]
+               (iter# ~(second seq-exprs))))))
 
-(defmacro for
-  "Like clojure.core/for with optional type annotations.
 
-  All types default to Any.
-
-  The :let option uses clojure.core.typed/let.
-  
-  eg. (for [a :- (U nil Int) [1 nil 2 3]
-            :when a]
-        :- Number
-        (inc a))
-  
-  Metadata using the :clojure.core.typed/ann keyword
-  can also be used for annotation.
-
-  eg. (for ^{::ann Number}
-        [^{::ann (U nil Int)} a [1 nil 2 3]
-         :when a]
-        (inc a))
-  "
-  [seq-exprs & maybe-ann-body-expr]
-  (@#'core/assert-args
-     (vector? seq-exprs) "a vector for its binding"
-     (even? (count seq-exprs)) "an even number of forms in binding vector")
-  (let [orig-seq-exprs seq-exprs
-        has-explicit-return-type? (#{:-} (first maybe-ann-body-expr))
-        [ret-ann body-expr] (if has-explicit-return-type?
-                              (let [_ (assert (#{3} (count maybe-ann-body-expr))
-                                              (str "Wrong arguments to for: " maybe-ann-body-expr))
-                                    [colon t body] maybe-ann-body-expr]
-                                [t body])
-                              (let [_ (assert (#{1} (count maybe-ann-body-expr))
-                                              (str "Wrong arguments to for: " maybe-ann-body-expr))
-                                    [body] maybe-ann-body-expr]
-                                [`Any body]))
-        ret-ann (if-let [[_ meta-ann] (find (meta seq-exprs) ::ann)]
-                  (do (assert (not has-explicit-return-type?)
-                              "Cannot mix explicit and metadata return type in for.")
-                      meta-ann)
-                  ret-ann)
-        ;_ (prn "ret-ann" ret-ann)
-        normalise-args
-        ; change [a :- b c] to [[a :- b] c]
-        (fn [seq-exprs]
-          (loop [flat-result []
-                 seq-exprs seq-exprs]
-            (cond
-              (empty? seq-exprs) flat-result
-
-              ;for options (:let, :while etc)
-              (keyword? (first seq-exprs)) (let [_ (assert (#{2} (count (take 2 seq-exprs)))
-                                                           (str "for option missing " (first seq-exprs)))
-                                                 [k v & rst] seq-exprs]
-                                             (recur (conj flat-result k v)
-                                                    rst))
-              :else (let [[meta-ann has-meta-ann?]
-                          (when-let [[_ meta-ann] (find (meta (first seq-exprs)) ::ann)]
-                            [meta-ann true])]
-                      (if (#{:-} (second seq-exprs))
-                        (let [_ (assert (#{4} (count (take 4 seq-exprs)))
-                                        (str "for parameter missing after ':-'"))
-                              [b colon t init & rst] seq-exprs]
-                          (assert (not meta-ann)
-                                  "Cannot mix metadata annotation and explicit annotation in for.")
-                          (recur (conj flat-result [b colon t] init)
-                                 rst))
-                        (let [_ (assert (#{2} (count (take 2 seq-exprs)))
-                                        (str "for binding needs initial values"))
-                              [b init & rst] seq-exprs
-                              ann (if has-meta-ann? meta-ann `Any)]
-                          (recur (conj flat-result [b :- ann] init)
-                                 rst)))))))
-
-        ; normalise seq-exprs to be flat pairs
-        seq-exprs (normalise-args seq-exprs)
-
-        to-groups (fn [seq-exprs]
-                    (reduce (fn [groups [k v]]
-                              (if (keyword? k)
-                                (conj (pop groups) (conj (peek groups) [k v]))
-                                (conj groups [k v])))
-                            [] (partition 2 seq-exprs)))
-        err (fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
-        emit-bind (fn emit-bind [[[bind expr & mod-pairs]
-                                  & [[_ next-expr] :as next-groups]]]
-                    (let [_ (assert (and (vector? bind)
-                                         (#{3} (count bind))
-                                         (#{:-} (second bind))) 
-                                    "Binder must be of the form [lhs :- type]")
-                          bind-ann (nth bind 2)
-                          bind (nth bind 0)
-                          giter (gensym "iter__")
-                          gxs (gensym "s__")
-                          do-mod (fn do-mod [[[k v :as pair] & etc]]
-                                   (cond
-                                     ;typed let
-                                     (= k :let) `(let ~v ~(do-mod etc))
-                                     (= k :while) `(when ~v ~(do-mod etc))
-                                     (= k :when) `(if ~v
-                                                    ~(do-mod etc)
-                                                    (recur (rest ~gxs)))
-                                     (keyword? k) (err "Invalid 'for' keyword " k)
-                                     next-groups
-                                      `(let [iterys# ~(emit-bind next-groups)
-                                             fs# (seq (iterys# ~next-expr))]
-                                         (if fs#
-                                           (concat fs# (~giter (rest ~gxs)))
-                                           (recur (rest ~gxs))))
-                                     :else `(cons (ann-form ~body-expr ~ret-ann) ;; ann-form for better error messages
-                                                  (~giter (rest ~gxs)))))]
-                      (if next-groups
-                        #_"not the inner-most loop"
-                        `(fn ~giter 
-                           [~gxs :- (Option (Seqable ~bind-ann))]
-                           :- (Seq ~ret-ann)
-                           (lazy-seq
-                             (map (fn [t# :- ~ret-ann] :- ~ret-ann
-                                    (let [^{::auto-ann ~(meta orig-seq-exprs)
-                                            ::track-kind ::for-return}
-                                          t# t#]
-                                      ;(prn "tracked t#" t#)
-                                      t#))
-                                  (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
-                                    (when-let [xs# (seq ~gxs)]
-                                      (let [^{::auto-ann ~(meta bind)
-                                              ::track-kind ::for-param}
-                                            x# (first xs#)
-                                            ;_# (prn "for param x#" x#)
-                                            ~bind x#]
-                                        ~(do-mod mod-pairs)))))))
-                        #_"inner-most loop"
-                        (let [gi (gensym "i__")
-                              gb (gensym "b__")
-                              do-cmod (fn do-cmod [[[k v :as pair] & etc]]
-                                        (cond
-                                          ; typed let
-                                          (= k :let) `(let ~v ~(do-cmod etc))
-                                          (= k :while) `(when ~v ~(do-cmod etc))
-                                          (= k :when) `(if ~v
-                                                         ~(do-cmod etc)
-                                                         (recur
-                                                           (unchecked-inc ~gi)))
-                                          (keyword? k)
-                                            (err "Invalid 'for' keyword " k)
-                                          :else
-                                            `(do (chunk-append ~gb 
-                                                               ; put an ann-form here so at least one error message
-                                                               ; points to code the user can recognise.
-                                                               (ann-form ~body-expr
-                                                                         ~ret-ann))
-                                                 (recur (unchecked-inc ~gi)))))]
-                          `(fn ~giter [~gxs :- (Option (Seqable ~bind-ann))]
-                             :- (Seq ~ret-ann)
-                             (lazy-seq
-                               (map (fn [t# :- ~ret-ann] :- ~ret-ann
-                                      (let [^{::auto-ann ~(meta orig-seq-exprs)
-                                              ::track-kind ::for-return}
-                                            t# t#]
-                                        t#))
-                                    (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
-                                      (when-let [~gxs (seq ~gxs)]
-                                        (if (chunked-seq? ~gxs)
-                                          (let [c# (chunk-first ~gxs)
-                                                size# (int (count c#))
-                                                ~gb (ann-form (chunk-buffer size#)
-                                                              (~'clojure.lang.ChunkBuffer ~ret-ann))]
-                                            (if (loop [~gi :- Int, (int 0)]
-                                                  (if (< ~gi size#)
-                                                    (let [;~bind (.nth c# ~gi)]
-                                                          ^{::auto-ann ~(meta bind)
-                                                            ::track-kind ::for-param}
-                                                          x# (nth c# ~gi)
-                                                          ~bind x#]
-                                                      ~(do-cmod mod-pairs))
-                                                    true))
-                                              (chunk-cons
-                                                (chunk ~gb)
-                                                (~giter (chunk-rest ~gxs)))
-                                              (chunk-cons (chunk ~gb) nil)))
-                                          (let [^{::auto-ann ~(meta bind)
-                                                  ::track-kind ::for-param}
-                                                x# (first ~gxs)
-                                                ;_# (prn "for param x#" x#)
-                                                ~bind x#]
-                                            ~(do-mod mod-pairs))))))))))))]
-    `(let [iter# ~(emit-bind (to-groups seq-exprs))]
-        (iter# ~(second seq-exprs)))))
-
-(let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))
-      deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
+(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))
+           deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro ^{:deprecated "0.2.45"} doseq>
     "DEPRECATED: use clojure.core.typed/doseq
 
@@ -578,11 +361,12 @@ for checking namespaces, cf for checking individual forms."}
     (@#'core/assert-args
        (vector? seq-exprs) "a vector for its binding"
        (even? (count seq-exprs)) "an even number of forms in binding vector")
-    (let [normalise-args
+    (core/let
+         [normalise-args
           ; change [a :- b c] to [[a :- b] c]
-          (fn [seq-exprs]
-            (loop [flat-result ()
-                   seq-exprs seq-exprs]
+          (core/fn [seq-exprs]
+            (core/loop [flat-result ()
+                        seq-exprs seq-exprs]
               (cond
                 (empty? seq-exprs) flat-result
                 (keyword? (first seq-exprs)) (recur (concat flat-result (take 2 seq-exprs))
@@ -602,13 +386,15 @@ for checking namespaces, cf for checking individual forms."}
 
           ; normalise seq-exprs to be flat pairs
           seq-exprs (normalise-args seq-exprs)
-          step (fn step [recform exprs]
+          step (core/fn step [recform exprs]
                  (if-not exprs
                    [true `(do ~@body)]
-                   (let [k (first exprs)
+                   (core/let
+                        [k (first exprs)
                          v (second exprs)]
                      (if (keyword? k)
-                       (let [steppair (step recform (nnext exprs))
+                       (core/let
+                            [steppair (step recform (nnext exprs))
                              needrec (steppair 0)
                              subform (steppair 1)]
                          (cond
@@ -622,7 +408,8 @@ for checking namespaces, cf for checking individual forms."}
                                                    ~@(when needrec [recform]))
                                                  ~recform)]))
                        ;; k is [k :- k-ann]
-                       (let [_ (assert (and (vector? k)
+                       (core/let
+                            [_ (assert (and (vector? k)
                                             (#{3} (count k))
                                             (#{:-} (second k))) 
                                        "Binder must be of the form [lhs :- type]")
@@ -665,125 +452,21 @@ for checking namespaces, cf for checking individual forms."}
                                      ~@(when needrec [recform]))))))])))))]
       (nth (step nil (seq seq-exprs)) 1))))
 
-(defmacro doseq
-  "Like clojure.core/doseq with optional annotations.
-
-  :let option uses clojure.core.typed/let
-  
-  eg.
-  (doseq [a :- (U nil AnyInteger) [1 nil 2 3]
-          :when a]
-     (inc a))"
-  [seq-exprs & body]
-  (@#'core/assert-args
-     (vector? seq-exprs) "a vector for its binding"
-     (even? (count seq-exprs)) "an even number of forms in binding vector")
-  (let [normalise-args
-        ; change [a :- b c] to [[a :- b] c]
-        (fn [seq-exprs]
-          (loop [flat-result []
-                 seq-exprs seq-exprs]
-            (cond
-              (empty? seq-exprs) flat-result
-
-              ;for options (:let, :while etc)
-              (keyword? (first seq-exprs)) (let [_ (assert (#{2} (count (take 2 seq-exprs)))
-                                                           (str "for option missing " (first seq-exprs)))
-                                                 [k v & rst] seq-exprs]
-                                             (recur (conj flat-result k v)
-                                                    rst))
-              :else (if (#{:-} (second seq-exprs))
-                      (let [_ (assert (#{4} (count (take 4 seq-exprs)))
-                                      (str "for parameter missing after ':-'"))
-                            [b colon t init & rst] seq-exprs]
-                        (recur (conj flat-result [b colon t] init)
-                               rst))
-                      (let [_ (assert (#{2} (count (take 2 seq-exprs)))
-                                      (str "for binding needs initial values"))
-                            [b init & rst] seq-exprs]
-                        (recur (conj flat-result [b :- `Any] init)
-                               rst))))))
-
-        ; normalise seq-exprs to be flat pairs
-        seq-exprs (normalise-args seq-exprs)
-        step (fn step [recform exprs]
-               (if-not exprs
-                 [true `(do ~@body)]
-                 (let [k (first exprs)
-                       v (second exprs)]
-                   (if (keyword? k)
-                     (let [steppair (step recform (nnext exprs))
-                           needrec (steppair 0)
-                           subform (steppair 1)]
-                       (cond
-                         ;typed let
-                         (= k :let) [needrec `(let ~v ~subform)]
-                         (= k :while) [false `(when ~v
-                                                ~subform
-                                                ~@(when needrec [recform]))]
-                         (= k :when) [false `(if ~v
-                                               (do
-                                                 ~subform
-                                                 ~@(when needrec [recform]))
-                                               ~recform)]))
-                     ;; k is [k :- k-ann]
-                     (let [_ (assert (and (vector? k)
-                                          (#{3} (count k))
-                                          (#{:-} (second k))) 
-                                     "Binder must be of the form [lhs :- type]")
-                           k-ann (nth k 2)
-                           k (nth k 0)
-                           ; k is the lhs binding
-                           seq- (gensym "seq_")
-                           chunk- (with-meta (gensym "chunk_")
-                                             {:tag 'clojure.lang.IChunk})
-                           count- (gensym "count_")
-                           i- (gensym "i_")
-                           recform `(recur (next ~seq-) nil 0 0)
-                           steppair (step recform (nnext exprs))
-                           needrec (steppair 0)
-                           subform (steppair 1)
-                           recform-chunk 
-                             `(recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
-                           steppair-chunk (step recform-chunk (nnext exprs))
-                           subform-chunk (steppair-chunk 1)]
-                       [true
-                        `(loop [~seq- :- (U nil (Seq ~k-ann)) (seq ~v), 
-                                ~chunk- :- (U nil (clojure.lang.IChunk ~k-ann)) nil
-                                ~count- :- Int 0,
-                                ~i- :- Int 0]
-                           (if (and (< ~i- ~count-)
-                                    ;; FIXME review this
-                                    ;; core.typed thinks chunk- could be nil here
-                                    ~chunk-)
-                             (let [;~k (.nth ~chunk- ~i-)
-                                   ~k (nth ~chunk- ~i-)]
-                               ~subform-chunk
-                               ~@(when needrec [recform-chunk]))
-                             (when-let [~seq- (seq ~seq-)]
-                               (if (chunked-seq? ~seq-)
-                                 (let [c# (chunk-first ~seq-)]
-                                   (recur (chunk-rest ~seq-) c#
-                                          (int (count c#)) (int 0)))
-                                 (let [~k (first ~seq-)]
-                                   ~subform
-                                   ~@(when needrec [recform]))))))])))))]
-    (nth (step nil (seq seq-exprs)) 1)))
 
 
 
-(let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))]
+(core/let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))]
   (defmacro pfn> 
     "Define a polymorphic typed anonymous function.
     (pfn> name? [binder+] :- type? [[param :- type]* & [param :- type *]?] exprs*)
     (pfn> name? [binder+] (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
     [& forms]
-    (let [{:keys [poly fn parsed-methods]} (@parse-fn> true forms)]
+    (core/let [{:keys [poly fn parsed-methods]} (@parse-fn> true forms)]
       `(pfn>-ann ~fn '~poly '~parsed-methods))))
 
 
-(let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))
-      deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
+(core/let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))
+           deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro 
     ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
                (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
@@ -814,21 +497,21 @@ for checking namespaces, cf for checking individual forms."}
       &form
       (str "clojure.core.typed/fn> renamed to clojure.core.typed/fn. "
            "Note return type annotation now goes after the binder: (fn [a :- t] :- r, b)"))
-    (let [{:keys [fn parsed-methods]} (@parse-fn> false forms)]
+    (core/let [{:keys [fn parsed-methods]} (@parse-fn> false forms)]
       `(fn>-ann ~fn '~parsed-methods))))
 
 
-(defn- defn>-parse-typesig 
+(core/defn- defn>-parse-typesig 
   "Helper for parsing type signatures out of defn> forms"
   [forms]
   (if (= :- (first forms))
-    (let [ret (second forms)
-          args (take-nth 3 (drop 2 (first (drop 2 forms))))]
+    (core/let [ret (second forms)
+               args (take-nth 3 (drop 2 (first (drop 2 forms))))]
       `[~@args ~'-> ~ret])
     `(IFn ~@(map defn>-parse-typesig forms))))
 
-(let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
-      deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
+(core/let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
+           deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro
     ^{:deprecated "0.2.57"}
     ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
@@ -853,8 +536,8 @@ for checking namespaces, cf for checking individual forms."}
       &form
       'defn>
       'defn)
-    (let [[docstring fdecl] (@take-when string? fdecl)
-          signature (defn>-parse-typesig fdecl)]
+    (core/let [[docstring fdecl] (@take-when string? fdecl)
+               signature (defn>-parse-typesig fdecl)]
       `(do (ann ~name ~signature)
            ~(list* 'def name 
                    (concat
@@ -862,8 +545,8 @@ for checking namespaces, cf for checking individual forms."}
                      [`(fn> ~name ~@fdecl)]))))))
 
 
-(let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
-      deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
+(core/let [take-when (delay (dynaload 'clojure.core.typed.internal/take-when))
+           deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro
     ^{:forms '[(def> name docstring? :- type expr)]}
     ^{:deprecated "0.2.45"}
@@ -884,7 +567,8 @@ for checking namespaces, cf for checking individual forms."}
       &form
       (str "clojure.core.typed/def> renamed to clojure.core.typed/def."
            " Note that it is impossible to :refer to a var called def."))
-    (let [[docstring fdecl] (@take-when string? fdecl)
+    (core/let
+         [[docstring fdecl] (@take-when string? fdecl)
           _ (assert (and (#{3} (count fdecl))
                          (#{:-} (first fdecl)))
                     (str "Bad def> syntax: " fdecl))
@@ -908,11 +592,12 @@ for checking namespaces, cf for checking individual forms."}
                (c [s] nil)]
         ...)"
   [fn-specs-and-annotations & body]
-  (let [bindings fn-specs-and-annotations
+  (core/let
+       [bindings fn-specs-and-annotations
         ; (Vector (U '[Symbol TypeSyn] LetFnInit))
         normalised-bindings
-        (loop [[fbnd :as bindings] bindings
-               norm []]
+        (core/loop [[fbnd :as bindings] bindings
+                    norm []]
           (cond
             (empty? bindings) norm
             (symbol? fbnd) (do
@@ -1136,8 +821,8 @@ for checking namespaces, cf for checking individual forms."}
   (let [bindings fn-specs-and-annotations
         ; (Vector (U '[Symbol TypeSyn] LetFnInit))
         normalised-bindings
-        (loop [[fbnd :as bindings] bindings
-               norm []]
+        (core/loop [[fbnd :as bindings] bindings
+                    norm []]
           (cond
             (empty? bindings) norm
             (symbol? fbnd) (do
@@ -1155,7 +840,7 @@ for checking namespaces, cf for checking individual forms."}
         {anns false inits true} (group-by list? normalised-bindings)
         ; init-syn unquotes local binding references to be compatible with hygienic expansion
         init-syn (into {}
-                   (for [[lb type] anns]
+                   (core/for [[lb type] anns]
                      [lb `{:full '~type}]))]
     `(core/letfn ~(vec inits)
        ;unquoted to allow bindings to resolve with hygiene
@@ -1163,7 +848,7 @@ for checking namespaces, cf for checking individual forms."}
        ;preserve letfn empty body
        ~@(or body [nil]))))
 
-(let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
+(core/let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro ^{:deprecated "0.2.45"} defprotocol>
     "DEPRECATED: use clojure.core.typed/defprotocol
 
@@ -1182,8 +867,8 @@ for checking namespaces, cf for checking individual forms."}
 
 ;TODO filter/object support
 
-(let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))
-      deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
+(core/let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))
+           deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro 
     ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
     ^{:deprecated "0.2.45"}
@@ -1203,9 +888,10 @@ for checking namespaces, cf for checking individual forms."}
       &form
       'loop>
       'loop)
-    (let [normalise-args
-          (fn [seq-exprs]
-            (loop [flat-result ()
+    (core/let
+         [normalise-args
+          (core/fn [seq-exprs]
+            (core/loop [flat-result ()
                         seq-exprs seq-exprs]
               (cond
                 (empty? seq-exprs) flat-result
@@ -1234,17 +920,17 @@ for checking namespaces, cf for checking individual forms."}
                   '~bnd-anns))))
 
 
-(let [declare-datatype* (delay (dynaload 'clojure.core.typed.current-impl/declare-datatype*))]
-  (defn ^:skip-wiki
+(core/let [declare-datatype* (delay (dynaload 'clojure.core.typed.current-impl/declare-datatype*))]
+  (core/defn ^:skip-wiki
     declare-datatypes* 
     "Internal use only. Use declare-datatypes."
     [syms nsym]
     (with-clojure-impl
-      (doseq [sym syms]
+      (core/doseq [sym syms]
         (assert (not (or (some #(= \. %) (str sym))
                          (namespace sym)))
                 (str "Cannot declare qualified datatype: " sym))
-        (let [qsym (symbol (str (munge (name nsym)) \. (name sym)))]
+        (core/let [qsym (symbol (str (munge (name nsym)) \. (name sym)))]
           (@declare-datatype* qsym))))
     nil))
 
@@ -1253,7 +939,7 @@ for checking namespaces, cf for checking individual forms."}
   [& syms]
   `(tc-ignore (declare-datatypes* '~syms '~(ns-name *ns*))))
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   declare-protocols* 
   "Internal use only. Use declare-protocols."
   [syms]
@@ -1264,7 +950,7 @@ for checking namespaces, cf for checking individual forms."}
   [& syms]
   `(tc-ignore (declare-protocols* '~syms)))
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   declare-alias-kind* 
   "Internal use only. Use declare-alias-kind."
   [sym ty]
@@ -1277,13 +963,13 @@ for checking namespaces, cf for checking individual forms."}
      (declare ~sym)
      (declare-alias-kind* '~sym '~ty)))
 
-(let [declare-name* (delay (dynaload 'clojure.core.typed.current-impl/declare-name*))]
-  (defn ^:skip-wiki
+(core/let [declare-name* (delay (dynaload 'clojure.core.typed.current-impl/declare-name*))]
+  (core/defn ^:skip-wiki
     declare-names* 
     "Internal use only. Use declare-names."
     [syms]
-    (let [nsym (ns-name *ns*)]
-      (doseq [sym syms]
+    (core/let [nsym (ns-name *ns*)]
+      (core/doseq [sym syms]
         (@declare-name* (symbol (str nsym) (str sym)))))
     nil))
 
@@ -1296,7 +982,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (declare add-to-rt-alias-env add-tc-type-name)
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   def-alias* 
   "Internal use only. Use def-alias."
   [qsym t form]
@@ -1306,7 +992,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro ^:skip-wiki with-current-location
   [form & body]
-  `(let [form# ~form]
+  `(core/let [form# ~form]
      (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
                                  :file *file*
                                  :line (or (-> form# meta :line)
@@ -1324,24 +1010,24 @@ for checking namespaces, cf for checking individual forms."}
   of parse-ast in clojure.core.typed with delay-parse. Otherwise
   there is a circular dependency."
   [t]
-  `(let [t# ~t
-         app-outer-context# (bound-fn [f# t#] (f# t#))]
+  `(core/let [t# ~t
+              app-outer-context# (bound-fn [f# t#] (f# t#))]
      (delay
        (app-outer-context# @parse-clj-rt t#))))
 
 (defmacro ^:private delay-tc-parse
   [t]
-  `(let [t# ~t
-         app-outer-context# (bound-fn [f#] (f#))]
+  `(core/let [t# ~t
+              app-outer-context# (bound-fn [f#] (f#))]
      (delay
        (app-outer-context#
-         (fn []
+         (core/fn []
            (@with-parse-ns*
              (ns-name *ns*)
              #(@parse-clj-tc t#)))))))
 
-(let [add-alias-env (delay (dynaload 'clojure.core.typed.current-impl/add-alias-env))]
-  (defn ^:skip-wiki add-to-rt-alias-env [form qsym t]
+(core/let [add-alias-env (delay (dynaload 'clojure.core.typed.current-impl/add-alias-env))]
+  (core/defn ^:skip-wiki add-to-rt-alias-env [form qsym t]
     (with-clojure-impl
       (@add-alias-env
         qsym
@@ -1349,17 +1035,19 @@ for checking namespaces, cf for checking individual forms."}
           (delay-rt-parse t))))
     nil))
 
-(let [subtype? (delay (dynaload 'clojure.core.typed.subtype/subtype?))
-      declared-kind-or-nil (delay (dynaload 'clojure.core.typed.declared-kind-env/declared-kind-or-nil))
-      unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))
-      int-error (delay (dynaload 'clojure.core.typed.errors/int-error))
-      add-tc-type-name (delay (dynaload 'clojure.core.typed.current-impl/add-tc-type-name))]
-  (defn ^:skip-wiki add-tc-type-name [form qsym t]
+(core/let [subtype? (delay (dynaload 'clojure.core.typed.subtype/subtype?))
+           declared-kind-or-nil (delay (dynaload 'clojure.core.typed.declared-kind-env/declared-kind-or-nil))
+           unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))
+           int-error (delay (dynaload 'clojure.core.typed.errors/int-error))
+           add-tc-type-name (delay (dynaload 'clojure.core.typed.current-impl/add-tc-type-name))]
+  (core/defn ^:skip-wiki add-tc-type-name [form qsym t]
     (with-clojure-impl
-      (let [;; preserve *ns*
+      (core/let
+           [;; preserve *ns*
             bfn (bound-fn [f] (f))
             t (delay
-                (let [t (bfn
+                (core/let
+                     [t (bfn
                           #(with-current-location form
                              @(delay-tc-parse t)))
                       _ (with-clojure-impl
@@ -1371,7 +1059,7 @@ for checking namespaces, cf for checking individual forms."}
         (@add-tc-type-name qsym t)))
     nil))
 
-(let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
+(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro
     ^{:deprecated "0.2.58"}
     atom>
@@ -1390,7 +1078,7 @@ for checking namespaces, cf for checking individual forms."}
       'atom)
     `(core/atom (ann-form ~init ~t) ~@args)))
 
-(let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
+(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro
     ^{:deprecated "0.2.58"}
     ref>
@@ -1409,7 +1097,7 @@ for checking namespaces, cf for checking individual forms."}
       'ref)
     `(core/ref (ann-form ~init ~t) ~@args)))
 
-(let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
+(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
   (defmacro 
     ^{:deprecated "0.2.45"}
     def-alias 
@@ -1434,7 +1122,7 @@ for checking namespaces, cf for checking individual forms."}
        'defalias)
      `(defalias ~sym ~t))))
 
-(let [pprint (delay (dynaload 'clojure.pprint/pprint))]
+(core/let [pprint (delay (dynaload 'clojure.pprint/pprint))]
   (defmacro defalias 
     "Define a recursive type alias. Takes an optional doc-string as a second
     argument.
@@ -1455,7 +1143,8 @@ for checking namespaces, cf for checking individual forms."}
     ([sym t]
      (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
      (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
-     (let [m (vary-meta sym
+     (core/let
+          [m (vary-meta sym
                         update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (@pprint t))))
            qsym (-> (symbol (-> *ns* ns-name str) (str sym))
                     (with-meta (meta m)))]
@@ -1986,136 +1675,28 @@ Transducer
 (defmacro ^:private init-aliases []
   (core/letfn [(defalias-many [vinit]
                 `(do
-                   ~@(for [[k v] (partition 2 vinit)]
+                   ~@(core/for [[k v] (partition 2 vinit)]
                        `(defalias ~k ~v))))]
     (defalias-many 
       init-aliases*)))
 
-; defines base aliases
-(init-aliases)
-
-(let [add-rclass-env (delay (dynaload 'clojure.core.typed.current-impl/add-rclass-env))
+(core/let
+     [add-rclass-env (delay (dynaload 'clojure.core.typed.current-impl/add-rclass-env))
       Class->symbol (delay (dynaload 'clojure.core.typed.current-impl/Class->symbol))]
-  (defn ^:private rclass-pred [rcls opts]
+  (core/defn ^:private rclass-pred [rcls opts]
     (with-clojure-impl
       (@add-rclass-env (@Class->symbol rcls) opts))))
 
 (defmacro ^:private rclass-preds [& args]
   `(do
-     ~@(for [[k v] (partition 2 args)]
+     ~@(core/for [[k v] (partition 2 args)]
          `(rclass-pred ~k ~v))))
 
-(rclass-preds
-;  clojure.lang.Seqable 
-;  {:pred (fn [this a?]
-;           (cond 
-;             (string? this) (every? a? this)
-;             (coll? this) (every? a? this)))}
-  clojure.lang.IPersistentCollection
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.ISeq
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IPersistentSet
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.APersistentSet
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentHashSet
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentTreeSet
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.Associative
-  {:args #{2}
-   :pred (fn [this a? b?]
-           `(cond
-              (vector? ~this) (and (every? ~a? (range (count ~this)))
-                                   (every? ~b? ~this))
-              (map? ~this) (and (every? ~a? (keys ~this))
-                                (every? ~b? (vals ~this)))))}
-  clojure.lang.IPersistentStack
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IPersistentVector
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.APersistentVector
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentVector
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IMapEntry
-  {:args #{2}
-   :pred (fn [this a? b?] 
-           `(and (~a? (key ~this)) (~b? (val ~this))))}
-  clojure.lang.AMapEntry
-  {:args #{2}
-   :pred (fn [this a? b?] 
-           `(and (~a? (key ~this)) (~b? (val ~this))))}
-  clojure.lang.MapEntry
-  {:args #{2}
-   :pred (fn [this a? b?] 
-           `(and (~a? (key ~this)) (~b? (val ~this))))}
-  clojure.lang.IPersistentMap
-  {:args #{2}
-   :pred (fn [this a? b?] 
-           `(and (every? ~a? (keys ~this))
-                 (every? ~b? (vals ~this))))}
-  clojure.lang.ASeq
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.APersistentMap
-  {:args #{2}
-   :pred (fn [this a? b?] 
-           `(and (every? ~a? (keys ~this))
-                 (every? ~b? (vals ~this))))}
-  clojure.lang.PersistentHashMap
-  {:args #{2}
-   :pred (fn [this a? b?] 
-           `(and (every? ~a? (keys ~this))
-                 (every? ~b? (vals ~this))))}
-  clojure.lang.Cons
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IPersistentList
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentList
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.LazySeq
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.Reduced
-  {:args #{1}
-   :pred (fn [this a?] 
-           `(~a? (deref ~this)))})
-
-
 ;(ann into-array>* [Any Any -> Any])
-(let [parse-type (delay (dynaload 'clojure.core.typed.parse-unparse/parse-type))
+(core/let
+     [parse-type (delay (dynaload 'clojure.core.typed.parse-unparse/parse-type))
       Type->array-member-Class (delay (dynaload 'clojure.core.typed.array-ops/Type->array-member-Class))]
-  (defn ^:skip-wiki
+  (core/defn ^:skip-wiki
     into-array>*
     "Internal use only. Use into-array>."
     ([cljt coll]
@@ -2147,8 +1728,8 @@ Transducer
    `(into-array>* '~javat '~cljt ~coll)))
 
 
-(let [add-nonnilable-method-return (delay (dynaload 'clojure.core.typed.current-impl/add-nonnilable-method-return))]
-  (defn ^:skip-wiki
+(core/let [add-nonnilable-method-return (delay (dynaload 'clojure.core.typed.current-impl/add-nonnilable-method-return))]
+  (core/defn ^:skip-wiki
     non-nil-return* 
     "Internal use only. Use non-nil-return."
     [msym arities]
@@ -2167,8 +1748,8 @@ Transducer
   [msym arities]
   `(tc-ignore (non-nil-return* '~msym '~arities)))
 
-(let [add-method-nilable-param (delay (dynaload 'clojure.core.typed.current-impl/add-method-nilable-param))]
-  (defn ^:skip-wiki
+(core/let [add-method-nilable-param (delay (dynaload 'clojure.core.typed.current-impl/add-method-nilable-param))]
+  (core/defn ^:skip-wiki
     nilable-param* 
     "Internal use only. Use nilable-param."
     [msym mmap]
@@ -2190,19 +1771,20 @@ Transducer
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Annotations
 
-(defn print-env 
+(core/defn print-env 
   "During type checking, print the type environment to *out*,
   preceeded by literal string debug-str."
   [debug-str]
   nil)
 
-(let [var->symbol (delay (dynaload 'clojure.core.typed.coerce-utils/var->symbol))
-      add-untyped-var (delay (dynaload 'clojure.core.typed.current-impl/add-untyped-var))]
-  (defn ^:skip-wiki
+(core/let [var->symbol (delay (dynaload 'clojure.core.typed.coerce-utils/var->symbol))
+           add-untyped-var (delay (dynaload 'clojure.core.typed.current-impl/add-untyped-var))]
+  (core/defn ^:skip-wiki
     untyped-var* 
     "Internal use only. Use untyped-var."
     [varsym typesyn prs-ns form]
-    (let [var (resolve varsym)
+    (core/let
+         [var (resolve varsym)
           _ (assert (var? var) (str varsym " must resolve to a var."))
           qsym (@var->symbol var)
           expected-type (with-current-location form
@@ -2215,25 +1797,26 @@ Transducer
 (defmacro untyped-var
   "Check a given var has the specified type at runtime."
   [varsym typesyn]
-  (let [prs-ns (-> *ns* ns-name)
+  (core/let
+       [prs-ns (-> *ns* ns-name)
         qsym (if (namespace varsym)
                varsym
                (symbol (str prs-ns) (str varsym)))]
     `(tc-ignore (untyped-var* '~qsym '~typesyn '~prs-ns '~&form))))
 
-(let [warn (delay (dynaload 'clojure.core.typed.errors/warn))
-      var-env (delay (dynaload 'clojure.core.typed.current-impl/var-env))
-      add-var-env (delay (dynaload 'clojure.core.typed.current-impl/add-var-env))
-      add-tc-var-type (delay (dynaload 'clojure.core.typed.current-impl/add-tc-var-type))
-      check-var? (delay (dynaload 'clojure.core.typed.current-impl/check-var?))
-      remove-nocheck-var (delay (dynaload 'clojure.core.typed.current-impl/remove-nocheck-var))
-      add-nocheck-var (delay (dynaload 'clojure.core.typed.current-impl/add-nocheck-var))
-      ]
-  (defn ^:skip-wiki
+(core/let [warn (delay (dynaload 'clojure.core.typed.errors/warn))
+           var-env (delay (dynaload 'clojure.core.typed.current-impl/var-env))
+           add-var-env (delay (dynaload 'clojure.core.typed.current-impl/add-var-env))
+           add-tc-var-type (delay (dynaload 'clojure.core.typed.current-impl/add-tc-var-type))
+           check-var? (delay (dynaload 'clojure.core.typed.current-impl/check-var?))
+           remove-nocheck-var (delay (dynaload 'clojure.core.typed.current-impl/remove-nocheck-var))
+           add-nocheck-var (delay (dynaload 'clojure.core.typed.current-impl/add-nocheck-var))]
+  (core/defn ^:skip-wiki
     ann* 
     "Internal use only. Use ann."
     [qsym typesyn check? form]
-    (let [_ (with-clojure-impl
+    (core/let
+         [_ (with-clojure-impl
               (when (and (contains? (@var-env) qsym)
                          (not (@check-var? qsym))
                          check?)
@@ -2267,7 +1850,8 @@ Transducer
       ; don't check this var
       (ann ^:no-check foobar [Integer -> String])"
   [varsym typesyn]
-  (let [qsym (if-let [nsym (some-> (namespace varsym) symbol)]
+  (core/let
+       [qsym (if-let [nsym (some-> (namespace varsym) symbol)]
                (symbol (if-let [ns (get (ns-aliases *ns*) nsym)]
                          (-> ns ns-name str)
                          (str nsym))
@@ -2285,25 +1869,25 @@ Transducer
   [t & vs]
   `(do ~@(map #(list `ann % t) vs)))
 
-(let [add-datatype-env (delay (dynaload 'clojure.core.typed.current-impl/add-datatype-env))
-      gen-datatype* (delay (dynaload 'clojure.core.typed.current-impl/gen-datatype*))]
-  (defn ^:skip-wiki
+(core/let [add-datatype-env (delay (dynaload 'clojure.core.typed.current-impl/add-datatype-env))
+           gen-datatype* (delay (dynaload 'clojure.core.typed.current-impl/gen-datatype*))]
+  (core/defn ^:skip-wiki
     ann-datatype*
     "Internal use only. Use ann-datatype."
     [vbnd dname fields opts form]
-      (let [qname (if (some #{\.} (str dname))
-                    dname
-                    (symbol (str (namespace-munge *ns*) "." dname)))]
-        (with-clojure-impl
-          (@add-datatype-env 
-            qname
-            {:record? false
-             :name qname
-             :fields fields
-             :bnd vbnd})))
-      (with-current-location form
-        (with-clojure-impl
-          (@gen-datatype* vs/*current-env* (ns-name *ns*) dname fields vbnd opts false)))
+    (core/let [qname (if (some #{\.} (str dname))
+                       dname
+                       (symbol (str (namespace-munge *ns*) "." dname)))]
+      (with-clojure-impl
+        (@add-datatype-env 
+          qname
+          {:record? false
+           :name qname
+           :fields fields
+           :bnd vbnd})))
+    (with-current-location form
+      (with-clojure-impl
+        (@gen-datatype* vs/*current-env* (ns-name *ns*) dname fields vbnd opts false)))
     nil))
 
 (defmacro
@@ -2351,7 +1935,8 @@ Transducer
                      ply :- (Set a)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
-  (let [bnd-provided? (vector? (first args))
+  (core/let
+       [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
                (first args))
         [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
@@ -2363,25 +1948,25 @@ Transducer
             (str "Must provide name symbol: " dname))
     `(tc-ignore (ann-datatype* '~vbnd '~dname '~fields '~opts '~&form))))
 
-(let [add-datatype-env (delay (dynaload 'clojure.core.typed.current-impl/add-datatype-env))
-      gen-datatype* (delay (dynaload 'clojure.core.typed.current-impl/gen-datatype*))]
-  (defn ^:skip-wiki
+(core/let [add-datatype-env (delay (dynaload 'clojure.core.typed.current-impl/add-datatype-env))
+           gen-datatype* (delay (dynaload 'clojure.core.typed.current-impl/gen-datatype*))]
+  (core/defn ^:skip-wiki
     ann-record* 
     "Internal use only. Use ann-record"
     [vbnd dname fields opt form]
-      (let [qname (if (some #{\.} (str dname))
-                    dname
-                    (symbol (str (namespace-munge *ns*) "." dname)))]
-        (with-clojure-impl
-          (@add-datatype-env 
-            qname
-            {:record? true
-             :name qname
-             :fields fields
-             :bnd vbnd})))
-      (with-current-location form
-        (with-clojure-impl
-          (@gen-datatype* vs/*current-env* (ns-name *ns*) dname fields vbnd opt true)))
+    (core/let [qname (if (some #{\.} (str dname))
+                       dname
+                       (symbol (str (namespace-munge *ns*) "." dname)))]
+      (with-clojure-impl
+        (@add-datatype-env 
+          qname
+          {:record? true
+           :name qname
+           :fields fields
+           :bnd vbnd})))
+    (with-current-location form
+      (with-clojure-impl
+        (@gen-datatype* vs/*current-env* (ns-name *ns*) dname fields vbnd opt true)))
     nil))
 
 (defmacro 
@@ -2429,7 +2014,8 @@ Transducer
                    ply :- (Set a)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
-  (let [bnd-provided? (vector? (first args))
+  (core/let
+       [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
                (first args))
         [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
@@ -2439,7 +2025,7 @@ Transducer
     `(tc-ignore (ann-record* '~vbnd '~dname '~fields '~opt '~&form))))
 
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   ann-precord* 
   "Internal use only. Use ann-precord."
   [dname vbnd fields opt]
@@ -2453,15 +2039,15 @@ Transducer
   (flush)
   `(tc-ignore (ann-precord* '~dname '~vbnd '~fields '~opt)))
 
-(let [add-protocol-env (delay (dynaload 'clojure.core.typed.current-impl/add-protocol-env))
-      gen-protocol* (delay (dynaload 'clojure.core.typed.current-impl/gen-protocol*))]
-  (defn ^:skip-wiki
+(core/let [add-protocol-env (delay (dynaload 'clojure.core.typed.current-impl/add-protocol-env))
+           gen-protocol* (delay (dynaload 'clojure.core.typed.current-impl/gen-protocol*))]
+  (core/defn ^:skip-wiki
     ann-protocol* 
     "Internal use only. Use ann-protocol."
     [vbnd varsym mth form]
-    (let [qualsym (if (namespace varsym)
-                    varsym
-                    (symbol (str (ns-name *ns*)) (name varsym)))]
+    (core/let [qualsym (if (namespace varsym)
+                         varsym
+                         (symbol (str (ns-name *ns*)) (name varsym)))]
       (with-clojure-impl
         (@add-protocol-env
           qualsym
@@ -2478,7 +2064,7 @@ Transducer
             mth))))
     nil))
 
-(let [str-join (delay (dynaload 'clojure.string/join))]
+(core/let [str-join (delay (dynaload 'clojure.string/join))]
   (defmacro 
     ^{:forms '[(ann-protocol vbnd varsym & methods)
                (ann-protocol varsym & methods)]}
@@ -2508,14 +2094,15 @@ Transducer
           (bar [this] [this n s])
           (baz [this n]))"
     [& args]
-    (let [bnd-provided? (vector? (first args))
+    (core/let
+         [bnd-provided? (vector? (first args))
           vbnd (when bnd-provided?
                  (first args))
           [varsym & mth] (if bnd-provided?
                            (next args)
                            args)
-          _ (let [fs (frequencies (map first (partition 2 mth)))]
-              (when-let [dups (seq (filter (fn [[_ freq]] (< 1 freq)) fs))]
+          _ (core/let [fs (frequencies (map first (partition 2 mth)))]
+              (when-let [dups (seq (filter (core/fn [[_ freq]] (< 1 freq)) fs))]
                 (println (str "WARNING: Duplicate method annotations in ann-protocol (" varsym 
                               "): " (@str-join ", " (map first dups))))
                 (flush)))
@@ -2523,13 +2110,13 @@ Transducer
           {:as mth} mth]
       `(tc-ignore (ann-protocol* '~vbnd '~varsym '~mth '~&form)))))
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   ann-interface* 
   "Internal use only. Use ann-interface."
   [vbnd clsym mth]
   nil)
 
-(let [str-join (delay (dynaload 'clojure.string/join))]
+(core/let [str-join (delay (dynaload 'clojure.string/join))]
   (defmacro 
     ^{:forms '[(ann-interface vbnd varsym & methods)
                (ann-interface varsym & methods)]}
@@ -2561,14 +2148,15 @@ Transducer
           (bar [] [n s])
           (baz [n]))"
     [& args]
-    (let [bnd-provided? (vector? (first args))
+    (core/let
+         [bnd-provided? (vector? (first args))
           vbnd (when bnd-provided?
                  (first args))
           [clsym & mth] (if bnd-provided?
                            (next args)
                            args)
-          _ (let [fs (frequencies (map first (partition 2 mth)))]
-              (when-let [dups (seq (filter (fn [[_ freq]] (< 1 freq)) fs))]
+          _ (core/let [fs (frequencies (map first (partition 2 mth)))]
+              (when-let [dups (seq (filter (core/fn [[_ freq]] (< 1 freq)) fs))]
                 (println (str "WARNING: Duplicate method annotations in ann-interface (" clsym 
                               "): " (@str-join ", " (map first dups))))
                 (flush)))
@@ -2579,7 +2167,7 @@ Transducer
                     (symbol (munge (str (ns-name *ns*))) (name clsym)))]
       `(tc-ignore (ann-interface* '~vbnd '~clsym '~mth)))))
 
-(defn ^:skip-wiki
+(core/defn ^:skip-wiki
   ann-pprotocol* 
   "Internal use only. Use ann-pprotocol."
   [varsym vbnd mth]
@@ -2592,8 +2180,8 @@ Transducer
   (prn "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder as first argument, ie. before protocol name")
   `(tc-ignore (ann-pprotocol* '~varsym '~vbnd '~mth)))
 
-(let [add-constructor-override (delay (dynaload 'clojure.core.typed.current-impl/add-constructor-override))]
-  (defn ^:skip-wiki
+(core/let [add-constructor-override (delay (dynaload 'clojure.core.typed.current-impl/add-constructor-override))]
+  (core/defn ^:skip-wiki
     override-constructor* 
     "Internal use only. Use override-constructor."
     [ctorsym typesyn form]
@@ -2609,8 +2197,8 @@ Transducer
   [ctorsym typesyn]
   `(tc-ignore (override-constructor* '~ctorsym '~typesyn '~&form)))
 
-(let [add-method-override (delay (dynaload 'clojure.core.typed.current-impl/add-method-override))]
-  (defn ^:skip-wiki
+(core/let [add-method-override (delay (dynaload 'clojure.core.typed.current-impl/add-method-override))]
+  (core/defn ^:skip-wiki
     override-method* 
     "Internal use only. Use override-method."
     [methodsym typesyn form]
@@ -2644,16 +2232,16 @@ Transducer
   (assert ((every-pred symbol? namespace) methodsym) "Method symbol must be a qualified symbol")
   `(tc-ignore (override-method* '~methodsym '~typesyn '~&form)))
 
-(let [ns->URL (delay (dynaload 'clojure.core.typed.coerce-utils/ns->URL))
-      int-error (delay (dynaload 'clojure.core.typed.errors/int-error))
-      add-ns-deps (delay (dynaload 'clojure.core.typed.current-impl/add-ns-deps))]
-  (defn ^:skip-wiki
+(core/let [ns->URL (delay (dynaload 'clojure.core.typed.coerce-utils/ns->URL))
+           int-error (delay (dynaload 'clojure.core.typed.errors/int-error))
+           add-ns-deps (delay (dynaload 'clojure.core.typed.current-impl/add-ns-deps))]
+  (core/defn ^:skip-wiki
     typed-deps* 
     "Internal use only. Use typed-deps."
     [args form]
     (with-current-location form
       (with-clojure-impl
-        (doseq [dep args]
+        (core/doseq [dep args]
           (when-not (@ns->URL dep)
             (@int-error (str "Cannot find dependency declared with typed-deps: " dep)))))
       (with-clojure-impl
@@ -2686,8 +2274,8 @@ Transducer
 ;  `(unchecked-ns*))
 
 
-(let [the-var (delay (dynaload 'clojure.core.typed.current-impl/the-var))]
-  (defn ^:skip-wiki var>* [sym]
+(core/let [the-var (delay (dynaload 'clojure.core.typed.current-impl/the-var))]
+  (core/defn ^:skip-wiki var>* [sym]
     (@the-var sym)))
 
 (defmacro var>
@@ -2698,8 +2286,8 @@ Transducer
   [sym]
   `(var>* '~sym))
 
-(let [register-warn-on-unannotated-vars (delay (dynaload 'clojure.core.typed.current-impl/register-warn-on-unannotated-vars))]
-  (defn ^:skip-wiki
+(core/let [register-warn-on-unannotated-vars (delay (dynaload 'clojure.core.typed.current-impl/register-warn-on-unannotated-vars))]
+  (core/defn ^:skip-wiki
     warn-on-unannotated-vars*
     "Internal use only. Use allow-unannotated-vars"
     [nsym]
@@ -2719,8 +2307,8 @@ Transducer
   []
   `(tc-ignore (warn-on-unannotated-vars* '~(ns-name *ns*))))
 
-(let [chkfi (delay (dynaload 'clojure.core.typed.check-form-clj/check-form-info))]
-  (defn check-form-info 
+(core/let [chkfi (delay (dynaload 'clojure.core.typed.check-form-clj/check-form-info))]
+  (core/defn check-form-info 
     "Function that type checks a form and returns a map of results from type checking the
     form.
     
@@ -2752,8 +2340,8 @@ Transducer
     (load-if-needed)
     (apply @chkfi form opt)))
 
-(let [chkf* (delay (dynaload 'clojure.core.typed.check-form-clj/check-form*))]
-  (defn check-form*
+(core/let [chkf* (delay (dynaload 'clojure.core.typed.check-form-clj/check-form*))]
+  (core/defn check-form*
     "Function that takes a form and optional expected type syntax and
     type checks the form. If expected is provided, type-provided?
     must be true."
@@ -2788,15 +2376,15 @@ Transducer
    ([form expected] `(check-form* '~form '~expected)))
 
 
-(defn default-check-config []
+(core/defn default-check-config []
   {:check-ns-dep :recheck
    :unannotated-def :infer
    :unannotated-var :error
    :unannotated-multi :error
    #_#_:unannotated-arg :any})
 
-(let [chknsi (delay (dynaload 'clojure.core.typed.check-ns-clj/check-ns-info))]
-  (defn check-ns-info
+(core/let [chknsi (delay (dynaload 'clojure.core.typed.check-ns-clj/check-ns-info))]
+  (core/defn check-ns-info
     "Same as check-ns, but returns a map of results from type checking the
     namespace.
 
@@ -2816,12 +2404,12 @@ Transducer
     ([] (check-ns-info *ns*))
     ([ns-or-syms & {:as opt}]
      (load-if-needed)
-     (let [opt (update opt :check-config #(merge (default-check-config) %))]
+     (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
        (@chknsi ns-or-syms opt)))))
 
 (def ^:private chk-ns-clj (delay (dynaload 'clojure.core.typed.check-ns-clj/check-ns)))
 
-(defn check-ns
+(core/defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
   If not provided default to current namespace.
   Returns a true value if type checking is successful, otherwise
@@ -2888,24 +2476,24 @@ Transducer
   ([] (check-ns *ns*))
   ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (let [opt (update opt :check-config #(merge (default-check-config) %))]
+   (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
      (@chk-ns-clj ns-or-syms opt))))
 
-(defn check-ns2 
+(core/defn check-ns2 
   ([] (check-ns2 *ns*))
   ([ns-or-syms & {:as opt}]
    (load-if-needed)
-   (let [opt (update opt :check-config
-                     #(merge {:check-ns-dep :never
-                              :unannotated-def :unchecked
-                              :unannotated-var :unchecked
-                              :unannotated-arg :unchecked}
-                             %))]
+   (core/let [opt (update opt :check-config
+                          #(merge {:check-ns-dep :never
+                                   :unannotated-def :unchecked
+                                   :unannotated-var :unchecked
+                                   :unannotated-arg :unchecked}
+                                  %))]
      (@chk-ns-clj ns-or-syms opt))))
 
 ;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
-(let [stt (delay (dynaload 'clojure.core.typed.statistics/statistics))]
-  (defn statistics 
+(core/let [stt (delay (dynaload 'clojure.core.typed.statistics/statistics))]
+  (core/defn statistics 
     "Takes a collection of namespace symbols and returns a map mapping the namespace
     symbols to a map of data"
     [nsyms]
@@ -2913,8 +2501,8 @@ Transducer
     (@stt nsyms)))
 
 ; (ann var-coverage [(Coll Symbol) -> nil])
-(let [vrc (delay (dynaload 'clojure.core.typed.statistics/var-coverage))]
-  (defn var-coverage 
+(core/let [vrc (delay (dynaload 'clojure.core.typed.statistics/var-coverage))]
+  (core/defn var-coverage 
     "Summarises annotated var coverage statistics to *out*
     for namespaces nsyms, a collection of symbols or a symbol/namespace.
     Defaults to the current namespace if no argument provided."
@@ -2923,8 +2511,8 @@ Transducer
      (load-if-needed)
      (@vrc nsyms-or-nsym))))
 
-(let [all-envs-clj (delay (dynaload 'clojure.core.typed.all-envs/all-envs-clj))]
-  (defn envs
+(core/let [all-envs-clj (delay (dynaload 'clojure.core.typed.all-envs/all-envs-clj))]
+  (core/defn envs
     "Returns a map of type environments, according to the current state of the
     type checker.
     
@@ -2938,12 +2526,12 @@ Transducer
     (merge (@all-envs-clj)
            {:special-types (set (->> (ns-publics 'clojure.core.typed)
                                   vals
-                                  (filter (fn [v]
+                                  (filter (core/fn [v]
                                             (when (var? v)
                                               (-> v meta ::special-type))))))})))
 
-(let [load-typed-file (delay (dynaload 'clojure.core.typed.load/load-typed-file))]
-  (defn prepare-infer-ns
+(core/let [load-typed-file (delay (dynaload 'clojure.core.typed.load/load-typed-file))]
+  (core/defn prepare-infer-ns
     "Instruments the current namespace to prepare for runtime type
     or spec inference.
 
@@ -2980,8 +2568,8 @@ Transducer
       (throw (Exception. ":instrument not yet implemented")))
     :ok))
 
-(let [rfrsh (delay (dynaload 'clojure.core.typed.runtime-infer/refresh-runtime-infer))]
-  (defn refresh-runtime-infer 
+(core/let [rfrsh (delay (dynaload 'clojure.core.typed.runtime-infer/refresh-runtime-infer))]
+  (core/defn refresh-runtime-infer 
     "Clean the current state of runtime inference.
     Will forget the results of any tests on instrumented code."
     []
@@ -2989,9 +2577,9 @@ Transducer
     (require '[clojure.core.typed.runtime-infer])
     (@rfrsh)))
 
-(let [rti (delay (dynaload 'clojure.core.typed.runtime-infer/runtime-infer))
+(core/let [rti (delay (dynaload 'clojure.core.typed.runtime-infer/runtime-infer))
       deprecated-warn (delay (dynaload 'clojure.core.typed.errors/deprecated-warn))]
-  (defn runtime-infer 
+  (core/defn runtime-infer 
     "Infer and insert annotations for a given namespace.
 
     There are two ways to instrument your namespace.
@@ -3051,18 +2639,18 @@ Transducer
     ([& kws]
      (load-if-needed)
      (require '[clojure.core.typed.runtime-infer])
-     (let [m (-> (if (= 1 (count kws))
-                   (do
-                     (@deprecated-warn
-                       "runtime-infer with 1 arg: use {:ns <ns>}")
-                     {:ns (first kws)})
-                   (apply hash-map kws))
-                 (update :ns #(or % *ns*)))]
+     (core/let [m (-> (if (= 1 (count kws))
+                        (do
+                          (@deprecated-warn
+                            "runtime-infer with 1 arg: use {:ns <ns>}")
+                          {:ns (first kws)})
+                        (apply hash-map kws))
+                      (update :ns #(or % *ns*)))]
        (@rti m)))))
 
-(let [spci (delay (dynaload 'clojure.core.typed.runtime-infer/spec-infer))
-      deprecated-warn (delay (dynaload 'clojure.core.typed.errors/deprecated-warn))]
-  (defn spec-infer 
+(core/let [spci (delay (dynaload 'clojure.core.typed.runtime-infer/spec-infer))
+           deprecated-warn (delay (dynaload 'clojure.core.typed.errors/deprecated-warn))]
+  (core/defn spec-infer 
     "Infer and insert specs for a given namespace.
 
     There are two ways to instrument your namespace.
@@ -3126,16 +2714,16 @@ Transducer
     ([& kws]
      (load-if-needed)
      (require '[clojure.core.typed.runtime-infer])
-     (let [m (-> (if (= 1 (count kws))
-                   (do
-                     (@deprecated-warn
-                       "runtime-infer with 1 arg: use {:ns <ns>}")
-                     {:ns (first kws)})
-                   (apply hash-map kws))
-                 (update :ns #(or % *ns*)))]
+     (core/let [m (-> (if (= 1 (count kws))
+                        (do
+                          (@deprecated-warn
+                            "runtime-infer with 1 arg: use {:ns <ns>}")
+                          {:ns (first kws)})
+                        (apply hash-map kws))
+                      (update :ns #(or % *ns*)))]
        (@spci m)))))
 
-(defn pred* [tsyn nsym pred]
+(core/defn pred* [tsyn nsym pred]
   pred)
 
 (def ^:private type-syntax->pred (delay (dynaload 'clojure.core.typed.type-contract/type-syntax->pred)))
@@ -3154,9 +2742,9 @@ Transducer
             '~(ns-name *ns*)
             ~(@type-syntax->pred t))))
 
-(let [load-contracts (delay (do
-                              (require 'clojure.core.typed.type-contract)
-                              (require 'clojure.core.typed.contract)))]
+(core/let [load-contracts (delay (do
+                                   (require 'clojure.core.typed.type-contract)
+                                   (require 'clojure.core.typed.contract)))]
   (defmacro cast
     "Cast a value to a type. Returns a new value that conforms
     to the given type, otherwise throws an error with blame.
@@ -3203,14 +2791,14 @@ Transducer
           ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
           ;; - clojure.core.typed.check.add-cast
           ;; - clojure.core.typed.check.special.cast
-          ((fn [x#]
+          ((core/fn [x#]
              (clojure.core.typed.contract/contract
                (with-current-location '~&form
                  ;; this compiles code so needs to be in same phase
                  (binding [*ns* ~*ns*]
                    (clojure.core.typed.type-contract/type-syntax->contract '~t)))
                x#
-               (let [opt# ~opt]
+               (core/let [opt# ~opt]
                  (clojure.core.typed.contract/make-blame
                    :positive (or (:positive opt#)
                                  "cast")
@@ -3226,8 +2814,8 @@ Transducer
                                     @Compiler/COLUMN))))))
            ~x)))))
 
-(let [infuv (delay (dynaload 'clojure.core.typed.infer-vars/infer-unannotated-vars))]
-  (defn infer-unannotated-vars
+(core/let [infuv (delay (dynaload 'clojure.core.typed.infer-vars/infer-unannotated-vars))]
+  (core/defn infer-unannotated-vars
     "EXPERIMENTAL
 
     Return a vector of potential var annotations in the given
@@ -3256,13 +2844,468 @@ Transducer
      (with-clojure-impl
        (@infuv (ns-name nsym-or-ns))))))
 
-(comment 
-  (check-ns 'clojure.core.typed.test.example)
+;============================================================
+; Define clojure.core typed wrappers below here to ensure we don't use them above
+; thus dynaload as lazily as possible.
+;============================================================
 
-  ; very slow because of update-composite
-  (check-ns 'clojure.core.typed.test.rbt)
+(defmacro doseq
+  "Like clojure.core/doseq with optional annotations.
 
-  (check-ns 'clojure.core.typed.test.macro)
-  (check-ns 'clojure.core.typed.test.conduit)
-  (check-ns 'clojure.core.typed.test.person)
-  )
+  :let option uses clojure.core.typed/let
+  
+  eg.
+  (doseq [a :- (U nil AnyInteger) [1 nil 2 3]
+          :when a]
+     (inc a))"
+  [seq-exprs & body]
+  (@#'core/assert-args
+     (vector? seq-exprs) "a vector for its binding"
+     (even? (count seq-exprs)) "an even number of forms in binding vector")
+  (core/let
+       [normalise-args
+        ; change [a :- b c] to [[a :- b] c]
+        (core/fn [seq-exprs]
+          (core/loop [flat-result []
+                      seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+
+              ;for options (:let, :while etc)
+              (keyword? (first seq-exprs)) (core/let
+                                                [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                                           (str "for option missing " (first seq-exprs)))
+                                                 [k v & rst] seq-exprs]
+                                             (recur (conj flat-result k v)
+                                                    rst))
+              :else (if (#{:-} (second seq-exprs))
+                      (core/let
+                           [_ (assert (#{4} (count (take 4 seq-exprs)))
+                                      (str "for parameter missing after ':-'"))
+                            [b colon t init & rst] seq-exprs]
+                        (recur (conj flat-result [b colon t] init)
+                               rst))
+                      (core/let
+                           [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                      (str "for binding needs initial values"))
+                            [b init & rst] seq-exprs]
+                        (recur (conj flat-result [b :- `Any] init)
+                               rst))))))
+
+        ; normalise seq-exprs to be flat pairs
+        seq-exprs (normalise-args seq-exprs)
+        step (core/fn step [recform exprs]
+               (if-not exprs
+                 [true `(do ~@body)]
+                 (core/let
+                      [k (first exprs)
+                       v (second exprs)]
+                   (if (keyword? k)
+                     (core/let
+                          [steppair (step recform (nnext exprs))
+                           needrec (steppair 0)
+                           subform (steppair 1)]
+                       (cond
+                         ;typed let
+                         (= k :let) [needrec `(let ~v ~subform)]
+                         (= k :while) [false `(when ~v
+                                                ~subform
+                                                ~@(when needrec [recform]))]
+                         (= k :when) [false `(if ~v
+                                               (do
+                                                 ~subform
+                                                 ~@(when needrec [recform]))
+                                               ~recform)]))
+                     ;; k is [k :- k-ann]
+                     (core/let
+                          [_ (assert (and (vector? k)
+                                          (#{3} (count k))
+                                          (#{:-} (second k))) 
+                                     "Binder must be of the form [lhs :- type]")
+                           k-ann (nth k 2)
+                           k (nth k 0)
+                           ; k is the lhs binding
+                           seq- (gensym "seq_")
+                           chunk- (with-meta (gensym "chunk_")
+                                             {:tag 'clojure.lang.IChunk})
+                           count- (gensym "count_")
+                           i- (gensym "i_")
+                           recform `(recur (next ~seq-) nil 0 0)
+                           steppair (step recform (nnext exprs))
+                           needrec (steppair 0)
+                           subform (steppair 1)
+                           recform-chunk 
+                             `(recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
+                           steppair-chunk (step recform-chunk (nnext exprs))
+                           subform-chunk (steppair-chunk 1)]
+                       [true
+                        `(loop [~seq- :- (U nil (Seq ~k-ann)) (seq ~v), 
+                                ~chunk- :- (U nil (clojure.lang.IChunk ~k-ann)) nil
+                                ~count- :- Int 0,
+                                ~i- :- Int 0]
+                           (if (and (< ~i- ~count-)
+                                    ;; FIXME review this
+                                    ;; core.typed thinks chunk- could be nil here
+                                    ~chunk-)
+                             (core/let
+                                  [;~k (.nth ~chunk- ~i-)
+                                   ~k (nth ~chunk- ~i-)]
+                               ~subform-chunk
+                               ~@(when needrec [recform-chunk]))
+                             (when-let [~seq- (seq ~seq-)]
+                               (if (chunked-seq? ~seq-)
+                                 (core/let [c# (chunk-first ~seq-)]
+                                   (recur (chunk-rest ~seq-) c#
+                                          (int (count c#)) (int 0)))
+                                 (core/let [~k (first ~seq-)]
+                                   ~subform
+                                   ~@(when needrec [recform]))))))])))))]
+    (nth (step nil (seq seq-exprs)) 1)))
+
+(defmacro dotimes
+  "Like clojure.core/dotimes, but with optional annotations.
+
+  If annotation for binding is omitted, defaults to Int.
+  
+  eg. (dotimes [_ 100]
+        (println \"like normal\"))
+
+      (dotimes [x :- Num, 100.123]
+        (println \"like normal\" x))"
+  [bindings & body]
+  (@#'core/assert-args
+     (vector? bindings) "a vector for its binding"
+     (= 2 (count bindings)) "exactly 2 forms in binding vector")
+  (core/let [[i t? t n] (if (= :- (second bindings))
+                          (core/let [[i _ t n] bindings]
+                            (assert (== (count bindings) 4) "Bad arguments to dotimes")
+                            [i true t n])
+                          (core/let [[i n] bindings]
+                            (assert (== (count bindings) 2) "Bad arguments to dotimes")
+                            [i nil nil n]))]
+    `(core/let [n# (long ~n)]
+       (loop [~i :- ~(if t? t `Int) 0]
+         (when (< ~i n#)
+           ~@body
+           (recur (unchecked-inc ~i)))))))
+
+(defmacro for
+  "Like clojure.core/for with optional type annotations.
+
+  All types default to Any.
+
+  The :let option uses clojure.core.typed/let.
+  
+  eg. (for [a :- (U nil Int) [1 nil 2 3]
+            :when a]
+        :- Number
+        (inc a))
+  
+  Metadata using the :clojure.core.typed/ann keyword
+  can also be used for annotation.
+
+  eg. (for ^{::ann Number}
+        [^{::ann (U nil Int)} a [1 nil 2 3]
+         :when a]
+        (inc a))
+  "
+  [seq-exprs & maybe-ann-body-expr]
+  (@#'core/assert-args
+     (vector? seq-exprs) "a vector for its binding"
+     (even? (count seq-exprs)) "an even number of forms in binding vector")
+  (core/let
+       [orig-seq-exprs seq-exprs
+        has-explicit-return-type? (#{:-} (first maybe-ann-body-expr))
+        [ret-ann body-expr] (if has-explicit-return-type?
+                              (core/let 
+                                   [_ (assert (#{3} (count maybe-ann-body-expr))
+                                              (str "Wrong arguments to for: " maybe-ann-body-expr))
+                                    [colon t body] maybe-ann-body-expr]
+                                [t body])
+                              (core/let 
+                                   [_ (assert (#{1} (count maybe-ann-body-expr))
+                                              (str "Wrong arguments to for: " maybe-ann-body-expr))
+                                    [body] maybe-ann-body-expr]
+                                [`Any body]))
+        ret-ann (if-let [[_ meta-ann] (find (meta seq-exprs) ::ann)]
+                  (do (assert (not has-explicit-return-type?)
+                              "Cannot mix explicit and metadata return type in for.")
+                      meta-ann)
+                  ret-ann)
+        ;_ (prn "ret-ann" ret-ann)
+        normalise-args
+        ; change [a :- b c] to [[a :- b] c]
+        (core/fn [seq-exprs]
+          (core/loop [flat-result []
+                      seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+
+              ;for options (:let, :while etc)
+              (keyword? (first seq-exprs)) (core/let 
+                                                [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                                           (str "for option missing " (first seq-exprs)))
+                                                 [k v & rst] seq-exprs]
+                                             (recur (conj flat-result k v)
+                                                    rst))
+              :else (core/let 
+                         [[meta-ann has-meta-ann?]
+                          (when-let [[_ meta-ann] (find (meta (first seq-exprs)) ::ann)]
+                            [meta-ann true])]
+                      (if (#{:-} (second seq-exprs))
+                        (core/let
+                             [_ (assert (#{4} (count (take 4 seq-exprs)))
+                                        (str "for parameter missing after ':-'"))
+                              [b colon t init & rst] seq-exprs]
+                          (assert (not meta-ann)
+                                  "Cannot mix metadata annotation and explicit annotation in for.")
+                          (recur (conj flat-result [b colon t] init)
+                                 rst))
+                        (core/let 
+                             [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                        (str "for binding needs initial values"))
+                              [b init & rst] seq-exprs
+                              ann (if has-meta-ann? meta-ann `Any)]
+                          (recur (conj flat-result [b :- ann] init)
+                                 rst)))))))
+
+        ; normalise seq-exprs to be flat pairs
+        seq-exprs (normalise-args seq-exprs)
+
+        to-groups (core/fn [seq-exprs]
+                    (reduce (core/fn [groups [k v]]
+                              (if (keyword? k)
+                                (conj (pop groups) (conj (peek groups) [k v]))
+                                (conj groups [k v])))
+                            [] (partition 2 seq-exprs)))
+        err (core/fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
+        emit-bind (core/fn emit-bind [[[bind expr & mod-pairs]
+                                  & [[_ next-expr] :as next-groups]]]
+                    (core/let 
+                         [_ (assert (and (vector? bind)
+                                         (#{3} (count bind))
+                                         (#{:-} (second bind))) 
+                                    "Binder must be of the form [lhs :- type]")
+                          bind-ann (nth bind 2)
+                          bind (nth bind 0)
+                          giter (gensym "iter__")
+                          gxs (gensym "s__")
+                          do-mod (core/fn do-mod [[[k v :as pair] & etc]]
+                                   (cond
+                                     ;typed let
+                                     (= k :let) `(let ~v ~(do-mod etc))
+                                     (= k :while) `(when ~v ~(do-mod etc))
+                                     (= k :when) `(if ~v
+                                                    ~(do-mod etc)
+                                                    (recur (rest ~gxs)))
+                                     (keyword? k) (err "Invalid 'for' keyword " k)
+                                     next-groups
+                                      `(core/let
+                                            [iterys# ~(emit-bind next-groups)
+                                             fs# (seq (iterys# ~next-expr))]
+                                         (if fs#
+                                           (concat fs# (~giter (rest ~gxs)))
+                                           (recur (rest ~gxs))))
+                                     :else `(cons (ann-form ~body-expr ~ret-ann) ;; ann-form for better error messages
+                                                  (~giter (rest ~gxs)))))]
+                      (if next-groups
+                        #_"not the inner-most loop"
+                        `(fn ~giter 
+                           [~gxs :- (Option (Seqable ~bind-ann))]
+                           :- (Seq ~ret-ann)
+                           (lazy-seq
+                             (map (fn [t# :- ~ret-ann] :- ~ret-ann
+                                    (core/let
+                                         [^{::auto-ann ~(meta orig-seq-exprs)
+                                            ::track-kind ::for-return}
+                                          t# t#]
+                                      ;(prn "tracked t#" t#)
+                                      t#))
+                                  (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                    (when-let [xs# (seq ~gxs)]
+                                      (core/let
+                                           [^{::auto-ann ~(meta bind)
+                                              ::track-kind ::for-param}
+                                            x# (first xs#)
+                                            ;_# (prn "for param x#" x#)
+                                            ~bind x#]
+                                        ~(do-mod mod-pairs)))))))
+                        #_"inner-most loop"
+                        (core/let
+                             [gi (gensym "i__")
+                              gb (gensym "b__")
+                              do-cmod (core/fn do-cmod [[[k v :as pair] & etc]]
+                                        (cond
+                                          ; typed let
+                                          (= k :let) `(let ~v ~(do-cmod etc))
+                                          (= k :while) `(when ~v ~(do-cmod etc))
+                                          (= k :when) `(if ~v
+                                                         ~(do-cmod etc)
+                                                         (recur
+                                                           (unchecked-inc ~gi)))
+                                          (keyword? k)
+                                            (err "Invalid 'for' keyword " k)
+                                          :else
+                                            `(do (chunk-append ~gb 
+                                                               ; put an ann-form here so at least one error message
+                                                               ; points to code the user can recognise.
+                                                               (ann-form ~body-expr
+                                                                         ~ret-ann))
+                                                 (recur (unchecked-inc ~gi)))))]
+                          `(fn ~giter [~gxs :- (Option (Seqable ~bind-ann))]
+                             :- (Seq ~ret-ann)
+                             (lazy-seq
+                               (map (fn [t# :- ~ret-ann] :- ~ret-ann
+                                      (core/let
+                                           [^{::auto-ann ~(meta orig-seq-exprs)
+                                              ::track-kind ::for-return}
+                                            t# t#]
+                                        t#))
+                                    (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                      (when-let [~gxs (seq ~gxs)]
+                                        (if (chunked-seq? ~gxs)
+                                          (core/let 
+                                               [c# (chunk-first ~gxs)
+                                                size# (int (count c#))
+                                                ~gb (ann-form (chunk-buffer size#)
+                                                              (~'clojure.lang.ChunkBuffer ~ret-ann))]
+                                            (if (loop [~gi :- Int, (int 0)]
+                                                  (if (< ~gi size#)
+                                                    (core/let 
+                                                         [;~bind (.nth c# ~gi)]
+                                                          ^{::auto-ann ~(meta bind)
+                                                            ::track-kind ::for-param}
+                                                          x# (nth c# ~gi)
+                                                          ~bind x#]
+                                                      ~(do-cmod mod-pairs))
+                                                    true))
+                                              (chunk-cons
+                                                (chunk ~gb)
+                                                (~giter (chunk-rest ~gxs)))
+                                              (chunk-cons (chunk ~gb) nil)))
+                                          (core/let
+                                               [^{::auto-ann ~(meta bind)
+                                                  ::track-kind ::for-param}
+                                                x# (first ~gxs)
+                                                ;_# (prn "for param x#" x#)
+                                                ~bind x#]
+                                            ~(do-mod mod-pairs))))))))))))]
+    `(core/let [iter# ~(emit-bind (to-groups seq-exprs))]
+        (iter# ~(second seq-exprs)))))
+
+(import-m/import-macros clojure.core.typed.macros
+  [def fn loop let ann-form tc-ignore defprotocol
+   when-let-fail defn atom ref])
+
+;====================================================
+; Initialize environments
+;====================================================
+
+; defines base aliases
+(init-aliases)
+
+(rclass-preds
+;  clojure.lang.Seqable 
+;  {:pred (fn [this a?]
+;           (cond 
+;             (string? this) (every? a? this)
+;             (coll? this) (every? a? this)))}
+  clojure.lang.IPersistentCollection
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.ISeq
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentSet
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentSet
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentHashSet
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentTreeSet
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.Associative
+  {:args #{2}
+   :pred (core/fn [this a? b?]
+           `(cond
+              (vector? ~this) (and (every? ~a? (range (count ~this)))
+                                   (every? ~b? ~this))
+              (map? ~this) (and (every? ~a? (keys ~this))
+                                (every? ~b? (vals ~this)))))}
+  clojure.lang.IPersistentStack
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentVector
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentVector
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentVector
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IMapEntry
+  {:args #{2}
+   :pred (core/fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.AMapEntry
+  {:args #{2}
+   :pred (core/fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.MapEntry
+  {:args #{2}
+   :pred (core/fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.IPersistentMap
+  {:args #{2}
+   :pred (core/fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.ASeq
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentMap
+  {:args #{2}
+   :pred (core/fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.PersistentHashMap
+  {:args #{2}
+   :pred (core/fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.Cons
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentList
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentList
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.LazySeq
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.Reduced
+  {:args #{1}
+   :pred (core/fn [this a?] 
+           `(~a? (deref ~this)))})
