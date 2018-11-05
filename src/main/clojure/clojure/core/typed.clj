@@ -470,23 +470,6 @@ for checking namespaces, cf for checking individual forms."}
        ;preserve letfn empty body
        ~@(or body [nil]))))
 
-(core/let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
-  (defmacro ^{:deprecated "0.2.45"} defprotocol>
-    "DEPRECATED: use clojure.core.typed/defprotocol
-
-    Like defprotocol, but required for type checking
-    its macroexpansion.
-    
-    eg. (defprotocol> MyProtocol
-          (a [this]))"
-    [& body]
-    (@deprecated-macro-syntax
-      &form
-      (str "clojure.core.typed/defprotocol> renamed to clojure.core.typed/defprotocol."
-           " Note the new syntax cannot be used with ann-protocol."))
-    `(tc-ignore
-       (core/defprotocol ~@body))))
-
 (core/let [declare-datatype* (delay (dynaload 'clojure.core.typed.current-impl/declare-datatype*))]
   (core/defn ^:skip-wiki
     declare-datatypes* 
@@ -1581,9 +1564,10 @@ Transducer
                [IFoo Number Symbol -> Any])
           baz
           [IFoo Number -> Number])
-        (defprotocol> IFoo
-          (bar [this] [this n s])
-          (baz [this n]))
+        (t/tc-ignore
+          (defprotocol IFoo
+            (bar [this] [this n s])
+            (baz [this n])))
 
         ; polymorphic protocol
         ; x is scoped in the methods
@@ -1594,9 +1578,10 @@ Transducer
                [(IFooPoly x) Number Symbol -> Any])
           baz
           [(IFooPoly x) Number -> Number])
-        (defprotocol> IFooPoly
-          (bar [this] [this n s])
-          (baz [this n]))"
+        (t/tc-ignore
+          (defprotocol IFooPoly
+            (bar [this] [this n s])
+            (baz [this n])))"
     [& args]
     (core/let
          [bnd-provided? (vector? (first args))
