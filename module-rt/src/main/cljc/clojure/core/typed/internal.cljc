@@ -8,7 +8,6 @@
 
 (ns ^:skip-wiki clojure.core.typed.internal
   (:require [clojure.set :as set]
-            [clojure.core.typed.errors :as err]
             [clojure.core.typed.contract-utils :as con]))
 
 (defn take-when
