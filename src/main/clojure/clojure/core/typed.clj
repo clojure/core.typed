@@ -1039,7 +1039,7 @@ for checking namespaces, cf for checking individual forms."}
            declared-kind-or-nil (delay (dynaload 'clojure.core.typed.declared-kind-env/declared-kind-or-nil))
            unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))
            int-error (delay (dynaload 'clojure.core.typed.errors/int-error))
-           add-tc-type-name (delay (dynaload 'clojure.core.typed.current-impl/add-tc-type-name))]
+           add-tc-type-name* (delay (dynaload 'clojure.core.typed.current-impl/add-tc-type-name))]
   (core/defn ^:skip-wiki add-tc-type-name [form qsym t]
     (with-clojure-impl
       (core/let
@@ -1056,7 +1056,7 @@ for checking namespaces, cf for checking individual forms."}
                               (@int-error (str "Declared kind " (@unparse-type tfn)
                                                " does not match actual kind " (@unparse-type t))))))]
                   t))]
-        (@add-tc-type-name qsym t)))
+        (@add-tc-type-name* qsym t)))
     nil))
 
 (core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
