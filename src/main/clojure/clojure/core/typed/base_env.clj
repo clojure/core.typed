@@ -151,7 +151,6 @@ clojure.core.typed.current-impl/clojure Any
 clojure.core.typed.current-impl/clojurescript Any
 clojure.core.typed/ann* [Any Any Any -> Any]
 clojure.core.typed/untyped-var* [Any Any -> Any]
-clojure.core.typed/def-alias* [Any Any -> Any]
 clojure.core.typed/declare-names* [Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/warn-on-unannotated-vars* [-> Any]
