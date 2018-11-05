@@ -167,12 +167,6 @@ for checking namespaces, cf for checking individual forms."}
   [fn-of param-types-syn]
   fn-of)
 
-(core/defn ^:skip-wiki
-  loop>-ann 
-  "Internal use only. Use loop>"
-  [loop-of bnding-types]
-  loop-of)
-
 (core/let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))
            deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro 
@@ -527,61 +521,6 @@ for checking namespaces, cf for checking individual forms."}
            " Note the new syntax cannot be used with ann-protocol."))
     `(tc-ignore
        (core/defprotocol ~@body))))
-
-;TODO filter/object support
-
-(core/let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))
-           deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
-  (defmacro 
-    ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
-    ^{:deprecated "0.2.45"}
-    loop>
-    "DEPRECATED: use clojure.core.typed/loop
-    
-    Like loop, except loop variables require annotation.
-
-    Suggested idiom: use a comma between the type and the initial
-    expression.
-
-    eg. (loop> [a :- Number, 1
-                b :- (U nil Number), nil]
-          ...)"
-    [bndings* & forms]
-    (@deprecated-renamed-macro
-      &form
-      'loop>
-      'loop)
-    (core/let
-         [normalise-args
-          (core/fn [seq-exprs]
-            (core/loop [flat-result ()
-                        seq-exprs seq-exprs]
-              (cond
-                (empty? seq-exprs) flat-result
-                (and (vector? (first seq-exprs))
-                     (#{:-} (-> seq-exprs first second))) (do
-                                                            (@deprecated-macro-syntax
-                                                              &form
-                                                              (str "loop> syntax has changed, use [b :- t i] for clauses"
-                                                                   "ns: " *ns* " form:" &form))
-                                                            (recur (concat flat-result (take 2 seq-exprs))
-                                                                   (drop 2 seq-exprs)))
-                :else (do (assert (#{:-} (second seq-exprs))
-                                  "Incorrect syntax in loop>.")
-                          (recur (concat flat-result [(vec (take 3 seq-exprs))
-                                                      (nth seq-exprs 3)])
-                                 (drop 4 seq-exprs))))))
-          ;group args in flat pairs
-          bndings* (normalise-args bndings*)
-          bnds (partition 2 bndings*)
-          ; [[lhs :- bnd-ann] rhs]
-          lhs (map ffirst bnds)
-          rhs (map second bnds)
-          bnd-anns (map #(-> % first next second) bnds)]
-      `(loop>-ann (core/loop ~(vec (mapcat vector lhs rhs))
-                    ~@forms)
-                  '~bnd-anns))))
-
 
 (core/let [declare-datatype* (delay (dynaload 'clojure.core.typed.current-impl/declare-datatype*))]
   (core/defn ^:skip-wiki

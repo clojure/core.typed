@@ -1353,28 +1353,6 @@
            :args cargs
            u/expr-type (u/expr-type cfexpr))))
 
-;loop
-(defmethod -invoke-special 'clojure.core.typed/loop>-ann
-  [expr & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
-  (when-not (#{3} (count (:args expr)))
-    (err/int-error (str "Wrong arguments to loop>-ann Expected 3, found " (count (:args expr)))))
-  (let [{[loop-expr expected-quote-expr :as args] :args :as expr}
-        (-> expr
-            (update-in [:args 1] ana2/run-passes))
-        expected-bnds-syn (ast-u/quote-expr-val expected-quote-expr)
-        expected-bnds (binding [prs/*parse-type-in-ns* (cu/expr-ns loop-expr)]
-                        (mapv prs/parse-type expected-bnds-syn))
-        cloop-expr
-        ;loop may be nested, type the first loop found
-        (binding [recur-u/*loop-bnd-anns* expected-bnds]
-          (check-expr loop-expr expected))
-        cargs [cloop-expr expected-quote-expr]]
-    (assoc expr
-           :args cargs
-           u/expr-type (u/expr-type cloop-expr))))
-
 ;seq
 (defmethod -invoke-special 'clojure.core/seq
   [{fexpr :fn :keys [args] :as expr} & [expected]]
