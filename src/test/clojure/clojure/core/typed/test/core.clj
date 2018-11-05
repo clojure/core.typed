@@ -3483,12 +3483,11 @@
   (is (check-ns 'clojure.core.typed.test.CTYP146)))
 
 (deftest defn-test
-  (is-tc-e (defn add-two :- Int [a :- Int]
+  (is-tc-e (defn add-two [a :- Int] :- Int
              (+ a 2))
            (Var1 [Int -> Int]))
   (is-tc-e (defn add-three 
-             (:- Int 
-              [a :- Int]
+             ([a :- Int] :- Int 
               (+ a 3)))
            #_(Var1 [Int -> Int]))
   (is-tc-e (do
