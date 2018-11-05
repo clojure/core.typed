@@ -1323,36 +1323,6 @@
                          (r/ret (prs/predicate-for ptype))
                          expected))))
 
-;fn literal
-(defmethod -invoke-special 'clojure.core.typed/fn>-ann
-  [expr & [expected]]
-  (when-not (#{2} (count (:args expr)))
-    (err/int-error (str "Wrong arguments to fn>-ann Expected 2, found " (count (:args expr)))))
-  (let [{[fexpr quote-expr :as args] :args :as expr} (-> expr
-                                                         (update-in [:args 1] ana2/run-passes))
-        type-syns (ast-u/quote-expr-val quote-expr)
-        ifn
-        (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-          (apply
-            r/make-FnIntersection
-            (doall
-              (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
-                (r/make-Function (mapv prs/parse-type dom-syntax)
-                                 (if has-rng?
-                                   (prs/parse-type rng-syntax)
-                                   ; in fn-method-one, this triggers the body to be inferred
-                                   (do (err/deprecated-warn "fn> without expected return type always infers Any, use c.c.t/fn")
-                                       r/-any)))))))
-        cfexpr (check-expr fexpr (r/ret ifn))
-        ;; FIXME check-below
-        _ (when expected
-            (when-not (sub/subtype? ifn (r/ret-t expected))
-              (cu/expected-error ifn expected)))
-        cargs [cfexpr quote-expr]]
-    (assoc expr
-           :args cargs
-           u/expr-type (u/expr-type cfexpr))))
-
 ;seq
 (defmethod -invoke-special 'clojure.core/seq
   [{fexpr :fn :keys [args] :as expr} & [expected]]

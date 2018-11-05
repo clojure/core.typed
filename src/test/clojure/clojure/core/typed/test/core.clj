@@ -221,8 +221,8 @@
 ;(deftest get-special-test
 ;  (is-clj (subtype? 
 ;            (ety 
-;              (clojure.core.typed/fn> [a :- (HMap :mandatory {:a Number})]
-;                                      (get a :a)))
+;              (clojure.core.typed/fn [a :- (HMap :mandatory {:a Number})]
+;                                     (get a :a)))
 ;            (parse-type
 ;              '(Fn ['{:a java.lang.Number} -> java.lang.Number 
 ;                    :filters {:then (& (is (HMap :mandatory {:a Number}) 0)
@@ -561,8 +561,8 @@
                   (-FS -top -bot)
                   -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
-  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [a :- clojure.core.typed.test.util-aliases/UnionName]
-                                   (seq? a)))
+  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn [a :- clojure.core.typed.test.util-aliases/UnionName]
+                                    (seq? a)))
            ret-t)
          (make-FnIntersection
            (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/UnionName)]
@@ -577,7 +577,7 @@
               (-true-filter)
               -empty)))
   ;FIXME should be (-FS -bot (! ISeq 0))
-  #_(is-clj (= (tc-t (clojure.core.typed/fn> [a :- (HMap :mandatory {:a (Value 1)})]
+  #_(is-clj (= (tc-t (clojure.core.typed/fn [a :- (HMap :mandatory {:a (Value 1)})]
                                (seq? a)))
          (ret (make-FnIntersection
                 (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
@@ -587,7 +587,7 @@
               -empty)))
   ;roughly the macroexpansion of map destructuring
   ;FIXME
-  #_(is-clj (= (tc-t (clojure.core.typed/fn> 
+  #_(is-clj (= (tc-t (clojure.core.typed/fn 
                  [map-param :- clojure.core.typed.test.rbt-types/badRight]
                  (when (and (= :Black (-> map-param :tree))
                             (= :Red (-> map-param :left :tree))
@@ -719,45 +719,6 @@
                                                  (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)}))
                       :filter (-true-filter)))
                   (-true-filter) -empty))))
-
-;(tc-t (clojure.core.typed/fn> [[a :- Number]
-;                       [b :- Number]]
-;                      (if (= a 1)
-;                        a
-;                        )))
-;
-;(-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
-;                          (= :MapStruct1 (-> tmap :type))
-;                          (= 1 (-> tmap :a :a))))
-;  :t :types first :rng :fl unparse-filter-set pprint)
-
-;(->
-;  (tc-t (clojure.core.typed/fn> [[a :- Number]
-;                         [b :- Number]]
-;;           (-FS (-and (-filter (-val 1) 'a)
-;;                      (-filter (-val 2) 'b))
-;;                (-or (-not-filter (-val 1) 'a)
-;;                     (-not-filter (-val 2) 'b)
-;;                     (-and (-not-filter (-val 1) 'a)
-;;                           (-not-filter (-val 2) 'b))))
-;          (clojure.core.typed/tc-pr-filters "final filters"
-;            (let [and1 (clojure.core.typed/tc-pr-filters "first and1"
-;                         (= a 1))]
-;              (clojure.core.typed/tc-pr-env "first conjunct")
-;;              (-FS (-and (-not-filter (Un -false -nil) and1)
-;;                         (-filter (-val 2) 'b))
-;;                   (-or (-filter (Un -false -nil) and1)
-;;                        (-not-filter (-val 2) 'b)))
-;              (clojure.core.typed/tc-pr-filters "second and1"
-;                (if (clojure.core.typed/tc-pr-filters "second test"
-;                      and1)
-;                  (do (clojure.core.typed/tc-pr-env "second conjunct")
-;                    (clojure.core.typed/tc-pr-filters "third and1"
-;                      (= b 2)))
-;                  (do (clojure.core.typed/tc-pr-env "fail conjunct")
-;                    (clojure.core.typed/tc-pr-filters "fail and1"
-;                      and1))))))))
-;  :t :types first :rng :fl unparse-filter-set pprint)
 
 (deftest update-test
   (is-clj (= (update (Un (make-HMap :mandatory {(-val :type) (-val :Map1)})
@@ -1545,25 +1506,6 @@
     (fn [& {:keys [path] :or {path "foo"}}]
       (java.io.File. path))
     [& :optional {:path Int} -> java.io.File]))
-
-;(fn> [a :- (U (Extends Number :without [(IPerVec clojure.core.typed/Any)])
-;              (Extends (IPV clojure.core.typed/Any) :without [Number])
-;              String)]
-;  (cond
-;    (number? a) ...
-;    (vector? a) ...
-;    :else ...))
-;
-;(Extends [(IPersistentCollection a)
-;          (Seqable a)
-;          (IPersistentVector a)
-;          (Reversible a)
-;          [Number -> a]
-;          (IPersistentStack a)
-;          (ILookup Number a)
-;          (Associative Number a)
-;          (Indexed a)]
-;         :without [(IPersistentMap clojure.core.typed/Any clojure.core.typed/Any)])
 
 (deftest extends-test
   ; without extends: never returns a (IPV Number) because we can have
