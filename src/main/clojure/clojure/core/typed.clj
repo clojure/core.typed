@@ -179,31 +179,6 @@ for checking namespaces, cf for checking individual forms."}
   [loop-of bnding-types]
   loop-of)
 
-(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
-  (defmacro ^{:deprecated "0.2.45"} dotimes>
-    "DEPRECATED: Use clojure.core.typed/dotimes
-
-    Like dotimes.
-    
-    eg. (dotimes> [_ 100]
-          (println \"like normal\"))"
-    [bindings & body]
-    (@deprecated-renamed-macro
-      &form
-      'dotimes>
-      'dotimes)
-    (@#'core/assert-args
-       (vector? bindings) "a vector for its binding"
-       (= 2 (count bindings)) "exactly 2 forms in binding vector")
-    (core/let [i (first bindings)
-               n (second bindings)]
-      `(core/let [n# (long ~n)]
-         (loop> [~i :- ~'clojure.core.typed/AnyInteger 0]
-           (when (< ~i n#)
-             ~@body
-             (recur (unchecked-inc ~i))))))))
-
-
 (core/let [deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
   (defmacro ^{:deprecated "0.2.45"} for>
     "DEPRECATED: use clojure.core.typed/for
