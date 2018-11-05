@@ -58,17 +58,16 @@
   (let [nsym (parse-in-ns)
         nsp (some-> (namespace sym) symbol)]
     (if-let [ns (find-ns nsym)]
-      (let [qual (if nsp
-                   (or (some-> (or ((ns-aliases ns) nsp)
-                                   (find-ns nsp))
-                               ns-name)
-                       (err/int-error (str "Cannot resolve namespace " nsp " in namespace " (ns-name ns))))
-                   (ns-name ns))
-            _ (assert (and (symbol? qual)
-                           (not (namespace qual))))
-            qsym (symbol (name qual) (name sym))]
-        (when (contains? (impl/alias-env) qsym)
-          qsym))
+      (when-let [qual (if nsp
+                        (some-> (or ((ns-aliases ns) nsp)
+                                    (find-ns nsp))
+                                ns-name)
+                        (ns-name ns))]
+        (let [_ (assert (and (symbol? qual)
+                             (not (namespace qual))))
+              qsym (symbol (name qual) (name sym))]
+          (when (contains? (impl/alias-env) qsym)
+            qsym)))
       (err/int-error (str "Cannot find namespace: " sym)))))
 
 (declare parse parse-path-elem)
