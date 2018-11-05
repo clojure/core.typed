@@ -64,7 +64,7 @@
   `(delay-and-cache-env ~'init-alias-env
     (base-rclass/reset-rclass-env!)
     (h/alias-mappings
-      ~@impl/init-aliases)))
+      ~@@#'t/init-aliases*)))
 
 ;defines init-alias-env
 (insert-aliases)
