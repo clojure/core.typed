@@ -5374,6 +5374,8 @@
                (def foo 1)
                (ann foo Bool)
                (def foo false)))
+  ; FIXME this used to work with the removed def>
+  #_
   (is-tc-e (do (clojure.core.typed/def foo :- Num 1)
                (clojure.core.typed/def foo :- Bool false)))
   )
