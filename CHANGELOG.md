@@ -1,3 +1,18 @@
+# 0.6.0 - SNAPSHOT
+
+- Breaking: Removed deprecated/unsupported macros to improve loading times
+  [x] clojure.core.typed/dotimes>
+  [ ] clojure.core.typed/for>
+  [ ] clojure.core.typed/doseq>
+  [ ] clojure.core.typed/fn>
+  [ ] clojure.core.typed/def>
+  [ ] clojure.core.typed/defprotocol>
+  [ ] clojure.core.typed/loop>
+  [ ] clojure.core.typed/atom>
+  [ ] clojure.core.typed/def-alias
+  [ ] clojure.core.typed/ann-precord
+  [ ] clojure.core.typed/ann-pprotocol
+
 # 0.5.4 - 13 September 2018
 
 - add annotations for some clojure.core Transducers (but usages are still too hard to infer for now)
