@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.protocol
-  (:require [clojure.core.typed :as t :refer [ann-protocol ann-datatype defprotocol> check-ns]]))
+  (:require [clojure.core.typed :as t :refer [ann-protocol ann-datatype check-ns]]))
 
 (t/defprotocol AddProtoc
   (adder [this amount :- t/Num] :- t/Num))

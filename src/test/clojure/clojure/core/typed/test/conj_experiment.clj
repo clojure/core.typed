@@ -162,7 +162,7 @@
                 [(IMeta mmap) -> mmap]
                 )
 
-(t/defprotocol> IMeta
+(t/defprotocol IMeta
   (-meta [this]))
 
 ; # IWithMeta
@@ -187,7 +187,7 @@
                   [(IWithMeta metafn) mmap -> (metafn mmap)])
                 )
 
-(t/defprotocol> IWithMeta
+(t/defprotocol IWithMeta
   (-with-meta [this m]))
 
 (t/ann-datatype [[m :variance :covariant
@@ -274,11 +274,11 @@
                 [(INext s) -> (U nil (t/NonEmptySeq s))]
                 )
 
-(t/defprotocol> IColl)
-(t/defprotocol> ISeqable)
-(t/defprotocol> IEmptyableCollection)
-(t/defprotocol> ISeq)
-(t/defprotocol> INext)
+(t/defprotocol IColl)
+(t/defprotocol ISeqable)
+(t/defprotocol IEmptyableCollection)
+(t/defprotocol ISeq)
+(t/defprotocol INext)
 
 (t/ann every?
      (All [x [y :< x] p]
@@ -412,7 +412,7 @@
 
 (t/ann-protocol [[x :variance :covariant]]
                 Dummy)
-(t/defprotocol> Dummy)
+(t/defprotocol Dummy)
 
 (t/defalias DummyAlias
   (TFn [[k :variance :covariant]]
