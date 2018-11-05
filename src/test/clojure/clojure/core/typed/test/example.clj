@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.example
   (:refer-clojure :exclude [< not=])
   (:import (java.io File))
-  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> check-ns ann-form]
+  (:require [clojure.core.typed :refer [ann inst cf fn> check-ns ann-form]
              :as t]
             [clojure.repl :refer [pst]]))
 
