@@ -782,9 +782,6 @@
   (is-clj (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
              -false)))
 
-#_(def-alias SomeMap (U (HMap :mandatory {:a (Value :b)})
-                      (HMap :mandatory {:b (Value :c)})))
-
 (deftest assoc-test
   (is-clj (= (tc-t (assoc {} :a :b))
              (ret (-complete-hmap {(-val :a) (-val :b)})

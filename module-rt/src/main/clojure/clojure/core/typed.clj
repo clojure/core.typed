@@ -585,8 +585,8 @@ for checking namespaces, cf for checking individual forms."}
 (declare add-to-rt-alias-env add-tc-type-name)
 
 (core/defn ^:skip-wiki
-  def-alias* 
-  "Internal use only. Use def-alias."
+  defalias* 
+  "Internal use only. Use defalias."
   [qsym t form]
   (add-to-rt-alias-env form qsym t)
   (add-tc-type-name form qsym t)
@@ -661,31 +661,6 @@ for checking namespaces, cf for checking individual forms."}
         (@add-tc-type-name* qsym t)))
     nil))
 
-(core/let [deprecated-renamed-macro (delay (dynaload 'clojure.core.typed.errors/deprecated-renamed-macro))]
-  (defmacro 
-    ^{:deprecated "0.2.45"}
-    def-alias 
-    "DEPRECATED: use defalias
-    
-    Define a type alias. Takes an optional doc-string as a second
-    argument.
-
-    Updates the corresponding var with documentation.
-    
-    eg. (def-alias MyAlias
-          \"Here is my alias\"
-          (U nil String))"
-    ([sym doc-str t]
-     (assert (string? doc-str) "Doc-string passed to def-alias must be a string")
-     `(def-alias ~(vary-meta sym assoc :doc doc-str) ~t))
-    ([sym t]
-     (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
-     (@deprecated-renamed-macro
-       &form
-       'def-alias
-       'defalias)
-     `(defalias ~sym ~t))))
-
 (core/let [pprint (delay (dynaload 'clojure.pprint/pprint))]
   (defmacro defalias 
     "Define a recursive type alias. Takes an optional doc-string as a second
@@ -714,7 +689,7 @@ for checking namespaces, cf for checking individual forms."}
                     (with-meta (meta m)))]
        `(tc-ignore
           (declare ~sym)
-          (def-alias* '~qsym '~t '~&form))))))
+          (defalias* '~qsym '~t '~&form))))))
 
 (def ^{:doc "Any is the top type that contains all possible values."
        :forms '[Any]
