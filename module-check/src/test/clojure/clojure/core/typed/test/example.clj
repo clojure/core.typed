@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.example
   (:refer-clojure :exclude [< not=])
   (:import (java.io File))
-  (:require [clojure.core.typed :refer [ann inst cf fn> check-ns ann-form]
+  (:require [clojure.core.typed :refer [ann inst cf check-ns ann-form]
              :as t]
             [clojure.repl :refer [pst]]))
 
@@ -61,8 +61,8 @@
 (comment
 (ann add-or-zero [(t/U nil Number) * -> Number])
 (defn add-or-zero [& nzs]
-  (reduce (fn> [[acc :- Number]
-                [n :- (t/U nil Number)]]
+  (reduce (t/fn [acc :- Number
+                 n :- (t/U nil Number)]
             (+ acc (if n
                      n
                      0)))

@@ -161,47 +161,6 @@ for checking namespaces, cf for checking individual forms."}
   [inst-of & types]
   `(inst-poly-ctor ~inst-of '~types))
 
-(core/defn ^:skip-wiki
-  fn>-ann 
-  "Internal use only. Use fn>."
-  [fn-of param-types-syn]
-  fn-of)
-
-(core/let [parse-fn> (delay (dynaload 'clojure.core.typed.internal/parse-fn>))
-           deprecated-macro-syntax (delay (dynaload 'clojure.core.typed.errors/deprecated-macro-syntax))]
-  (defmacro 
-    ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
-               (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
-    ^{:deprecated "0.2.45"}
-    fn> 
-    "DEPRECATED: use clojure.core.typed/fn
-
-    Like fn, but with annotations. Annotations are mandatory
-    for parameters, with optional annotations for return type.
-    If fn is named, return type annotation is mandatory.
-
-    Suggested idiom: use commas between parameter annotation triples.
-
-    eg. (fn> [a :- Number, b :- (U Symbol nil)] ...)
-
-        ;annotate return
-        (fn> :- String [a :- String] ...)
-
-        ;named fn
-        (fn> fname :- String [a :- String] ...)
-
-        ;multi-arity
-        (fn> fname 
-          (:- String [a :- String] ...)
-          (:- Long   [a :- String, b :- Number] ...))"
-    [& forms]
-    (@deprecated-macro-syntax
-      &form
-      (str "clojure.core.typed/fn> renamed to clojure.core.typed/fn. "
-           "Note return type annotation now goes after the binder: (fn [a :- t] :- r, b)"))
-    (core/let [{:keys [fn parsed-methods]} (@parse-fn> false forms)]
-      `(fn>-ann ~fn '~parsed-methods))))
-
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
   letfn>

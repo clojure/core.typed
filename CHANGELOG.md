@@ -5,7 +5,7 @@
   [x] clojure.core.typed/for> (use t/for)
   [x] clojure.core.typed/doseq> (use t/doseq)
   [x] clojure.core.typed/pfn> (use t/fn)
-  [ ] clojure.core.typed/fn> (use t/fn)
+  [x] clojure.core.typed/fn> (use t/fn)
   [x] clojure.core.typed/defn> (use t/defn)
   [x] clojure.core.typed/def> (use t/defn)
   [x] clojure.core.typed/defprotocol> (use t/defprotocol)

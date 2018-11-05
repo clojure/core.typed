@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.filter-combine
-  (:require [clojure.core.typed :as t :refer [ann-form check-ns print-filterset fn>]]))
+  (:require [clojure.core.typed :as t :refer [ann-form check-ns print-filterset]]))
 
 ; macroexpansion of `or` is understood
 (fn [a]
@@ -15,7 +15,7 @@
 
 ;TODO
 (comment
-(fn> [a :- (U nil '{:d Number})]
+(t/fn [a :- (U nil '{:d Number})]
   {:pre [(:d a)]}
   (ann-form (:d a) Number))
   )
