@@ -1641,19 +1641,6 @@ Transducer
                     (symbol (munge (str (ns-name *ns*))) (name clsym)))]
       `(tc-ignore (ann-interface* '~vbnd '~clsym '~mth)))))
 
-(core/defn ^:skip-wiki
-  ann-pprotocol* 
-  "Internal use only. Use ann-pprotocol."
-  [varsym vbnd mth]
-  nil)
-
-(defmacro ^:skip-wiki ann-pprotocol  
-  "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder 
-  as first argument, ie. before protocol name"
-  [varsym vbnd & {:as mth}]
-  (prn "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder as first argument, ie. before protocol name")
-  `(tc-ignore (ann-pprotocol* '~varsym '~vbnd '~mth)))
-
 (core/let [add-constructor-override (delay (dynaload 'clojure.core.typed.current-impl/add-constructor-override))]
   (core/defn ^:skip-wiki
     override-constructor* 
