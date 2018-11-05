@@ -3,7 +3,7 @@
 - Breaking: Removed deprecated/unsupported macros to improve loading times
   [x] clojure.core.typed/dotimes>
   [x] clojure.core.typed/for>
-  [ ] clojure.core.typed/doseq>
+  [x] clojure.core.typed/doseq>
   [ ] clojure.core.typed/fn>
   [ ] clojure.core.typed/def>
   [ ] clojure.core.typed/defprotocol>
