@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.unsound-simplify
-  (:require [clojure.core.typed :refer [ann ann-datatype check-ns cf defprotocol>]
+  (:require [clojure.core.typed :refer [ann ann-datatype check-ns cf]
              :as t])
   (:import (clojure.lang Symbol)))
 
