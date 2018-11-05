@@ -3490,8 +3490,7 @@
              (:- Int 
               [a :- Int]
               (+ a 3)))
-           #_(Var1 [Int -> Int])))
-
+           #_(Var1 [Int -> Int]))
   (is-tc-e (do
              (defn foo [a :- Number]
                (inc a))
