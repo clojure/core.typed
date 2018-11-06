@@ -1,5 +1,5 @@
 {:paths ["src/main/clojure"]
- :deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}
+ :deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
         org.clojure/core.typed.rt {:local/root "../module-rt"}
         org.clojure/core.typed.infer {:local/root "../module-infer"}
         org.clojure/core.typed.analyzer.jvm {:local/root "../module-analyzer-jvm"}
@@ -27,7 +27,7 @@
             {com.bhauman/rebel-readline {:mvn/version "0.1.4"}}
             :main-opts ["-m" "start-repl"]}
 
-           :clj-1.10.0-beta4 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}}}
+           :clj-1.10.0-beta5 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}}}
            :test
            {:extra-paths ["src/test/clojure"
                           "src/test/resources"]
