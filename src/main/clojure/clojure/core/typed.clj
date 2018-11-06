@@ -568,35 +568,32 @@ for checking namespaces, cf for checking individual forms."}
         (@add-tc-type-name* qsym t)))
     nil))
 
-(core/let [pprint (delay (dynaload 'clojure.pprint/pprint))]
-  (defmacro defalias 
-    "Define a recursive type alias. Takes an optional doc-string as a second
-    argument.
+(defmacro defalias 
+  "Define a recursive type alias. Takes an optional doc-string as a second
+  argument.
 
-    Updates the corresponding var with documentation.
-    
-    eg. (defalias MyAlias
-          \"Here is my alias\"
-          (U nil String))
-    
-        ;; recursive alias
-        (defalias Expr
-          (U '{:op ':if :test Expr :then Expr :else Expr}
-             '{:op ':const :val Any}))"
-    ([sym doc-str t]
-     (assert (string? doc-str) "Doc-string passed to defalias must be a string")
-     `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
-    ([sym t]
-     (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
-     (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
-     (core/let
-          [m (vary-meta sym
-                        update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (@pprint t))))
-           qsym (-> (symbol (-> *ns* ns-name str) (str sym))
-                    (with-meta (meta m)))]
-       `(tc-ignore
-          (declare ~sym)
-          (defalias* '~qsym '~t '~&form))))))
+  Updates the corresponding var with documentation.
+  
+  eg. (defalias MyAlias
+        \"Here is my alias\"
+        (U nil String))
+  
+      ;; recursive alias
+      (defalias Expr
+        (U '{:op ':if :test Expr :then Expr :else Expr}
+           '{:op ':const :val Any}))"
+  ([sym doc-str t]
+   (assert (string? doc-str) "Doc-string passed to defalias must be a string")
+   `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
+  ([sym t]
+   (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
+   (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
+   (core/let
+        [qsym (-> (symbol (-> *ns* ns-name str) (str sym))
+                  (with-meta (meta sym)))]
+     `(tc-ignore
+        (declare ~sym)
+        (defalias* '~qsym '~t '~&form)))))
 
 (def ^{:doc "Any is the top type that contains all possible values."
        :forms '[Any]
