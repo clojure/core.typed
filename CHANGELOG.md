@@ -16,6 +16,8 @@
   [x] clojure.core.typed/ann-precord (use t/ann-record)
   [x] clojure.core.typed/ann-pprotocol (use t/ann-protocol)
 
+- Removed tools.analyzer.env usage (`update-ns-map!` etc.)
+
 # 0.5.4 - 13 September 2018
 
 - add annotations for some clojure.core Transducers (but usages are still too hard to infer for now)
