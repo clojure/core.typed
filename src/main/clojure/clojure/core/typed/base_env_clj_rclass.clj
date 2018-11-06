@@ -22,7 +22,7 @@
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed :refer [Any Nothing TFn Rec
                                         Pred U I All IFn
-                                        HVec HSequential Keyword]
+                                        HVec HSequential]
              :as t]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
