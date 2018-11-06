@@ -22,17 +22,14 @@
       use buffer (similar for other buffer constructors)
     "}
   clojure.core.typed.async
-  (:require [clojure.core.typed :refer [ann ann-datatype defalias inst ann-protocol
-                                        AnyInteger tc-ignore Seqable TFn IFn Any I]
+  (:require [clojure.core.typed :refer [ann ann-datatype defalias inst ann-protocol]
              :as t]
-            [clojure.core.typed.util-vars :as vs]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as impl]
             [clojure.core.async.impl.channels :as channels]
             [clojure.core.async.impl.dispatch :as dispatch]
             [clojure.core.async.impl.ioc-macros :as ioc] 
             )
-
   (:import (java.util.concurrent Executor)
            (java.util.concurrent.locks Lock)
            (java.util.concurrent.atomic AtomicReferenceArray)
@@ -82,66 +79,66 @@
   ^{:forms '[(Port2 t t)]}
   Port2
   "A port that can write type w and read type r"
-  (TFn [[w :variance :contravariant]
+  (t/TFn [[w :variance :contravariant]
         [r :variance :covariant]]
-    (I (impl/WritePort w)
+    (t/I (impl/WritePort w)
        (impl/ReadPort r))))
 
 (defalias 
   ^{:forms '[(Port t)]}
   Port
   "A port that can read and write type x"
-  (TFn [[x :variance :invariant]]
+  (t/TFn [[x :variance :invariant]]
     (Port2 x x)))
 
 (defalias 
   ^{:forms '[(Chan2 t t)]}
   Chan2
   "A core.async channel that can take type w and put type r"
-  (TFn [[w :variance :contravariant]
+  (t/TFn [[w :variance :contravariant]
         [r :variance :covariant]]
-    (I (Port2 w r)
+    (t/I (Port2 w r)
        impl/Channel)))
 
 (defalias 
   ^{:forms '[(Chan t)]}
   Chan
   "A core.async channel"
-  (TFn [[x :variance :invariant]]
+  (t/TFn [[x :variance :invariant]]
     (Chan2 x x)))
 
 (defalias 
   ^{:forms '[(ReadOnlyChan t)]}
   ReadOnlyChan
   "A core.async channel that statically disallows writes."
-  (TFn [[r :variance :covariant]]
+  (t/TFn [[r :variance :covariant]]
     (Chan2 t/Nothing r)))
 
 (defalias 
   ^{:forms '[(ReadOnlyPort t)]}
   ReadOnlyPort
   "A read-only port that can read type x"
-  (TFn [[t :variance :covariant]]
+  (t/TFn [[t :variance :covariant]]
     (Port2 t/Nothing t)))
 
 (defalias 
   ^{:forms '[(WriteOnlyPort t)]}
   WriteOnlyPort
   "A write-only port that can write type p"
-  (TFn [[p :variance :contravariant]]
+  (t/TFn [[p :variance :contravariant]]
     (Port2 p t/Nothing)))
 
 (defalias
   ^{:forms '[TimeoutChan]}
   TimeoutChan
   "A timeout channel"
-  (Chan Any))
+  (Chan t/Any))
 
 (defalias 
   ^{:forms '[(Buffer2 t t)]}
   Buffer2
   "A buffer of that can write type w and read type t."
-  (TFn [[w :variance :contravariant]
+  (t/TFn [[w :variance :contravariant]
         [r :variance :covariant]]
     (t/I (impl/Buffer w r)
          clojure.lang.Counted)))
@@ -150,14 +147,14 @@
   ^{:forms '[(Buffer t)]}
   Buffer
   "A buffer of type x."
-  (TFn [[x :variance :invariant]]
+  (t/TFn [[x :variance :invariant]]
     (Buffer2 x x)))
 
 (defalias 
   ^{:forms '[(UnblockingBuffer2 t t)]}
   UnblockingBuffer2
   "An unblocking buffer that can write type w and read type t."
-  (TFn [[w :variance :contravariant]
+  (t/TFn [[w :variance :contravariant]
         [r :variance :covariant]]
     (t/I (Buffer2 w r)
          impl/UnblockingBuffer)))
@@ -166,7 +163,7 @@
   ^{:forms '[(UnblockingBuffer t)]}
   UnblockingBuffer
   "An unblocking buffer of type x."
-  (TFn [[x :variance :invariant]]
+  (t/TFn [[x :variance :invariant]]
     (UnblockingBuffer2 x x)))
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -189,7 +186,7 @@
 ; TODO buffer must be supplied when xform is
 (ann ^:no-check clojure.core.async/chan
      (t/All [p t]
-            (IFn [:-> (Chan2 p t)]
+            (t/IFn [:-> (Chan2 p t)]
                  [(t/U (Buffer2 p t) t/Int nil) :-> (Chan2 p t)]
                  [(t/U (Buffer2 p t) t/Int nil)
                   ; xform
@@ -209,26 +206,26 @@
                        [Throwable :-> (t/U nil p)])
                   :-> (Chan2 p t)])))
 
-(ann ^:no-check clojure.core.async.impl.ioc-macros/aget-object [AtomicReferenceArray t/Int :-> Any])
-(ann ^:no-check clojure.core.async.impl.ioc-macros/aset-object [AtomicReferenceArray Any :-> nil])
-(ann ^:no-check clojure.core.async.impl.ioc-macros/run-state-machine [AtomicReferenceArray :-> Any])
+(ann ^:no-check clojure.core.async.impl.ioc-macros/aget-object [AtomicReferenceArray t/Int :-> t/Any])
+(ann ^:no-check clojure.core.async.impl.ioc-macros/aset-object [AtomicReferenceArray t/Any :-> nil])
+(ann ^:no-check clojure.core.async.impl.ioc-macros/run-state-machine [AtomicReferenceArray :-> t/Any])
 
 ;FIXME what is 2nd arg?
-(ann ^:no-check clojure.core.async.impl.ioc-macros/put! (t/All [x] [t/Int Any (Chan x) x :-> Any]))
+(ann ^:no-check clojure.core.async.impl.ioc-macros/put! (t/All [x] [t/Int t/Any (Chan x) x :-> t/Any]))
 (ann ^:no-check clojure.core.async.impl.ioc-macros/return-chan (t/All [x] [AtomicReferenceArray x :-> (Chan x)]))
 
 (ann ^:no-check clojure.core.async/<!! (t/All [t] [(Port2 t/Nothing t) :-> (t/U nil t)]))
 ; should this use Port's?
 (ann ^:no-check clojure.core.async/<! (t/All [t] [(Port2 t/Nothing t) :-> (t/U nil t)]))
-(ann ^:no-check clojure.core.async/>!! (t/All [p] [(Port2 p Any) p :-> Any]))
+(ann ^:no-check clojure.core.async/>!! (t/All [p] [(Port2 p t/Any) p :-> t/Any]))
 (ann ^:no-check clojure.core.async/>! (t/All [p t] [(Port2 p t) p :-> (Port2 p t)]))
 (t/ann-many 
   (t/All [x d]
-         (IFn [(Seqable (t/U (Port x) '[(Port x) x])) 
+         (t/IFn [(t/Seqable (t/U (Port x) '[(Port x) x])) 
                & :mandatory {:default d} 
                :optional {:priority (t/U nil true)} 
                :-> (t/U '[d ':default] '[(t/U nil x) (Port x)])]
-              [(Seqable (t/U (Port x) '[(Port x) x])) 
+              [(t/Seqable (t/U (Port x) '[(Port x) x])) 
                & :optional {:priority (t/U nil true)} 
                :-> '[(t/U nil x) (Port x)]]))
   ^:no-check clojure.core.async/alts!!
@@ -236,14 +233,14 @@
 
 (ann ^:no-check clojure.core.async/close! [impl/Channel :-> nil])
 
-(ann ^:no-check clojure.core.async.impl.dispatch/run [[:-> (ReadOnlyChan Any)] :-> Executor])
+(ann ^:no-check clojure.core.async.impl.dispatch/run [[:-> (ReadOnlyChan t/Any)] :-> Executor])
 ;(ann clojure.core.async.impl.ioc-macros/async-chan-wrapper kV
 
 (ann ^:no-check clojure.core.async/put!
      (t/All [p]
-            (IFn [(Port2 p Any) p :-> Any]
-                 [(Port2 p Any) p [Any :-> Any] :-> Any]
-                 [(Port2 p Any) p [Any :-> Any] Any :-> Any])))
+            (t/IFn [(Port2 p t/Any) p :-> t/Any]
+                 [(Port2 p t/Any) p [t/Any :-> t/Any] :-> t/Any]
+                 [(Port2 p t/Any) p [t/Any :-> t/Any] t/Any :-> t/Any])))
 
 (ann ^:no-check clojure.core.async/map<
      (t/All [t o]
@@ -261,28 +258,28 @@
 
 ;(ann ^:no-check clojure.core.async/filter>
 ;     (t/All [t t']
-;            (IFn
-;              [[t :-> Any :filters {:then (is t' 0)}] (Chan2 t/Nothing t) :-> (Chan t')]
-;              [[t :-> Any] (Chan2 t/Nothing t) :-> (Chan t)])))
+;            (t/IFn
+;              [[t :-> t/Any :filters {:then (is t' 0)}] (Chan2 t/Nothing t) :-> (Chan t')]
+;              [[t :-> t/Any] (Chan2 t/Nothing t) :-> (Chan t)])))
 ;
 ;(ann ^:no-check clojure.core.async/remove>
 ;     (t/All [p t]
-;            (IFn
-;              [[t :-> Any :filters {:then (! p 0)}] (Chan2 p t) :-> (Chan2 p t)]
-;              [[t :-> Any] (Chan2 p t) :-> (Chan2 p t)])))
+;            (t/IFn
+;              [[t :-> t/Any :filters {:then (! p 0)}] (Chan2 p t) :-> (Chan2 p t)]
+;              [[t :-> t/Any] (Chan2 p t) :-> (Chan2 p t)])))
 ;
 ;(ann ^:no-check clojure.core.async/filter<
 ;     (t/All [p t]
-;            (IFn
-;              [[t :-> Any :filters {:then (is p 0)}] (Chan2 t/Nothing t) :-> (Chan2 p t)]
-;              [[t :-> Any] (Chan2 t/Nothing t) :-> (Chan2 t t)])))
+;            (t/IFn
+;              [[t :-> t/Any :filters {:then (is p 0)}] (Chan2 t/Nothing t) :-> (Chan2 p t)]
+;              [[t :-> t/Any] (Chan2 t/Nothing t) :-> (Chan2 t t)])))
 
 (ann ^:no-check clojure.core.async/onto-chan
      (t/All [x]
             [(Chan x)
              (t/U nil (t/Seqable x))
              :->
-             (Chan Any)]))
+             (Chan t/Any)]))
 
 (ann ^:no-check clojure.core.async/to-chan
      (t/All [x]
@@ -313,7 +310,7 @@
 
   eg.
     (let [c (chan :- Str)]
-      ;; same as (go :- Any ...)
+      ;; same as (go :- t/Any ...)
       (go (a/>! c \"hello\"))
       (assert (= \"hello\" (a/<!! (go :- Str (a/<! c)))))
       (a/close! c))
