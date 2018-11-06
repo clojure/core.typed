@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.rbt-types
-  (:require [clojure.core.typed :as t :refer [defalias declare-names Rec U]]))
+  (:require [clojure.core.typed :as t :refer [defalias declare-names]]))
 
 ;-------------------------------
 ; 'Normal' types
@@ -39,30 +39,30 @@
 
 (defalias rbt 
   "Trees with only black children for red nodes"
-  (Rec [rbt]
-    (U 
+  (t/Rec [rbt]
+    (t/U 
       Empty
       (Black rbt rbt)
       ;(Red bt bt)
-      (Red (U 
+      (Red (t/U 
              Empty
              (Black rbt rbt))
-           (U 
+           (t/U 
              Empty
              (Black rbt rbt))))))
 
 (defalias bt 
   "Like rbt but additionally the root node is black"
-  (Rec [bt]
-       (U 
+  (t/Rec [bt]
+       (t/U 
          Empty
          ;(Black rbt rbt)
          (Black 
-           (U 
+           (t/U 
              Empty
              (Black rbt rbt)
              (Red bt bt))
-           (U 
+           (t/U 
              Empty
              (Black rbt rbt)
              (Red bt bt))))))
@@ -73,7 +73,7 @@
 
 (defalias badRoot 
   "Invariant possibly violated at the root"
-  (U 
+  (t/U 
     Empty
     (Black rbt bt)
     (Red rbt bt)
@@ -81,7 +81,7 @@
 
 (defalias badLeft 
   "Invariant possibly violated at the left child"
-  (U
+  (t/U
    Empty
    (Black rbt rbt)
    (Red bt bt)
@@ -89,7 +89,7 @@
 
 (defalias badRight 
   "Invariant possibly violated at the right child"
-  (U
+  (t/U
    Empty
    (Black rbt rbt)
    (Red bt bt)
