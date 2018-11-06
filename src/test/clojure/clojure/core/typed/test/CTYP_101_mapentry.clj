@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.CTYP-101-mapentry
-  (:require [clojure.core.typed :as typed :refer [ann Keyword Int Option]]))
+  (:require [clojure.core.typed :as typed :refer [ann]]))
 
-(ann f [(clojure.lang.IPersistentMap Keyword Int) -> (Option (clojure.lang.IMapEntry Keyword Int))])
+(ann f [(clojure.lang.IPersistentMap t/Keyword t/Int) -> (t/Option (clojure.lang.IMapEntry t/Keyword t/Int))])
 (defn f [m] (first m))

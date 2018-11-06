@@ -125,6 +125,7 @@
       (flush)
       ;(impl/with-clojure-impl
       ;  ((impl/dynaload 'clojure.core.typed.reset-env/reset-envs!)))
+      (impl/register!)
       (impl/with-clojure-impl
         ((impl/dynaload 'clojure.core.typed.reset-env/load-core-envs!)))
       (when cljs?
