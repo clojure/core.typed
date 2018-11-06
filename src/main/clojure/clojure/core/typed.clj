@@ -57,6 +57,14 @@ for checking namespaces, cf for checking individual forms."}
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
+(core/defn register-ann-ns [nsym]
+  (when (:register? (swap! vs/registered-ann-ns
+                           (core/fn [{:keys [register?] :as m}]
+                             (if (not register?)
+                               (update m :namespaces conj nsym)
+                               m))))
+    (require nsym)))
+
 (core/let [lin (delay (dynaload 'clojure.core.typed.load-if-needed/load-if-needed))]
   (core/defn load-if-needed
     "Load and initialize all of core.typed if not already"
@@ -1132,11 +1140,15 @@ Transducer
 (core/let
      [add-rclass-env (delay (dynaload 'clojure.core.typed.current-impl/add-rclass-env))
       Class->symbol (delay (dynaload 'clojure.core.typed.current-impl/Class->symbol))]
-  (core/defn ^:private rclass-pred [rcls opts]
+  (core/defn ^:skip-wiki rclass-pred
+    "Do not use"
+    [rcls opts]
     (with-clojure-impl
       (@add-rclass-env (@Class->symbol rcls) opts))))
 
-(defmacro ^:private rclass-preds [& args]
+(defmacro ^:skip-wiki rclass-preds 
+  "Do not use"
+  [& args]
   `(do
      ~@(core/for [[k v] (partition 2 args)]
          `(rclass-pred ~k ~v))))
@@ -2151,23 +2163,26 @@ Transducer
 
 (def ^:private type-syntax->pred (delay (dynaload 'clojure.core.typed.type-contract/type-syntax->pred)))
 
-(defmacro pred 
-  "Generate a flat (runtime) predicate for type that returns true if the
-  argument is a subtype of the type, otherwise false.
+(core/let [register! (delay (dynaload 'clojure.core.typed.current-impl/register!))]
+  (defmacro pred 
+    "Generate a flat (runtime) predicate for type that returns true if the
+    argument is a subtype of the type, otherwise false.
 
-  The current type variable and dotted type variable scope is cleared before parsing.
-  
-  eg. ((pred Number) 1)
-      ;=> true"
-  [t]
-  (with-current-location &form
-    `(pred* '~t
-            '~(ns-name *ns*)
-            ~(@type-syntax->pred t))))
+    The current type variable and dotted type variable scope is cleared before parsing.
+    
+    eg. ((pred Number) 1)
+        ;=> true"
+    [t]
+    (@register!)
+    (with-current-location &form
+      `(pred* '~t
+              '~(ns-name *ns*)
+              ~(@type-syntax->pred t)))))
 
 (core/let [load-contracts (delay (do
                                    (require 'clojure.core.typed.type-contract)
-                                   (require 'clojure.core.typed.contract)))]
+                                   (require 'clojure.core.typed.contract)))
+           register! (delay (dynaload 'clojure.core.typed.current-impl/register!))]
   (defmacro cast
     "Cast a value to a type. Returns a new value that conforms
     to the given type, otherwise throws an error with blame.
@@ -2208,6 +2223,7 @@ Transducer
     ([t x] `(cast ~t ~x {}))
     ([t x opt]
      @load-contracts
+     (@register!)
      `(do ~spec/special-form
           ::cast
           {:type '~t}
@@ -2625,110 +2641,6 @@ Transducer
 ;====================================================
 
 ; defines base aliases
-(init-aliases)
+;(init-aliases)
 
-(rclass-preds
-;  clojure.lang.Seqable 
-;  {:pred (fn [this a?]
-;           (cond 
-;             (string? this) (every? a? this)
-;             (coll? this) (every? a? this)))}
-  clojure.lang.IPersistentCollection
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.ISeq
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IPersistentSet
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.APersistentSet
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentHashSet
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentTreeSet
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.Associative
-  {:args #{2}
-   :pred (core/fn [this a? b?]
-           `(cond
-              (vector? ~this) (and (every? ~a? (range (count ~this)))
-                                   (every? ~b? ~this))
-              (map? ~this) (and (every? ~a? (keys ~this))
-                                (every? ~b? (vals ~this)))))}
-  clojure.lang.IPersistentStack
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IPersistentVector
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.APersistentVector
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentVector
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IMapEntry
-  {:args #{2}
-   :pred (core/fn [this a? b?] 
-           `(and (~a? (key ~this)) (~b? (val ~this))))}
-  clojure.lang.AMapEntry
-  {:args #{2}
-   :pred (core/fn [this a? b?] 
-           `(and (~a? (key ~this)) (~b? (val ~this))))}
-  clojure.lang.MapEntry
-  {:args #{2}
-   :pred (core/fn [this a? b?] 
-           `(and (~a? (key ~this)) (~b? (val ~this))))}
-  clojure.lang.IPersistentMap
-  {:args #{2}
-   :pred (core/fn [this a? b?] 
-           `(and (every? ~a? (keys ~this))
-                 (every? ~b? (vals ~this))))}
-  clojure.lang.ASeq
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.APersistentMap
-  {:args #{2}
-   :pred (core/fn [this a? b?] 
-           `(and (every? ~a? (keys ~this))
-                 (every? ~b? (vals ~this))))}
-  clojure.lang.PersistentHashMap
-  {:args #{2}
-   :pred (core/fn [this a? b?] 
-           `(and (every? ~a? (keys ~this))
-                 (every? ~b? (vals ~this))))}
-  clojure.lang.Cons
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.IPersistentList
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.PersistentList
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.LazySeq
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(every? ~a? ~this))}
-  clojure.lang.Reduced
-  {:args #{1}
-   :pred (core/fn [this a?] 
-           `(~a? (deref ~this)))})
+(register-ann-ns 'clojure.core.typed.types.core)
