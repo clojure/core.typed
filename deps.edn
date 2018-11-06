@@ -1,5 +1,5 @@
 {:paths []
- :deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}
+ :deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
         org.clojure/core.typed.rt {:local/root "module-rt"
                                    :deps/manifest :deps}
         org.clojure/core.typed.infer {:local/root "module-infer"

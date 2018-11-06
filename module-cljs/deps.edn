@@ -1,7 +1,7 @@
 {:paths ["src/main/clojure"
          "src/main/cljs"
          ]
- :deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}
+ :deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
         org.clojure/core.typed {:local/root "../module-check"}
         org.clojure/core.typed.rt {:local/root "../module-rt"}
         org.clojure/clojurescript {:mvn/version "1.10.373"}}
@@ -24,7 +24,7 @@
             {com.bhauman/rebel-readline {:mvn/version "0.1.4"}}
             :main-opts ["-m" "start-repl"]}
 
-           :clj-1.10.0-beta4 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta4"}}}
+           :clj-1.10.0-beta5 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}}}
            :test
            {:extra-paths ["src/test/clojure"
                           "src/test/cljs"
