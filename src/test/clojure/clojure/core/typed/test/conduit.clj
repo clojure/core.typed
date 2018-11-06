@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [clojure.core.typed :refer [check-ns ann defalias tc-ignore ann-form declare-names inst
-                                        print-env inst-ctor cf Option declare-alias-kind AnyInteger]]
+                                        print-env inst-ctor cf declare-alias-kind]]
             [clojure.repl :refer [pst]]
             #_[arrows.core :refer [defarrow]]))
 
@@ -16,7 +16,7 @@
 (defalias Cont
   (TFn [[in :variance :covariant]
         [out :variance :invariant]]
-    [(Option [(Result in) -> (Result out)]) -> (Result out)]))
+    [(t/Option [(Result in) -> (Result out)]) -> (Result out)]))
 
 (declare-alias-kind ==> (TFn [[in :variance :contravariant]
                               [out :variance :invariant]] Any))
@@ -292,7 +292,7 @@
 
 (ann conduit-map
      (All [x y]
-       [(==> x y) (Option (Seqable x)) -> (Option (Seqable y))]))
+       [(==> x y) (t/Option (Seqable x)) -> (t/Option (Seqable y))]))
 (defn conduit-map [p l]
   (if (empty? l)
     l
@@ -323,13 +323,13 @@
 (ann t2 (==> Number Number))
 (def t2 (a-arr (ann-form #(* 2 %) [Number -> Number])))
 
-(ann flt (==> AnyInteger AnyInteger))
+(ann flt (==> t/AnyInteger t/AnyInteger))
 (def flt (fn this-fn [x]
            (if (odd? x)
              [this-fn abort-c]
              [this-fn (ann-form (fn [c] (when c 
                                           (c [x])))
-                                (Cont AnyInteger AnyInteger))])))
+                                (Cont t/AnyInteger t/AnyInteger))])))
 
 
 
@@ -367,7 +367,7 @@
 ;(ann a-if
 ;     (All [x y]
 ;       (Fn [[x -> Any] (==> x y) -> (==> x (U y nil))]
-;           [[x -> Any] (==> x y) (Option (==> x y)) -> (==> x (U y nil))])))
+;           [[x -> Any] (==> x y) (t/Option (==> x y)) -> (==> x (U y nil))])))
 ;(defn a-if
 ;  ([a b] (a-if a b nil))
 ;  ([a b c]

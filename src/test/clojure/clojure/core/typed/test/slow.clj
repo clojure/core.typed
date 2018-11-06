@@ -1,16 +1,15 @@
 (ns clojure.core.typed.test.slow
   (:require
-    [clojure.core.typed :refer [ann defalias
-                                NonEmptyVec NilableNonEmptySeq]
+    [clojure.core.typed :refer [ann defalias]
      :as t]))
 
-(defalias VersionVector (NonEmptyVec Number))
+(defalias VersionVector (t/NonEmptyVec Number))
 (ann version-less [(t/U nil VersionVector) (t/U nil VersionVector) -> boolean])
 (defn version-less
   "Compare two version vectors."
   [v1 v2]
-  (t/loop [v1 :- (NilableNonEmptySeq Number) (seq v1)
-           v2 :- (NilableNonEmptySeq Number) (seq v2)]
+  (t/loop [v1 :- (t/NilableNonEmptySeq Number) (seq v1)
+           v2 :- (t/NilableNonEmptySeq Number) (seq v2)]
     (let [fv1 (first v1)
           fv2 (first v2)]
       (cond
