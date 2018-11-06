@@ -569,7 +569,7 @@ for checking namespaces, cf for checking individual forms."}
     nil))
 
 (defmacro defalias 
-  "Define a recursive type alias. Takes an optional doc-string as a second
+  "Define a recursive type alias on a qualified symbol. Takes an optional doc-string as a second
   argument.
 
   Updates the corresponding var with documentation.
@@ -587,12 +587,18 @@ for checking namespaces, cf for checking individual forms."}
    `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
   ([sym t]
    (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
-   (assert (not (namespace sym)) (str "First argument to defalias unqualified: " sym))
    (core/let
-        [qsym (-> (symbol (-> *ns* ns-name str) (str sym))
-                  (with-meta (meta sym)))]
+     [qual (if-let [nsp (some-> sym namespace symbol)]
+             (or (some-> (or ((ns-aliases *ns*) nsp)
+                             (find-ns nsp))
+                         ns-name)
+                 (throw (Exception. (str "Could not resolve namespace " nsp " in sym " sym))))
+             (ns-name *ns*))
+      qsym (-> (symbol (str qual) (name sym))
+               (with-meta (meta sym)))]
      `(tc-ignore
-        (declare ~sym)
+        (intern '~qual '~(with-meta (symbol (name sym))
+                                    (meta sym)))
         (defalias* '~qsym '~t '~&form)))))
 
 (def ^{:doc "Any is the top type that contains all possible values."
