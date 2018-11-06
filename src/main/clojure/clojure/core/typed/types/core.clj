@@ -473,6 +473,8 @@
        (t/All [r]
             [(t/Reducer out r) :-> (t/Reducer in r)])))
 
+;; Predicate support for common classes
+
 (t/rclass-preds
 ;  clojure.lang.Seqable 
 ;  {:pred (fn [this a?]
@@ -578,3 +580,5 @@
   {:args #{1}
    :pred (core/fn [this a?] 
            `(~a? (deref ~this)))})
+
+;; Var annotations
