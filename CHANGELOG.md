@@ -1,22 +1,30 @@
 # 0.6.0 - SNAPSHOT
 
-- Breaking: Removed deprecated/replaced macros to improve loading times
-  [x] clojure.core.typed/dotimes> (use t/dotimes)
-  [x] clojure.core.typed/for> (use t/for)
-  [x] clojure.core.typed/doseq> (use t/doseq)
-  [x] clojure.core.typed/pfn> (use t/fn)
-  [x] clojure.core.typed/fn> (use t/fn)
-  [x] clojure.core.typed/defn> (use t/defn)
-  [x] clojure.core.typed/def> (use t/defn)
-  [x] clojure.core.typed/defprotocol> (use t/defprotocol)
-  [x] clojure.core.typed/loop> (use t/loop)
-  [x] clojure.core.typed/atom> (use t/atom)
-  [x] clojure.core.typed/ref> (use t/ref)
-  [x] clojure.core.typed/def-alias (use t/defalias)
-  [x] clojure.core.typed/ann-precord (use t/ann-record)
-  [x] clojure.core.typed/ann-pprotocol (use t/ann-protocol)
-
+- Breaking: Removed deprecated/replaced macros (since 0.2.45) to improve future loading times
+  - clojure.core.typed/dotimes> (use t/dotimes)
+  - clojure.core.typed/for> (use t/for)
+  - clojure.core.typed/doseq> (use t/doseq)
+  - clojure.core.typed/pfn> (use t/fn)
+  - clojure.core.typed/fn> (use t/fn)
+  - clojure.core.typed/defn> (use t/defn)
+  - clojure.core.typed/def> (use t/defn)
+  - clojure.core.typed/defprotocol> (use t/defprotocol)
+  - clojure.core.typed/loop> (use t/loop)
+  - clojure.core.typed/atom> (use t/atom)
+  - clojure.core.typed/ref> (use t/ref)
+  - clojure.core.typed/def-alias (use t/defalias)
+  - clojure.core.typed/ann-precord (use t/ann-record)
+  - clojure.core.typed/ann-pprotocol (use t/ann-protocol)
+- Breaking: Lazily load core type aliases
+  - since var's like t/Int are lazily interned, they cannot reliably be `:refer`ed.
+    - support for `:refer`ing `deftype`s and special types altogether may be
+      removed in a future release for a leaner runtime
+  - First step in removing interned vars backing `defalias` (inspired by clojure.spec)
 - Removed tools.analyzer.env usage (`update-ns-map!` etc.)
+  - ~30% performance improvement in analysis
+- Various cleanups
+  - Removed old `:profiling` support for `check-ns` etc.
+  - remove project.clj, migrate to Clojure CLI
 
 # 0.5.4 - 13 September 2018
 

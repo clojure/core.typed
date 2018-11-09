@@ -33,8 +33,8 @@
             <namespace>!cljs.core.typed.async</namespace>
             <namespace>!clojure.core.typed.async</namespace>
           </namespaces>
-          <!-- put AOT files in jar -->
-          <temporaryOutputDirectory>false</temporaryOutputDirectory>
+          <!-- don't put AOT files in jar -->
+          <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>
             <sourceDirectory>src/main/cljs</sourceDirectory>
