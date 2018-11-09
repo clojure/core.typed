@@ -1,7 +1,7 @@
 {:paths ["src/main/clojure"
          "src/main/cljc"
          "src/main/java"]
- :deps {org.clojure/core.typed.rt {:local/root "../module-rt/"
+ :deps {org.clojure/core.typed.rt {:mvn/version "0.5.5"
                                    :deps/manifest :deps}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
