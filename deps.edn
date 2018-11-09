@@ -1,8 +1,14 @@
 {:paths ["src/main/clojure"]
  :deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
-        org.clojure/core.typed.rt {:local/root "../module-rt"}
-        org.clojure/core.typed.infer {:local/root "../module-infer"}
-        org.clojure/core.typed.analyzer.jvm {:local/root "../module-analyzer-jvm"}
+        org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
+                                            :sha "36023c890d0a99f36139fb489af0b5f4c9431c8d"
+                                            :deps/manifest :deps}
+        org.clojure/core.typed.annotator.jvm {:git/url "https://github.com/typedclojure/core.typed.annotator.jvm.git"
+                                              :sha "4fd41dcad8edfdae38e79ed271a8b0ae432c85f7"
+                                              :deps/manifest :deps}
+        org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/typedclojure/core.typed.analyzer.jvm.git"
+                                             :sha "6d2638339c543d47382b0af70fc40bc6c34a45cb"
+                                             :deps/manifest :deps}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/core.cache {:mvn/version "0.6.5"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
