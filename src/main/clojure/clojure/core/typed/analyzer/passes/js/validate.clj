@@ -7,10 +7,10 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;copied from tools.analyzer.js
-(ns clojure.core.typed.analyzer2.passes.js.validate
+(ns clojure.core.typed.analyzer.passes.js.validate
   (:require [clojure.tools.analyzer.ast :refer [prewalk]]
             [clojure.tools.analyzer.passes.cleanup :refer [cleanup]]
-            [clojure.core.typed.analyzer2.passes.js.infer-tag :refer [infer-tag]]
+            [clojure.core.typed.analyzer.passes.js.infer-tag :refer [infer-tag]]
             [clojure.tools.analyzer.utils :refer [source-info resolve-sym resolve-ns]]))
 
 (defmulti -validate :op)

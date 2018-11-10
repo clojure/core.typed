@@ -7,20 +7,20 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;; adapted from tools.analyzer.js
-(ns clojure.core.typed.analyzer2.js
+(ns clojure.core.typed.analyzer.js
   "Analyzer for clojurescript code, extends tools.analyzer with JS specific passes/forms"
   (:refer-clojure :exclude [macroexpand-1 var? ns-resolve])
-  (:require [clojure.core.typed.analyzer2 :as ana]
+  (:require [clojure.core.typed.analyzer :as ana]
             [clojure.tools.analyzer.utils :refer [ctx -source-info dissoc-env mmerge update-vals] :as u]
             [clojure.tools.analyzer.ast :refer [prewalk postwalk]]
             [clojure.tools.analyzer.env :as env]
-            [clojure.core.typed.analyzer2.passes :as passes]
+            [clojure.core.typed.analyzer.passes :as passes]
             [clojure.tools.analyzer.passes.source-info :refer [source-info]]
             [clojure.tools.analyzer.passes.elide-meta :refer [elide-meta elides]]
-            [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
-            [clojure.core.typed.analyzer2.passes.js.infer-tag :refer [infer-tag]]
-            [clojure.core.typed.analyzer2.passes.js.validate :refer [validate]]
-            [clojure.core.typed.analyzer2.js.utils
+            [clojure.core.typed.analyzer.passes.uniquify :as uniquify2]
+            [clojure.core.typed.analyzer.passes.js.infer-tag :refer [infer-tag]]
+            [clojure.core.typed.analyzer.passes.js.validate :refer [validate]]
+            [clojure.core.typed.analyzer.js.utils
              :refer [desugar-ns-specs validate-ns-specs ns-resource ns->relpath res-path]]
             [cljs.env :as cljs-env]
             [cljs.js-deps :as deps]
@@ -435,7 +435,7 @@
        :children [:items]})))
 
 (defn parse
-  "Extension to clojure.core.typed.analyzer2/-parse for JS special forms"
+  "Extension to clojure.core.typed.analyzer/-parse for JS special forms"
   [form env]
   (cond
     (instance? JSValue form) (parse-js-value form env)

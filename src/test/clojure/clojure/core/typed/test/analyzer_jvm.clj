@@ -1,10 +1,10 @@
-(ns clojure.core.typed.test.analyzer2-jvm
+(ns clojure.core.typed.test.analyzer-jvm
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer2.jvm :as ana]))
+            [clojure.core.typed.analyzer.jvm :as ana]))
 
 (defmacro ast' [form]
   `(ana/analyze '~form))

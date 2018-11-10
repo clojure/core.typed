@@ -8,11 +8,11 @@
 
 ; copied from tools.analyzer.jvm
 ; - replace calls to `maybe-class-literal`
-(ns clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr
+(ns clojure.core.typed.analyzer.passes.jvm.analyze-host-expr
   (:require [clojure.tools.analyzer :as ana]
             [clojure.tools.analyzer.utils :refer [ctx source-info merge']]
             [clojure.tools.analyzer.jvm.utils :as taj-utils]
-            [clojure.core.typed.analyzer2.jvm.utils :as jana2-utils]))
+            [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]))
 
 (defn maybe-static-field [[_ class sym]]
   (when-let [{:keys [flags type name]} (taj-utils/static-field class sym)]

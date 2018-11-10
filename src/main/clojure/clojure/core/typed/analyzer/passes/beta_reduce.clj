@@ -7,18 +7,18 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;; should be a JVM pass since it calls `run-passes`
-(ns clojure.core.typed.analyzer2.passes.beta-reduce
-  (:require [clojure.core.typed.analyzer2.passes.jvm.classify-invoke :as classify-invoke]
-            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as analyze-host-expr]
+(ns clojure.core.typed.analyzer.passes.beta-reduce
+  (:require [clojure.core.typed.analyzer.passes.jvm.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer2.jvm :as jana2]
+            [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.pprint :as pprint]
-            [clojure.core.typed.analyzer2 :as ana]
+            [clojure.core.typed.analyzer :as ana]
             [clojure.tools.analyzer.utils :as u]
-            [clojure.core.typed.analyzer2.passes.uniquify :as uniquify]))
+            [clojure.core.typed.analyzer.passes.uniquify :as uniquify]))
 
 (def beta-limit 500)
 

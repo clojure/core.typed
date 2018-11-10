@@ -6,10 +6,10 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.analyzer2.jvm.utils
+(ns clojure.core.typed.analyzer.jvm.utils
   (:require [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.utils :as u]
-            [clojure.core.typed.analyzer2 :as ana2]
+            [clojure.core.typed.analyzer :as ana2]
             [clojure.tools.analyzer.env :as env1]))
 
 ;; ensure `taj-utils/maybe-class-literal` does not use ta-env/*env*,

@@ -7,26 +7,26 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;; adapted from tools.analyzer.jvm
-(ns clojure.core.typed.analyzer2.jvm
+(ns clojure.core.typed.analyzer.jvm
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer.utils :as u]
             [clojure.tools.analyzer.jvm.utils :as ju]
-            [clojure.core.typed.analyzer2.jvm.utils :as jana2-utils]
-            [clojure.core.typed.analyzer2.env :as env]
+            [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]
+            [clojure.core.typed.analyzer.env :as env]
             [clojure.tools.analyzer :as ta]
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.core.typed.analyzer2.passes :as passes]
-            [clojure.core.typed.analyzer2.passes.jvm.infer-tag :as infer-tag]
+            [clojure.core.typed.analyzer.passes :as passes]
+            [clojure.core.typed.analyzer.passes.jvm.infer-tag :as infer-tag]
             [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
-            [clojure.core.typed.analyzer2.passes.jvm.analyze-host-expr :as analyze-host-expr]
-            [clojure.core.typed.analyzer2.passes.jvm.classify-invoke :as classify-invoke]
-            [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]
-            [clojure.core.typed.analyzer2.passes.jvm.validate :as validate]
-            [clojure.core.typed.analyzer2 :as ana]
+            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
+            [clojure.core.typed.analyzer.passes.jvm.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer.passes.uniquify :as uniquify2]
+            [clojure.core.typed.analyzer.passes.jvm.validate :as validate]
+            [clojure.core.typed.analyzer :as ana]
             [clojure.core.memoize :as memo])
   (:import (clojure.lang RT Var IObj)))
 
@@ -406,7 +406,7 @@
      :children    [:test :tests :thens :default]}))
 
 (defn parse
-  "Extension to clojure.core.typed.analyzer2/-parse for JVM special forms"
+  "Extension to clojure.core.typed.analyzer/-parse for JVM special forms"
   [form env]
   ((case (first form)
      monitor-enter        parse-monitor-enter

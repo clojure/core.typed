@@ -7,12 +7,12 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;copied from tools.analyzer.js
-(ns clojure.core.typed.analyzer2.passes.js.infer-tag
+(ns clojure.core.typed.analyzer.passes.js.infer-tag
   (:require [clojure.tools.analyzer.env :as env]
             [clojure.tools.analyzer.utils :refer [arglist-for-arity]]
-            [clojure.core.typed.analyzer2.passes.add-binding-atom :refer [add-binding-atom]]
-            [clojure.core.typed.analyzer2.passes.js.annotate-tag :refer [annotate-tag]]
-            [clojure.core.typed.analyzer2.passes.js.analyze-host-expr :refer [analyze-host-expr]]))
+            [clojure.core.typed.analyzer.passes.add-binding-atom :refer [add-binding-atom]]
+            [clojure.core.typed.analyzer.passes.js.annotate-tag :refer [annotate-tag]]
+            [clojure.core.typed.analyzer.passes.js.analyze-host-expr :refer [analyze-host-expr]]))
 
 (defmulti -infer-tag :op)
 (defmethod -infer-tag :default [ast] ast)

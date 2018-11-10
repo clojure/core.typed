@@ -6,19 +6,16 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.analyzer2.passes.add-binding-atom
-  (:require [clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
-            [clojure.core.typed.analyzer2.passes.uniquify :as uniquify2]))
+(ns clojure.core.typed.analyzer.passes.jvm.fix-case-test
+  (:require [clojure.core.typed.analyzer.passes.add-binding-atom :as add-binding-atom]
+            [clojure.tools.analyzer.passes.jvm.fix-case-test :as fix-case-test]))
 
 ;;redefine passes mainly to move dependency on `uniquify-locals`
 ;; to `uniquify2/uniquify-locals`
-(defn add-binding-atom
-  "Adds an atom-backed-map to every local binding, the same
-   atom will be shared between all occurences of that local.
-
-   The atom is put in the :atom field of the node."
-  {:pass-info {:walk :pre :depends #{#'uniquify2/uniquify-locals}
-               :state (fn [] (atom {}))}}
-  [state ast]
-  (add-binding-atom/add-binding-atom state ast))
-
+(defn fix-case-test
+  "If the node is a :case-test, annotates in the atom shared
+  by the binding and the local node with :case-test"
+  {:pass-info {:walk :pre :depends #{;;replace
+                                     #'add-binding-atom/add-binding-atom}}}
+  [& args]
+  (apply fix-case-test/fix-case-test args))
