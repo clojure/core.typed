@@ -51,7 +51,7 @@
                  '[clojure.core.typed.path-rep]
                  '[clojure.core.typed.object-rep]
                  '[clojure.core.typed.fold-rep]
-                 '[clojure.core.typed.fold-default]
+                 '[clojure.core.typed.checker.fold-default]
                  '[clojure.core.typed.parse-unparse]
                  '[clojure.core.typed.lex-env]
                  '[clojure.core.typed.var-env]

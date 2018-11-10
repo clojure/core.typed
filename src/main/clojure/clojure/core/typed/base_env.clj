@@ -22,7 +22,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.fold-default]
+            [clojure.core.typed.checker.fold-default]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.subst]
             [clojure.core.typed.current-impl :as impl]

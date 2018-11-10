@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.fold-default
+(ns clojure.core.typed.checker.fold-default
   (:require [clojure.core.typed.fold-rep :refer [add-default-fold-case]]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
