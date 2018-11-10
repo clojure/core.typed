@@ -1,8 +1,8 @@
 {:paths ["src/main/clojure"
          "src/main/cljc"
          "src/main/java"]
- :deps {org.clojure/core.typed.rt {:mvn/version "0.5.5"
-                                   :deps/manifest :deps}
+ :deps {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
+                                            :sha "6b7671722a33d67d6f21d23c38f47bfcf3f7192f"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
@@ -10,13 +10,15 @@
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.0"}
         ;; can't vendor this as it includes Java sources that need to be compiled.
         ;; perhaps we can make it optional in the future.
-        potemkin {:mvn/version "0.4.5"}
-        }
+        potemkin {:mvn/version "0.4.5"}}
  :aliases {; profile for testing
            :test
            {:extra-paths ["src/test/clojure"]
             :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
-                         com.gfredericks/test.chuck {:mvn/version "0.2.6"}}}
+                         com.gfredericks/test.chuck {:mvn/version "0.2.6"}
+                         org.clojure/core.typed.checker.jvm {:git/url "https://github.com/typedclojure/core.typed.checker.jvm.git"
+                                                             :sha "35bfaa0fc2e23924ab4cfc1bad29626c491f8682"}}
+            }
            ; actually run tests, assumes :test alias
            :runner
            {:extra-deps {com.cognitect/test-runner
