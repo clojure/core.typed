@@ -1,11 +1,8 @@
 (ns clojure.core.typed.test.csgen-intersection
   (:require [clojure.core.typed.test.test-utils :refer :all]
             [clojure.test :refer :all]
-            #_[clojure.tools.trace :refer [trace-vars]]
             [clojure.core.typed.cs-gen :as cgen]
             ))
-
-#_(trace-vars cgen/infer)
 
 (deftest csgen-intersect
   (is-tc-e (do 

@@ -44,9 +44,7 @@
             [clojure.core.typed.path-type :refer :all]
             [clojure.core.typed.load :as load]
             [clojure.core.typed.ns-deps-utils :as ndu]
-            [clojure.core.typed.parse-ast :as prs-ast]
-            [clojure.tools.trace :refer [trace-vars untrace-vars
-                                         trace-ns untrace-ns]])
+            [clojure.core.typed.parse-ast :as prs-ast])
 ; we want clojure.lang.Seqable to be scoped here. 
 ; The :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.

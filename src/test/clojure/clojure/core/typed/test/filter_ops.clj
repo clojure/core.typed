@@ -10,9 +10,6 @@
     [clojure.core.typed.subtype :refer [subtype-type-filter?]]
             [clojure.test :refer :all]))
 
-;(do (require 'clojure.tools.trace)
-;    (clojure.tools.trace/trace-vars clojure.core.typed.filter-ops/-and))
-
 (deftest and-filter
   (is (= (-and -top)
          -top))
