@@ -12,7 +12,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ns-deps-utils :as ns-utils]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.analyzer2.env :as env]
+            [clojure.core.typed.analyzer.env :as env]
             [clojure.core.typed.current-impl :as impl]
             [clojure.tools.reader.reader-types :as readers]
             [clojure.tools.reader :as reader]
@@ -21,7 +21,7 @@
             [clojure.core.typed.check-form-common :as chk-frm]
             [clojure.core.typed.lang :as lang]
             [clojure.tools.analyzer.jvm :as taj]
-            [clojure.core.typed.analyzer2.jvm :as ana2]
+            [clojure.core.typed.analyzer.jvm :as ana2]
             [clojure.core.typed.util-vars :as vs])
   (:import java.net.URL))
 

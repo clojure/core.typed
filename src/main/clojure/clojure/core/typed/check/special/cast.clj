@@ -18,7 +18,7 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.analyzer2 :as ana2]
+            [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.filter-rep :as fl]))
 
 (defn check-cast

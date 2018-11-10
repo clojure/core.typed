@@ -11,7 +11,7 @@
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.analyzer2 :as ana2]
+            [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.type-rep :as r]))
 
 (defn check-tc-ignore [check expr expected]

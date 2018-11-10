@@ -25,7 +25,7 @@
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.subst-obj :as subst-obj]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.analyzer2 :as ana2]
+            [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.contract-utils :as con]))
 
 (defn update-env [env sym {:keys [t fl flow o] :as r} is-reachable]

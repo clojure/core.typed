@@ -19,8 +19,8 @@
             [clojure.core.typed.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]
             [clojure.repl :as repl]
-            [clojure.core.typed.analyzer2 :as ana]
-            [clojure.core.typed.analyzer2.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer :as ana]
+            [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
 
