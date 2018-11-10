@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.free-in
+(ns ^:skip-wiki clojure.core.typed.checker.free-in
   (:require [clojure.core.typed.fold-rep :as fold]
             [clojure.core.typed.type-rep :as r]
             clojure.core.typed.object-rep

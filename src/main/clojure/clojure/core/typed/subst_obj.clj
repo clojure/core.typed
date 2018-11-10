@@ -11,7 +11,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.fold-rep :as fold]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.free-in :as free-in]
+            [clojure.core.typed.checker.free-in :as free-in]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.object-rep :as obj])
   (:import (clojure.core.typed.type_rep Function)))
