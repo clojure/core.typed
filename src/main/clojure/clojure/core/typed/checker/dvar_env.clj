@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.dvar-env
+(ns clojure.core.typed.checker.dvar-env
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as t])

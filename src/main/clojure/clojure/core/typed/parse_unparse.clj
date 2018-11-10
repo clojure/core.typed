@@ -17,7 +17,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.dvar-env :as dvar]
+            [clojure.core.typed.checker.dvar-env :as dvar]
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.constant-type :as const]

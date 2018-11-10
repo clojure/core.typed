@@ -20,7 +20,7 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.check.fn-method-one :as fn-method1]
-            [clojure.core.typed.dvar-env :as dvar-env]))
+            [clojure.core.typed.checker.dvar-env :as dvar-env]))
 
 (def function-type? (some-fn (every-pred r/Poly?
                                          (comp r/FnIntersection? r/Poly-body-unsafe*))

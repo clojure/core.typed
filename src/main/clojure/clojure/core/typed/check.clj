@@ -74,7 +74,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.datatype-env :as dt-env]
-            [clojure.core.typed.dvar-env :as dvar-env]
+            [clojure.core.typed.checker.dvar-env :as dvar-env]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.filter-protocols :as fprotocol]

@@ -58,7 +58,7 @@
                  '[clojure.core.typed.parse-unparse]
                  '[clojure.core.typed.current-impl]
                  '[clojure.core.typed.env]
-                 '[clojure.core.typed.dvar-env]
+                 '[clojure.core.typed.checker.dvar-env]
                  '[clojure.core.typed.datatype-ancestor-env]
                  '[clojure.core.typed.datatype-env]
                  '[clojure.core.typed.protocol-env]
