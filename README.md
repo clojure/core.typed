@@ -4,6 +4,10 @@
 
 Runtime dependency needed to annotate Typed Clojure code in JVM Clojure.
 
+## Continuous Integration
+
+[![CircleCI](https://circleci.com/gh/typedclojure/core.typed.runtime.jvm.svg?style=svg)](https://circleci.com/gh/typedclojure/core.typed.runtime.jvm)
+
 ## YourKit
 
 YourKit is kindly supporting core.typed and other open source projects with its full-featured Java Profiler.
