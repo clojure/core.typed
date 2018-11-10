@@ -11,7 +11,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed.fold-rep :as fold]
+            [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or])
   (:import (clojure.core.typed.type_rep HSequential Function AssocType)))

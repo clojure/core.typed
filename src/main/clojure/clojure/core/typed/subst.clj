@@ -10,7 +10,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.fold-rep :as f]
+            [clojure.core.typed.checker.fold-rep :as f]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.filter-rep :as fl]

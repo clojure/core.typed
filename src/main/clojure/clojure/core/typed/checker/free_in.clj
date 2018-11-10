@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.checker.free-in
-  (:require [clojure.core.typed.fold-rep :as fold]
+  (:require [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.type-rep :as r]
             clojure.core.typed.object-rep
             clojure.core.typed.filter-rep)

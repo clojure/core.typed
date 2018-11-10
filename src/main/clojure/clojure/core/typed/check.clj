@@ -79,7 +79,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.filter-protocols :as fprotocol]
             [clojure.core.typed.filter-rep :as fl]
-            [clojure.core.typed.fold-rep :as fold]
+            [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.inst :as inst]

@@ -21,7 +21,7 @@
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.fold-rep :as f]
+            [clojure.core.typed.checker.fold-rep :as f]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]

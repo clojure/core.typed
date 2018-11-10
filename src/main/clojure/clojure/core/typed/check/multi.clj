@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.multi
-  (:require [clojure.core.typed.fold-rep :as fold]
+  (:require [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.type-rep :as r])
   (:import (clojure.core.typed.type_rep Function)))
 
