@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.remove
-  (:require [clojure.core.typed.type-ctors :as c]
+  (:require [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.type-rep :as r]))
 

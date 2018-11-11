@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.check.if
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.checker.filter-rep :as fl]

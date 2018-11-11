@@ -9,7 +9,7 @@
 (ns clojure.core.typed.trans
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.filter-ops :as fo]

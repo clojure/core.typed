@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.type-hints
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.reflect-utils :as reflect-u]))

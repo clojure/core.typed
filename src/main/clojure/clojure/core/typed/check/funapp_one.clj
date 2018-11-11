@@ -11,7 +11,7 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]
             [clojure.set :as set]))

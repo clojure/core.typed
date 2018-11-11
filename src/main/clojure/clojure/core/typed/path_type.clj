@@ -11,7 +11,7 @@
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.path-rep :as pr]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed :as t]

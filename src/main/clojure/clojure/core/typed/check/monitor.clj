@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.filter-ops :as fo]

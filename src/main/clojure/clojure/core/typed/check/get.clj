@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.get
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.check.invoke-kw :as invoke-kw]
             [clojure.core.typed.check.utils :as cu]))

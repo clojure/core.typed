@@ -11,7 +11,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]

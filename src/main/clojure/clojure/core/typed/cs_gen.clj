@@ -12,7 +12,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or]

@@ -15,7 +15,7 @@
             [clojure.string :as str]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.subst :as subst])
   (:import (clojure.lang Seqable)))

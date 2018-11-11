@@ -12,7 +12,7 @@
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.set :as set])
   (:import [clojure.core.typed.checker.type_rep RClass]))
 

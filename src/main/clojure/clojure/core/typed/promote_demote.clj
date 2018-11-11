@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.promote-demote
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed :as t]
             [clojure.core.typed.hset-utils :as hset]

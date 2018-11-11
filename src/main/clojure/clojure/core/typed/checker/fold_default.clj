@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.fold-default
   (:require [clojure.core.typed.checker.fold-rep :refer [add-default-fold-case]]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep]
             [clojure.core.typed.filter-ops :as fops]
             [clojure.core.typed.object-rep]

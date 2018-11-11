@@ -9,7 +9,7 @@
 ; support for assoc/merge/conj
 (ns clojure.core.typed.assoc-utils
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.utils :as u]

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.collect-utils
-  (:require [clojure.core.typed.type-ctors :as c]
+  (:require [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]))
 
 (defn protocol-method-var-ann [mt names bnds]

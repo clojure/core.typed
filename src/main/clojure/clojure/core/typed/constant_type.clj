@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.constant-type
   (:require [clojure.core.typed.checker.type-rep :as r :refer [ret]]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.hset-utils :as hset]

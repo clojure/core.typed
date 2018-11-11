@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.parse-unparse
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
@@ -195,7 +195,7 @@
       (err/int-error (str "Recursive type not allowed here")))))
 
 (defn- Mu*-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'Mu*)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.checker.type-ctors) 'Mu*)]
     (assert (var? v) "Mu* unbound")
     v))
 
@@ -274,7 +274,7 @@
 (defmethod parse-type-list 'cljs.core.typed/ExactCount [t] (parse-ExactCount t))
 
 (defn- RClass-of-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'RClass-of)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.checker.type-ctors) 'RClass-of)]
     (assert (var? v) "RClass-of unbound")
     v))
 

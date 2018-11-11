@@ -13,7 +13,7 @@
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-ctors :as c]))
+            [clojure.core.typed.checker.type-ctors :as c]))
 
 ;Arguments passed to recur must match recur target exactly. Rest parameter
 ;equals 1 extra argument, either a Seqable or nil.

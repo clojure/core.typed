@@ -14,7 +14,7 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.free-ops :as free-ops]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.declared-kind-env :as decl-env]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl]

@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.seq-ops
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed :as t]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.subtype :as sub]

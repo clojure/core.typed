@@ -44,7 +44,7 @@
         #_
         (require '[clojure.core.typed.utils]
                  '[clojure.core.typed.checker.type-rep]
-                 '[clojure.core.typed.type-ctors]
+                 '[clojure.core.typed.checker.type-ctors]
                  '[clojure.core.typed.checker.filter-rep]
                  '[clojure.core.typed.filter-ops]
                  '[clojure.core.typed.subst]

@@ -14,7 +14,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check-below :as below]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.check.utils :as cu]))
 

@@ -22,7 +22,7 @@
             [clojure.core.typed.collect-utils :as collect-u]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.type-ctors :refer :all]
+            [clojure.core.typed.checker.type-ctors :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.checker.filter-rep :refer :all]
             [clojure.core.typed.filter-ops :refer :all]

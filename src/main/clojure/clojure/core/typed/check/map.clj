@@ -14,7 +14,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.type-ctors :as c])
+            [clojure.core.typed.checker.type-ctors :as c])
   (:import (clojure.lang APersistentMap)))
 
 ;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])

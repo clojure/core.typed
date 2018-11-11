@@ -15,7 +15,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.checker.dvar-env :as dvar]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.type-rep :as r]

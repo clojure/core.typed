@@ -13,7 +13,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ast-utils :as ast-u]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.string :as str]))
 

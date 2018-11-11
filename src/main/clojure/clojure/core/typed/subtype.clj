@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.subtype
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]

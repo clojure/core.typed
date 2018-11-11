@@ -18,7 +18,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.cs-rep :as crep]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.lex-env :as lex]

@@ -3,7 +3,7 @@
             [clojure.test :refer :all]
             [clojure.core.typed.filter-ops :refer :all]
             [clojure.core.typed.path-rep :refer :all]
-            [clojure.core.typed.type-ctors :refer :all]))
+            [clojure.core.typed.checker.type-ctors :refer :all]))
 
 (deftest refine-branch-test
   (is-tc-e (do

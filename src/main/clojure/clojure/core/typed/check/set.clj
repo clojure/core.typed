@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.set
-  (:require [clojure.core.typed.type-ctors :as c]
+  (:require [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.check-below :as below]

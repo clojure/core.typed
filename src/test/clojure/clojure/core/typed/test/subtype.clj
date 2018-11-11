@@ -2,7 +2,7 @@
   (:require [clojure.core.typed :as tc :refer []]
             [clojure.core.typed :as t]
             [clojure.core.typed.test.test-utils :refer :all]
-            [clojure.core.typed.type-ctors :refer :all]
+            [clojure.core.typed.checker.type-ctors :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.parse-unparse :refer [parse-type]]
             [clojure.test :refer :all])

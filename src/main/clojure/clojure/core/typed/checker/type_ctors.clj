@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.type-ctors
+(ns ^:skip-wiki clojure.core.typed.checker.type-ctors
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.utils :as u]

@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]
@@ -19,7 +19,7 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.checker.type_rep DataType)))
 
-(t/typed-deps clojure.core.typed.type-ctors
+(t/typed-deps clojure.core.typed.checker.type-ctors
               clojure.core.typed.subst)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

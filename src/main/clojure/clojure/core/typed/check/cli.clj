@@ -15,7 +15,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.constant-type :as const]
-            [clojure.core.typed.type-ctors :as c]))
+            [clojure.core.typed.checker.type-ctors :as c]))
 
 (defn parse-fn-return-type [parse-fn-type]
   (let [subst-in (free-ops/with-free-symbols 

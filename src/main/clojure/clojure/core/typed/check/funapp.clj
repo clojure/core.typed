@@ -12,7 +12,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.errors :as err]
