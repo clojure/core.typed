@@ -11,7 +11,7 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.trans :as trans]

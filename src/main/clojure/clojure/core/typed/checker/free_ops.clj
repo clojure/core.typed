@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki
   ^{:core.typed {:collect-only true}}
-  clojure.core.typed.free-ops
+  clojure.core.typed.checker.free-ops
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t]

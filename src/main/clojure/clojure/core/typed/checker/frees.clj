@@ -18,7 +18,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.filter-rep :as fr]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.declared-kind-env :as kinds])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds

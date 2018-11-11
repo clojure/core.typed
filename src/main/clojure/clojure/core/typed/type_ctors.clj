@@ -25,7 +25,7 @@
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.core.typed.indirect-ops :as ind]
             clojure.core.typed.indirect-ann

@@ -24,7 +24,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.dvar-env :as denv]
             [clojure.core.typed.checker.frees :as frees]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.indirect-ops :as ind]
@@ -34,7 +34,7 @@
   (:import (clojure.core.typed.type_rep F DataType Function Protocol Bounds FlowSet TCResult HSequential)
            (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)))
 
-(t/typed-deps clojure.core.typed.free-ops
+(t/typed-deps clojure.core.typed.checker.free-ops
               clojure.core.typed.promote-demote)
 
 (t/ann ^:no-check clojure.core.typed.subtype/subtype? [r/AnyType r/AnyType -> Boolean])

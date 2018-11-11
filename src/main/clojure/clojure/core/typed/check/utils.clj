@@ -15,7 +15,7 @@
             [clojure.core.typed.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.datatype-env :as dt-env]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]

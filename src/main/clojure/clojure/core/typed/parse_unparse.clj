@@ -21,7 +21,7 @@
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.constant-type :as const]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.current-impl :as impl]

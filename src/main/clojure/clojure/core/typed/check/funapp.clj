@@ -20,7 +20,7 @@
             [clojure.core.typed.check.funapp-one :as funapp1]
             [clojure.core.typed.check.app-error :as app-err]
             [clojure.core.typed.cs-gen :as cgen]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]

@@ -12,7 +12,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.string :as str]
             [clojure.core.typed.cs-gen :as cgen]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.constant-type :as const]
             [clojure.core.typed.type-ctors :as c]))

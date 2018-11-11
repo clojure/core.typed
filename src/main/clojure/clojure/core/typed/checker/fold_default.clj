@@ -13,7 +13,7 @@
             [clojure.core.typed.filter-rep]
             [clojure.core.typed.filter-ops :as fops]
             [clojure.core.typed.object-rep]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed.path-rep])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds

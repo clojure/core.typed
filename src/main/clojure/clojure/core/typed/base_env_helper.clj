@@ -13,7 +13,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.declared-kind-env :as decl-env]
             [clojure.core.typed.rclass-env :as rcls]

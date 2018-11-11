@@ -12,7 +12,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.filter-rep :as fl]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.checker.dvar-env :as dvar]
             [clojure.core.typed.type-ctors :as c]

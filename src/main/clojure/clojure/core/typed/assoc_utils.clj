@@ -13,7 +13,7 @@
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.set :as set]

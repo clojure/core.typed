@@ -18,7 +18,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.lex-env :as lex]
-            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.check.fn-method-one :as fn-method1]
             [clojure.core.typed.checker.dvar-env :as dvar-env]))
 
