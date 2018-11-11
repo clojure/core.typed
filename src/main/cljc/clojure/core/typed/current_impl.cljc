@@ -392,7 +392,7 @@
 #?(:clj
 (def ^:private with-parse-ns* (delay (dynaload 'clojure.core.typed.parse-unparse/with-parse-ns*))))
 #?(:clj
-(def ^:private with-bounded-frees* (delay (dynaload 'clojure.core.typed.free-ops/with-bounded-frees*))))
+(def ^:private with-bounded-frees* (delay (dynaload 'clojure.core.typed.checker.free-ops/with-bounded-frees*))))
 #?(:clj
 (def ^:private unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))))
 #?(:clj
@@ -537,7 +537,7 @@
 #?(:clj
 (def ^:private abstract-many (delay (dynaload 'clojure.core.typed.type-ctors/abstract-many))))
 #?(:clj
-(def ^:private with-frees* (delay (dynaload 'clojure.core.typed.free-ops/with-frees*))))
+(def ^:private with-frees* (delay (dynaload 'clojure.core.typed.checker.free-ops/with-frees*))))
 #?(:clj
 (def ^:private -val (delay (dynaload 'clojure.core.typed.type-rep/-val))))
 #?(:clj
