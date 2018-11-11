@@ -1222,7 +1222,7 @@
 
 ;TODO this should be a special :do op
 ;manual instantiation for calls to polymorphic constructors
-(defmethod -invoke-special 'clojure.core.typed.checker.inst-poly-ctor
+(defmethod -invoke-special 'clojure.core.typed.inst-poly-ctor
   [expr & [expected]]
   (let [{[ctor-expr targs-exprs] :args :as expr} (-> expr
                                                      (update-in [:args 1] ana2/run-passes))
