@@ -1156,7 +1156,7 @@ Transducer
 ;(ann into-array>* [Any Any -> Any])
 (core/let
      [parse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-type))
-      Type->array-member-Class (delay (dynaload 'clojure.core.typed.array-ops/Type->array-member-Class))]
+      Type->array-member-Class (delay (dynaload 'clojure.core.typed.checker.jvm.array-ops/Type->array-member-Class))]
   (core/defn ^:skip-wiki
     into-array>*
     "Internal use only. Use into-array>."
