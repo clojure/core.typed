@@ -854,7 +854,7 @@
 
 (t/tc-ignore
 (defn- infer-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'infer)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.checker.cs-gen) 'infer)]
     (assert (var? v) "infer unbound")
     v))
   )

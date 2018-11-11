@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.checker.indirect-ops :as ind]
-            [clojure.core.typed.cs-gen :as cgen]
+            [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.utils :as cu]))
 

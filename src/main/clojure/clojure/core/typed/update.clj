@@ -16,7 +16,7 @@
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.checker.free-ops :as free-ops]
-            [clojure.core.typed.cs-gen :as cgen]
+            [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.checker.cs-rep :as crep]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]

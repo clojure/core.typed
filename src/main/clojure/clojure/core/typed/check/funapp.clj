@@ -19,7 +19,7 @@
             [clojure.core.typed.check.invoke-kw :as invoke-kw]
             [clojure.core.typed.check.funapp-one :as funapp1]
             [clojure.core.typed.check.app-error :as app-err]
-            [clojure.core.typed.cs-gen :as cgen]
+            [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.indirect-utils :as ind-u]

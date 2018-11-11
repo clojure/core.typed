@@ -3,7 +3,7 @@
             [clojure.core.typed.test.test-utils :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.checker.type-ctors :refer :all]
-            [clojure.core.typed.cs-gen :refer :all]
+            [clojure.core.typed.checker.cs-gen :refer :all]
             [clojure.core.typed.checker.cs-rep :refer :all]
             [clojure.core.typed.subst :refer [subst-all]]
             [clojure.test :refer :all]))

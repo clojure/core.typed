@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.cs-gen
+(ns ^:skip-wiki clojure.core.typed.checker.cs-gen
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]

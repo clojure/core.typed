@@ -74,7 +74,7 @@
                  '[clojure.core.typed.parse-unparse]
                  '[clojure.core.typed.checker.frees]
                  '[clojure.core.typed.checker.free-ops]
-                 '[clojure.core.typed.cs-gen]
+                 '[clojure.core.typed.checker.cs-gen]
                  '[clojure.core.typed.trans]
                  '[clojure.core.typed.checker.inst]
                  '[clojure.core.typed.subtype]

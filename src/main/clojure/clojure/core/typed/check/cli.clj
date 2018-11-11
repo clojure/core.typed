@@ -11,7 +11,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.string :as str]
-            [clojure.core.typed.cs-gen :as cgen]
+            [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.constant-type :as const]

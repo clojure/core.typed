@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.reset-caches
   (:require [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.cs-gen :as cgen]))
+            [clojure.core.typed.checker.cs-gen :as cgen]))
 
 (defn reset-caches 
   "Reset internal type caches."
