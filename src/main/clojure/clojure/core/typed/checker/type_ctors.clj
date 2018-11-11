@@ -18,7 +18,7 @@
             [clojure.core.typed.checker.type-rep :as r :refer [ret-t]]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.checker.path-rep :as path]
-            [clojure.core.typed.rclass-env :as rcls]
+            [clojure.core.typed.checker.jvm.rclass-env :as rcls]
             [clojure.core.typed.checker.cs-rep :as crep]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.fold-rep :as f]
