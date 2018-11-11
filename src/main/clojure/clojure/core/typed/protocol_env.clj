@@ -12,7 +12,7 @@
             [clojure.core.typed.contract-ann]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.errors-ann]
+            [clojure.core.typed.checker.errors.ann]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.env :as env]))
 
