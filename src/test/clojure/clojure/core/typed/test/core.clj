@@ -19,7 +19,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.update :as update :refer [env+ update]]
             [clojure.core.typed.tc-equiv :refer [tc-equiv]]
-            [clojure.core.typed.collect-utils :as collect-u]
+            [clojure.core.typed.checker.collect-utils :as collect-u]
             [clojure.core.typed.checker.inst :as inst]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :refer :all]
