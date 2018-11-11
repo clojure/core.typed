@@ -20,7 +20,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.name-env]
             [clojure.core.typed.var-env]
-            [clojure.core.typed.ns-deps]
+            [clojure.core.typed.checker.jvm.ns-deps]
             [clojure.pprint :as pprint]))
 
 (defn qualify-in-cct [as]

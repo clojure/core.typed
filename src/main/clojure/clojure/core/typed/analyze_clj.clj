@@ -45,7 +45,7 @@
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.expand :as expand]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.ns-deps :as dep]
+            [clojure.core.typed.checker.jvm.ns-deps :as dep]
             [clojure.core.typed.checker.ns-deps-utils :as dep-u])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 

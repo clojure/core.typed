@@ -11,7 +11,7 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.analyze-clj :as ana]
-            [clojure.core.typed.ns-deps :as ns-deps]
+            [clojure.core.typed.checker.jvm.ns-deps :as ns-deps]
             [clojure.core.typed.checker.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
