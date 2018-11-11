@@ -2253,7 +2253,7 @@ Transducer
                                     @Compiler/COLUMN))))))
            ~x)))))
 
-(core/let [infuv (delay (dynaload 'clojure.core.typed.infer-vars/infer-unannotated-vars))]
+(core/let [infuv (delay (dynaload 'clojure.core.typed.checker.experimental.infer-vars/infer-unannotated-vars))]
   (core/defn infer-unannotated-vars
     "EXPERIMENTAL
 
