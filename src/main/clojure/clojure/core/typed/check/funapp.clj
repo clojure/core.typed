@@ -30,7 +30,7 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.frees :as frees]
-            [clojure.core.typed.infer-vars :as infer-vars]
+            [clojure.core.typed.checker.experimental.infer-vars :as infer-vars]
             [clojure.core.typed.checker.hset-utils :as hset]))
 
 (def ^:private nth-type (delay (impl/dynaload 'clojure.core.typed.check.nth/nth-type)))

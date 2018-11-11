@@ -18,7 +18,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.infer-vars :as infer-vars]))
+            [clojure.core.typed.checker.experimental.infer-vars :as infer-vars]))
 
 ;; returns true when f1 <: f2
 (defn simple-filter-better? [f1 f2]
