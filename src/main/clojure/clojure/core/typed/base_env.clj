@@ -20,7 +20,7 @@
              :as common]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.checker.fold-default]
             [clojure.core.typed.checker.name-env :as nme-env]

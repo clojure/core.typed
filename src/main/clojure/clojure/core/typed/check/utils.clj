@@ -23,7 +23,7 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.protocol-env :as pcl-env]
             [clojure.core.typed.method-param-nilables :as mtd-param-nil]

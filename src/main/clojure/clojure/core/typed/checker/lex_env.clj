@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.checker.lex-env
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.path-rep :as pr]
+            [clojure.core.typed.checker.path-rep :as pr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]

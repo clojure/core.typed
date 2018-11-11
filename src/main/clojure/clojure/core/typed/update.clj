@@ -9,7 +9,7 @@
 (ns clojure.core.typed.update
   (:refer-clojure :exclude [update])
   (:require [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.utils :as cu]
@@ -20,7 +20,7 @@
             [clojure.core.typed.checker.cs-rep :as crep]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.path-rep :as pr]
+            [clojure.core.typed.checker.path-rep :as pr]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.remove :as remove]

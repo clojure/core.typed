@@ -8,9 +8,9 @@
 
 (ns ^:skip-wiki clojure.core.typed.path-type
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.path-rep :as pr]
+            [clojure.core.typed.checker.path-rep :as pr]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.subtype :as sub]

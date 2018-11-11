@@ -16,7 +16,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.path-rep :as path]
+            [clojure.core.typed.checker.path-rep :as path]
             [clojure.core.typed.tc-equiv :as equiv])
   (:import (clojure.core.typed.checker.type_rep TCResult)))
 

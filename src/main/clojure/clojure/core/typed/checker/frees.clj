@@ -31,7 +31,7 @@
            (clojure.core.typed.checker.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
-           (clojure.core.typed.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE KeywordPE)))
+           (clojure.core.typed.checker.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE KeywordPE)))
 
 ;TODO make this an argument
 (t/ann *frees-mode* (t/U nil t/Kw))

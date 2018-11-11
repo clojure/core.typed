@@ -17,7 +17,7 @@
             [clojure.core.typed.checker.impl-protocols :as p]
             [clojure.core.typed.checker.type-rep :as r :refer [ret-t]]
             [clojure.core.typed.object-rep :as or]
-            [clojure.core.typed.path-rep :as path]
+            [clojure.core.typed.checker.path-rep :as path]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.checker.cs-rep :as crep]
             [clojure.core.typed.util-vars :as vs]

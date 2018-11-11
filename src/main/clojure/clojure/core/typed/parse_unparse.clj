@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.name-env :as nme-env]
             [clojure.core.typed.object-rep :as orep]
-            [clojure.core.typed.path-rep :as pthrep]
+            [clojure.core.typed.checker.path-rep :as pthrep]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
@@ -40,7 +40,7 @@
            (clojure.core.typed.checker.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter NoFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE KeywordPE)
+           (clojure.core.typed.checker.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE KeywordPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 (defonce ^:dynamic *parse-type-in-ns* nil)
@@ -77,11 +77,11 @@
     (prefer-method print-method clojure.core.typed.checker.impl_protocols.IRObject java.util.Map)
     (prefer-method print-method clojure.core.typed.checker.impl_protocols.IRObject clojure.lang.IPersistentMap)
 
-    (defmethod print-method clojure.core.typed.path_rep.IPathElem [s writer]
+    (defmethod print-method clojure.core.typed.checker.path_rep.IPathElem [s writer]
       (print-method (unparse-path-elem s) writer))
-    (prefer-method print-method clojure.core.typed.path_rep.IPathElem clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.path_rep.IPathElem java.util.Map)
-    (prefer-method print-method clojure.core.typed.path_rep.IPathElem clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.checker.path_rep.IPathElem clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.checker.path_rep.IPathElem java.util.Map)
+    (prefer-method print-method clojure.core.typed.checker.path_rep.IPathElem clojure.lang.IPersistentMap)
     )
 
 (defmacro with-parse-ns [sym & body]

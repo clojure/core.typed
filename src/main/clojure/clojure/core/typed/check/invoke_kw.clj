@@ -12,7 +12,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.filter-rep :as fl]

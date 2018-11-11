@@ -27,7 +27,7 @@
             [clojure.core.typed.checker.filter-rep :refer :all]
             [clojure.core.typed.checker.filter-ops :refer :all]
             [clojure.core.typed.object-rep :refer :all]
-            [clojure.core.typed.path-rep :refer :all]
+            [clojure.core.typed.checker.path-rep :refer :all]
             [clojure.core.typed.parse-unparse :refer :all]
             [clojure.core.typed.constant-type :refer [constant-type]]
             [clojure.core.typed.checker.lex-env :refer :all]

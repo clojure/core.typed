@@ -90,7 +90,7 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]
             [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.protocol-env :as ptl-env]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.reflect-utils :as reflect-u]

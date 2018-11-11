@@ -15,7 +15,7 @@
             [clojure.core.typed.object-rep]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.assoc-utils :as assoc-u]
-            [clojure.core.typed.path-rep])
+            [clojure.core.typed.checker.path-rep])
   (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -28,7 +28,7 @@
            (clojure.core.typed.checker.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE KeysPE ValsPE ClassPE NthPE CountPE KeywordPE)))
+           (clojure.core.typed.checker.path_rep KeyPE KeysPE ValsPE ClassPE NthPE CountPE KeywordPE)))
 
 (add-default-fold-case NotType
                        (fn [ty _]

@@ -48,7 +48,7 @@
                  '[clojure.core.typed.checker.filter-rep]
                  '[clojure.core.typed.checker.filter-ops]
                  '[clojure.core.typed.subst]
-                 '[clojure.core.typed.path-rep]
+                 '[clojure.core.typed.checker.path-rep]
                  '[clojure.core.typed.object-rep]
                  '[clojure.core.typed.checker.fold-rep]
                  '[clojure.core.typed.checker.fold-default]

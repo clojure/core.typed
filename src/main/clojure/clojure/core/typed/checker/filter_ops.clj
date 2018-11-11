@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.filter-rep :as fr]
-            [clojure.core.typed.path-rep :as pr]
+            [clojure.core.typed.checker.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed.checker.indirect-ops :as ind]
