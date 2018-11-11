@@ -10,7 +10,6 @@
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.check-below :as below]
-            [clojure.core.typed.filter-protocols :as fprotocol]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.filter-rep :as fl]
@@ -31,7 +30,7 @@
          (r/TCResult? parent-ret)
          ((some-fn r/TCResult? nil?) parent-ret)]
    :post [(r/TCResult? %)]}
-  (t/letfn> [fs :- [TCResult TCResult -> '{:then fprotocol/IFilter :else fprotocol/IFilter}]
+  (letfn [;fs :- [TCResult TCResult -> '{:then IFilter :else IFilter}]
              (fs [child1 parent1]
                  {:pre [(r/TCResult? child1)
                         (r/TCResult? parent1)]
