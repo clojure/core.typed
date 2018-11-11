@@ -63,7 +63,7 @@
                  '[clojure.core.typed.datatype-env]
                  '[clojure.core.typed.protocol-env]
                  '[clojure.core.typed.method-override-env]
-                 '[clojure.core.typed.ctor-override-env]
+                 '[clojure.core.typed.checker.jvm.ctor-override-env]
                  '[clojure.core.typed.method-return-nilables]
                  '[clojure.core.typed.method-param-nilables]
                  '[clojure.core.typed.declared-kind-env]
