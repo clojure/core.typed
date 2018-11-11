@@ -388,15 +388,15 @@
 #?(:clj
 (def ^:private int-error (delay (dynaload 'clojure.core.typed.errors/int-error))))
 #?(:clj
-(def ^:private parse-free-binder-with-variance (delay (dynaload 'clojure.core.typed.parse-unparse/parse-free-binder-with-variance))))
+(def ^:private parse-free-binder-with-variance (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-free-binder-with-variance))))
 #?(:clj
-(def ^:private with-parse-ns* (delay (dynaload 'clojure.core.typed.parse-unparse/with-parse-ns*))))
+(def ^:private with-parse-ns* (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/with-parse-ns*))))
 #?(:clj
 (def ^:private with-bounded-frees* (delay (dynaload 'clojure.core.typed.checker.free-ops/with-bounded-frees*))))
 #?(:clj
-(def ^:private unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))))
+(def ^:private unparse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type))))
 #?(:clj
-(def ^:private parse-type (delay (dynaload 'clojure.core.typed.parse-unparse/parse-type))))
+(def ^:private parse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-type))))
 #?(:clj
 (def ^:private fully-resolve-type (delay (dynaload 'clojure.core.typed.checker.type-ctors/fully-resolve-type))))
 #?(:clj

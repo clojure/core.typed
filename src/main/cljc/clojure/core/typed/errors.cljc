@@ -92,11 +92,11 @@
   (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
   (isa? (:type-error exdata) tc-error-parent))
 
-(let [parse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/parse-type))]
+(let [parse-type (delay (impl/dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-type))]
   (defn msg-fn-opts []
     {:parse-type @parse-type}))
 
-(let [unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type))
+(let [unparse-type (delay (impl/dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type))
       -error (delay (impl/dynaload 'clojure.core.typed.checker.type-rep/-error))]
   (defn tc-delayed-error [msg & {:keys [return form expected] :as opt}]
     (let [form (cond

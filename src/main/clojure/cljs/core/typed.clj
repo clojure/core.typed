@@ -38,9 +38,9 @@
 ; many of these macros resolve to CLJS functions in 
 ; the CLJS ns cljs.core.typed
 
-(def ^:private parse-cljs (delay (impl/dynaload 'clojure.core.typed.parse-unparse/parse-cljs)))
+(def ^:private parse-cljs (delay (impl/dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-cljs)))
 (def ^:private cljs-ns (delay (impl/dynaload 'clojure.core.typed.util-cljs/cljs-ns)))
-(def ^:private with-parse-ns* (delay (impl/dynaload 'clojure.core.typed.parse-unparse/with-parse-ns*)))
+(def ^:private with-parse-ns* (delay (impl/dynaload 'clojure.core.typed.checker.jvm.parse-unparse/with-parse-ns*)))
 
 (defmacro ^:private delay-tc-parse
   [t]

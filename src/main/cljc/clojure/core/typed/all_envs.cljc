@@ -11,7 +11,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.load-if-needed :refer [load-if-needed]]))
 
-(def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type)))
+(def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type)))
 
 (let [nme-env (delay (impl/dynaload 'clojure.core.typed.checker.name-env/name-env))]
   (defn name-env []

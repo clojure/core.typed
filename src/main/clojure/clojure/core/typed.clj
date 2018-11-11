@@ -82,7 +82,7 @@ for checking namespaces, cf for checking individual forms."}
 ;(ann method-type [Symbol -> nil])
 (core/let [type-reflect (delay (dynaload 'clojure.reflect/type-reflect))
            Method->Type (delay (dynaload 'clojure.core.typed.check/Method->Type))
-           unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))]
+           unparse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type))]
   (core/defn method-type
     "Given a method symbol, print the core.typed types assigned to it.
     Intended for use at the REPL."
@@ -519,8 +519,8 @@ for checking namespaces, cf for checking individual forms."}
        ~@body)))
 
 (def ^:private parse-clj-rt (delay (dynaload 'clojure.core.typed.parse-ast/parse-clj)))
-(def ^:private parse-clj-tc (delay (dynaload 'clojure.core.typed.parse-unparse/parse-clj)))
-(def ^:private with-parse-ns* (delay (dynaload 'clojure.core.typed.parse-unparse/with-parse-ns*)))
+(def ^:private parse-clj-tc (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-clj)))
+(def ^:private with-parse-ns* (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/with-parse-ns*)))
 
 (defmacro ^:private delay-rt-parse
   "We can type check c.c.t/parse-ast if we replace all instances
@@ -554,7 +554,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (core/let [subtype? (delay (dynaload 'clojure.core.typed.subtype/subtype?))
            declared-kind-or-nil (delay (dynaload 'clojure.core.typed.checker.declared-kind-env/declared-kind-or-nil))
-           unparse-type (delay (dynaload 'clojure.core.typed.parse-unparse/unparse-type))
+           unparse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type))
            int-error (delay (dynaload 'clojure.core.typed.errors/int-error))
            add-tc-type-name* (delay (dynaload 'clojure.core.typed.current-impl/add-tc-type-name))]
   (core/defn ^:skip-wiki add-tc-type-name [form qsym t]
@@ -1155,7 +1155,7 @@ Transducer
 
 ;(ann into-array>* [Any Any -> Any])
 (core/let
-     [parse-type (delay (dynaload 'clojure.core.typed.parse-unparse/parse-type))
+     [parse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/parse-type))
       Type->array-member-Class (delay (dynaload 'clojure.core.typed.array-ops/Type->array-member-Class))]
   (core/defn ^:skip-wiki
     into-array>*
