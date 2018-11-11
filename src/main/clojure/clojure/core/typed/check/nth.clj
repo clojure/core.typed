@@ -21,7 +21,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check.method :as method]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.indirect-ops :as ind])
+            [clojure.core.typed.checker.indirect-ops :as ind])
   (:import (clojure.lang ISeq Seqable)))
 
 (defn ^:private expr->type [expr]

@@ -14,7 +14,7 @@
             [clojure.core.typed.contract-utils :as con]
             clojure.core.typed.contract-ann
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.set :as set]))
 
 (t/defalias SeqNumber Long)

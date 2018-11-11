@@ -15,7 +15,7 @@
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.indirect-utils :as ind-u]
-            [clojure.core.typed.indirect-ops :as ind]))
+            [clojure.core.typed.checker.indirect-ops :as ind]))
 
 (t/defalias RObject
   "An object with a path."

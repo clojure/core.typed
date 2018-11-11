@@ -23,7 +23,7 @@
             [clojure.core.typed.constant-type :as const]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.indirect-utils :as indu]
-            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.hset-utils :as hset]
             [clojure.set :as set]

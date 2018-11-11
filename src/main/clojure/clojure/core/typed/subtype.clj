@@ -21,7 +21,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.path-rep :as pth-rep]
-            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.set :as set])

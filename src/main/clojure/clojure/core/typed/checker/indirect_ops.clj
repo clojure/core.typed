@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.indirect-ops
+(ns clojure.core.typed.checker.indirect-ops
   (:require [clojure.core.typed.indirect-utils :as in]))
 
 (in/make-indirection unparse-type

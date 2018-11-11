@@ -27,7 +27,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.tvar-bnds :as bnds]
-            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.checker.indirect-ops :as ind]
             clojure.core.typed.indirect-ann
             [clojure.set :as set]
             [clojure.reflect :as reflect]

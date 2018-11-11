@@ -9,6 +9,6 @@
 (ns ^:skip-wiki clojure.core.typed.indirect-ann
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.type-rep :as r]
-            clojure.core.typed.indirect-ops))
+            clojure.core.typed.checker.indirect-ops))
 
-(t/ann clojure.core.typed.indirect-ops/unparse-type [r/Type -> t/Any])
+(t/ann clojure.core.typed.checker.indirect-ops/unparse-type [r/Type -> t/Any])

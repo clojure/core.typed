@@ -23,7 +23,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.indirect-utils :as ind-u]
-            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.checker.filter-ops :as fops]
             [clojure.core.typed.env :as env]
             [clojure.set :as set]
