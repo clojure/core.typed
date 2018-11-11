@@ -6,13 +6,13 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.reset-env (:require [clojure.core.typed.base-env :as bse-clj]
+(ns ^:skip-wiki clojure.core.typed.reset-env (:require [clojure.core.typed.checker.jvm.base-env :as bse-clj]
             [clojure.core.typed.ns-deps :as deps]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.mm-env :as mmenv]))
 
-(def ^:private reset-cljs-envs! (delay (impl/dynaload 'clojure.core.typed.base-env-cljs/reset-cljs-envs!)))
+(def ^:private reset-cljs-envs! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.base-env-cljs/reset-cljs-envs!)))
 
 (defn reset-envs!
   "Reset all environments for all implementations. Cannot be called
