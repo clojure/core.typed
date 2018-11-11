@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]

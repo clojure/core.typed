@@ -20,7 +20,7 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.path-rep :as pe]

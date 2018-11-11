@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.extend-record
   (:require [clojure.core.typed :as t :refer [ann-protocol ann-record]]
             #_[clojure.core.typed.subtype :as sub]
-            #_[clojure.core.typed.parse-unparse :as prs]
+            #_[clojure.core.typed.checker.jvm.parse-unparse :as prs]
             #_[clojure.core.typed.current-impl :as impl]))
 
 (t/defprotocol PMaths

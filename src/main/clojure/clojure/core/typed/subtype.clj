@@ -13,7 +13,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.checker.filter-ops :as fops]
             [clojure.core.typed.object-rep :as orep]

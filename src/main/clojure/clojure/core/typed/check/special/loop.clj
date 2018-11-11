@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.special.loop
-  (:require [clojure.core.typed.parse-unparse :as prs]
+  (:require [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.current-impl :as impl]

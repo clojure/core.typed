@@ -9,7 +9,7 @@
 (ns clojure.core.typed.base-env-helper
   (:refer-clojure :exclude [type])
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]

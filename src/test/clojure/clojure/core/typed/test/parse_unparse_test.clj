@@ -2,7 +2,7 @@
   (:require 
     [clojure.core.typed.test.test-utils :refer :all]
     [clojure.test :refer :all]
-    [clojure.core.typed.parse-unparse :refer :all]
+    [clojure.core.typed.checker.jvm.parse-unparse :refer :all]
     [clojure.core.typed :as t]))
 
 (deftest unparse-free-scoping-test

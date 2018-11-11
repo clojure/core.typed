@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed :as t]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.errors :as err]
             ))

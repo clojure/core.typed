@@ -3,7 +3,7 @@
   (:require 
     ; this loads the type system, must go first
     [clojure.core.typed.test.test-utils :refer :all]
-            [clojure.core.typed.parse-unparse :refer [parse-clj]]
+            [clojure.core.typed.checker.jvm.parse-unparse :refer [parse-clj]]
             [clojure.core.typed :as t]
             [clojure.test :refer :all]
             [clojure.core.typed.checker.lex-env :refer [-PropEnv]]

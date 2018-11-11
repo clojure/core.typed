@@ -18,7 +18,7 @@
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.errors :as err]))
 
 ;[(U nil Expr) TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]

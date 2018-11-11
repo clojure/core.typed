@@ -15,7 +15,7 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.method-override-env :as mth-override]))

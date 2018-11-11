@@ -21,7 +21,7 @@
             [clojure.repl :as repl]
             [clojure.core.typed.analyzer :as ana]
             [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
-            [clojure.core.typed.parse-unparse :as prs])
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
 
 ;; (check-form-info config-map form & kw-args)

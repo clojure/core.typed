@@ -16,7 +16,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.check.fn-method-one :as fn-method1]

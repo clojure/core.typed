@@ -18,7 +18,7 @@
             [clojure.core.typed.base-env-clj-rclass :as base-rclass]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
              :as common]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.object-rep :as obj]

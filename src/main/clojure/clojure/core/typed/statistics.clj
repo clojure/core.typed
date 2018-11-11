@@ -11,7 +11,7 @@
             [clojure.core.typed.check-ns-clj :as chk-ns-clj]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.util-vars :as vs]
             [clojure.set :as set]))
 

@@ -89,7 +89,7 @@
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.protocol-env :as ptl-env]
             [clojure.core.typed.rclass-env :as rcls]
@@ -122,7 +122,7 @@
             [clojure.repl :as repl])
   (:import (clojure.lang IPersistentMap Var Seqable)))
 
-(t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (t/U nil t/Sym))
+(t/ann ^:no-check clojure.core.typed.checker.jvm.parse-unparse/*unparse-type-in-ns* (t/U nil t/Sym))
 (t/ann ^:no-check clojure.core.typed.util-vars/*already-checked* (t/U nil (t/Atom1 (t/Set t/Sym))))
 
 ;==========================================================

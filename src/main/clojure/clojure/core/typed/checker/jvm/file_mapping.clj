@@ -12,7 +12,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.tools.analyzer.ast :as ast-ops]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.parse-unparse :as prs]))
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]))
 
 ; (Vec '{:ftype Type :fn-expr Expr})
 (def ^:private ^:dynamic *fn-stack* [])

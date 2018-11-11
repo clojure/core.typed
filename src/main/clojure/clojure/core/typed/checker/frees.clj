@@ -216,7 +216,7 @@
   [{:keys [rator rands]}]
   (apply combine-frees (mapv frees (cons rator rands))))
 
-(def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type)))
+(def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type)))
 
 ;FIXME flow error during checking
 (t/tc-ignore

@@ -87,7 +87,7 @@
          (boolean? or?)]
    :post [(every? fr/Filter? %)]}
 ;  (prn "compact")
-;  (prn "props" (map clojure.core.typed.parse-unparse/unparse-filter props))
+;  (prn "props" (map clojure.core.typed.checker.jvm.parse-unparse/unparse-filter props))
 ;  (prn "or?" or?)
   (let [tf-map (atom {})
         ntf-map (atom {})]
@@ -384,7 +384,7 @@
            ;; first, remove anything implied by the atomic propositions
            ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
           (let [{atomic true not-atomic false} (group-by atomic-filter? result)
-                ;_ (prn "not-atomic" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic))
+                ;_ (prn "not-atomic" (map clojure.core.typed.checker.jvm.parse-unparse/unparse-filter not-atomic))
                 not-atomic* (for [p not-atomic
                                   :when (not-any? (fn [a] (implied-atomic? p a)) atomic)]
                               p)]

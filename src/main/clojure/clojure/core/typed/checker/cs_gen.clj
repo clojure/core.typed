@@ -18,7 +18,7 @@
             [clojure.core.typed.object-rep :as or]
             ; use subtype? utility defined in this namespace
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.cs-rep :as cr]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.util-vars :as vs]

@@ -50,7 +50,7 @@
 
 (add-default-fold-case Union 
                        (fn [ty _]
-                         ;(prn "union default" (clojure.core.typed.parse-unparse/unparse-type ty))
+                         ;(prn "union default" (clojure.core.typed.checker.jvm.parse-unparse/unparse-type ty))
                          (apply c/Un (mapv type-rec (:types ty)))))
 
 (add-default-fold-case FnIntersection
@@ -123,7 +123,7 @@
 
 (add-default-fold-case DataType
                        (fn [ty _]
-                         ;(prn "datatype default" (clojure.core.typed.parse-unparse/unparse-type ty))
+                         ;(prn "datatype default" (clojure.core.typed.checker.jvm.parse-unparse/unparse-type ty))
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))

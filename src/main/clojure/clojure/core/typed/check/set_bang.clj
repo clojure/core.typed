@@ -11,7 +11,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.subtype :as sub]))
 

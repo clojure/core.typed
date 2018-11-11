@@ -16,7 +16,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
