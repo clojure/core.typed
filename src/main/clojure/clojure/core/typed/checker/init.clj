@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.init
+(ns clojure.core.typed.checker.init
   (:require [clojure.core.typed.current-impl :as impl]))
 
 (defonce ^:private attempted-loading? (atom false))
