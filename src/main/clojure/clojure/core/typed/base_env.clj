@@ -2080,7 +2080,7 @@ clojure.lang.Delay (All [x]
       reset-protocol-env! (delay (impl/dynaload 'clojure.core.typed.protocol-env/reset-protocol-env!))
       reset-declared-kinds! (delay (impl/dynaload 'clojure.core.typed.checker.declared-kind-env/reset-declared-kinds!))
       reset-datatype-env! (delay (impl/dynaload 'clojure.core.typed.checker.datatype-env/reset-datatype-env!))
-      reset-datatype-ancestors! (delay (impl/dynaload 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!))]
+      reset-datatype-ancestors! (delay (impl/dynaload 'clojure.core.typed.checker.datatype-ancestor-env/reset-datatype-ancestors!))]
   (defn reset-clojure-envs! []
     (impl/with-clojure-impl
       (reset-alias-env!)
