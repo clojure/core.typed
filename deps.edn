@@ -1,7 +1,7 @@
 {:paths ["src/main/clojure"]
  :deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
         org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
-                                            :sha "713cc2b2d64a88d628fd067f1f274a99f5dc7e25"
+                                            :sha "a81a653610612ae1d77c8a6a4ad31c881be1575a"
                                             :deps/manifest :deps}
         org.clojure/core.typed.annotator.jvm {:git/url "https://github.com/typedclojure/core.typed.annotator.jvm.git"
                                               :sha "4fd41dcad8edfdae38e79ed271a8b0ae432c85f7"

@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.statistics
   (:require [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.check-ns-clj :as chk-ns-clj]
+            [clojure.core.typed.checker.jvm.check-ns-clj :as chk-ns-clj]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
