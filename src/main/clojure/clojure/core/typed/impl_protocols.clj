@@ -9,7 +9,7 @@
 (ns ^:skip-wiki 
   clojure.core.typed.impl-protocols
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.def-utils :as u]
+  (:require [clojure.core.typed.checker.def-utils :as u]
             [clojure.core.typed :as t]))
 
 ;; Implementation Protocols and protocol predicates go here.

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-git grep -l $1 | xargs sed -i '' "s/$1/$2/g"
+git grep -l clojure.core.typed.$1 | xargs sed -i '' "s/clojure.core.typed.$1/clojure.core.typed.$2/g"
