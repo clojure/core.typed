@@ -18,7 +18,7 @@
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.method-override-env :as mth-override]))
+            [clojure.core.typed.checker.jvm.method-override-env :as mth-override]))
 
 ;[MethodExpr Type Any -> Expr]
 (defn check-invoke-method [check-fn {c :class method-name :method :keys [args env] :as expr} expected
