@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.check-ns-common
+(ns clojure.core.typed.checker.check-ns-common
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.reset-env :as reset-env]
             [clojure.core.typed.reset-caches :as reset-caches]
