@@ -12,7 +12,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.fold-rep :as f]
             [clojure.core.typed.checker.frees :as frees]
-            [clojure.core.typed.cs-rep :as crep]
+            [clojure.core.typed.checker.cs-rep :as crep]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]

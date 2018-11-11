@@ -69,7 +69,7 @@
             [clojure.core.typed.constant-type :as constant-type]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.cs-gen :as cgen]
-            [clojure.core.typed.cs-rep :as crep]
+            [clojure.core.typed.checker.cs-rep :as crep]
             [clojure.core.typed.checker.jvm.ctor-override-env :as ctor-override]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.datatype-ancestor-env :as ancest]

@@ -19,7 +19,7 @@
             ; use subtype? utility defined in this namespace
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.cs-rep :as cr]
+            [clojure.core.typed.checker.cs-rep :as cr]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.dvar-env :as denv]
@@ -32,7 +32,7 @@
             [clojure.core.typed :as t :refer [letfn>]]
             [clojure.set :as set])
   (:import (clojure.core.typed.checker.type_rep F DataType Function Protocol Bounds FlowSet TCResult HSequential)
-           (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)))
+           (clojure.core.typed.checker.cs_rep c cset dcon dmap cset-entry)))
 
 (t/typed-deps clojure.core.typed.checker.free-ops
               clojure.core.typed.promote-demote)
