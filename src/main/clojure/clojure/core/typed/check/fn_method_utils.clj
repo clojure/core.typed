@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.abo :as abo]))
+            [clojure.core.typed.checker.abo :as abo]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

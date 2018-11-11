@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.jvm.check
   {:skip-wiki true}
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.abo :as abo]
+            [clojure.core.typed.checker.abo :as abo]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.analyzer.env :as env]
