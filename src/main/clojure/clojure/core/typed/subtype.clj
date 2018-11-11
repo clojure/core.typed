@@ -868,7 +868,7 @@
 
         :else (fail! s t)))))
 
-(let [analyze-qualified-symbol (delay (impl/dynaload 'clojure.core.typed.analyze-cljs/analyze-qualified-symbol))]
+(let [analyze-qualified-symbol (delay (impl/dynaload 'clojure.core.typed.checker.jvm.analyze-cljs/analyze-qualified-symbol))]
   (defn resolve-JS-reference [sym]
     (impl/assert-cljs)
     (cond
@@ -879,7 +879,7 @@
                 (c/DataType-with-unknown-params name))))))
 
 
-(let [cljs-extenders (delay (impl/dynaload 'clojure.core.typed.analyze-cljs/extenders))]
+(let [cljs-extenders (delay (impl/dynaload 'clojure.core.typed.checker.jvm.analyze-cljs/extenders))]
   (defn protocol-extenders [p]
     {:pre [(r/Protocol? p)]
      :post [(every? r/Type? %)]}

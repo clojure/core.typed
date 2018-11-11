@@ -30,7 +30,7 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
-            [clojure.core.typed.analyze-clj :as ana-clj]
+            [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer :as ana]
             [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]))
 

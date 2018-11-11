@@ -2,7 +2,7 @@
   (:require 
     ; this loads the type system, must go first
     [clojure.core.typed.test.test-utils :refer [check clj]]
-    [clojure.core.typed.analyze-clj :as ana]
+    [clojure.core.typed.checker.jvm.analyze-clj :as ana]
     [clojure.core.typed :as t]
     [clojure.core.typed.checker.jvm.check :as chk]))
 
