@@ -1166,7 +1166,7 @@
 
 ;TODO this should be a special :do op
 ;manual instantiation
-(defmethod -invoke-special 'clojure.core.typed.checker.inst-poly
+(defmethod -invoke-special 'clojure.core.typed.inst-poly
   [expr & [expected]]
   (when-not (#{2} (count (:args expr)))
     (err/int-error "Wrong arguments to inst"))
