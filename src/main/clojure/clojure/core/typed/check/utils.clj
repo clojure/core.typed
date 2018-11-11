@@ -12,7 +12,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.analyze-clj :as ana]
             [clojure.core.typed.ns-deps :as ns-deps]
-            [clojure.core.typed.ns-deps-utils :as ns-depsu]
+            [clojure.core.typed.checker.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.free-ops :as free-ops]

@@ -12,7 +12,7 @@
             [clojure.tools.nrepl.misc :as misc]
             [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.ns-deps-utils :as ns-utils]
+            [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
             ;[clojure.core.typed.load :as load]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.tools.reader :as rd]

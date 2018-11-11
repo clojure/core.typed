@@ -10,7 +10,7 @@
   "Implementation of clojure.core.typed.load."
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.ns-deps-utils :as ns-utils]
+            [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer.env :as env]
             [clojure.core.typed.current-impl :as impl]

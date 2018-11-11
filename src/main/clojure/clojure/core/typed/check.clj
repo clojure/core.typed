@@ -85,7 +85,7 @@
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.mm-env :as mm]
             [clojure.core.typed.ns-deps :as ns-deps]
-            [clojure.core.typed.ns-deps-utils :as ns-depsu]
+            [clojure.core.typed.checker.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]

@@ -46,7 +46,7 @@
             [clojure.core.typed.expand :as expand]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ns-deps :as dep]
-            [clojure.core.typed.ns-deps-utils :as dep-u])
+            [clojure.core.typed.checker.ns-deps-utils :as dep-u])
   (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
 
 ; Updated for Clojure 1.8

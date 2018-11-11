@@ -19,7 +19,7 @@
             [clojure.core.typed.checker.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.ns-deps-utils :as ns-deps-u]
+            [clojure.core.typed.checker.ns-deps-utils :as ns-deps-u]
             [clojure.java.io :as io]
             [clojure.core.cache :as cache]
             [clojure.tools.analyzer.jvm.utils :as jvm-u])
