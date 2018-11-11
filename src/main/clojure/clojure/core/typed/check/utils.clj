@@ -27,7 +27,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.protocol-env :as pcl-env]
             [clojure.core.typed.checker.jvm.method-param-nilables :as mtd-param-nil]
-            [clojure.core.typed.method-return-nilables :as mtd-ret-nil]
+            [clojure.core.typed.checker.jvm.method-return-nilables :as mtd-ret-nil]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.subtype :as sub]

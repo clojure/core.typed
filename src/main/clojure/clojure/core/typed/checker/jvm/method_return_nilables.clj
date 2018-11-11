@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.method-return-nilables
+(ns clojure.core.typed.checker.jvm.method-return-nilables
   (:require [clojure.core.typed.env :as env]
             [clojure.core.typed.current-impl :as impl]))
 
