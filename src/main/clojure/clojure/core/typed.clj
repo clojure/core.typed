@@ -1818,7 +1818,7 @@ Transducer
    :unannotated-multi :error
    #_#_:unannotated-arg :any})
 
-(core/let [chknsi (delay (dynaload 'clojure.core.typed.check-ns-clj/check-ns-info))]
+(core/let [chknsi (delay (dynaload 'clojure.core.typed.checker.jvm.check-ns-clj/check-ns-info))]
   (core/defn check-ns-info
     "Same as check-ns, but returns a map of results from type checking the
     namespace.
@@ -1842,7 +1842,7 @@ Transducer
      (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
        (@chknsi ns-or-syms opt)))))
 
-(def ^:private chk-ns-clj (delay (dynaload 'clojure.core.typed.check-ns-clj/check-ns)))
+(def ^:private chk-ns-clj (delay (dynaload 'clojure.core.typed.checker.jvm.check-ns-clj/check-ns)))
 
 (core/defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
