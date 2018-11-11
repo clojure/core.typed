@@ -293,7 +293,7 @@
   [& args]
   `(typed-deps* '~args))
 
-(let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-cljs))]
+(let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.checker.js.check-form-cljs/check-form-cljs))]
   (defn cf* 
     "Check a single form with an optional expected type.
     Intended to be called from Clojure. For evaluation at the Clojurescript
@@ -302,7 +302,7 @@
     (load-if-needed)
     (@check-form-cljs form expected expected-provided?)))
 
-(let [chkfi (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-info))]
+(let [chkfi (delay (impl/dynaload 'clojure.core.typed.checker.js.check-form-cljs/check-form-info))]
   (defn check-form-info 
     [form & opts]
     (load-if-needed)
