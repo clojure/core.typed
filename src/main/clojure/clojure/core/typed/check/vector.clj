@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.vector
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]

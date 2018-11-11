@@ -23,7 +23,7 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check.fn-method-one :as fn-method-one]
             [clojure.core.typed.check.fn-methods :as fn-methods]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.analyzer :as ana2]))
 
 (declare wrap-poly)

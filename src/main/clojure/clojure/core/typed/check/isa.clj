@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.isa
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.filter-rep :as fl]

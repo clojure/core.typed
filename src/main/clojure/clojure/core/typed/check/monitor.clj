@@ -14,7 +14,7 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.check-below :as below]))
+            [clojure.core.typed.checker.check-below :as below]))
 
 (defn check-monitor
   "monitor-enter and monitor-exit both take any object and return nil"

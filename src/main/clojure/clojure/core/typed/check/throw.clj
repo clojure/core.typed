@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.throw
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep :as fl]

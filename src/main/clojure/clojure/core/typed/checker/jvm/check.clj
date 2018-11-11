@@ -19,7 +19,7 @@
             [clojure.core.typed.checker.jvm.array-ops :as arr-ops]
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed.ast-utils :as ast-u]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.check.apply :as apply]
             [clojure.core.typed.check.binding :as binding]
             [clojure.core.typed.check.case :as case]

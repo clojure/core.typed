@@ -19,7 +19,7 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.type-ctors :as c])
   (:import (clojure.lang Var)))
 

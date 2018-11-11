@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.funapp-one
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]

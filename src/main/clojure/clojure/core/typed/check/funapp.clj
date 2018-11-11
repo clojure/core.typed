@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.check.funapp
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.check-below :as below]
+            [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.coerce-utils :as coerce]
