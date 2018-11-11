@@ -420,7 +420,7 @@
 #?(:clj
 (def ^:private -any (delay (dynaload 'clojure.core.typed.checker.type-rep/-any))))
 #?(:clj
-(def ^:private protocol-method-var-ann (delay (dynaload 'clojure.core.typed.collect-utils/protocol-method-var-ann))))
+(def ^:private protocol-method-var-ann (delay (dynaload 'clojure.core.typed.checker.collect-utils/protocol-method-var-ann))))
 #?(:clj
 (def ^:private make-F (delay (dynaload 'clojure.core.typed.checker.type-rep/make-F))))
 #?(:clj
