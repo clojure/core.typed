@@ -81,7 +81,7 @@
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.frees :as frees]
-            [clojure.core.typed.inst :as inst]
+            [clojure.core.typed.checker.inst :as inst]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.mm-env :as mm]
             [clojure.core.typed.ns-deps :as ns-deps]
@@ -1166,7 +1166,7 @@
 
 ;TODO this should be a special :do op
 ;manual instantiation
-(defmethod -invoke-special 'clojure.core.typed/inst-poly
+(defmethod -invoke-special 'clojure.core.typed.checker.inst-poly
   [expr & [expected]]
   (when-not (#{2} (count (:args expr)))
     (err/int-error "Wrong arguments to inst"))
@@ -1222,7 +1222,7 @@
 
 ;TODO this should be a special :do op
 ;manual instantiation for calls to polymorphic constructors
-(defmethod -invoke-special 'clojure.core.typed/inst-poly-ctor
+(defmethod -invoke-special 'clojure.core.typed.checker.inst-poly-ctor
   [expr & [expected]]
   (let [{[ctor-expr targs-exprs] :args :as expr} (-> expr
                                                      (update-in [:args 1] ana2/run-passes))

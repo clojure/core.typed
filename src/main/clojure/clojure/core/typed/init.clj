@@ -76,7 +76,7 @@
                  '[clojure.core.typed.checker.free-ops]
                  '[clojure.core.typed.cs-gen]
                  '[clojure.core.typed.trans]
-                 '[clojure.core.typed.inst]
+                 '[clojure.core.typed.checker.inst]
                  '[clojure.core.typed.subtype]
                  '[clojure.core.typed.array-ops]
                  '[clojure.core.typed.check]

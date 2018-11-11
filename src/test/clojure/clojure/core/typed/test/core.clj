@@ -20,7 +20,7 @@
             [clojure.core.typed.update :as update :refer [env+ update]]
             [clojure.core.typed.tc-equiv :refer [tc-equiv]]
             [clojure.core.typed.collect-utils :as collect-u]
-            [clojure.core.typed.inst :as inst]
+            [clojure.core.typed.checker.inst :as inst]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
@@ -172,7 +172,7 @@
   ;FIXME randomly fails. Try again when I/U are sorted sets.
   (is-clj (subtype? (ety
                       ((fn [a :- (clojure.lang.Seqable Number), b :- Number] 
-                         ((clojure.core.typed/inst seq Number) a))
+                         ((clojure.core.typed.checker.inst seq Number) a))
                        [1 2 1.2] 1))
                     (parse-type `(Option (I (clojure.lang.ISeq java.lang.Number) (CountRange 1))))))
   ; inferred "seq"
@@ -544,7 +544,7 @@
   (is-clj (= (-> 
                (tc-t (let [a {:a 1}]
                        (if (seq? a)
-                         (apply (clojure.core.typed/inst hash-map Keyword Number) a)
+                         (apply (clojure.core.typed.checker.inst hash-map Keyword Number) a)
                          a)))
                ret-t)
          (-complete-hmap {(-val :a) (-val 1)})))
@@ -1016,7 +1016,7 @@
 (deftest vararg-subtyping-test
   (is-clj (subtype? (parse-type '[nil * -> nil])
                     (parse-type '[nil -> nil])))
-  (is-cf (clojure.core.typed/ann-form (clojure.core.typed/inst merge clojure.core.typed/Any clojure.core.typed/Any) [nil -> nil])))
+  (is-cf (clojure.core.typed/ann-form (clojure.core.typed.checker.inst merge clojure.core.typed/Any clojure.core.typed/Any) [nil -> nil])))
 
 (deftest poly-filter-test
   (is-clj (both-subtype? 
@@ -1700,7 +1700,7 @@
 
 ; keeping if we decide to use more expressive type for conj
 ;(deftest extensible-conj-test
-;  (is (cf ((clojure.core.typed/inst conj Number (TFn [[x :variance :covariant]] x)
+;  (is (cf ((clojure.core.typed.checker.inst conj Number (TFn [[x :variance :covariant]] x)
 ;                 (TFn [[x :variance :covariant]] (clojure.lang.PersistentHashSet x)))
 ;            (clojure.core.typed/ann-form #{} (clojure.lang.PersistentHashSet Number)) 1)
 ;          (clojure.lang.PersistentHashSet Number)))
@@ -1824,7 +1824,7 @@
 ;              (parse-type '(clojure.core.async.impl.protocols/ReadPort clojure.core.typed/Any))
 ;              (with-bounded-frees {(make-F 'x) no-bounds}
 ;                (parse-type '(clojure.core.async.impl.protocols/ReadPort x)))))
-;  (is-clj (cf ((clojure.core.typed/inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort clojure.core.typed/Any)]))
+;  (is-clj (cf ((clojure.core.typed.checker.inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort clojure.core.typed/Any)]))
 ;           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> clojure.core.typed/Any) 
 ;                              (Extends [(clojure.core.async.impl.protocols/ReadPort clojure.core.typed/Any)])))
 ;          (Extends [(clojure.core.async.impl.protocols/ReadPort clojure.core.typed/Any)])))
@@ -1852,7 +1852,7 @@
 ;  (is-clj (cf [1] (Extends [(clojure.lang.IPersistentVector Number)])))
 ;  (is-clj (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
 ;                                                             (clojure.lang.IPersistentVector Number)]))]
-;            ((clojure.core.typed/inst first Number) x))
+;            ((clojure.core.typed.checker.inst first Number) x))
 ;          (U nil Number)))
 ;  (is-clj (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
 ;                                                             (clojure.lang.IPersistentVector Number)]))]
@@ -1918,7 +1918,7 @@
 (deftest csgen-combine-test
   (is-cf (map inc [0 1.1])
          (clojure.lang.Seqable Number))
-  (is-cf (map (clojure.core.typed/inst vector clojure.core.typed/Any Number Number) [1] [2])
+  (is-cf (map (clojure.core.typed.checker.inst vector clojure.core.typed/Any Number Number) [1] [2])
          (clojure.lang.Seqable '[Number Number])))
 
 ;FIXME uncomment after core.typed internals are being checked
