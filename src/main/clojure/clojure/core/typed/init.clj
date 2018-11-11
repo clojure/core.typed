@@ -67,7 +67,7 @@
                  '[clojure.core.typed.method-return-nilables]
                  '[clojure.core.typed.method-param-nilables]
                  '[clojure.core.typed.declared-kind-env]
-                 '[clojure.core.typed.name-env]
+                 '[clojure.core.typed.checker.name-env]
                  '[clojure.core.typed.rclass-env]
                  '[clojure.core.typed.mm-env]
                  '[clojure.core.typed.constant-type]

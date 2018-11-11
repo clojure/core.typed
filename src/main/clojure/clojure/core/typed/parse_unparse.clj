@@ -10,7 +10,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.name-env :as nme-env]
+            [clojure.core.typed.checker.name-env :as nme-env]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
             [clojure.core.typed.coerce-utils :as coerce]

@@ -7,5 +7,5 @@
   (is (check-ns '[clojure.core.typed.utils
                   clojure.core.typed.checker.type-rep
                   clojure.core.typed.cs-rep
-                  clojure.core.typed.name-env
+                  clojure.core.typed.checker.name-env
                   clojure.core.typed.checker.type-ctors])))

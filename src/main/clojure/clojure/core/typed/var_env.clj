@@ -16,7 +16,7 @@
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.env :as env]
-            [clojure.core.typed.name-env :as name-env]
+            [clojure.core.typed.checker.name-env :as name-env]
             [clojure.set :as set]))
 
 (defn clj-var-annotations []

@@ -1327,7 +1327,7 @@
 (defn resolve-Name [nme]
   {:pre [(r/Name? nme)]
    :post [(r/Type? %)]}
-  (let [resolve-name* (t/var> clojure.core.typed.name-env/resolve-name*)]
+  (let [resolve-name* (t/var> clojure.core.typed.checker.name-env/resolve-name*)]
     (resolve-name* (:id nme))))
 
 (t/ann fully-resolve-type 

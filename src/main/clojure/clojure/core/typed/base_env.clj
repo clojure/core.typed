@@ -23,7 +23,7 @@
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.checker.fold-default]
-            [clojure.core.typed.name-env :as nme-env]
+            [clojure.core.typed.checker.name-env :as nme-env]
             [clojure.core.typed.subst]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :refer [Any Nothing TFn Rec
