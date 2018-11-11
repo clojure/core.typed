@@ -313,7 +313,7 @@
   ([form] `(cf* '~form nil nil))
   ([form expected] `(cf* '~form '~expected true)))
 
-(let [chkni (delay (impl/dynaload 'clojure.core.typed.check-ns-cljs/check-ns-info))]
+(let [chkni (delay (impl/dynaload 'clojure.core.typed.checker.js.check-ns-cljs/check-ns-info))]
   (defn check-ns-info
     "Check a Clojurescript namespace, or the current namespace.
     Intended to be called from Clojure. For evaluation at the Clojurescript
@@ -325,7 +325,7 @@
      (load-if-needed)
      (@chkni ns-or-syms opt))))
 
-(let [chkns (delay (impl/dynaload 'clojure.core.typed.check-ns-cljs/check-ns))]
+(let [chkns (delay (impl/dynaload 'clojure.core.typed.checker.js.check-ns-cljs/check-ns))]
   (defn check-ns*
     "Check a Clojurescript namespace, or the current namespace.
     Intended to be called from Clojure. For evaluation at the Clojurescript
