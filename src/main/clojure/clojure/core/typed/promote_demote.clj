@@ -14,7 +14,7 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.checker.hset-utils :as hset]
             [clojure.set :as set]
-            [clojure.core.typed.impl-protocols :as p]
+            [clojure.core.typed.checker.impl-protocols :as p]
             clojure.core.typed.checker.filter-rep)
   (:import (clojure.core.typed.checker.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp

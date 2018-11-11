@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.object-rep
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.impl-protocols :as p]
+            [clojure.core.typed.checker.impl-protocols :as p]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.checker.filter-rep :as fr]
@@ -26,7 +26,7 @@
 
 (t/ann ^:no-check RObject? (t/Pred p/IRObject))
 (defn RObject? [a]
-  (instance? clojure.core.typed.impl_protocols.IRObject a))
+  (instance? clojure.core.typed.checker.impl_protocols.IRObject a))
 
 (t/ann-record EmptyObject [])
 (u/def-object EmptyObject []

@@ -14,7 +14,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
             clojure.core.typed.checker.coerce-ann
-            [clojure.core.typed.impl-protocols :as p]
+            [clojure.core.typed.checker.impl-protocols :as p]
             [clojure.core.typed.checker.type-rep :as r :refer [ret-t]]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.path-rep :as path]

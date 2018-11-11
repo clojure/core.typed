@@ -50,32 +50,32 @@
          unparse-path-elem)
 
 ; Types print by unparsing them
-(do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
+(do (defmethod print-method clojure.core.typed.checker.impl_protocols.TCType [s writer]
       (print-method (unparse-type s) writer))
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCType clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCType java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCType clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.TCType clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.TCType java.util.Map)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.TCType clojure.lang.IPersistentMap)
 
-    (defmethod print-method clojure.core.typed.impl_protocols.TCAnyType [s writer]
+    (defmethod print-method clojure.core.typed.checker.impl_protocols.TCAnyType [s writer]
       (print-method (unparse-type s) writer))
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.TCAnyType clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.TCAnyType java.util.Map)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
 
-    (defmethod print-method clojure.core.typed.impl_protocols.IFilter [s writer]
+    (defmethod print-method clojure.core.typed.checker.impl_protocols.IFilter [s writer]
       (cond 
         (f/FilterSet? s) (print-method (unparse-filter-set s) writer)
         (r/FlowSet? s) (print-method (unparse-flow-set s) writer)
         :else (print-method (unparse-filter s) writer)))
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.IFilter clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.IFilter java.util.Map)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.IFilter clojure.lang.IPersistentMap)
 
-    (defmethod print-method clojure.core.typed.impl_protocols.IRObject [s writer]
+    (defmethod print-method clojure.core.typed.checker.impl_protocols.IRObject [s writer]
       (print-method (unparse-object s) writer))
-    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IRObject clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.IRObject clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.IRObject java.util.Map)
+    (prefer-method print-method clojure.core.typed.checker.impl_protocols.IRObject clojure.lang.IPersistentMap)
 
     (defmethod print-method clojure.core.typed.path_rep.IPathElem [s writer]
       (print-method (unparse-path-elem s) writer))

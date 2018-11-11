@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.checker.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.impl-protocols :as p]
+            [clojure.core.typed.checker.impl-protocols :as p]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             clojure.core.typed.contract-ann
@@ -38,13 +38,13 @@
 ; Should just make this an interface to start with.
 (t/ann ^:no-check Type? (t/Pred Type))
 (defn Type? [a]
-  (instance? clojure.core.typed.impl_protocols.TCType a))
+  (instance? clojure.core.typed.checker.impl_protocols.TCType a))
 
 ; similar for AnyType
 (t/ann ^:no-check AnyType? (t/Pred AnyType))
 (defn AnyType? [a]
   (or (Type? a)
-      (instance? clojure.core.typed.impl_protocols.TCAnyType a)))
+      (instance? clojure.core.typed.checker.impl_protocols.TCAnyType a)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types

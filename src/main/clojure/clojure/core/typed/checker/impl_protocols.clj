@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki 
-  clojure.core.typed.impl-protocols
+  clojure.core.typed.checker.impl-protocols
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed.checker.def-utils :as u]
             [clojure.core.typed :as t]))
@@ -31,7 +31,7 @@
 
 (t/ann ^:no-check IScope? (t/Pred IScope))
 (defn IScope? [a]
-  (instance? clojure.core.typed.impl_protocols.IScope a))
+  (instance? clojure.core.typed.checker.impl_protocols.IScope a))
 
 (t/ann-protocol IMu
                 mu-scope
@@ -46,7 +46,7 @@
 
 (t/ann ^:no-check IFilter? (t/Pred IFilter))
 (defn IFilter? [a]
-  (instance? clojure.core.typed.impl_protocols.IFilter a))
+  (instance? clojure.core.typed.checker.impl_protocols.IFilter a))
 
 (t/ann-protocol IFilterSet
                 then-filter
@@ -59,7 +59,7 @@
 
 (t/ann ^:no-check IFilterSet? (t/Pred IFilterSet))
 (defn IFilterSet? [a]
-  (instance? clojure.core.typed.impl_protocols.IFilterSet a))
+  (instance? clojure.core.typed.checker.impl_protocols.IFilterSet a))
 
 ;; Object protocols
 
@@ -68,4 +68,4 @@
 
 (t/ann ^:no-check IRObject? (t/Pred IRObject))
 (defn IRObject? [a]
-  (instance? clojure.core.typed.impl_protocols.IRObject a))
+  (instance? clojure.core.typed.checker.impl_protocols.IRObject a))
