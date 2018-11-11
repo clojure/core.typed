@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ; support for assoc/merge/conj
-(ns clojure.core.typed.assoc-utils
+(ns clojure.core.typed.checker.jvm.assoc-utils
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.indirect-ops :as ind]

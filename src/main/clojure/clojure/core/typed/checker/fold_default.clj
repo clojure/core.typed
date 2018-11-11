@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.filter-ops :as fops]
             [clojure.core.typed.object-rep]
             [clojure.core.typed.checker.free-ops :as free-ops]
-            [clojure.core.typed.assoc-utils :as assoc-u]
+            [clojure.core.typed.checker.jvm.assoc-utils :as assoc-u]
             [clojure.core.typed.checker.path-rep])
   (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
