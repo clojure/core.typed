@@ -1742,7 +1742,7 @@ Transducer
   []
   `(tc-ignore (warn-on-unannotated-vars* '~(ns-name *ns*))))
 
-(core/let [chkfi (delay (dynaload 'clojure.core.typed.check-form-clj/check-form-info))]
+(core/let [chkfi (delay (dynaload 'clojure.core.typed.checker.jvm.check-form-clj/check-form-info))]
   (core/defn check-form-info 
     "Function that type checks a form and returns a map of results from type checking the
     form.
@@ -1775,7 +1775,7 @@ Transducer
     (load-if-needed)
     (apply @chkfi form opt)))
 
-(core/let [chkf* (delay (dynaload 'clojure.core.typed.check-form-clj/check-form*))]
+(core/let [chkf* (delay (dynaload 'clojure.core.typed.checker.jvm.check-form-clj/check-form*))]
   (core/defn check-form*
     "Function that takes a form and optional expected type syntax and
     type checks the form. If expected is provided, type-provided?
