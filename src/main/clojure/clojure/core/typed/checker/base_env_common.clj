@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.base-env-common
+(ns clojure.core.typed.checker.base-env-common
   "Utilities for all implementations of the type checker"
   (:require [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.tools.reader :as rdr]

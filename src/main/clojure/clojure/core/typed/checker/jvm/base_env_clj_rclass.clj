@@ -17,7 +17,7 @@
                          ITransientVector PersistentHashMap Reduced MultiFn)
            (java.util Collection RandomAccess))
   (:require [clojure.core.typed.base-env-helper :as h]
-            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
+            [clojure.core.typed.checker.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.checker.fold-default]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed :refer [Any Nothing TFn Rec
