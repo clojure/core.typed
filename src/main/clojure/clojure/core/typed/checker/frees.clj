@@ -20,7 +20,7 @@
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.name-env :as nmenv]
-            [clojure.core.typed.declared-kind-env :as kinds])
+            [clojure.core.typed.checker.declared-kind-env :as kinds])
   (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots

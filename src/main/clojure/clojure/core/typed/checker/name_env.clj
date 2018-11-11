@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.datatype-env :as dtenv]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.protocol-env :as prenv]
-            [clojure.core.typed.declared-kind-env :as kinds]
+            [clojure.core.typed.checker.declared-kind-env :as kinds]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]))
