@@ -11,9 +11,9 @@
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo])
-  (:import (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)))
+  (:import (clojure.core.typed.checker.filter_rep NotTypeFilter TypeFilter FilterSet)))
 
 (declare abstract-object abstract-type abo)
 

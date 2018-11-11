@@ -18,7 +18,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.dvar-env :as dvar]
-            [clojure.core.typed.filter-rep :as f]
+            [clojure.core.typed.checker.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.constant-type :as const]
             [clojure.core.typed.checker.free-ops :as free-ops]
@@ -37,7 +37,7 @@
                                         CLJSInteger ArrayCLJS JSNominal JSString TCResult AssocType
                                         GetType HSequential HSet JSUndefined JSNull JSSymbol JSObject
                                         JSObj)
-           (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
+           (clojure.core.typed.checker.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter NoFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE KeywordPE)

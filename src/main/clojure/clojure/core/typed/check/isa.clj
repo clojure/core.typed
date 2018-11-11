@@ -13,7 +13,7 @@
             [clojure.core.typed.filter-protocols :as fprotocol]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]

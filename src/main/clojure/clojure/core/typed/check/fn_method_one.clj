@@ -20,7 +20,7 @@
             [clojure.core.typed.check.multi-utils :as multi-u]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.check.isa :as isa]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.contract-utils :as con]

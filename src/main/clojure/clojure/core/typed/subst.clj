@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.fold-rep :as f]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.cs-rep :as crep]
-            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.assoc-utils :as assoc-u])

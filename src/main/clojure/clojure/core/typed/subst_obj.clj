@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.subst-obj
-  (:require [clojure.core.typed.filter-rep :as fl]
+  (:require [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.errors :as err]

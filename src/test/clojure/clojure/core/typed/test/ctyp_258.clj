@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.ctyp-258
   (:require [clojure.test :refer :all]
             [clojure.core.typed.type-rep :refer :all]
-            [clojure.core.typed.filter-rep :refer :all]
+            [clojure.core.typed.checker.filter-rep :refer :all]
             [clojure.core.typed.filter-ops :refer :all]
             [clojure.core.typed.test.test-utils :refer :all]))
 

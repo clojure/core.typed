@@ -10,9 +10,9 @@
   (:require [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.type-rep :as r]
             clojure.core.typed.object-rep
-            clojure.core.typed.filter-rep)
+            clojure.core.typed.checker.filter-rep)
   (:import (clojure.core.typed.object_rep Path)
-           (clojure.core.typed.filter_rep NotTypeFilter TypeFilter)
+           (clojure.core.typed.checker.filter_rep NotTypeFilter TypeFilter)
            (clojure.core.typed.type_rep Function)))
 
 (fold/derive-default ::free-in-for-object

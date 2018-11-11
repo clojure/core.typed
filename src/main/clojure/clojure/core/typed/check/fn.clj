@@ -11,7 +11,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.filter-ops :as fo]
-            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check.utils :as cu]))

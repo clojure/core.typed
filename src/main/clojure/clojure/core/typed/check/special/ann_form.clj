@@ -18,7 +18,7 @@
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.filter-rep :as fl]))
+            [clojure.core.typed.checker.filter-rep :as fl]))
 
 (defn ann-form-annotation
   "Return the raw type annotation from the ann-form expression."

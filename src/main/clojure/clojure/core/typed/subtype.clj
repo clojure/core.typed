@@ -14,7 +14,7 @@
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fops]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.checker.frees :as frees]

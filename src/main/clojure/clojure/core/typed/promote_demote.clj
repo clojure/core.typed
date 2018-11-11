@@ -15,7 +15,7 @@
             [clojure.core.typed.hset-utils :as hset]
             [clojure.set :as set]
             [clojure.core.typed.impl-protocols :as p]
-            clojure.core.typed.filter-rep)
+            clojure.core.typed.checker.filter-rep)
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -26,7 +26,7 @@
                                         ArrayCLJS FunctionCLJS KwArgsSeq HSequential HSet LTRange
                                         AnyValue TopFunction Scope DissocType AssocType
                                         GetType GTRange JSUndefined JSNull JSSymbol JSObj TypeOf)
-           (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
+           (clojure.core.typed.checker.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)))
 
 ;FIXME use fold!

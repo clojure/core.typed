@@ -17,7 +17,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.declared-kind-env :as kinds])
@@ -28,7 +28,7 @@
                                         CountRange Name Value Top Unchecked TopFunction B F Result AnyValue
                                         Scope TCError Extends AssocType HSequential HSet
                                         JSObj TypeOf)
-           (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
+           (clojure.core.typed.checker.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
            (clojure.core.typed.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE KeywordPE)))

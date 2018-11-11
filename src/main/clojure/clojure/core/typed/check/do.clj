@@ -9,7 +9,7 @@
 (ns clojure.core.typed.check.do
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.errors :as err]

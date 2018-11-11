@@ -10,7 +10,7 @@
             [clojure.core.typed.type-rep :refer [-nil -false make-CountRange]]
             [clojure.core.typed.type-ctors :refer [Un In RClass-of -name]]
             [clojure.core.typed.update :as update :refer [env+ update]]
-            [clojure.core.typed.filter-rep :refer [-top]]
+            [clojure.core.typed.checker.filter-rep :refer [-top]]
             [clojure.data :refer [diff]]
             [clojure.pprint :refer [pprint]]
             [clojure.core.typed.filter-ops :refer [-imp -not-filter -filter]]))

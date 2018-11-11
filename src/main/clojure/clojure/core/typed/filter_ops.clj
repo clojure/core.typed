@@ -10,13 +10,13 @@
   (:require [clojure.core.typed.type-rep :as r] 
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.set :as set])
-  (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
+  (:import (clojure.core.typed.checker.filter_rep BotFilter TopFilter NoFilter AndFilter 
                                           OrFilter TypeFilter NotTypeFilter ImpFilter)))
 
 (defn -filter [t i & [p]]

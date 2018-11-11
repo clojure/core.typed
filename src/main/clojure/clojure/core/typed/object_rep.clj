@@ -12,7 +12,7 @@
             [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
-            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed.indirect-ops :as ind]))
