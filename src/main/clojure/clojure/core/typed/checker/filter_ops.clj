@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.filter-ops
+(ns ^:skip-wiki clojure.core.typed.checker.filter-ops
   (:require [clojure.core.typed.checker.type-rep :as r] 
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.utils :as u]

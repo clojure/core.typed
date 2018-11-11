@@ -25,7 +25,7 @@
             [clojure.core.typed.checker.type-ctors :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.checker.filter-rep :refer :all]
-            [clojure.core.typed.filter-ops :refer :all]
+            [clojure.core.typed.checker.filter-ops :refer :all]
             [clojure.core.typed.object-rep :refer :all]
             [clojure.core.typed.path-rep :refer :all]
             [clojure.core.typed.parse-unparse :refer :all]

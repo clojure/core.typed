@@ -11,7 +11,7 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.filter-protocols :as fprotocol]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.check.utils :as cu]

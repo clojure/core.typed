@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.lex-env :as lex]

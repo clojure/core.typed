@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.checker.filter-rep :refer :all]
-            [clojure.core.typed.filter-ops :refer :all]
+            [clojure.core.typed.checker.filter-ops :refer :all]
             [clojure.core.typed.test.test-utils :refer :all]))
 
 (deftest ctyp-258-test

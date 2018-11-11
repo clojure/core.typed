@@ -12,7 +12,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.filter-ops :as fo]))
+            [clojure.core.typed.checker.filter-ops :as fo]))
 
 (defn check-vector [check {:keys [items] :as expr} expected]
   {:post [(-> % u/expr-type r/TCResult?)

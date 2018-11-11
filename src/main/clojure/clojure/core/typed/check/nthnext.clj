@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.cs-gen :as cgen]

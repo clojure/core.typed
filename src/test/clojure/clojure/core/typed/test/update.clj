@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.filter-rep :refer [-top]]
             [clojure.data :refer [diff]]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.typed.filter-ops :refer [-imp -not-filter -filter]]))
+            [clojure.core.typed.checker.filter-ops :refer [-imp -not-filter -filter]]))
 
 (defmacro with-validator [v & body]
   `(let [~v (atom true :validator (constantly true))
@@ -64,8 +64,8 @@
 ;  (future
 ;       (do
 ;         (require '[clojure.tools.trace])
-;         (clojure.tools.trace/trace-vars clojure.core.typed.filter-ops/-and
-;                       clojure.core.typed.filter-ops/-or)
+;         (clojure.tools.trace/trace-vars clojure.core.typed.checker.filter-ops/-and
+;                       clojure.core.typed.checker.filter-ops/-or)
 ;         (spit "combine"
 ;               (with-out-str
 ;                 (t/check-ns 'clojure.core.typed.test.CTYP-83-performance))))))

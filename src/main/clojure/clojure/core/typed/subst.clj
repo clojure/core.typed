@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.assoc-utils :as assoc-u])
   (:import (clojure.core.typed.checker.type_rep F Function HSequential AssocType)))

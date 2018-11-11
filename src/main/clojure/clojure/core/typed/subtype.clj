@@ -15,7 +15,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.checker.filter-rep :as fr]
-            [clojure.core.typed.filter-ops :as fops]
+            [clojure.core.typed.checker.filter-ops :as fops]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.checker.free-ops :as free-ops]

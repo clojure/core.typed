@@ -46,7 +46,7 @@
                  '[clojure.core.typed.checker.type-rep]
                  '[clojure.core.typed.checker.type-ctors]
                  '[clojure.core.typed.checker.filter-rep]
-                 '[clojure.core.typed.filter-ops]
+                 '[clojure.core.typed.checker.filter-ops]
                  '[clojure.core.typed.subst]
                  '[clojure.core.typed.path-rep]
                  '[clojure.core.typed.object-rep]

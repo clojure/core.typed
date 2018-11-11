@@ -12,7 +12,7 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.filter-ops :as fo])
+            [clojure.core.typed.checker.filter-ops :as fo])
   (:import (clojure.core.typed.checker.filter_rep NotTypeFilter TypeFilter FilterSet)))
 
 (declare abstract-object abstract-type abo)

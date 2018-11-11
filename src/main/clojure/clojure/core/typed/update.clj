@@ -13,7 +13,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.cs-gen :as cgen]

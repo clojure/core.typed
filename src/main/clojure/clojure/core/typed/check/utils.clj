@@ -29,7 +29,7 @@
             [clojure.core.typed.method-param-nilables :as mtd-param-nil]
             [clojure.core.typed.method-return-nilables :as mtd-ret-nil]
             [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.ast-utils :as ast-u])
   (:import (clojure.lang MultiFn)))

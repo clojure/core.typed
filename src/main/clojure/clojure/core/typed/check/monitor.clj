@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.check-below :as below]))
 
 (defn check-monitor

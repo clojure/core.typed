@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep :as fr]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or]
             ; use subtype? utility defined in this namespace
             [clojure.core.typed.subtype :as sub]

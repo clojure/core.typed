@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep]
-            [clojure.core.typed.filter-ops :as fops]
+            [clojure.core.typed.checker.filter-ops :as fops]
             [clojure.core.typed.object-rep]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.assoc-utils :as assoc-u]

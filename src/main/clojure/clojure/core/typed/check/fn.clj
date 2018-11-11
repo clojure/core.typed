@@ -10,7 +10,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.check.fn-methods :as fn-methods]

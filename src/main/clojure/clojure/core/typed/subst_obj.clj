@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.subst-obj
   (:require [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.free-in :as free-in]

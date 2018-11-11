@@ -11,7 +11,7 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.checker.type-rep :as r]))
 
