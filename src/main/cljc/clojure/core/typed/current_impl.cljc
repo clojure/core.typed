@@ -543,9 +543,9 @@
 #?(:clj
 (def ^:private -nil (delay (dynaload 'clojure.core.typed.type-rep/-nil))))
 #?(:clj
-(def ^:private fv (delay (dynaload 'clojure.core.typed.frees/fv))))
+(def ^:private fv (delay (dynaload 'clojure.core.typed.checker.frees/fv))))
 #?(:clj
-(def ^:private fi (delay (dynaload 'clojure.core.typed.frees/fi))))
+(def ^:private fi (delay (dynaload 'clojure.core.typed.checker.frees/fi))))
 #?(:clj
 (def ^:private make-HMap (delay (dynaload 'clojure.core.typed.type-ctors/make-HMap))))
 
