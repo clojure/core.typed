@@ -16,7 +16,7 @@
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as ana-host]
-            [clojure.core.typed.array-ops :as arr-ops]
+            [clojure.core.typed.checker.jvm.array-ops :as arr-ops]
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check-below :as below]
