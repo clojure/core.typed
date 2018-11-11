@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.check.recur-utils
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 (u/def-type RecurTarget [dom rest drest kws]
   "A target for recur"

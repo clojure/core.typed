@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.parse-unparse
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.object-rep :as orep]
@@ -28,7 +28,7 @@
             [clojure.core.typed.hset-utils :as hset]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
-  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection
+  (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousMap

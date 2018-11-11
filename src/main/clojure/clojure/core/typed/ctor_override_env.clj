@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.env :as env]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constructor Override Env

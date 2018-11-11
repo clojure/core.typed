@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.collect-utils
   (:require [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 (defn protocol-method-var-ann [mt names bnds]
   (cond

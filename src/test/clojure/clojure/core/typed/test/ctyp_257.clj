@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.ctyp-257
   (:require [clojure.test :refer :all]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.test.test-utils :refer :all]))
 

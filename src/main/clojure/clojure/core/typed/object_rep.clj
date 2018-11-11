@@ -10,7 +10,7 @@
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.impl-protocols :as p]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.utils :as u]

@@ -9,7 +9,7 @@
 (ns clojure.core.typed.check.loop
   (:require [clojure.core.typed.check.let :as let]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.check.recur-utils :as recur-u]))
 

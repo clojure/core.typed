@@ -16,7 +16,7 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.check.let :as let]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 ; annotations are in the first expression of the body (a :do)
 (defn check-letfn [bindings body letfn-expr expected check]

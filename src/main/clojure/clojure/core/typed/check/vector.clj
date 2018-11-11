@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.vector
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.subtype :as sub]

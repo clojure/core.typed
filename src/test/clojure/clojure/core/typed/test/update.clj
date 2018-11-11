@@ -7,7 +7,7 @@
             [clojure.core.typed :as t]
             [clojure.test :refer :all]
             [clojure.core.typed.lex-env :refer [-PropEnv]]
-            [clojure.core.typed.type-rep :refer [-nil -false make-CountRange]]
+            [clojure.core.typed.checker.type-rep :refer [-nil -false make-CountRange]]
             [clojure.core.typed.type-ctors :refer [Un In RClass-of -name]]
             [clojure.core.typed.update :as update :refer [env+ update]]
             [clojure.core.typed.checker.filter-rep :refer [-top]]

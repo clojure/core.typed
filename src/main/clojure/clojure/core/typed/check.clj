@@ -104,7 +104,7 @@
             [clojure.core.typed.tvar-bnds :as tvar-bnds]
             [clojure.core.typed.tvar-env :as tvar-env]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]

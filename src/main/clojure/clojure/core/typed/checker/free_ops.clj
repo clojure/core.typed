@@ -10,11 +10,11 @@
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.checker.free-ops
   (:require [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.tvar-env :as tvar]
             [clojure.core.typed.tvar-bnds :as bnds])
-  (:import (clojure.core.typed.type_rep F Bounds)))
+  (:import (clojure.core.typed.checker.type_rep F Bounds)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax

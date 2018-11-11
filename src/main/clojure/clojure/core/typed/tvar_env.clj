@@ -10,9 +10,9 @@
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.tvar-env
   (:require [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t])
-  (:import (clojure.core.typed.type_rep F)))
+  (:import (clojure.core.typed.checker.type_rep F)))
 
 ;; this implements the Delta environment from the TOPLAS paper
 ;; (as well as every other paper on System F)

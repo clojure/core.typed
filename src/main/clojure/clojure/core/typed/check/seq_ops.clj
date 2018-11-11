@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.seq-ops
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed :as t]
             [clojure.core.typed.parse-unparse :as prs]

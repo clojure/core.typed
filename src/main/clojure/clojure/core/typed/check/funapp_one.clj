@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.check.funapp-one
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.errors :as err]

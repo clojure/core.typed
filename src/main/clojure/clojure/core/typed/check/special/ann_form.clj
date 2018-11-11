@@ -12,7 +12,7 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.subtype :as sub]

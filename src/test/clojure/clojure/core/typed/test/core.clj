@@ -23,7 +23,7 @@
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.type-ctors :refer :all]
-            [clojure.core.typed.type-rep :refer :all]
+            [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.checker.filter-rep :refer :all]
             [clojure.core.typed.filter-ops :refer :all]
             [clojure.core.typed.object-rep :refer :all]
@@ -1923,7 +1923,7 @@
 
 ;FIXME uncomment after core.typed internals are being checked
 ;(deftest subtype-explosion-test
-;  (is (sub? nil clojure.core.typed.type-rep/TCType)))
+;  (is (sub? nil clojure.core.typed.checker.type-rep/TCType)))
 
 (deftest var-as-function-test
   (is-cf #'+ [Number * -> Number])

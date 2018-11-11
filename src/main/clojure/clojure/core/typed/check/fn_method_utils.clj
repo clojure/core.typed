@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.check.fn-method-utils
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.abo :as abo]))
 

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.check.map
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.subtype :as sub]

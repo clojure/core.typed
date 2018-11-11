@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.check.nthnext
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]

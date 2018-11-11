@@ -11,7 +11,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fo]
@@ -31,7 +31,7 @@
             [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed :as t :refer [letfn>]]
             [clojure.set :as set])
-  (:import (clojure.core.typed.type_rep F DataType Function Protocol Bounds FlowSet TCResult HSequential)
+  (:import (clojure.core.typed.checker.type_rep F DataType Function Protocol Bounds FlowSet TCResult HSequential)
            (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)))
 
 (t/typed-deps clojure.core.typed.checker.free-ops

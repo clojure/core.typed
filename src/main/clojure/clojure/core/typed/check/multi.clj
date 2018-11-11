@@ -8,8 +8,8 @@
 
 (ns clojure.core.typed.check.multi
   (:require [clojure.core.typed.checker.fold-rep :as fold]
-            [clojure.core.typed.type-rep :as r])
-  (:import (clojure.core.typed.type_rep Function)))
+            [clojure.core.typed.checker.type-rep :as r])
+  (:import (clojure.core.typed.checker.type_rep Function)))
 
 ;; Multimethod definition
 

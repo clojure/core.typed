@@ -8,12 +8,12 @@
 
 (ns ^:skip-wiki clojure.core.typed.checker.free-in
   (:require [clojure.core.typed.checker.fold-rep :as fold]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             clojure.core.typed.object-rep
             clojure.core.typed.checker.filter-rep)
   (:import (clojure.core.typed.object_rep Path)
            (clojure.core.typed.checker.filter_rep NotTypeFilter TypeFilter)
-           (clojure.core.typed.type_rep Function)))
+           (clojure.core.typed.checker.type_rep Function)))
 
 (fold/derive-default ::free-in-for-object
                      ::free-in-for-filter

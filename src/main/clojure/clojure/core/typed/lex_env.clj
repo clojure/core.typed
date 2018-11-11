@@ -15,7 +15,7 @@
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.path-type :as path-type]
             [clojure.core.typed.object-rep :as obj]))

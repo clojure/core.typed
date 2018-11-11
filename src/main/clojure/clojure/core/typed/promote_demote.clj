@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.promote-demote
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed :as t]
@@ -16,7 +16,7 @@
             [clojure.set :as set]
             [clojure.core.typed.impl-protocols :as p]
             clojure.core.typed.checker.filter-rep)
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.checker.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousMap

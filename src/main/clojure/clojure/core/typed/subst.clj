@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.subst
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.fold-rep :as f]
             [clojure.core.typed.checker.frees :as frees]
@@ -17,7 +17,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.assoc-utils :as assoc-u])
-  (:import (clojure.core.typed.type_rep F Function HSequential AssocType)))
+  (:import (clojure.core.typed.checker.type_rep F Function HSequential AssocType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable substitution

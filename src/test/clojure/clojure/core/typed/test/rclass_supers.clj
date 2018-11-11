@@ -3,7 +3,7 @@
             [clojure.test :refer :all]
             [clojure.core.typed :as t]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.type-rep :refer :all]
+            [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.type-ctors :refer :all]
             [clojure.core.typed.parse-unparse :refer [unparse-type]]
             [clojure.set :as set])

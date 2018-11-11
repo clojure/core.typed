@@ -10,9 +10,9 @@
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t])
-  (:import (clojure.core.typed.type_rep Bounds F)))
+  (:import (clojure.core.typed.checker.type_rep Bounds F)))
 
 (u/ann-record t-subst [type :- r/Type,
                        bnds :- Bounds])

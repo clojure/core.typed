@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.recur
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.errors :as err]

@@ -11,8 +11,8 @@
   clojure.core.typed.tvar-bnds
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r])
-  (:import (clojure.core.typed.type_rep Bounds)))
+            [clojure.core.typed.checker.type-rep :as r])
+  (:import (clojure.core.typed.checker.type_rep Bounds)))
 
 ;; this implements an environment from (fresh) type variable names
 ;; to their bounds.

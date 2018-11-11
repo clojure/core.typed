@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.fn-method-one
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]

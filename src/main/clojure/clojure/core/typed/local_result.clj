@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check-below :as below]

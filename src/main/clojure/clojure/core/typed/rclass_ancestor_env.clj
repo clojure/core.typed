@@ -10,11 +10,11 @@
   clojure.core.typed.rclass-ancestor-env
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-ctors :as c]
             [clojure.set :as set])
-  (:import [clojure.core.typed.type_rep RClass]))
+  (:import [clojure.core.typed.checker.type_rep RClass]))
 
 (t/defalias RClassAncestorEnv 
   (t/Map t/Symbol '{:replacements (t/Map t/Symbol r/MaybeScopedType)

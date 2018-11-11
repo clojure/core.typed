@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.open-result
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.contract-utils :as con]

@@ -43,7 +43,7 @@
         (reset! attempted-loading? true)
         #_
         (require '[clojure.core.typed.utils]
-                 '[clojure.core.typed.type-rep]
+                 '[clojure.core.typed.checker.type-rep]
                  '[clojure.core.typed.type-ctors]
                  '[clojure.core.typed.checker.filter-rep]
                  '[clojure.core.typed.filter-ops]

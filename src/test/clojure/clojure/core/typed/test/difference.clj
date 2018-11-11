@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.difference
   (:require [clojure.core.typed :as tc :refer []]
             [clojure.core.typed.test.test-utils :refer :all]
-            [clojure.core.typed.type-rep :refer :all]
+            [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.type-ctors :refer :all]
             [clojure.core.typed.cs-gen :refer :all]
             [clojure.core.typed.cs-rep :refer :all]

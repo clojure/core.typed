@@ -5,7 +5,7 @@
     [clojure.core.typed :as t]
     [clojure.core.typed.filter-ops :refer [-and -filter -not-filter -or]]
     [clojure.core.typed.checker.filter-rep :refer [-top make-AndFilter make-OrFilter -bot]]
-    [clojure.core.typed.type-rep :refer []]
+    [clojure.core.typed.checker.type-rep :refer []]
     [clojure.core.typed.parse-unparse :refer [parse-type]]
     [clojure.core.typed.subtype :refer [subtype-type-filter?]]
             [clojure.test :refer :all]))

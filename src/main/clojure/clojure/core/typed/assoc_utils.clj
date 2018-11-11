@@ -8,7 +8,7 @@
 
 ; support for assoc/merge/conj
 (ns clojure.core.typed.assoc-utils
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.indirect-utils :as ind-u]
@@ -18,7 +18,7 @@
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl])
-  (:import (clojure.core.typed.type_rep HeterogeneousMap Value Intersection F RClass DataType HSequential)
+  (:import (clojure.core.typed.checker.type_rep HeterogeneousMap Value Intersection F RClass DataType HSequential)
            (clojure.lang IPersistentMap IPersistentVector)))
 
 ;supporting assoc functionality

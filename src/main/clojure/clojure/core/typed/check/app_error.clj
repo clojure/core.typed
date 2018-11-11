@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.app-error
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.util-vars :as vs]

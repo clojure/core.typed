@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.check-below :as below]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 (defn flow-for-value []
   (let [props (:props (lex/lexical-env))

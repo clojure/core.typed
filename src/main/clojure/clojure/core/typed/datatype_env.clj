@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.datatype-env
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]))

@@ -19,7 +19,7 @@
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
              :as common]
             [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.checker.fold-default]

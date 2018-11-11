@@ -9,7 +9,7 @@
 (ns clojure.core.typed.check.cli
   (:require [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.string :as str]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.checker.free-ops :as free-ops]

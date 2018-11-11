@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.datatype-ancestor-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed :as t]
@@ -17,7 +17,7 @@
             [clojure.core.typed.nilsafe-utils :as nilsafe]
             [clojure.core.typed.current-impl :as impl]
             [clojure.set :as set])
-  (:import (clojure.core.typed.type_rep DataType)))
+  (:import (clojure.core.typed.checker.type_rep DataType)))
 
 (t/typed-deps clojure.core.typed.type-ctors
               clojure.core.typed.subst)

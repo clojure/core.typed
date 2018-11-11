@@ -18,7 +18,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.check.utils :as cu]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check.fn-method-one :as fn-method-one]

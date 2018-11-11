@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.base-env-helper
   (:refer-clojure :exclude [type])
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]

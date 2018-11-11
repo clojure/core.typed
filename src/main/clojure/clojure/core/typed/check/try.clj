@@ -9,7 +9,7 @@
 (ns clojure.core.typed.check.try
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as o]

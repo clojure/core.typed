@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.remove
   (:require [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 ;; also not yet correct
 ;; produces old without the contents of rem

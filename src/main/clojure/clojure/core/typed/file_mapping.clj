@@ -11,7 +11,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.tools.analyzer.ast :as ast-ops]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]))
 
 ; (Vec '{:ftype Type :fn-expr Expr})

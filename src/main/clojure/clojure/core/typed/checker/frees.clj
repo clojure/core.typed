@@ -10,7 +10,7 @@
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.checker.frees
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep]
@@ -21,7 +21,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.declared-kind-env :as kinds])
-  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousMap
@@ -435,13 +435,13 @@
     (frees scope)))
 
 ;;js types
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSBoolean] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSObject] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSString] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSSymbol] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSNumber] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.CLJSInteger] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.ArrayCLJS] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.FunctionCLJS] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSUndefined] [t] {})
-(defmethod frees [::any-var clojure.core.typed.type_rep.JSNull] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSBoolean] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSObject] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSString] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSSymbol] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSNumber] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.CLJSInteger] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.ArrayCLJS] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.FunctionCLJS] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSUndefined] [t] {})
+(defmethod frees [::any-var clojure.core.typed.checker.type_rep.JSNull] [t] {})

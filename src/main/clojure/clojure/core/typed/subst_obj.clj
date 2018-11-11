@@ -12,9 +12,9 @@
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.free-in :as free-in]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.object-rep :as obj])
-  (:import (clojure.core.typed.type_rep Function)))
+  (:import (clojure.core.typed.checker.type_rep Function)))
 
 (declare subst-type)
 

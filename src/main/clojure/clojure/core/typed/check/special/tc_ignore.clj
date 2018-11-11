@@ -12,7 +12,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.analyzer :as ana2]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 (defn check-tc-ignore [check expr expected]
   (binding [vs/*current-expr* expr]

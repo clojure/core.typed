@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.checker.fold-default
   (:require [clojure.core.typed.checker.fold-rep :refer [add-default-fold-case]]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep]
             [clojure.core.typed.filter-ops :as fops]
@@ -16,7 +16,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed.path-rep])
-  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousMap

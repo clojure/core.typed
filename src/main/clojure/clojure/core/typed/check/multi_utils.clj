@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.multi-utils
   (:require [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 (defonce ^:dynamic *current-mm* nil)
 (set-validator! #'*current-mm* (some-fn nil? 

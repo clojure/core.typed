@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.check.isa
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.check-below :as below]
             [clojure.core.typed.filter-protocols :as fprotocol]
@@ -19,7 +19,7 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.path-rep :as path]
             [clojure.core.typed.tc-equiv :as equiv])
-  (:import (clojure.core.typed.type_rep TCResult)))
+  (:import (clojure.core.typed.checker.type_rep TCResult)))
 
 ;(t/ann tc-isa? [TCResult TCResult -> TCResult])
 (defn tc-isa? 

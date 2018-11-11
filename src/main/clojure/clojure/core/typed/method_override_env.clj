@@ -9,7 +9,7 @@
 (ns clojure.core.typed.method-override-env
   (:require [clojure.core.typed.env :as env]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-rep :as r]))
+            [clojure.core.typed.checker.type-rep :as r]))
 
 ; Should only override a method with a more specific type
 ; eg. 
