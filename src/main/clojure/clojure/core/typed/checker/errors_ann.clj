@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.checker.errors.ann
+(ns clojure.core.typed.checker.errors-ann
   (:require [clojure.core.typed :as t]))
 
 (t/ann ^:no-check clojure.core.typed.errors/deprecated-warn [String -> nil])
