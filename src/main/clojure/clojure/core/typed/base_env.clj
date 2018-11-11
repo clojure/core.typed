@@ -15,7 +15,7 @@
                          IRef Reduced)
            (java.util Comparator Collection))
   (:require [clojure.core.typed.base-env-helper :as h]
-            [clojure.core.typed.base-env-clj-rclass :as base-rclass]
+            [clojure.core.typed.checker.jvm.base-env-clj-rclass :as base-rclass]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
              :as common]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
