@@ -31,7 +31,7 @@
             [clojure.core.typed.checker.jvm.parse-unparse :refer :all]
             [clojure.core.typed.checker.jvm.constant-type :refer [constant-type]]
             [clojure.core.typed.checker.lex-env :refer :all]
-            [clojure.core.typed.promote-demote :refer :all]
+            [clojure.core.typed.checker.promote-demote :refer :all]
             [clojure.core.typed.checker.frees :refer :all]
             [clojure.core.typed.checker.free-ops :refer :all]
             [clojure.core.typed.checker.dvar-env :refer :all]

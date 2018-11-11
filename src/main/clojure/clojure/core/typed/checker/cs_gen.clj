@@ -25,7 +25,7 @@
             [clojure.core.typed.checker.dvar-env :as denv]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.checker.free-ops :as free-ops]
-            [clojure.core.typed.promote-demote :as prmt]
+            [clojure.core.typed.checker.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.checker.indirect-utils :as ind-u]
@@ -35,7 +35,7 @@
            (clojure.core.typed.checker.cs_rep c cset dcon dmap cset-entry)))
 
 (t/typed-deps clojure.core.typed.checker.free-ops
-              clojure.core.typed.promote-demote)
+              clojure.core.typed.checker.promote-demote)
 
 (t/ann ^:no-check clojure.core.typed.subtype/subtype? [r/AnyType r/AnyType -> Boolean])
 (t/ann ^:no-check clojure.set/union (t/All [x] [(t/Set x) * -> (t/Set x)]))
