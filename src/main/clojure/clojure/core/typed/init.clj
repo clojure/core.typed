@@ -60,7 +60,7 @@
                  '[clojure.core.typed.env]
                  '[clojure.core.typed.checker.dvar-env]
                  '[clojure.core.typed.datatype-ancestor-env]
-                 '[clojure.core.typed.datatype-env]
+                 '[clojure.core.typed.checker.datatype-env]
                  '[clojure.core.typed.protocol-env]
                  '[clojure.core.typed.method-override-env]
                  '[clojure.core.typed.checker.jvm.ctor-override-env]

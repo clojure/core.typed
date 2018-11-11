@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.datatype-env :as dtenv]
+            [clojure.core.typed.checker.datatype-env :as dtenv]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.declared-kind-env :as kinds]
