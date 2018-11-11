@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.checker.jvm.check-form-clj
-  (:require [clojure.core.typed.check-form-common :as chk-form]
+  (:require [clojure.core.typed.checker.check-form-common :as chk-form]
             [clojure.core.typed.checker.check-form-common2 :as chk-form2]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.checker.jvm.check :as chk-clj]

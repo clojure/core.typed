@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.check-form-common
+(ns ^:skip-wiki clojure.core.typed.checker.check-form-common
   (:require [clojure.core.typed.checker.jvm.check :as chk]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]

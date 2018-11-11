@@ -18,7 +18,7 @@
             [clojure.tools.reader :as reader]
             [clojure.java.io :as io]
             [clojure.core.typed.checker.jvm.check-form-clj :as chk-frm-clj]
-            [clojure.core.typed.check-form-common :as chk-frm]
+            [clojure.core.typed.checker.check-form-common :as chk-frm]
             [clojure.core.typed.lang :as lang]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.core.typed.analyzer.jvm :as ana2]
