@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.local
-  (:require [clojure.core.typed.local-result :as local-result]
+  (:require [clojure.core.typed.checker.local-result :as local-result]
             [clojure.core.typed.utils :as u]))
 
 (defn check-local [{sym :name :as expr} expected]

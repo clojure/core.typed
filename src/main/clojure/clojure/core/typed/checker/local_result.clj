@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.local-result
+(ns clojure.core.typed.checker.local-result
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.errors :as err]
