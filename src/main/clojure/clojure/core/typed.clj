@@ -81,7 +81,7 @@ for checking namespaces, cf for checking individual forms."}
 
 ;(ann method-type [Symbol -> nil])
 (core/let [type-reflect (delay (dynaload 'clojure.reflect/type-reflect))
-           Method->Type (delay (dynaload 'clojure.core.typed.check/Method->Type))
+           Method->Type (delay (dynaload 'clojure.core.typed.checker.jvm.check/Method->Type))
            unparse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type))]
   (core/defn method-type
     "Given a method symbol, print the core.typed types assigned to it.
