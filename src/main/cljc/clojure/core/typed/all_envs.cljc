@@ -13,7 +13,7 @@
 
 (def ^:private unparse-type (delay (impl/dynaload 'clojure.core.typed.parse-unparse/unparse-type)))
 
-(let [nme-env (delay (impl/dynaload 'clojure.core.typed.name-env/name-env))]
+(let [nme-env (delay (impl/dynaload 'clojure.core.typed.checker.name-env/name-env))]
   (defn name-env []
     (load-if-needed)
     (binding [vs/*verbose-types* true]
