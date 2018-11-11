@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.base-env-helper
+(ns clojure.core.typed.checker.base-env-helper
   (:refer-clojure :exclude [type])
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]

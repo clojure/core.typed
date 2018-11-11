@@ -14,7 +14,7 @@
                          ILookup Indexed Associative
                          IRef Reduced)
            (java.util Comparator Collection))
-  (:require [clojure.core.typed.base-env-helper :as h]
+  (:require [clojure.core.typed.checker.base-env-helper :as h]
             [clojure.core.typed.checker.jvm.base-env-clj-rclass :as base-rclass]
             [clojure.core.typed.checker.base-env-common :refer [delay-and-cache-env]
              :as common]
