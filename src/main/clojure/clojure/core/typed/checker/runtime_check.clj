@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.runtime-check
+(ns clojure.core.typed.checker.runtime-check
   "Adds runtime checks where annotations are instead of type checking"
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.check.do :as do]

@@ -12,7 +12,7 @@
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.checker.jvm.check :as chk-clj]
             [clojure.core.typed.ast-utils :as ast-u]
-            [clojure.core.typed.runtime-check :as rt-chk]
+            [clojure.core.typed.checker.runtime-check :as rt-chk]
             [clojure.core.typed.current-impl :as impl]))
 
 (def ^:private runtime-infer-expr
