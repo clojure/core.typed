@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.checker.type-rep :as r]

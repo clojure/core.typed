@@ -16,7 +16,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.lex-env :as lex-env]
+            [clojure.core.typed.checker.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]
             [clojure.repl :as repl]
             [clojure.core.typed.analyzer :as ana]

@@ -12,7 +12,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.tc-equiv :as equiv]))
 

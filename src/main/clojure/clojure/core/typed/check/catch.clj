@@ -11,7 +11,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.ast-utils :as ast-u]))
 

@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.check.const
   (:require [clojure.core.typed.object-rep :as obj]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]

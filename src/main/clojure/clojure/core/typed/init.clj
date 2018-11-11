@@ -53,7 +53,7 @@
                  '[clojure.core.typed.checker.fold-rep]
                  '[clojure.core.typed.checker.fold-default]
                  '[clojure.core.typed.parse-unparse]
-                 '[clojure.core.typed.lex-env]
+                 '[clojure.core.typed.checker.lex-env]
                  '[clojure.core.typed.var-env]
                  '[clojure.core.typed.parse-unparse]
                  '[clojure.core.typed.current-impl]

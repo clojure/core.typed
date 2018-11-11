@@ -15,7 +15,7 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.check.multi-utils :as multi-u]
             [clojure.core.typed.check.funapp :as funapp]

@@ -82,7 +82,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.checker.inst :as inst]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.mm-env :as mm]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-deps-utils :as ns-depsu]

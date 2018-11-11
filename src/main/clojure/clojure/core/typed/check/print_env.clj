@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.print-env
-  (:require [clojure.core.typed.lex-env :as lex]
+  (:require [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.tvar-env :as tvar-env]
             [clojure.core.typed.tvar-bnds :as tvar-bnds]
             [clojure.core.typed.parse-unparse :as prs]))

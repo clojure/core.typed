@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.update :as update]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]))
 

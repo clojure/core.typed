@@ -16,7 +16,7 @@
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.checker.dvar-env :as dvar]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]

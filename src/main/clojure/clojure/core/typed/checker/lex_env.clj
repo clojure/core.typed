@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.lex-env
+(ns ^:skip-wiki clojure.core.typed.checker.lex-env
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.utils :as u]
@@ -51,7 +51,7 @@
                                      (or (nil? a)
                                          (PropEnv? a)
                                          ;work around for recompilation issues with AOT
-                                         (= "clojure.core.typed.lex_env.PropEnv"
+                                         (= "clojure.core.typed.checker.lex_env.PropEnv"
                                             (.getName (class a))))))
 
 (defn lookup-alias [sym & {:keys [env]}]

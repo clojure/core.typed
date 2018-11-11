@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.indirect-utils :as indu]
