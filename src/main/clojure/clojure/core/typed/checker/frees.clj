@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
-  clojure.core.typed.frees
+  clojure.core.typed.checker.frees
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]

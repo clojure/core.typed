@@ -11,7 +11,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.fold-rep :as f]
-            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]

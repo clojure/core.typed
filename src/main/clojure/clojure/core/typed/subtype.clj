@@ -17,7 +17,7 @@
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fops]
             [clojure.core.typed.object-rep :as orep]
-            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.path-rep :as pth-rep]

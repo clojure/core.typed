@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed :as t]
             [clojure.core.typed.hset-utils :as hset]
             [clojure.set :as set]

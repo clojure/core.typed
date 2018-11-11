@@ -1017,7 +1017,7 @@
 (let [; We don't check variances are consistent at parse-time. Instead
       ; we check at instantiation time. This avoids some implementation headaches,
       ; like dealing with partially defined types.
-      fv-variances (delay (impl/dynaload 'clojure.core.typed.frees/fv-variances))]
+      fv-variances (delay (impl/dynaload 'clojure.core.typed.checker.frees/fv-variances))]
   (defn TypeFn-body* [names typefn]
     {:pre [(every? symbol? names)
            (r/TypeFn? typefn)]}

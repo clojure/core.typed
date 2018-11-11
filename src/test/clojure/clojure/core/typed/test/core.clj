@@ -32,7 +32,7 @@
             [clojure.core.typed.constant-type :refer [constant-type]]
             [clojure.core.typed.lex-env :refer :all]
             [clojure.core.typed.promote-demote :refer :all]
-            [clojure.core.typed.frees :refer :all]
+            [clojure.core.typed.checker.frees :refer :all]
             [clojure.core.typed.free-ops :refer :all]
             [clojure.core.typed.checker.dvar-env :refer :all]
             [clojure.core.typed.cs-gen :refer :all]

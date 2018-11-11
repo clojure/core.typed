@@ -72,7 +72,7 @@
                  '[clojure.core.typed.mm-env]
                  '[clojure.core.typed.constant-type]
                  '[clojure.core.typed.parse-unparse]
-                 '[clojure.core.typed.frees]
+                 '[clojure.core.typed.checker.frees]
                  '[clojure.core.typed.free-ops]
                  '[clojure.core.typed.cs-gen]
                  '[clojure.core.typed.trans]

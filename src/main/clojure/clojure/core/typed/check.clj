@@ -81,7 +81,7 @@
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.checker.fold-rep :as fold]
             [clojure.core.typed.free-ops :as free-ops]
-            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.mm-env :as mm]

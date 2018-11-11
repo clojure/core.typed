@@ -23,7 +23,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.dvar-env :as denv]
-            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]

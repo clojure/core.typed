@@ -29,7 +29,7 @@
             [clojure.set :as set]
             [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.infer-vars :as infer-vars]
             [clojure.core.typed.hset-utils :as hset]))
 
