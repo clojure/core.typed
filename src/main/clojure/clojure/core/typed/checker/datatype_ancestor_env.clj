@@ -14,7 +14,7 @@
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]
-            [clojure.core.typed.nilsafe-utils :as nilsafe]
+            [clojure.core.typed.checker.nilsafe-utils :as nilsafe]
             [clojure.core.typed.current-impl :as impl]
             [clojure.set :as set])
   (:import (clojure.core.typed.checker.type_rep DataType)))
