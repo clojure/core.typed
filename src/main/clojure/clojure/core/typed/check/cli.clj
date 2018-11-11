@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.constant-type :as const]
+            [clojure.core.typed.checker.jvm.constant-type :as const]
             [clojure.core.typed.checker.type-ctors :as c]))
 
 (defn parse-fn-return-type [parse-fn-type]

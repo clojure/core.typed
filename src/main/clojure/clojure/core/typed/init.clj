@@ -70,7 +70,7 @@
                  '[clojure.core.typed.checker.name-env]
                  '[clojure.core.typed.rclass-env]
                  '[clojure.core.typed.mm-env]
-                 '[clojure.core.typed.constant-type]
+                 '[clojure.core.typed.checker.jvm.constant-type]
                  '[clojure.core.typed.parse-unparse]
                  '[clojure.core.typed.checker.frees]
                  '[clojure.core.typed.checker.free-ops]

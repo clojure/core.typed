@@ -66,7 +66,7 @@
             [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.with-meta :as with-meta]
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.constant-type :as constant-type]
+            [clojure.core.typed.checker.jvm.constant-type :as constant-type]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.checker.cs-rep :as crep]

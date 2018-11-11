@@ -20,7 +20,7 @@
             [clojure.core.typed.checker.dvar-env :as dvar]
             [clojure.core.typed.checker.filter-rep :as f]
             [clojure.core.typed.checker.filter-ops :as fl]
-            [clojure.core.typed.constant-type :as const]
+            [clojure.core.typed.checker.jvm.constant-type :as const]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.indirect-utils :as indu]
             [clojure.core.typed.checker.indirect-ops :as ind]

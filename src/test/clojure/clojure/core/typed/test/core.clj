@@ -29,7 +29,7 @@
             [clojure.core.typed.object-rep :refer :all]
             [clojure.core.typed.checker.path-rep :refer :all]
             [clojure.core.typed.parse-unparse :refer :all]
-            [clojure.core.typed.constant-type :refer [constant-type]]
+            [clojure.core.typed.checker.jvm.constant-type :refer [constant-type]]
             [clojure.core.typed.checker.lex-env :refer :all]
             [clojure.core.typed.promote-demote :refer :all]
             [clojure.core.typed.checker.frees :refer :all]
