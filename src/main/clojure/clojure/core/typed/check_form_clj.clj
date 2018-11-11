@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.check-form-common :as chk-form]
             [clojure.core.typed.check-form-common2 :as chk-form2]
             [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.check :as chk-clj]
+            [clojure.core.typed.checker.jvm.check :as chk-clj]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.runtime-check :as rt-chk]
             [clojure.core.typed.current-impl :as impl]))

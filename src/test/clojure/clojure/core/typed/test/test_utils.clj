@@ -15,7 +15,7 @@
          '[clojure.core.typed.current-impl :as impl]
          '[clojure.core.typed.checker.type-ctors :as c]
          '[clojure.core.typed.checker.type-rep :as r]
-         '[clojure.core.typed.check :as chk]
+         '[clojure.core.typed.checker.jvm.check :as chk]
          '[clojure.core.typed.subtype :as sub])
 
 

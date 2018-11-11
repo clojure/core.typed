@@ -14,7 +14,7 @@
             [clojure.core.typed.utils :as u :refer [expr-type]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.checker.jvm.check :as chk]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.update :as update :refer [env+ update]]

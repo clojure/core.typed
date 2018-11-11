@@ -12,7 +12,7 @@
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.check :as chk-clj]
+            [clojure.core.typed.checker.jvm.check :as chk-clj]
             [clojure.core.typed.checker.jvm.file-mapping :as file-map]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.util-vars :as vs]

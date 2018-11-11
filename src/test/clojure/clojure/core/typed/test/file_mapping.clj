@@ -4,7 +4,7 @@
     [clojure.core.typed.test.test-utils :refer [check clj]]
     [clojure.core.typed.analyze-clj :as ana]
     [clojure.core.typed :as t]
-    [clojure.core.typed.check :as chk]))
+    [clojure.core.typed.checker.jvm.check :as chk]))
 
 #_(-> (ana/ast-for-form '(let [a (+ 1 2)] a)) :env ((juxt :line :column)))
 

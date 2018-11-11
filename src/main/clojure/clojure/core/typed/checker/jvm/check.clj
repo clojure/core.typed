@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.check
+(ns clojure.core.typed.checker.jvm.check
   {:skip-wiki true}
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.abo :as abo]

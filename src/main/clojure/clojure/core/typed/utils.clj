@@ -257,7 +257,7 @@
 (defn ns? [n]
   (instance? clojure.lang.Namespace n))
 
-(def expr-type :clojure.core.typed.check/expr-type)
+(def expr-type ::expr-type)
 
 ;(t/ann tc-warning [t/Any * -> nil])
 (defn tc-warning [& ss]

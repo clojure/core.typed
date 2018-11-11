@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.check-form-common
-  (:require [clojure.core.typed.check :as chk]
+  (:require [clojure.core.typed.checker.jvm.check :as chk]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.reset-caches :as reset-caches]
