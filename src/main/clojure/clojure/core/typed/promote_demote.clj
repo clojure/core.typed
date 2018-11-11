@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed :as t]
-            [clojure.core.typed.hset-utils :as hset]
+            [clojure.core.typed.checker.hset-utils :as hset]
             [clojure.set :as set]
             [clojure.core.typed.impl-protocols :as p]
             clojure.core.typed.checker.filter-rep)

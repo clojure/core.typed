@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.hset-utils)
+(ns clojure.core.typed.checker.hset-utils)
 
 (def valid-fixed? (some-fn string? symbol? keyword? nil? number?
                            char? boolean?))

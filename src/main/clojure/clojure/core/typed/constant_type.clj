@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.hset-utils :as hset]
+            [clojure.core.typed.checker.hset-utils :as hset]
             [clojure.core.typed.checker.filter-ops :as fo])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons ISeq
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry

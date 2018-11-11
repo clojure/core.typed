@@ -25,7 +25,7 @@
             [clojure.core.typed.indirect-utils :as indu]
             [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.hset-utils :as hset]
+            [clojure.core.typed.checker.hset-utils :as hset]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.checker.type_rep NotType DifferenceType Intersection Union FnIntersection
