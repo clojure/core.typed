@@ -13,7 +13,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check :as chk-clj]
-            [clojure.core.typed.file-mapping :as file-map]
+            [clojure.core.typed.checker.jvm.file-mapping :as file-map]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.lex-env :as lex-env]

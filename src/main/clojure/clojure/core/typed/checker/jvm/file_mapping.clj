@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.file-mapping
+(ns clojure.core.typed.checker.jvm.file-mapping
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.check.utils :as cu]

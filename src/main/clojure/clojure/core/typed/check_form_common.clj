@@ -12,7 +12,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.cache :as cache]
-            [clojure.core.typed.file-mapping :as file-map]
+            [clojure.core.typed.checker.jvm.file-mapping :as file-map]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
