@@ -28,7 +28,7 @@
             [clojure.core.typed.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.indirect-ops :as ind]
-            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed :as t :refer [letfn>]]
             [clojure.set :as set])
   (:import (clojure.core.typed.checker.type_rep F DataType Function Protocol Bounds FlowSet TCResult HSequential)

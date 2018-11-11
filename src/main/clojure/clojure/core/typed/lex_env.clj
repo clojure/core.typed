@@ -12,7 +12,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.indirect-utils :as indu]
+            [clojure.core.typed.checker.indirect-utils :as indu]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r]

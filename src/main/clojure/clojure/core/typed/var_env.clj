@@ -13,7 +13,7 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.indirect-utils :as indu]
+            [clojure.core.typed.checker.indirect-utils :as indu]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.env :as env]
             [clojure.core.typed.checker.name-env :as name-env]

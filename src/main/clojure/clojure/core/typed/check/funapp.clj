@@ -22,7 +22,7 @@
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.checker.filter-ops :as fops]
             [clojure.core.typed.env :as env]

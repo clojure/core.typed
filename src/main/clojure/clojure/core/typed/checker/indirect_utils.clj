@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;platform independent indirection utilities
-(ns clojure.core.typed.indirect-utils)
+(ns clojure.core.typed.checker.indirect-utils)
 
 (defmacro make-indirection [& vs]
   `(do 

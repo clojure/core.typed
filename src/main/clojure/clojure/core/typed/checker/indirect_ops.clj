@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.checker.indirect-ops
-  (:require [clojure.core.typed.indirect-utils :as in]))
+  (:require [clojure.core.typed.checker.indirect-utils :as in]))
 
 (in/make-indirection unparse-type
                      parse-type

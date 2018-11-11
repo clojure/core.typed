@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
-            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.set :as set])
   (:import (clojure.core.typed.checker.filter_rep BotFilter TopFilter NoFilter AndFilter 
