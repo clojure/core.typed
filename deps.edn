@@ -2,7 +2,7 @@
          "src/main/cljc"
          "src/main/java"]
  :deps {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
-                                            :sha "6b7671722a33d67d6f21d23c38f47bfcf3f7192f"}
+                                            :sha "11370405143a8214b1f4ceb292e3144d476249b0"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
@@ -17,7 +17,7 @@
             :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
                          com.gfredericks/test.chuck {:mvn/version "0.2.6"}
                          org.clojure/core.typed.checker.jvm {:git/url "https://github.com/typedclojure/core.typed.checker.jvm.git"
-                                                             :sha "35bfaa0fc2e23924ab4cfc1bad29626c491f8682"}}
+                                                             :sha "899827b92658261e1ece23339645f38bb5b036c8"}}
             }
            ; actually run tests, assumes :test alias
            :runner

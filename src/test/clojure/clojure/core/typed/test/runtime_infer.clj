@@ -11,7 +11,7 @@
             [clojure.test.check.generators :as gen]
             [clojure.core.typed :as t]
             [clojure.core.typed.runtime-infer :refer :all :as infer]
-            [clojure.core.typed.check-form-clj :as chk-clj]
+            [clojure.core.typed.checker.jvm.check-form-clj :as chk-clj]
             [clojure.core.typed.coerce-utils :as coerce])
   (:import (clojure.lang IExceptionInfo)))
 
