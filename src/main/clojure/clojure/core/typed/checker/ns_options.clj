@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.ns-options
+(ns ^:skip-wiki clojure.core.typed.checker.ns-options
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.env :as env]))

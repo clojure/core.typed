@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.checker.reset-env
   (:require [clojure.core.typed.checker.jvm.base-env :as bse-clj]
             [clojure.core.typed.checker.jvm.ns-deps :as deps]
-            [clojure.core.typed.ns-options :as ns-opts]
+            [clojure.core.typed.checker.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.mm-env :as mmenv]))
 

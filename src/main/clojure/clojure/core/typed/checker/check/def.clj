@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.checker.check.def
   (:require [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.ns-options :as ns-opts]
+            [clojure.core.typed.checker.ns-options :as ns-opts]
             [clojure.core.typed :as T]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.check.utils :as cu]
