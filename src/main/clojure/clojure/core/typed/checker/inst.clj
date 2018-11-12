@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.subst :as subst]
-            [clojure.core.typed.trans :as trans]
+            [clojure.core.typed.checker.trans :as trans]
             [clojure.string :as string]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
