@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.reset-caches
+(ns ^:skip-wiki clojure.core.typed.checker.jvm.reset-caches
   (:require [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.cs-gen :as cgen]))

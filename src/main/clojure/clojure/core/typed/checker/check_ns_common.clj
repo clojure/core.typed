@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.check-ns-common
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.reset-env :as reset-env]
-            [clojure.core.typed.reset-caches :as reset-caches]
+            [clojure.core.typed.checker.jvm.reset-caches :as reset-caches]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.jvm.check :as chk-clj]
