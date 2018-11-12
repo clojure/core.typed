@@ -14,7 +14,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.object-rep]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.filter-rep :as fr]

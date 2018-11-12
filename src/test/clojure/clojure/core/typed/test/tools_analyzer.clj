@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.tools-analyzer
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana]
-            #_[clojure.core.typed.utils :as u]
+            #_[clojure.core.typed.checker.utils :as u]
             #_[clojure.core.typed.current-impl :as impl]))
 
 #_(comment

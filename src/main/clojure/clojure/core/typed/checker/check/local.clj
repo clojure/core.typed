@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.checker.check.local
   (:require [clojure.core.typed.checker.local-result :as local-result]
-            [clojure.core.typed.utils :as u]))
+            [clojure.core.typed.checker.utils :as u]))
 
 (defn check-local [{sym :name :as expr} expected]
   (assoc expr

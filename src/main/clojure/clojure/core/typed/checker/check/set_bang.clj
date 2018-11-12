@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.checker.check.set-bang
   (:require [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]

@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.checker.check-form-common2
   (:require [clojure.core.typed.checker.jvm.check :as chk]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.jvm.reset-caches :as reset-caches]
             [clojure.core.cache :as cache]
             [clojure.core.typed.checker.jvm.file-mapping :as file-map]

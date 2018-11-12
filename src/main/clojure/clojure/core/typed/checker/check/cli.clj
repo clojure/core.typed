@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.checker.check.cli
   (:require [clojure.core.typed.ast-utils :as ast-u]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.string :as str]
             [clojure.core.typed.checker.cs-gen :as cgen]

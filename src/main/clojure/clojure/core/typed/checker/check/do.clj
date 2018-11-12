@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.checker.check.do
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]

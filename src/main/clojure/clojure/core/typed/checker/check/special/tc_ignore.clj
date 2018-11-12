@@ -10,7 +10,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.checker.type-rep :as r]))
 

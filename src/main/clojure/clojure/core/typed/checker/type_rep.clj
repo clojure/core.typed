@@ -10,7 +10,7 @@
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.impl-protocols :as p]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             clojure.core.typed.contract-ann
             [clojure.core.typed.coerce-utils :as coerce]

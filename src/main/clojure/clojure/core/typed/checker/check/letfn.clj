@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.checker.check.let :as let]

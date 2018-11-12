@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.object-rep :as obj]
-            [clojure.core.typed.utils :as u]))
+            [clojure.core.typed.checker.utils :as u]))
 
 (defn check-throw
   [check {:keys [exception] :as expr} expected exception-expected]

@@ -4,7 +4,7 @@
 
 #_(deftest check-tc
   ;fails in hudson
-  (is (check-ns '[clojure.core.typed.utils
+  (is (check-ns '[clojure.core.typed.checker.utils
                   clojure.core.typed.checker.type-rep
                   clojure.core.typed.checker.cs-rep
                   clojure.core.typed.checker.name-env

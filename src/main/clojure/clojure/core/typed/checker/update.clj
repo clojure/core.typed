@@ -10,7 +10,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.path-rep :as pe]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.filter-ops :as fo]

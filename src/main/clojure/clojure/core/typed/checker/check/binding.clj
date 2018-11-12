@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.checker.check.binding
   (:require [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.utils :as u]))
+            [clojure.core.typed.checker.utils :as u]))
 
 (defn check-binding
   [check {:keys [init] :as expr} expected]

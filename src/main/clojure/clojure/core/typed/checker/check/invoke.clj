@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.checker.check.invoke
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.check.funapp :as funapp]))
 
 (defn normal-invoke [check-fn expr fexpr args expected & {:keys [cfexpr cargs]}]

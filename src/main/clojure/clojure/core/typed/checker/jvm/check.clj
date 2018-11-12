@@ -106,7 +106,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.var-env :as var-env]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]

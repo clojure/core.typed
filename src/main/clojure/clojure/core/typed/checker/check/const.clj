@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.check.const
   (:require [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.lex-env :as lex]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.check-below :as below]

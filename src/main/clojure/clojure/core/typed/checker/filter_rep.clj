@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.impl-protocols :as p]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.path-rep :as pr]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed.checker.indirect-ops :as ind])
   ;; FIXME should this import be a var, since IPathElem is a protocol?

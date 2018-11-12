@@ -9,7 +9,7 @@
 (ns ^:skip-wiki clojure.core.typed.checker.check.fn
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.object-rep :as obj]

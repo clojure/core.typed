@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.check.recur-utils :as recur-u]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.analyzer :as ana2]
-            [clojure.core.typed.utils :as u]))
+            [clojure.core.typed.checker.utils :as u]))
 
 ; corresponds to a c.c.t/loop macro.
 ; Extra the :ann annotations for loop variables and propagate to actual loop construct checking

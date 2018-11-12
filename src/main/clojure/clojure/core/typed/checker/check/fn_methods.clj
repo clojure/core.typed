@@ -13,7 +13,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]

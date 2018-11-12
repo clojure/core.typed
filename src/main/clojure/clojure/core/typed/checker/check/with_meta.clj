@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.check.with-meta
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.utils :as u]))
+            [clojure.core.typed.checker.utils :as u]))
 
 (defn visit-tail-pos [ast f]
   (let [rec #(visit-tail-pos % f)]

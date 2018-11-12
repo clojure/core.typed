@@ -29,7 +29,7 @@
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.java.io :as io]
             [clojure.reflect :as reflect]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]

@@ -9,7 +9,7 @@
 
 (t/load-if-needed)
 
-(require '[clojure.core.typed.utils :as u]
+(require '[clojure.core.typed.checker.utils :as u]
          '[clojure.core.typed.errors :as err]
          '[clojure.core.typed.checker.jvm.parse-unparse :refer [parse-type]]
          '[clojure.core.typed.current-impl :as impl]

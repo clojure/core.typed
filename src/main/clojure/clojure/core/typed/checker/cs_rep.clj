@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.checker.cs-rep
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t])
