@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.reflect-utils
+(ns ^:skip-wiki clojure.core.typed.checker.jvm.reflect-utils
   (:require [clojure.reflect :as reflect]
             [clojure.string :as str])
   (:import (clojure.lang RT)))

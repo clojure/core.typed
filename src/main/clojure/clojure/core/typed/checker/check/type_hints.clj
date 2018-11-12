@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.reflect-utils :as reflect-u]))
+            [clojure.core.typed.checker.jvm.reflect-utils :as reflect-u]))
 
 (defn suggest-type-hints [m-or-f targett argtys & {:keys [constructor-call]}]
   {:pre [((some-fn nil? r/Type?) targett)

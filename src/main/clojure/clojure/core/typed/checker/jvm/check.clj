@@ -93,7 +93,7 @@
             [clojure.core.typed.checker.path-rep :as pe]
             [clojure.core.typed.checker.protocol-env :as ptl-env]
             [clojure.core.typed.checker.jvm.rclass-env :as rcls]
-            [clojure.core.typed.reflect-utils :as reflect-u]
+            [clojure.core.typed.checker.jvm.reflect-utils :as reflect-u]
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.subst :as subst]
