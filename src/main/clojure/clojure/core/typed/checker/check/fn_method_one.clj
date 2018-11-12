@@ -24,7 +24,7 @@
             [clojure.core.typed.checker.check.isa :as isa]
             [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.core.typed.checker.check.recur-utils :as recur-u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.jvm.subtype :as sub]

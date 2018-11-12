@@ -12,7 +12,7 @@
             [clojure.core.typed :as T]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.check.utils :as cu]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.utils :as u]

@@ -14,7 +14,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.jvm.check :as chk-clj]
             [clojure.core.typed.checker.jvm.file-mapping :as file-map]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.lex-env :as lex-env]
             [clojure.core.typed.errors :as err]

@@ -19,7 +19,7 @@
             [clojure.core.typed.checker.jvm.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.name-env]
-            [clojure.core.typed.var-env]
+            [clojure.core.typed.checker.var-env]
             [clojure.core.typed.checker.jvm.ns-deps]
             [clojure.pprint :as pprint]))
 

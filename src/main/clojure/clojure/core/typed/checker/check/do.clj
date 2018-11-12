@@ -15,7 +15,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.special-form :as spec]

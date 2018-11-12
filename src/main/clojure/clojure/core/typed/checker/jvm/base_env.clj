@@ -2071,7 +2071,7 @@ clojure.lang.Delay (All [x]
 ;; not added in refresh
 (delay-and-cache-env ^:private init-datatype-ancestor-env {})
 
-(let [reset-var-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/reset-var-type-env!))
+(let [reset-var-type-env! (delay (impl/dynaload 'clojure.core.typed.checker.var-env/reset-var-type-env!))
       reset-nonnilable-method-return-env!
       (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-return-nilables/reset-nonnilable-method-return-env!))
       reset-method-nilable-param-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-param-nilables/reset-method-nilable-param-env!))
@@ -2097,7 +2097,7 @@ clojure.lang.Delay (All [x]
     nil))
 
 (let [merge-protocol-env! (delay (impl/dynaload 'clojure.core.typed.checker.protocol-env/merge-protocol-env!))
-      refresh-var-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/refresh-var-type-env!))
+      refresh-var-type-env! (delay (impl/dynaload 'clojure.core.typed.checker.var-env/refresh-var-type-env!))
       merge-method-nilable-param-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-param-nilables/merge-method-nilable-param-env!))
       merge-nonnilable-method-return-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-return-nilables/merge-nonnilable-method-return-env!))
       merge-method-override-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-override-env/merge-method-override-env!))

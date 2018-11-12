@@ -11,7 +11,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.checker.jvm.tc-equiv :as equiv]))

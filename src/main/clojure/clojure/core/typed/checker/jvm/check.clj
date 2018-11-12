@@ -107,7 +107,7 @@
             [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.set :as cljset]
