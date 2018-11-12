@@ -12,7 +12,7 @@
   (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
-            [clojure.core.typed.tvar-env :as tvar]
+            [clojure.core.typed.checker.tvar-env :as tvar]
             [clojure.core.typed.checker.tvar-bnds :as bnds])
   (:import (clojure.core.typed.checker.type_rep F Bounds)))
 

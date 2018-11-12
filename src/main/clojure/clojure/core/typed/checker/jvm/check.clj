@@ -101,7 +101,7 @@
             [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.jvm.tc-equiv :as equiv]
             [clojure.core.typed.checker.tvar-bnds :as tvar-bnds]
-            [clojure.core.typed.tvar-env :as tvar-env]
+            [clojure.core.typed.checker.tvar-env :as tvar-env]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.update :as update]
@@ -2611,7 +2611,7 @@
                                         (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
                                 ;(prn "lexical env when checking method" method-nme (lex/lexical-env))
                                 ;(prn "frees when checking method" 
-                                ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
+                                ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.checker.tvar-env/*current-tvars*]
                                 ;                [k name])))
                                 ;(prn "bnds when checking method" 
                                 ;     clojure.core.typed.checker.tvar-bnds/*current-tvar-bnds*)
