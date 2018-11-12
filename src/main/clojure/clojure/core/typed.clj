@@ -71,7 +71,7 @@ for checking namespaces, cf for checking individual forms."}
     []
     (@lin)))
 
-(core/let [rset (delay (dynaload 'clojure.core.typed.reset-caches/reset-caches))]
+(core/let [rset (delay (dynaload 'clojure.core.typed.checker.jvm.reset-caches/reset-caches))]
   (core/defn reset-caches
     "Reset internal type caches."
     []

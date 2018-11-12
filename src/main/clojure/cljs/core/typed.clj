@@ -28,7 +28,7 @@
   []
   (load/load-if-needed true))
 
-(let [rc (delay (impl/dynaload 'clojure.core.typed.reset-caches/reset-caches))]
+(let [rc (delay (impl/dynaload 'clojure.core.typed.checker.jvm.reset-caches/reset-caches))]
   (defn reset-caches
     "Reset internal type caches."
     []
