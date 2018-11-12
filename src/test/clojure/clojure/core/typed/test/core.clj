@@ -21,7 +21,7 @@
             [clojure.core.typed.checker.jvm.tc-equiv :refer [tc-equiv]]
             [clojure.core.typed.checker.collect-utils :as collect-u]
             [clojure.core.typed.checker.inst :as inst]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :refer :all]
             [clojure.core.typed.checker.type-rep :refer :all]
             [clojure.core.typed.checker.filter-rep :refer :all]

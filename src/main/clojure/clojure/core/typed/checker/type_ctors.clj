@@ -268,7 +268,7 @@
 
 ;; Unions
 
-(def ^:private subtype? (delay (impl/dynaload 'clojure.core.typed.subtype/subtype?)))
+(def ^:private subtype? (delay (impl/dynaload 'clojure.core.typed.checker.jvm.subtype/subtype?)))
 
 (t/defalias TypeCache 
   (t/Map (t/Set r/Type) r/Type))

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.checker.jvm.reset-caches
-  (:require [clojure.core.typed.subtype :as sub]
+  (:require [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.cs-gen :as cgen]))
 

@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.path-rep :as pr]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err])
   (:import (clojure.lang Keyword Symbol)))

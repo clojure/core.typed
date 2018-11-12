@@ -14,7 +14,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.string :as str]))
 
 ;; true if domains of l is a subtype of domains of r.

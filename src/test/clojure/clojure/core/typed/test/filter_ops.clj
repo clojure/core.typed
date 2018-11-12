@@ -7,7 +7,7 @@
     [clojure.core.typed.checker.filter-rep :refer [-top make-AndFilter make-OrFilter -bot]]
     [clojure.core.typed.checker.type-rep :refer []]
     [clojure.core.typed.checker.jvm.parse-unparse :refer [parse-type]]
-    [clojure.core.typed.subtype :refer [subtype-type-filter?]]
+    [clojure.core.typed.checker.jvm.subtype :refer [subtype-type-filter?]]
             [clojure.test :refer :all]))
 
 (deftest and-filter

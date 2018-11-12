@@ -27,7 +27,7 @@
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.checker.check.recur-utils :as recur-u]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]

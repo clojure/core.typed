@@ -51,7 +51,7 @@
     fr/-top))
 
 (defn- subtype?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.subtype) 'subtype?)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.checker.jvm.subtype) 'subtype?)]
     (assert (var? v) "subtype? unbound")
     v))
 

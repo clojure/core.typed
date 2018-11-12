@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.check.funapp :as funapp]

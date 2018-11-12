@@ -11,7 +11,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.check-below :as below]))

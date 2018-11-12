@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.subtype :as sub]))
+            [clojure.core.typed.checker.jvm.subtype :as sub]))
 
 (defn check-set! [check {:keys [target val env] :as expr} expected]
   (binding [vs/*current-expr* expr

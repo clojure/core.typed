@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.object-rep :as obj]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.util-vars :as vs]

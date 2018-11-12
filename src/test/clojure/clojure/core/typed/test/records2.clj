@@ -88,14 +88,14 @@
 ;(defn map-over [ps]
 ;  (apply + (map (t/inst :lat Number) ps)))
 
-;(clojure.core.typed.subtype/sub-clj? [Point -> Number]
+;(clojure.core.typed.checker.jvm.subtype/sub-clj? [Point -> Number]
 ;                                     ['{:lat Number} -> Number])
 ;
-;(clojure.core.typed.subtype/sub-clj? ['{:lat Number} -> Number]
+;(clojure.core.typed.checker.jvm.subtype/sub-clj? ['{:lat Number} -> Number]
 ;                                     [Point -> Number])
 ;
-;(clojure.core.typed.subtype/sub-clj? '{:lat Number}
+;(clojure.core.typed.checker.jvm.subtype/sub-clj? '{:lat Number}
 ;                                     Point)
 ;
-;(clojure.core.typed.subtype/sub-clj? Point
+;(clojure.core.typed.checker.jvm.subtype/sub-clj? Point
 ;                                     '{:lat Number})

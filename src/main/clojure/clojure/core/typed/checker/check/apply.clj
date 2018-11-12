@@ -14,7 +14,7 @@
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.string :as str]
             [clojure.core.typed.checker.check.utils :as cu]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.subst :as subst])

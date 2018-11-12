@@ -15,7 +15,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.check-below :as below]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.filter-rep :as fl]))

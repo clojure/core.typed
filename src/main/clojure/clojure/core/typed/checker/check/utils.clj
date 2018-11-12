@@ -30,7 +30,7 @@
             [clojure.core.typed.checker.jvm.method-return-nilables :as mtd-ret-nil]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.ast-utils :as ast-u])
   (:import (clojure.lang MultiFn)))
 

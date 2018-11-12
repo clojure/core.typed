@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.subtype
+(ns ^:skip-wiki clojure.core.typed.checker.jvm.subtype
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]

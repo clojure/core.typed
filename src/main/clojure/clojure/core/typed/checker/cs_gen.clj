@@ -17,7 +17,7 @@
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.object-rep :as or]
             ; use subtype? utility defined in this namespace
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.cs-rep :as cr]
             [clojure.core.typed.current-impl :as impl]
@@ -37,7 +37,7 @@
 (t/typed-deps clojure.core.typed.checker.free-ops
               clojure.core.typed.checker.promote-demote)
 
-(t/ann ^:no-check clojure.core.typed.subtype/subtype? [r/AnyType r/AnyType -> Boolean])
+(t/ann ^:no-check clojure.core.typed.checker.jvm.subtype/subtype? [r/AnyType r/AnyType -> Boolean])
 (t/ann ^:no-check clojure.set/union (t/All [x] [(t/Set x) * -> (t/Set x)]))
 (t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> t/Any])
 (t/ann ^:no-check clojure.core.typed.current-impl/checking-clojure? [-> t/Any])
