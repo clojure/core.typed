@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.jvm.ns-deps :as deps]
             [clojure.core.typed.checker.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.mm-env :as mmenv]))
+            [clojure.core.typed.checker.jvm.mm-env :as mmenv]))
 
 (def ^:private reset-cljs-envs! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.base-env-cljs/reset-cljs-envs!)))
 
