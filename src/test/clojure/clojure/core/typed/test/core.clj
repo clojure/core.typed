@@ -18,7 +18,7 @@
             [clojure.core.typed.checker.check.funapp :as funapp]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.update :as update :refer [env+ update]]
-            [clojure.core.typed.tc-equiv :refer [tc-equiv]]
+            [clojure.core.typed.checker.jvm.tc-equiv :refer [tc-equiv]]
             [clojure.core.typed.checker.collect-utils :as collect-u]
             [clojure.core.typed.checker.inst :as inst]
             [clojure.core.typed.subtype :as sub]

@@ -14,7 +14,7 @@
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.update :as update]
-            [clojure.core.typed.tc-equiv :as equiv]))
+            [clojure.core.typed.checker.jvm.tc-equiv :as equiv]))
 
 (defn check-case-thens [check-fn target-ret tst-rets case-thens expected]
   {:pre [(r/TCResult? target-ret)

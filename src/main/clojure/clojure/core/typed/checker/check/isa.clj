@@ -17,7 +17,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.path-rep :as path]
-            [clojure.core.typed.tc-equiv :as equiv])
+            [clojure.core.typed.checker.jvm.tc-equiv :as equiv])
   (:import (clojure.core.typed.checker.type_rep TCResult)))
 
 ;(t/ann tc-isa? [TCResult TCResult -> TCResult])

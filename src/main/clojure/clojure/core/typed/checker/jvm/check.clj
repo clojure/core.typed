@@ -99,7 +99,7 @@
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.subst-obj :as subst-obj]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.tc-equiv :as equiv]
+            [clojure.core.typed.checker.jvm.tc-equiv :as equiv]
             [clojure.core.typed.tvar-bnds :as tvar-bnds]
             [clojure.core.typed.tvar-env :as tvar-env]
             [clojure.core.typed.checker.type-ctors :as c]
