@@ -22,7 +22,7 @@
               (when-not (keyword? v)
                 [k (@unparse-type v)]))))))
 
-(let [venv (delay (impl/dynaload 'clojure.core.typed.var-env/var-annotations))]
+(let [venv (delay (impl/dynaload 'clojure.core.typed.checker.var-env/var-annotations))]
   (defn var-env []
     (load-if-needed)
       (assert var-env)
