@@ -861,7 +861,7 @@
 
 (t/tc-ignore
 (defn- subst-all-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.subst) 'subst-all)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.checker.subst) 'subst-all)]
     (assert (var? v) "subst-all unbound")
     v))
   )
@@ -1389,7 +1389,7 @@
 
 (t/tc-ignore
 (defn- substitute-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.subst) 'substitute)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.checker.subst) 'substitute)]
     (assert (var? v) "substitute unbound")
     v))
   )

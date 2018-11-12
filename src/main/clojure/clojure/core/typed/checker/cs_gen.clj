@@ -26,7 +26,7 @@
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.promote-demote :as prmt]
-            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.checker.subst :as subst]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed :as t :refer [letfn>]]

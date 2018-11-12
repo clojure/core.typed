@@ -5,7 +5,7 @@
             [clojure.core.typed.checker.type-ctors :refer :all]
             [clojure.core.typed.checker.cs-gen :refer :all]
             [clojure.core.typed.checker.cs-rep :refer :all]
-            [clojure.core.typed.subst :refer [subst-all]]
+            [clojure.core.typed.checker.subst :refer [subst-all]]
             [clojure.test :refer :all]))
 
 ;; When Difference is ready, uncomment tests at the bottom

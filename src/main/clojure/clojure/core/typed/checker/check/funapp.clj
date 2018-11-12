@@ -28,7 +28,7 @@
             [clojure.core.typed.env :as env]
             [clojure.set :as set]
             [clojure.core.typed :as t]
-            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.checker.subst :as subst]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.checker.experimental.infer-vars :as infer-vars]
             [clojure.core.typed.checker.hset-utils :as hset]))

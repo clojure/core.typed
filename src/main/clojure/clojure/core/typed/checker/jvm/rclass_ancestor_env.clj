@@ -9,7 +9,7 @@
 (ns ^:skip-wiki 
   clojure.core.typed.checker.jvm.rclass-ancestor-env
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.checker.subst :as subst]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-ctors :as c]

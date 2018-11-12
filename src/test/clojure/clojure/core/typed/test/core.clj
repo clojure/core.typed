@@ -37,7 +37,7 @@
             [clojure.core.typed.checker.dvar-env :refer :all]
             [clojure.core.typed.checker.cs-gen :refer :all]
             [clojure.core.typed.checker.cs-rep :refer :all]
-            [clojure.core.typed.subst :refer [subst-all] :as subst]
+            [clojure.core.typed.checker.subst :refer [subst-all] :as subst]
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.core.typed.internal]

@@ -11,7 +11,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.checker.subst :as subst]
             [clojure.core.typed :as t]
             [clojure.core.typed.env :as env]
             [clojure.core.typed.checker.nilsafe-utils :as nilsafe]
@@ -20,7 +20,7 @@
   (:import (clojure.core.typed.checker.type_rep DataType)))
 
 (t/typed-deps clojure.core.typed.checker.type-ctors
-              clojure.core.typed.subst)
+              clojure.core.typed.checker.subst)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Aliases

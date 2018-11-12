@@ -17,7 +17,7 @@
             [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.cs-gen :as cgen]
-            [clojure.core.typed.subst :as subst])
+            [clojure.core.typed.checker.subst :as subst])
   (:import (clojure.lang Seqable)))
 
 ; we should be able to remove check-apply completely, but we should also instantiate all poly function in test case

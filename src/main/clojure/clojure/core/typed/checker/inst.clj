@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.jvm.subtype :as sub]
-            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.checker.subst :as subst]
             [clojure.core.typed.trans :as trans]
             [clojure.string :as string]))
 

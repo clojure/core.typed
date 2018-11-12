@@ -96,7 +96,7 @@
             [clojure.core.typed.checker.jvm.reflect-utils :as reflect-u]
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.special-form :as spec]
-            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.checker.subst :as subst]
             [clojure.core.typed.checker.subst-obj :as subst-obj]
             [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.jvm.tc-equiv :as equiv]

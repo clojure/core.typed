@@ -24,7 +24,7 @@
             [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.fold-default]
             [clojure.core.typed.checker.name-env :as nme-env]
-            [clojure.core.typed.subst]
+            [clojure.core.typed.checker.subst]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :refer [Any Nothing TFn Rec
                                         Pred U I All IFn
