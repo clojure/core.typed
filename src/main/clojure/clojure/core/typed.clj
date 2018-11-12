@@ -1927,7 +1927,7 @@ Transducer
      (@chk-ns-clj ns-or-syms opt))))
 
 ;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
-(core/let [stt (delay (dynaload 'clojure.core.typed.statistics/statistics))]
+(core/let [stt (delay (dynaload 'clojure.core.typed.checker.jvm.statistics/statistics))]
   (core/defn statistics 
     "Takes a collection of namespace symbols and returns a map mapping the namespace
     symbols to a map of data"
@@ -1936,7 +1936,7 @@ Transducer
     (@stt nsyms)))
 
 ; (ann var-coverage [(Coll Symbol) -> nil])
-(core/let [vrc (delay (dynaload 'clojure.core.typed.statistics/var-coverage))]
+(core/let [vrc (delay (dynaload 'clojure.core.typed.checker.jvm.statistics/var-coverage))]
   (core/defn var-coverage 
     "Summarises annotated var coverage statistics to *out*
     for namespaces nsyms, a collection of symbols or a symbol/namespace.
