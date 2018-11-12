@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.checker.check.type-hints :as type-hints]
+            [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.subtype :as sub]

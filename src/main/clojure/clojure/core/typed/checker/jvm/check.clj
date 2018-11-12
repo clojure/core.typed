@@ -61,7 +61,7 @@
             [clojure.core.typed.checker.check.special.tc-ignore :as tc-ignore]
             [clojure.core.typed.checker.check.throw :as throw]
             [clojure.core.typed.checker.check.try :as try]
-            [clojure.core.typed.checker.check.type-hints :as type-hints]
+            [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.check.vector :as vec]
             [clojure.core.typed.checker.check.with-meta :as with-meta]
