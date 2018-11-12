@@ -23,7 +23,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.checker.fold-rep :as f]
             [clojure.core.typed.checker.datatype-env :as dtenv]
-            [clojure.core.typed.protocol-env :as prenv]
+            [clojure.core.typed.checker.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.tvar-bnds :as bnds]

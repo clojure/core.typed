@@ -2077,7 +2077,7 @@ clojure.lang.Delay (All [x]
       reset-method-nilable-param-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-param-nilables/reset-method-nilable-param-env!))
       reset-method-override-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-override-env/reset-method-override-env!))
       reset-constructor-override-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.ctor-override-env/reset-constructor-override-env!))
-      reset-protocol-env! (delay (impl/dynaload 'clojure.core.typed.protocol-env/reset-protocol-env!))
+      reset-protocol-env! (delay (impl/dynaload 'clojure.core.typed.checker.protocol-env/reset-protocol-env!))
       reset-declared-kinds! (delay (impl/dynaload 'clojure.core.typed.checker.declared-kind-env/reset-declared-kinds!))
       reset-datatype-env! (delay (impl/dynaload 'clojure.core.typed.checker.datatype-env/reset-datatype-env!))
       reset-datatype-ancestors! (delay (impl/dynaload 'clojure.core.typed.checker.datatype-ancestor-env/reset-datatype-ancestors!))]
@@ -2096,7 +2096,7 @@ clojure.lang.Delay (All [x]
       (@reset-datatype-ancestors! (init-datatype-ancestor-env)))
     nil))
 
-(let [merge-protocol-env! (delay (impl/dynaload 'clojure.core.typed.protocol-env/merge-protocol-env!))
+(let [merge-protocol-env! (delay (impl/dynaload 'clojure.core.typed.checker.protocol-env/merge-protocol-env!))
       refresh-var-type-env! (delay (impl/dynaload 'clojure.core.typed.var-env/refresh-var-type-env!))
       merge-method-nilable-param-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-param-nilables/merge-method-nilable-param-env!))
       merge-nonnilable-method-return-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.method-return-nilables/merge-nonnilable-method-return-env!))

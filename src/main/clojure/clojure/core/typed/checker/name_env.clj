@@ -13,7 +13,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.datatype-env :as dtenv]
             [clojure.core.typed.checker.jvm.rclass-env :as rcls]
-            [clojure.core.typed.protocol-env :as prenv]
+            [clojure.core.typed.checker.protocol-env :as prenv]
             [clojure.core.typed.checker.declared-kind-env :as kinds]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t]
