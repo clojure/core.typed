@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.check.utils :as cu]

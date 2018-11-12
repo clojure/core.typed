@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.open-result
   (:require [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.subst-obj :as subst-obj]))

@@ -24,7 +24,7 @@
             [clojure.core.typed.check.print-env :as print-env]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.subst-obj :as subst-obj]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.contract-utils :as con]))
 

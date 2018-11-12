@@ -13,7 +13,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.free-in :as free-in]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.object-rep :as obj])
+            [clojure.core.typed.checker.object-rep :as obj])
   (:import (clojure.core.typed.checker.type_rep Function)))
 
 (declare subst-type)

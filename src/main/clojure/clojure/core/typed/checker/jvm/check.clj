@@ -87,7 +87,7 @@
             [clojure.core.typed.checker.jvm.ns-deps :as ns-deps]
             [clojure.core.typed.checker.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.ns-options :as ns-opts]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.path-rep :as pe]

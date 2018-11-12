@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.name-env :as nme-env]
-            [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.checker.object-rep :as orep]
             [clojure.core.typed.checker.path-rep :as pthrep]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
@@ -39,7 +39,7 @@
                                         JSObj)
            (clojure.core.typed.checker.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter NoFilter)
-           (clojure.core.typed.object_rep NoObject EmptyObject Path)
+           (clojure.core.typed.checker.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.checker.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE KeywordPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 

@@ -17,7 +17,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.errors :as err]))
 

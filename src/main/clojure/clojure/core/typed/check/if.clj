@@ -12,7 +12,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.filter-rep :as fl]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]

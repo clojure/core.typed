@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.checker.object-rep :as orep]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.checker.cs-gen :as cgen]
             [clojure.core.typed.errors :as err]

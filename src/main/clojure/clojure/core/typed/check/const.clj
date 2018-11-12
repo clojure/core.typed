@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check.const
-  (:require [clojure.core.typed.object-rep :as obj]
+  (:require [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.filter-rep :as fl]

@@ -18,7 +18,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.path-type :as path-type]
-            [clojure.core.typed.object-rep :as obj]))
+            [clojure.core.typed.checker.object-rep :as obj]))
 
 (def lex-env? (con/hash-c? con/local-sym? r/Type?))
 (def prop-set? (con/set-c? fr/Filter?))

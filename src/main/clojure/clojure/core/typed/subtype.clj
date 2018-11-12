@@ -16,7 +16,7 @@
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.filter-rep :as fr]
             [clojure.core.typed.checker.filter-ops :as fops]
-            [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.checker.object-rep :as orep]
             [clojure.core.typed.checker.frees :as frees]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.checker.datatype-ancestor-env :as ancest]

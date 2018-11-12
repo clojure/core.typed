@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.abo
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.fold-rep :as fold]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo])

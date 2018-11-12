@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.check.utils
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana]
             [clojure.core.typed.checker.jvm.ns-deps :as ns-deps]

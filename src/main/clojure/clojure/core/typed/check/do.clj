@@ -11,7 +11,7 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.checker.object-rep :as orep]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]

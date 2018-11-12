@@ -12,7 +12,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.ast-utils :as ast-u]
-            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.open-result :as open-result]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.lex-env :as lex]

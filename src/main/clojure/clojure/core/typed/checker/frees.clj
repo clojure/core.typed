@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.object-rep]
+            [clojure.core.typed.checker.object-rep]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
@@ -30,7 +30,7 @@
                                         JSObj TypeOf)
            (clojure.core.typed.checker.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
-           (clojure.core.typed.object_rep Path EmptyObject NoObject)
+           (clojure.core.typed.checker.object_rep Path EmptyObject NoObject)
            (clojure.core.typed.checker.path_rep NthPE NextPE ClassPE CountPE KeyPE KeysPE ValsPE KeywordPE)))
 
 ;TODO make this an argument

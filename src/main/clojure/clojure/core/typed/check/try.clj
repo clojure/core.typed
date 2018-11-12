@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.object-rep :as o]
+            [clojure.core.typed.checker.object-rep :as o]
             [clojure.core.typed.checker.type-ctors :as c]))
 
 (defn combine-rets [rs]
