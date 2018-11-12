@@ -552,7 +552,7 @@ for checking namespaces, cf for checking individual forms."}
           (delay-rt-parse t))))
     nil))
 
-(core/let [subtype? (delay (dynaload 'clojure.core.typed.subtype/subtype?))
+(core/let [subtype? (delay (dynaload 'clojure.core.typed.checker.jvm.subtype/subtype?))
            declared-kind-or-nil (delay (dynaload 'clojure.core.typed.checker.declared-kind-env/declared-kind-or-nil))
            unparse-type (delay (dynaload 'clojure.core.typed.checker.jvm.parse-unparse/unparse-type))
            int-error (delay (dynaload 'clojure.core.typed.errors/int-error))

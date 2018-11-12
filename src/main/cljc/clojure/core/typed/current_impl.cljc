@@ -434,7 +434,7 @@
 #?(:clj
 (def ^:private DataType-of (delay (dynaload 'clojure.core.typed.checker.type-ctors/DataType-of))))
 #?(:clj
-(def ^:private subtype? (delay (dynaload 'clojure.core.typed.subtype/subtype?))))
+(def ^:private subtype? (delay (dynaload 'clojure.core.typed.checker.jvm.subtype/subtype?))))
 
 
 #?(:clj
