@@ -23,7 +23,7 @@
             [clojure.core.typed.checker.path-rep :as pr]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.remove :as remove]
+            [clojure.core.typed.checker.remove :as remove]
             [clojure.set :as set])
   (:import (clojure.lang IPersistentMap Keyword)))
 
