@@ -15,7 +15,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.checker.free-ops :as free-ops]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.tvar-bnds :as bnds]
+            [clojure.core.typed.checker.tvar-bnds :as bnds]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl])
   (:import (clojure.core.typed.checker.type_rep HeterogeneousMap Value Intersection F RClass DataType HSequential)

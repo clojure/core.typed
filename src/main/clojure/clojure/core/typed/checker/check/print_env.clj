@@ -9,7 +9,7 @@
 (ns clojure.core.typed.checker.check.print-env
   (:require [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.tvar-env :as tvar-env]
-            [clojure.core.typed.tvar-bnds :as tvar-bnds]
+            [clojure.core.typed.checker.tvar-bnds :as tvar-bnds]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]))
 
 (defn print-env*

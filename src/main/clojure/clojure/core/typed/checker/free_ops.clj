@@ -13,7 +13,7 @@
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.tvar-env :as tvar]
-            [clojure.core.typed.tvar-bnds :as bnds])
+            [clojure.core.typed.checker.tvar-bnds :as bnds])
   (:import (clojure.core.typed.checker.type_rep F Bounds)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

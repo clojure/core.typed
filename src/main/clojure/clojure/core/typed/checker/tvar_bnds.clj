@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
-  clojure.core.typed.tvar-bnds
+  clojure.core.typed.checker.tvar-bnds
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r])

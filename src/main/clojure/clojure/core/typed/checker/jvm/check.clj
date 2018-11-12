@@ -100,7 +100,7 @@
             [clojure.core.typed.checker.subst-obj :as subst-obj]
             [clojure.core.typed.checker.jvm.subtype :as sub]
             [clojure.core.typed.checker.jvm.tc-equiv :as equiv]
-            [clojure.core.typed.tvar-bnds :as tvar-bnds]
+            [clojure.core.typed.checker.tvar-bnds :as tvar-bnds]
             [clojure.core.typed.tvar-env :as tvar-env]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
@@ -2614,7 +2614,7 @@
                                 ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
                                 ;                [k name])))
                                 ;(prn "bnds when checking method" 
-                                ;     clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
+                                ;     clojure.core.typed.checker.tvar-bnds/*current-tvar-bnds*)
                                 ;(prn "expected-ifn" expected-ifn)
                                 (:methods
                                   (fn-methods/check-fn-methods

@@ -26,7 +26,7 @@
             [clojure.core.typed.checker.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.free-ops :as free-ops]
-            [clojure.core.typed.tvar-bnds :as bnds]
+            [clojure.core.typed.checker.tvar-bnds :as bnds]
             [clojure.core.typed.checker.indirect-ops :as ind]
             clojure.core.typed.checker.indirect-ann
             [clojure.set :as set]
