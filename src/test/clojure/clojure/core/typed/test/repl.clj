@@ -5,7 +5,7 @@
                                  [server :as server]
                                  [ack :as ack])
             [clojure.set :as set]
-            [clojure.core.typed.repl :as repl]))
+            [clojure.core.typed.checker.jvm.repl :as repl]))
 
 (def ^{:dynamic true} *server* nil)
 

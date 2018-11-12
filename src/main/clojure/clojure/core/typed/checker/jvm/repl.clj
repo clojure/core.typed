@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.repl
+(ns ^:skip-wiki clojure.core.typed.checker.jvm.repl
   (:require [clojure.tools.nrepl.middleware :as mid]
             [clojure.tools.nrepl.transport :as transport]
             [clojure.tools.nrepl.misc :as misc]
