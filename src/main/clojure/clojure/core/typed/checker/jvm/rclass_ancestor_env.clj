@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki 
-  clojure.core.typed.rclass-ancestor-env
+  clojure.core.typed.checker.jvm.rclass-ancestor-env
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.checker.type-rep :as r]

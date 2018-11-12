@@ -659,8 +659,8 @@
   (t/IFn [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Map t/Sym r/Type) -> r/Type]
       [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym 
        (t/Map t/Sym r/Type) (t/Set r/Type) -> r/Type]))
-(let [add-rclass-replacements (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/add-rclass-replacements))
-      add-rclass-ancestors (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/add-rclass-ancestors))]
+(let [add-rclass-replacements (delay (impl/dynaload 'clojure.core.typed.checker.jvm.rclass-ancestor-env/add-rclass-replacements))
+      add-rclass-ancestors (delay (impl/dynaload 'clojure.core.typed.checker.jvm.rclass-ancestor-env/add-rclass-ancestors))]
   (defn RClass* 
     ([names variances poly? the-class replacements]
      (RClass* names variances poly? the-class replacements #{}))
@@ -890,7 +890,7 @@
     (subst-all subst t)))
 
 (t/ann ^:no-check RClass-replacements* [RClass -> (t/Map t/Sym r/Type)])
-(let [rclass-replacements (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/rclass-replacements))]
+(let [rclass-replacements (delay (impl/dynaload 'clojure.core.typed.checker.jvm.rclass-ancestor-env/rclass-replacements))]
   (defn RClass-replacements*
     "Return the replacements map for the RClass"
     [rcls]
@@ -899,7 +899,7 @@
     (@rclass-replacements rcls)))
 
 (t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (t/SortedSet r/Type)])
-(let [rclass-ancestors (delay (impl/dynaload 'clojure.core.typed.rclass-ancestor-env/rclass-ancestors))]
+(let [rclass-ancestors (delay (impl/dynaload 'clojure.core.typed.checker.jvm.rclass-ancestor-env/rclass-ancestors))]
   (defn RClass-unchecked-ancestors*
     [rcls]
     {:pre [(r/RClass? rcls)]
