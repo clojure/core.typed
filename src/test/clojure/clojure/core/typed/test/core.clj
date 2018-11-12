@@ -41,7 +41,7 @@
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.core.typed.internal]
-            [clojure.core.typed.path-type :refer :all]
+            [clojure.core.typed.checker.jvm.path-type :refer :all]
             [clojure.core.typed.load :as load]
             [clojure.core.typed.checker.ns-deps-utils :as ndu]
             [clojure.core.typed.parse-ast :as prs-ast])

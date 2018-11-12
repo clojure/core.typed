@@ -17,7 +17,7 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.filter-rep :as fr]
-            [clojure.core.typed.path-type :as path-type]
+            [clojure.core.typed.checker.jvm.path-type :as path-type]
             [clojure.core.typed.checker.object-rep :as obj]))
 
 (def lex-env? (con/hash-c? con/local-sym? r/Type?))
