@@ -9,7 +9,7 @@
             [clojure.core.typed.checker.lex-env :refer [-PropEnv]]
             [clojure.core.typed.checker.type-rep :refer [-nil -false make-CountRange]]
             [clojure.core.typed.checker.type-ctors :refer [Un In RClass-of -name]]
-            [clojure.core.typed.update :as update :refer [env+ update]]
+            [clojure.core.typed.checker.update :as update :refer [env+ update]]
             [clojure.core.typed.checker.filter-rep :refer [-top]]
             [clojure.data :refer [diff]]
             [clojure.pprint :refer [pprint]]

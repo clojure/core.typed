@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.update
+(ns clojure.core.typed.checker.update
   (:refer-clojure :exclude [update])
   (:require [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.path-rep :as pe]

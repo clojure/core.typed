@@ -17,7 +17,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.update :as update]
+            [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.contract-utils :as con]))

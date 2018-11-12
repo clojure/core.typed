@@ -20,7 +20,7 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.update :as update]
+            [clojure.core.typed.checker.update :as update]
             [clojure.core.typed.checker.check.print-env :as print-env]
             [clojure.core.typed.checker.check.recur-utils :as recur-u]
             [clojure.core.typed.checker.subst-obj :as subst-obj]
