@@ -13,7 +13,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.object-rep :as obj]
-            [clojure.core.typed.open-result :as open-result]
+            [clojure.core.typed.checker.open-result :as open-result]
             [clojure.set :as set]))
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
