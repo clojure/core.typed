@@ -97,7 +97,7 @@
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed.subst-obj :as subst-obj]
+            [clojure.core.typed.checker.subst-obj :as subst-obj]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.tc-equiv :as equiv]
             [clojure.core.typed.tvar-bnds :as tvar-bnds]

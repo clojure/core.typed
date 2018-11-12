@@ -23,7 +23,7 @@
             [clojure.core.typed.update :as update]
             [clojure.core.typed.checker.check.print-env :as print-env]
             [clojure.core.typed.checker.check.recur-utils :as recur-u]
-            [clojure.core.typed.subst-obj :as subst-obj]
+            [clojure.core.typed.checker.subst-obj :as subst-obj]
             [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.contract-utils :as con]))

@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.subst-obj :as subst-obj]))
+            [clojure.core.typed.checker.subst-obj :as subst-obj]))
 
 ;; Used to "instantiate" a Result from a function call.
 ;; eg. (let [a (ann-form [1] (U nil (Seqable Number)))]
