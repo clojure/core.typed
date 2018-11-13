@@ -16,14 +16,11 @@
     </license>
   </licenses>
 
-  <!-- removed parent to deploy to org.typedclojure -->
-  <!--
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
     <version>0.2.2</version>
   </parent>
-  -->
 
   <!-- added clojars to deploy to org.typedclojure -->
   <distributionManagement>
@@ -32,6 +29,11 @@
       <name>Clojars repository</name>
       <url>https://clojars.org/repo</url>
     </repository>
+    <snapshotRepository>
+      <id>clojars</id>
+      <name>Clojars repository</name>
+      <url>https://clojars.org/repo</url>
+    </snapshotRepository>
   </distributionManagement>
 
   <dependencies>
