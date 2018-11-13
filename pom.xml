@@ -1,16 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>core.typed.infer</artifactId>
+  <!-- added groupId to deploy to org.typedclojure -->
+  <groupId>org.typedclojure</groupId>
+  <artifactId>core.typed.annotator.jvm</artifactId>
+  <version>0.6.1-SNAPSHOT</version>
   <description>Runtime type inference algorithm for core.typed and clojure.spec.</description>
-  <name>core.typed.infer</name>
+  <name>core.typed.annotator.jvm</name>
+
+  <licenses>
+    <license>
+      <name>Eclipse Public License 1.0</name>
+      <url>http://opensource.org/licenses/eclipse-1.0.php</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
 
   <parent>
     <groupId>org.clojure</groupId>
-    <artifactId>core.typed-pom</artifactId>
-    <version>0.6.1-SNAPSHOT</version>
+    <artifactId>pom.contrib</artifactId>
+    <version>0.2.2</version>
   </parent>
 
+  <!-- added clojars to deploy to org.typedclojure -->
+  <distributionManagement>
+    <repository>
+      <id>clojars</id>
+      <name>Clojars repository</name>
+      <url>https://clojars.org/repo</url>
+    </repository>
+    <snapshotRepository>
+      <id>clojars</id>
+      <name>Clojars repository</name>
+      <url>https://clojars.org/repo</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
+      <id>sonatype-oss-public</id>
+      <url>https://oss.sonatype.org/content/groups/public/</url>
+    </repository>
+    <repository>
+      <id>clojars.org</id>
+      <url>http://clojars.org/repo</url>
+    </repository>
+  </repositories>
 
   <build>
     <plugins>
@@ -47,27 +82,18 @@
           </testSourceDirectories>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>add-clojure-source-dirs</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>add-clojure-test-source-dirs</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.typed.rt</artifactId>
+      <artifactId>clojure</artifactId>
+      <version>1.9.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typedclojure</groupId>
+      <artifactId>core.typed.runtime.jvm</artifactId>
       <version>0.6.1-SNAPSHOT</version>
     </dependency>
     <dependency>
@@ -113,6 +139,14 @@
       <version>0.2.6</version>
       <scope>test</scope>
     </dependency>
+    <!--
+    <dependency>
+      <groupId>org.typedclojure</groupId>
+      <artifactId>core.typed.checker.jvm</artifactId>
+      <version>0.6.1-SNAPSHOT</version>
+      <scope>test</scope>
+    </dependency>
+    -->
   </dependencies>
 </project>
 
