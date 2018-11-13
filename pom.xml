@@ -1,14 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  <!-- added groupId to deploy to org.typedclojure -->
+  <groupId>org.typedclojure</groupId>
   <artifactId>core.typed.analyzer.jvm</artifactId>
   <description>A variant of tools.analyzer.jvm.</description>
   <name>core.typed.analyzer.jvm</name>
+  <version>0.6.1-SNAPSHOT</version>
+
+  <licenses>
+    <license>
+      <name>Eclipse Public License 1.0</name>
+      <url>http://opensource.org/licenses/eclipse-1.0.php</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <properties>
+    <core.typedGroupId>org.clojure</core.typedGroupId>
+  </properties>
+
+  <!-- added clojars to deploy to org.typedclojure -->
+  <distributionManagement>
+    <repository>
+      <id>clojars</id>
+      <name>Clojars repository</name>
+      <url>https://clojars.org/repo</url>
+    </repository>
+    <snapshotRepository>
+      <id>clojars</id>
+      <name>Clojars repository</name>
+      <url>https://clojars.org/repo</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <parent>
     <groupId>org.clojure</groupId>
-    <artifactId>core.typed-pom</artifactId>
-    <version>0.6.1-SNAPSHOT</version>
+    <artifactId>pom.contrib</artifactId>
+    <version>0.2.2</version>
   </parent>
 
   <build>
@@ -64,6 +93,11 @@
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.9.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
       <version>0.7.0</version>
     </dependency>
@@ -86,8 +120,8 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.typed.rt</artifactId>
+      <groupId>${core.typedGroupId}</groupId>
+      <artifactId>core.typed.runtime.jvm</artifactId>
       <version>0.6.1-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
