@@ -24,6 +24,11 @@
   </parent>
   -->
 
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+
   <!-- added clojars to deploy to org.typedclojure -->
   <distributionManagement>
     <repository>
@@ -56,10 +61,16 @@
           <execution>
             <id>clojure-compile</id>
             <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
           </execution>
           <execution>
             <id>clojure-test</id>
             <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
           </execution>
         </executions>
         <configuration>
