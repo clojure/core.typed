@@ -13,4 +13,5 @@ jobs:
             chmod +x linux-install-1.9.0.397.sh
             sudo ./linux-install-1.9.0.397.sh
       - run: ./script/test
-      - run: mvn test
+      - run: mvn -DskipTests clean install dependency:resolve-plugins dependency:go-offline
+      - run: mvn -o test
