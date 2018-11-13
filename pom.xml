@@ -16,10 +16,6 @@
     </license>
   </licenses>
 
-  <properties>
-    <core.typedGroupId>org.clojure</core.typedGroupId>
-  </properties>
-
   <!-- added clojars to deploy to org.typedclojure -->
   <distributionManagement>
     <repository>
@@ -39,56 +35,6 @@
     <artifactId>pom.contrib</artifactId>
     <version>0.2.2</version>
   </parent>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>com.theoryinpractise</groupId>
-        <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
-        <executions>
-          <execution>
-            <id>clojure-compile</id>
-            <phase>compile</phase>
-          </execution>
-          <execution>
-            <id>clojure-test</id>
-            <phase>test</phase>
-          </execution>
-        </executions>
-        <configuration>
-          <namespaces>
-            <!-- depends on core.async -->
-            <namespace>!cljs.core.typed.async</namespace>
-            <namespace>!clojure.core.typed.async</namespace>
-          </namespaces>
-          <!-- Don't put AOT files in jar -->
-          <temporaryOutputDirectory>true</temporaryOutputDirectory>
-          <sourceDirectories>
-            <!--<sourceDirectory>target/classes</sourceDirectory>-->
-            <sourceDirectory>src/main/clojure</sourceDirectory>
-          </sourceDirectories>
-          <testSourceDirectories>
-            <testSourceDirectory>src/test/clojure</testSourceDirectory>
-          </testSourceDirectories>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>add-clojure-source-dirs</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>add-clojure-test-source-dirs</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
   <dependencies>
     <dependency>
@@ -120,7 +66,7 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>${core.typedGroupId}</groupId>
+      <groupId>org.typedclojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
       <version>0.6.1-SNAPSHOT</version>
       <scope>test</scope>
