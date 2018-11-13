@@ -1512,6 +1512,7 @@
                                    :double (qualify-typed-symbol 'Num)
                                    :decimal (qualify-typed-symbol 'Num)
                                    :number  (qualify-typed-symbol 'Num)
+                                   :char (resolve-class "java.lang.Character")
                                    :int (qualify-typed-symbol 'Int)
                                    :integer (qualify-typed-symbol 'Int)
                                    :ifn 'AnyFunction
