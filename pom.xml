@@ -97,6 +97,11 @@
       <version>0.6.1-SNAPSHOT</version>
     </dependency>
     <dependency>
+      <groupId>org.typedclojure</groupId>
+      <artifactId>core.typed.checker.jvm</artifactId>
+      <version>0.6.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.reader</artifactId>
       <version>1.1.1</version>
@@ -139,14 +144,6 @@
       <version>0.2.6</version>
       <scope>test</scope>
     </dependency>
-    <!--
-    <dependency>
-      <groupId>org.typedclojure</groupId>
-      <artifactId>core.typed.checker.jvm</artifactId>
-      <version>0.6.1-SNAPSHOT</version>
-      <scope>test</scope>
-    </dependency>
-    -->
   </dependencies>
 </project>
 
