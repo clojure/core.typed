@@ -28,7 +28,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
-
   <!-- added clojars to deploy to org.typedclojure -->
   <distributionManagement>
     <repository>
@@ -57,6 +56,7 @@
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
         <version>1.7.1</version>
+        <extensions>true</extensions>
         <executions>
           <execution>
             <id>clojure-compile</id>
@@ -81,6 +81,7 @@
           </namespaces>
           <!-- don't put AOT files in jar -->
           <temporaryOutputDirectory>true</temporaryOutputDirectory>
+          <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>
             <sourceDirectory>src/main/cljs</sourceDirectory>
