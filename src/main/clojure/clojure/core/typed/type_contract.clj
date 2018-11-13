@@ -162,8 +162,8 @@
                             (first (:arities t))]
                         (if (or rest drest filter object flow)
                           (err/int-error "Cannot generate predicate for this function type")
-                          (con/ifn-c (mapv #(gen-inner % arg) dom)
-                                     (gen-inner rng arg))))
+                          `(con/ifn-c ~(mapv #(gen-inner % arg) dom)
+                                      ~(gen-inner rng arg))))
                       :else (err/int-error "Cannot generate predicate for function type"))
               (:TApp) (let [{:keys [rator rands]} t]
                         (cond 
@@ -191,8 +191,8 @@
                           (gen-inner (ops/instantiate-TFn rator rands) arg)
                           :else
                           (err/int-error (str "Don't know how to apply type: " (:form t)))))
-              (:Class) (con/instance-c
-                         (Class/forName (str (:name t))))
+              (:Class) `(con/instance-c
+                          (Class/forName ~(str (:name t))))
               (:Name) 
               (impl/impl-case
                 :clojure (gen-inner (ops/resolve-Name t) arg)
@@ -200,13 +200,13 @@
               ;              (cond
               ;                              (empty? (:poly? t)) `(instance? ~(:the-class t) ~arg)
               ;                              :else (err/int-error (str "Cannot generate predicate for polymorphic Class")))
-              (:Any) con/any-c
+              (:Any) `con/any-c
               ;TODO special case for union of HMap, and unions of constants
-              (:U) (apply con/or-c
-                          ;; TODO flatten unions, ensuring Names are resolved
-                          (map #(gen-inner % arg) (:types t)))
-              (:I) (apply con/and-c
-                          (map #(gen-inner % arg) (:types t)))
+              (:U) `(con/or-c
+                      ;; TODO flatten unions, ensuring Names are resolved
+                      ~@(mapv #(gen-inner % arg) (:types t)))
+              (:I) `(con/and-c
+                      ~@(mapv #(gen-inner % arg) (:types t)))
               ;(:HVec) `(and (vector? ~arg)
               ;              ~(cond
               ;                 (:rest t)
@@ -229,15 +229,15 @@
               ;                                   `(fn [~vlocal] 
               ;                                      ~(gen-inner (:rest t) vlocal)))
               ;                                rstvec#))])))
-              (:CountRange) (con/count-range-c (:lower t) (:upper t))
+              (:CountRange) `(con/count-range-c ~(:lower t) ~(:upper t))
               (:singleton) (let [v (:val t)]
                              (cond
-                               (nil? v) con/nil-c
-                               (symbol? v) (con/equiv-c v)
-                               (keyword? v) (con/identical-c v)
-                               ((some-fn true? false?) v) (con/identical-c v)
+                               (nil? v) `con/nil-c
+                               (symbol? v) `(con/equiv-c ~v)
+                               (keyword? v) `(con/identical-c ~v)
+                               ((some-fn true? false?) v) `(con/identical-c ~v)
                                (number? v) ; I think = models the type system's behaviour better than ==
-                               (con/equiv-c v)
+                               `(con/equiv-c ~v)
 
                                :else (err/int-error 
                                        (str "Cannot generate predicate for value type: " v))))
@@ -248,10 +248,10 @@
                             congen (fn [tmap]
                                      (zipmap (map :val (keys tmap))
                                              (map #(gen-inner % arg) (vals tmap))))]
-                        (con/hmap-c :mandatory (congen mandatory)
-                                    :optional (congen optional)
-                                    :absent-keys (set (map :val absent-keys))
-                                    :complete? (:complete? t)))
+                        `(con/hmap-c :mandatory ~(congen mandatory)
+                                     :optional ~(congen optional)
+                                     :absent-keys ~(set (map :val absent-keys))
+                                     :complete? ~(:complete? t)))
 
               ;(:Rec) (cond
               ;         ;we're already inside this rec

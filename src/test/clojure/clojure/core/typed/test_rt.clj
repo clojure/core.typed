@@ -91,6 +91,7 @@
                               :column 30})))
   (is (= 1 (t/cast (t/U t/Int) 1)))
   (is (thrown-blame? (t/cast (t/U t/Int) nil)))
+  (is (thrown-blame? (t/cast (t/U t/Bool t/Int) nil)))
   (is (= 1 (t/cast (t/U (t/U t/Int)) 1)))
   (is (thrown-blame? (t/cast (t/U (t/U t/Int)) nil)))
   ;; intersections

@@ -18,6 +18,9 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.import-macros :as import-m]
+            [clojure.core.typed.contract :as contract]
+            ; for `pred` and `contract`
+            ;clojure.core.typed.type-contract
             ; for `import-macros` below
             clojure.core.typed.macros)
   (:import (clojure.lang Compiler)))
@@ -2161,97 +2164,96 @@ Transducer
 (core/defn pred* [tsyn nsym pred]
   pred)
 
+(core/let [reg! (delay (dynaload 'clojure.core.typed.current-impl/register!))]
+  (core/defn register!
+    "Internal -- Do not use"
+    []
+    (@reg!)))
+
 (def ^:private type-syntax->pred (delay (dynaload 'clojure.core.typed.type-contract/type-syntax->pred)))
+(def ^:private type-syntax->contract (delay (dynaload 'clojure.core.typed.type-contract/type-syntax->contract)))
 
-(core/let [register! (delay (dynaload 'clojure.core.typed.current-impl/register!))]
-  (defmacro pred 
-    "Generate a flat (runtime) predicate for type that returns true if the
-    argument is a subtype of the type, otherwise false.
+(defmacro pred 
+  "Generate a flat (runtime) predicate for type that returns true if the
+  argument is a subtype of the type, otherwise false.
 
-    The current type variable and dotted type variable scope is cleared before parsing.
-    
-    eg. ((pred Number) 1)
-        ;=> true"
-    [t]
-    (@register!)
-    (with-current-location &form
-      `(pred* '~t
-              '~(ns-name *ns*)
-              ~(@type-syntax->pred t)))))
+  The current type variable and dotted type variable scope is cleared before parsing.
+  
+  eg. ((pred Number) 1)
+      ;=> true"
+  [t]
+  (register!)
+  (with-current-location &form
+    `(pred* '~t
+            '~(ns-name *ns*)
+            ~(@type-syntax->pred t))))
 
-(core/let [load-contracts (delay (do
-                                   (require 'clojure.core.typed.type-contract)
-                                   (require 'clojure.core.typed.contract)))
-           register! (delay (dynaload 'clojure.core.typed.current-impl/register!))]
-  (defmacro cast
-    "Cast a value to a type. Returns a new value that conforms
-    to the given type, otherwise throws an error with blame.
+(defmacro cast
+  "Cast a value to a type. Returns a new value that conforms
+  to the given type, otherwise throws an error with blame.
 
-    eg. (cast Int 1)
-        ;=> 1
+  eg. (cast Int 1)
+      ;=> 1
 
-        (cast Int nil)
-        ; Fail, <blame positive ...>
+      (cast Int nil)
+      ; Fail, <blame positive ...>
 
-        ((cast [Int -> Int] identity)
-         1)
-        ;=> 1
+      ((cast [Int -> Int] identity)
+       1)
+      ;=> 1
 
-        ((cast [Int -> Int] identity)
-         nil)
-        ; Fail, <blame negative ...>
+      ((cast [Int -> Int] identity)
+       nil)
+      ; Fail, <blame negative ...>
 
-        (cast [Int -> Int] nil)
-        ; Fail, <blame positive ...>
+      (cast [Int -> Int] nil)
+      ; Fail, <blame positive ...>
 
-    (defalias Options
-      (HMap :optional {:positive (U Sym Str),
-                       :negative (U Sym Str)
-                       :file (U Str nil)
-                       :line (U Int nil)
-                       :column (U Int nil)}))
+  (defalias Options
+    (HMap :optional {:positive (U Sym Str),
+                     :negative (U Sym Str)
+                     :file (U Str nil)
+                     :line (U Int nil)
+                     :column (U Int nil)}))
 
-    (IFn [Contract Any -> Any]
-         [Contract Any Options -> Any])
+  (IFn [Contract Any -> Any]
+       [Contract Any Options -> Any])
 
-    Options:
-    - :positive   positive blame, (U Sym Str)
-    - :negative   negative blame, (U Sym Str)
-    - :file       file name where contract is checked, (U Str nil)
-    - :line       line number where contract is checked, (U Int nil)
-    - :column     column number where contract is checked, (U Int nil)"
-    ([t x] `(cast ~t ~x {}))
-    ([t x opt]
-     @load-contracts
-     (@register!)
-     `(do ~spec/special-form
-          ::cast
-          {:type '~t}
-          ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
-          ;; - clojure.core.typed.check.add-cast
-          ;; - clojure.core.typed.check.special.cast
-          ((core/fn [x#]
-             (clojure.core.typed.contract/contract
-               (with-current-location '~&form
-                 ;; this compiles code so needs to be in same phase
-                 (binding [*ns* ~*ns*]
-                   (clojure.core.typed.type-contract/type-syntax->contract '~t)))
-               x#
-               (core/let [opt# ~opt]
-                 (clojure.core.typed.contract/make-blame
-                   :positive (or (:positive opt#)
-                                 "cast")
-                   :negative (or (:negative opt#)
-                                 "cast")
-                   :file (or (:file opt#)
-                             ~*file*)
-                   :line (or (:line opt#)
-                             ~(or (-> &form meta :line)
-                                  @Compiler/LINE))
-                   :column (or (:column opt#)
-                               ~(or (-> &form meta :column)
-                                    @Compiler/COLUMN))))))
-           ~x)))))
+  Options:
+  - :positive   positive blame, (U Sym Str)
+  - :negative   negative blame, (U Sym Str)
+  - :file       file name where contract is checked, (U Str nil)
+  - :line       line number where contract is checked, (U Int nil)
+  - :column     column number where contract is checked, (U Int nil)"
+  ([t x] `(cast ~t ~x {}))
+  ([t x opt]
+   (register!) ; for type-syntax->contract
+   `(do ~spec/special-form
+        ::cast
+        {:type '~t}
+        ;; type checker expects a contract to be in this form, ie. ((fn [x] ..) x)
+        ;; - clojure.core.typed.check.add-cast
+        ;; - clojure.core.typed.check.special.cast
+        ((core/fn [x#]
+           (contract/contract
+             ~(with-current-location &form
+                (@type-syntax->contract t))
+             x#
+             (core/let [opt# ~opt]
+               (contract/make-blame
+                 :positive (or (:positive opt#)
+                               "cast")
+                 :negative (or (:negative opt#)
+                               "cast")
+                 :file (or (:file opt#)
+                           ~*file*)
+                 :line (or (:line opt#)
+                           ~(or (-> &form meta :line)
+                                @Compiler/LINE))
+                 :column (or (:column opt#)
+                             ~(or (-> &form meta :column)
+                                  @Compiler/COLUMN))))))
+         ~x))))
 
 (core/let [infuv (delay (dynaload 'clojure.core.typed.checker.experimental.infer-vars/infer-unannotated-vars))]
   (core/defn infer-unannotated-vars

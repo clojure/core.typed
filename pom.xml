@@ -16,31 +16,11 @@
     </license>
   </licenses>
 
-  <!--
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
     <version>0.2.2</version>
   </parent>
-  -->
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
-  <!-- added clojars to deploy to org.typedclojure -->
-  <distributionManagement>
-    <repository>
-      <id>clojars</id>
-      <name>Clojars repository</name>
-      <url>https://clojars.org/repo</url>
-    </repository>
-    <snapshotRepository>
-      <id>clojars</id>
-      <name>Clojars repository</name>
-      <url>https://clojars.org/repo</url>
-    </snapshotRepository>
-  </distributionManagement>
 
   <dependencies>
     <dependency>
@@ -48,52 +28,19 @@
       <artifactId>clojure</artifactId>
       <version>1.9.0</version>
     </dependency>
+    <!-- clojure.core.typed.async -->
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>core.async</artifactId>
+      <version>0.3.465</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- cljs.core.typed.async -->
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojurescript</artifactId>
+      <version>0.0-2311</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>com.theoryinpractise</groupId>
-        <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
-        <extensions>true</extensions>
-        <executions>
-          <execution>
-            <id>clojure-compile</id>
-            <phase>compile</phase>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>clojure-test</id>
-            <phase>test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <namespaces>
-            <!-- depends on core.async -->
-            <namespace>!cljs.core.typed.async</namespace>
-            <namespace>!clojure.core.typed.async</namespace>
-          </namespaces>
-          <!-- don't put AOT files in jar -->
-          <temporaryOutputDirectory>true</temporaryOutputDirectory>
-          <warnOnReflection>true</warnOnReflection>
-          <sourceDirectories>
-            <sourceDirectory>src/main/clojure</sourceDirectory>
-            <sourceDirectory>src/main/cljs</sourceDirectory>
-            <sourceDirectory>src/main/cljc</sourceDirectory>
-          </sourceDirectories>
-          <testSourceDirectories>
-            <testSourceDirectory>src/test/clojure</testSourceDirectory>
-            <testSourceDirectory>src/test/cljs</testSourceDirectory>
-          </testSourceDirectories>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 </project>
-
