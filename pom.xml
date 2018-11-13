@@ -1,15 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>core.typed.rt</artifactId>
+  <!-- added groupId to deploy to org.typedclojure -->
+  <groupId>org.typedclojure</groupId>
+  <artifactId>core.typed.runtime.jvm</artifactId>
   <description>An optional type system for Clojure — zero-dependency artifact for annotations only.</description>
-  <name>core.typed.rt</name>
+  <name>core.typed.runtime.jvm</name>
+  <version>0.6.1-SNAPSHOT</version>
 
+  <licenses>
+    <license>
+      <name>Eclipse Public License 1.0</name>
+      <url>http://opensource.org/licenses/eclipse-1.0.php</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <!-- removed parent to deploy to org.typedclojure -->
+  <!--
   <parent>
     <groupId>org.clojure</groupId>
-    <artifactId>core.typed-pom</artifactId>
-    <version>0.6.1-SNAPSHOT</version>
+    <artifactId>pom.contrib</artifactId>
+    <version>0.2.2</version>
   </parent>
+  -->
+
+  <!-- added clojars to deploy to org.typedclojure -->
+  <distributionManagement>
+    <repository>
+      <id>clojars</id>
+      <name>Clojars repository</name>
+      <url>https://clojars.org/repo</url>
+    </repository>
+  </distributionManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.9.0</version>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
@@ -45,39 +76,6 @@
             <testSourceDirectory>src/test/cljs</testSourceDirectory>
           </testSourceDirectories>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>add-clojure-source-dirs</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>add-clojure-test-source-dirs</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.4</version>
-        <executions>
-          <execution>
-            <id>core-typed-rt-slim-jar</id>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-            <configuration>
-              <appendAssemblyId>true</appendAssemblyId>
-              <descriptors>
-                <descriptor>src/assembly/slim.xml</descriptor>
-              </descriptors>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>
