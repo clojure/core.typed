@@ -127,11 +127,6 @@
     </dependency>
     <dependency>
       <groupId>org.typedclojure</groupId>
-      <artifactId>core.typed.annotator.jvm</artifactId>
-      <version>0.6.1-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>org.typedclojure</groupId>
       <artifactId>core.typed.analyzer.jvm</artifactId>
       <version>0.6.1-SNAPSHOT</version>
     </dependency>
