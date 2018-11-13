@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <!-- added groupId to deploy to org.typedclojure -->
-  <groupId>org.clojure</groupId>
+  <groupId>org.typedclojure</groupId>
   <artifactId>core.typed.runtime.jvm</artifactId>
   <description>An optional type system for Clojure — zero-dependency artifact for annotations only.</description>
   <name>core.typed.runtime.jvm</name>
@@ -16,11 +16,13 @@
     </license>
   </licenses>
 
+  <!--
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
     <version>0.2.2</version>
   </parent>
+  -->
 
   <!-- added clojars to deploy to org.typedclojure -->
   <distributionManagement>
@@ -36,9 +38,13 @@
     </snapshotRepository>
   </distributionManagement>
 
-  <properties>
-    <clojure.version>1.9.0</clojure.version>
-  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.9.0</version>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
