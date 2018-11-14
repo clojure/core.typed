@@ -12,7 +12,16 @@
             [clojure.core.typed :as t]
             [clojure.core.typed.runtime-infer :refer :all :as infer]
             [clojure.core.typed.checker.jvm.check-form-clj :as chk-clj]
-            [clojure.core.typed.coerce-utils :as coerce])
+            [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.annotator.pprint :refer [pprint]] 
+            [clojure.core.typed.annotator.insert :refer [delete-generated-annotations-in-str
+                                                         generate-ann-start
+                                                         generate-ann-end]]
+            [clojure.core.typed.annotator.util :refer [*ann-for-ns*
+                                                       spec-ns
+                                                       current-ns
+                                                       unparse-type]]
+            )
   (:import (clojure.lang IExceptionInfo)))
 
 (defn add-tmp-aliases [env as]
@@ -805,15 +814,17 @@
           (pprint anns))))))
 
 (defn anns-from-tenv [tenv & [config]]
-  (*-from-tenv envs-to-annotations
-               tenv
-               (or config {})))
+  (binding [unparse-type unparse-type']
+    (*-from-tenv envs-to-annotations
+                 tenv
+                 (or config {}))))
 
 (defn specs-from-tenv [tenv & [config]]
-  (*-from-tenv envs-to-specs
-               tenv
-               (merge config
-                      {:spec? true})))
+  (binding [unparse-type unparse-spec']
+    (*-from-tenv envs-to-specs
+                 tenv
+                 (merge config
+                        {:spec? true}))))
 
 (let [st-type (prs
                 '{:quads
@@ -1388,12 +1399,12 @@
                (assert-equal# (:top-level specs#) expected-specs#
                               "Actual specs didn't match expected specs")
                (do (println "Here are the generated specs:")
-                   (infer/pprint (:top-level specs#))))
+                   (pprint (:top-level specs#))))
              (if expected-types#
                (assert-equal# (:top-level types#) expected-types#
                               "Actual types didn't match expected types")
                (do (println "Here are the generated types:")
-                   (infer/pprint (:top-level types#))))
+                   (pprint (:top-level types#))))
              (when spec-ns
                (let [instrumentable-syms# (set
                                             (keep (fn [spc#]
@@ -1472,7 +1483,10 @@
   (binding [*ann-for-ns* (constantly *ns*)
             *debug* (if-let [[_ debug] (find config :debug)]
                       debug
-                      *debug*)]
+                      *debug*)
+            unparse-type (if (:spec? config)
+                           unparse-spec'
+                           unparse-type')]
     (infer/infer-anns *ns* config)))
 
 (deftest test-infer-test

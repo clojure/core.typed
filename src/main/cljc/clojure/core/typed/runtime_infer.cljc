@@ -27,6 +27,14 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.math.combinatorics :as comb]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.annotator.util :refer [unparse-type spec-ns core-specs-ns
+                                                       qualify-typed-symbol
+                                                       qualify-spec-symbol
+                                                       qualify-core-symbol
+                                                       *ann-for-ns*
+                                                       current-ns
+                                                       namespace-alias-in]]
+            [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
             #?@(:clj [[potemkin.collections :as pot]
                       [clojure.tools.namespace.parse :as nprs]
@@ -34,27 +42,9 @@
                       [clojure.java.io :as io]
                       [clojure.core.typed.ast-utils :as ast]
                       [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+                      [clojure.core.typed.annotator.insert :as insert
+                       :refer [replace-generated-annotations]]
                       [clojure.core.typed.coerce-utils :as coerce]])))
-
-#?(:clj
-(defn ^:private try-resolve-nsyms [nsyms]
-  (reduce (fn [_ s]
-            (try
-              (require [s])
-              (reduced s)
-              (catch #?(:clj Throwable :cljs :default) e
-                nil)))
-          nil
-          nsyms)))
-(def spec-ns'
-  #?(:clj (try-resolve-nsyms '[clojure.spec clojure.spec.alpha])
-     :cljs 'clojure.spec.alpha))
-(def core-specs-ns'
-  #?(:clj (try-resolve-nsyms '[clojure.core.specs clojure.core.specs.alpha])
-     :cljs 'clojure.core.specs.alpha))
-
-(def spec-ns (or spec-ns' 'clojure.spec.alpha))
-(def core-specs-ns (or core-specs-ns' 'clojure.core.specs.alpha))
 
 ;; https://github.com/r0man/inflections-clj/blob/master/src/inflections/core.cljc
 (defn str-name
@@ -266,8 +256,6 @@
 (def ^:dynamic *envs*
   (atom {}))
 
-(declare current-ns)
-
 (def list*-force (comp doall list*))
 
 (defn get-env [env] 
@@ -320,7 +308,7 @@
 ; results-atom : (Atom InferResultEnv)
 (def results-atom (atom (initial-results) :validator infer-results?))
 
-(declare pprint get-infer-results unparse-infer-result)
+(declare get-infer-results unparse-infer-result)
 
 (defn ppresults 
   ([] (ppresults (get-infer-results results-atom)))
@@ -461,7 +449,7 @@
   {:path (mapv parse-path-elem p)
    :type (parse-type t)})
 
-(declare unparse-path-elem unparse-type)
+(declare unparse-path-elem)
 
 (defn unparse-path [ps]
   (mapv unparse-path-elem ps))
@@ -771,75 +759,6 @@
 
 (def ^:dynamic *unparse-abbrev-alias* false)
 (def ^:dynamic *unparse-abbrev-class* false)
-
-(def ^:dynamic *ann-for-ns* 
-  (fn [] #?(:clj *ns*
-            :cljs (throw (ex-info "No annotation namespace bound" {})))))
-
-(defn current-ns []
-  #?(:clj (ns-name (*ann-for-ns*))
-     :cljs (*ann-for-ns*)))
-
-#?(:clj
-(defn namespace-alias-in [ns maybe-aliased-ns]
-  {:pre [((some-fn nil? #(instance? clojure.lang.Namespace %)) maybe-aliased-ns)]
-   :post [((some-fn nil? symbol) %)]}
-  (get (set/map-invert (ns-aliases ns)) maybe-aliased-ns)))
-
-(def ^:dynamic *verbose-specs* nil)
-
-#?(:clj 
-(defn qualify-symbol-in [nsym s]
-  {:pre [(symbol? nsym)
-         (symbol? s)
-         (not (namespace s))]
-   :post [(symbol? %)]}
-  (let [ns (find-ns nsym)
-        talias (namespace-alias-in (the-ns (current-ns)) ns)
-        already-referred? (let [actual (let [v (ns-resolve (the-ns (current-ns)) s)]
-                                         (when (var? v)
-                                           (coerce/var->symbol v)))
-                                desired (symbol (name nsym)
-                                                (name s))]
-                            ;(prn actual desired)
-                            (= actual desired))]
-    (symbol (if *verbose-specs*
-              (str nsym)
-              (when-not already-referred?
-                (or (when talias
-                      (str talias))
-                    (when ns
-                      (str (ns-name ns)))
-                    (name nsym))))
-            (str s))))
-:cljs
-(defn qualify-symbol-in [nsym s]
-  {:pre [(symbol? nsym)
-         (symbol? s)
-         (not (namespace s))]
-   :post [(symbol? %)]}
-  ;TODO
-  (symbol (get {'clojure.core.typed "t"
-                'clojure.spec.alpha "s"
-                'clojure.core nil}
-               nsym
-               (str nsym))
-          (str s))))
-
-(defn qualify-spec-symbol [s]
-  {:pre [(symbol? s)]
-   :post [(symbol? %)]}
-  (qualify-symbol-in spec-ns s))
-
-(defn qualify-typed-symbol [s]
-  {:pre [(symbol? s)]
-   :post [(symbol? %)]}
-  (qualify-symbol-in 'clojure.core.typed s))
-
-(defn qualify-core-symbol [s]
-  {:pre [(symbol? s)]
-   :post [(symbol? %)]}
-  (qualify-symbol-in 'clojure.core s))
 
 (defn resolve-class [c]
   {:pre []
@@ -1569,16 +1488,12 @@
   (binding [*spec* false]
     (unparse-type t)))
 
-(declare pprint)
-
 (defn unp-str [t]
   (let [^String s 
         (with-out-str
           (binding [pp/*print-right-margin* nil]
             (pprint (unp t))))]
     (.replaceAll s "\\n" "")))
-
-(def ^:dynamic unparse-type unparse-type')
 
 (defn flatten-union [t]
   {:pre [(type? t)]
@@ -3125,104 +3040,6 @@
     [t env]))
 
 (declare generate-tenv)
-
-;; copied from cljs.pprint
-#?(:cljs
-(defn- pp-type-dispatcher [obj]
-  (cond
-    (instance? PersistentQueue obj) :queue
-    (satisfies? IDeref obj) :deref
-    (symbol? obj) :symbol
-    (keyword? obj) :keyword
-    (seq? obj) :list
-    (map? obj) :map
-    (vector? obj) :vector
-    (set? obj) :set
-    (nil? obj) nil
-    :default :default)))
-
-(defmulti wrap-dispatch
-  "A wrapper for code dispatch that prints local keywords with ::"
-  {:arglists '[[object]]}
-  #?(:clj class
-     :cljs pp-type-dispatcher))
-
-(defmethod wrap-dispatch :default
-  [o]
-  (pp/code-dispatch o))
-
-;;; (def pprint-map (formatter-out "~<{~;~@{~<~w~^ ~_~w~:>~^, ~_~}~;}~:>"))
-#?(:clj
-   ;FIXME is this copy-pasted? it's since been updated in clojure.pprint
-(defn- pprint-map [amap]
-  (pp/pprint-logical-block :prefix "{" :suffix "}"
-    (pp/print-length-loop [aseq (seq amap)]
-      (when aseq
-        (pp/pprint-logical-block
-          (pp/write-out (ffirst aseq))
-          (.write ^java.io.Writer *out* " ")
-          (pp/pprint-newline :linear)
-          (.set #'pp/*current-length* 0) ; always print both parts of the [k v] pair
-          (pp/write-out (fnext (first aseq))))
-        (when (next aseq)
-          (.write ^java.io.Writer *out* ", ")
-          (pp/pprint-newline :linear)
-          (recur (next aseq))))))))
-
-;; deterministic printing of HMaps
-;;FIXME this doesn't work in CLJS, {:a 1} pprints as:
-;; :a{ 1}
-#?(:clj
-(defmethod wrap-dispatch #?(:clj clojure.lang.IPersistentMap
-                            :cljs :map)
-  [o]
-  (let [{tagged true untagged false}
-        (group-by (fn [[k v]]
-                    (and (seq? v)
-                         (= 'quote (first v))
-                         (keyword? (second v))))
-                  o)
-        tagged   (sort-by first tagged)
-        untagged (sort-by first untagged)
-        ordered
-        (apply array-map
-               (concat
-                 (mapcat identity tagged)
-                 (mapcat identity untagged)))]
-    #?(:clj (pprint-map ordered)
-       :cljs (pp/code-dispatch ordered)))))
-
-(defmethod wrap-dispatch #?(:clj clojure.lang.Keyword
-                            :cljs :keyword)
-  [kw]
-  (let [aliases #?(:clj (ns-aliases (current-ns))
-                   :cljs #{})
-        some-alias (delay
-                     (some (fn [[k v]]
-                             (when (= (namespace kw)
-                                      (str (ns-name v)))
-                               k))
-                           aliases))]
-    (cond
-      (= (name (current-ns)) (namespace kw))
-      (print (str "::" (name kw)))
-
-      @some-alias 
-      (print (str "::" @some-alias "/" (name kw)))
-
-      :else
-      (print kw))))
-
-(defn pprint [& args]
-  (pp/with-pprint-dispatch wrap-dispatch
-    (apply pp/pprint args)))
-
-(defn pprint-str-no-line [& args]
-  (binding [pp/*print-right-margin* nil]
-    ;; remove trailing newline
-    (let [s (with-out-str
-              (apply pprint args))]
-      (subs s 0 (dec (count s))))))
 
 ; ppenv : Env -> nil
 (defn ppenv [env]
@@ -5693,471 +5510,6 @@
                     (get vsym)))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Inserting/deleting annotations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; adapted from tools.namespace
-#?(:clj 
-(defn update-file
-  "Reads file as a string, calls f on the string plus any args, then
-  writes out return value of f as the new contents of file, or writes
-  content to `out`."
-  [file ^String out f & args]
-  {:pre [(instance? java.net.URL file)
-         ((some-fn nil? string?) out)]}
-  (let [old (slurp file)
-        new (str (apply f old args))
-        _ (when out
-            (let [leading-slash? (boolean (#{\/} (first out)))
-                  dirs (apply str (interpose "/" (pop (str/split out #"/"))))
-                  dirs (if leading-slash?
-                         (str "/" dirs)
-                         dirs)
-                  ;_ (prn "creating" dirs)
-                  _ (doto (java.io.File. ^String dirs)
-                      .mkdirs)]
-              out))
-        out (or out file)]
-    (spit out new)
-    (println "Output annotations to " out))))
-
-#?(:clj
-(defn ns-file-name [sym]
-  (io/resource
-    (coerce/ns->file sym))))
-
-#?(:clj
-(def generate-ann-start ";; Start: Generated by clojure.core.typed - DO NOT EDIT"))
-#?(:clj
-(def generate-ann-end ";; End: Generated by clojure.core.typed - DO NOT EDIT"))
-
-#?(:clj
-(defn delete-generated-annotations-in-str 
-  "Delete lines between generate-ann-start and generate-ann-end."
-  [old]
-  {:pre [(string? old)]
-   :post [(string? %)]}
-  (with-open [rdr (java.io.BufferedReader.
-                    (java.io.StringReader. old))]
-    (loop [current-open false
-           lines (line-seq rdr)
-           out []]
-      (if (seq lines)
-        (if current-open
-          (if (= (first lines)
-                 generate-ann-end)
-            (recur false
-                   (next lines)
-                   out)
-            (recur current-open
-                   (next lines)
-                   out))
-          (if (= (first lines)
-                 generate-ann-start)
-            (recur true
-                   (next lines)
-                   out)
-            (recur current-open
-                   (next lines)
-                   (conj out (first lines)))))
-        (str/join "\n" out))))))
-
-#?(:clj
-(defn ns-end-line 
-  "Returns the last line of the ns form."
-  [s]
-  {:pre [(string? s)]
-   :post [(integer? %)]}
-  (let [ns-form (with-open [pbr (rdrt/indexing-push-back-reader
-                                  (rdrt/string-push-back-reader s))]
-                  (nprs/read-ns-decl pbr nprs/clj-read-opts))
-        _ (assert ns-form "No namespace form found")
-        end-line (-> ns-form meta :end-line)
-        _ (assert (integer? end-line) 
-                  (str "No end-line found for ns form"
-                       (meta ns-form)))]
-    end-line)))
-
-#?(:clj
-(def ^:dynamic *indentation* 2))
-
-#?(:clj
-(defn split-at-column 
-  ([s column] (split-at-column s column nil))
-  ([s column end-column]
-   (let [before (subs s 0 (dec column))
-         after  (if end-column
-                  (subs s (dec column) (dec end-column))
-                  (subs s (dec column)))]
-     [before after]))))
-
-;; returns a pair [leading-first-line file-slice trailing-final-line]
-#?(:clj
-(defn extract-file-slice [ls line column end-line end-column]
-  (let [;_ (prn "ls" (count ls) (dec line) end-line)
-        v (subvec ls (dec line) end-line)
-        first-line (nth v 0)
-        last-line (peek v)
-        ;_ (prn "last-line" last-line (dec end-column))
-        [before-column after-column] (split-at-column first-line column 
-                                                      (when (= line end-line)
-                                                        end-column))
-        [before-end-column after-end-column] (split-at-column last-line end-column)
-        ]
-    [before-column
-     (if (= 1 (count v))
-       (assoc v
-              0 after-column)
-       (assoc v
-              0 after-column
-              (dec (count v)) before-end-column))
-     after-end-column])))
-
-#?(:clj
-(defn restitch-ls [ls line end-line split]
-  (vec (concat
-         (subvec ls 0 (dec line))
-         split
-         (subvec ls end-line)))))
-
-#?(:clj
-(defn insert-loop-var [{:keys [line column end-line end-column] :as f} ls]
-  {:pre [(#{:loop-var} (::track-kind f))
-         #_(= line end-line)
-         #_(< column end-column)
-         ]}
-  (let [end-line line
-        end-column column
-        [leading file-slice trailing] (extract-file-slice ls line column end-line end-column)
-        ;_ (prn "leading" leading) 
-        ;_ (prn "file-slice" file-slice) 
-        ;_ (prn "trailing" trailing)
-        the-ann (binding [*print-length* nil
-                          *print-level* nil]
-                  (with-out-str 
-                    ;(print "^")
-                    ;(print (pprint-str-no-line :clojure.core.typed/rt-gen))
-                    ;(print " ")
-                    (print "^{")
-                    (print (pprint-str-no-line :clojure.core.typed/ann))
-                    (print " ")
-                    (print (pprint-str-no-line (unparse-type (:type f))))
-                    (print "} ")))
-        [full-first-line
-         offset-first-line]
-        (if (> (count leading) 0)
-          (let [extra-columns (atom 0)
-                last-char (nth leading (dec (count leading)))]
-            [(str leading 
-                  (when-not (#{\[ \space} last-char)
-                    (swap! extra-columns inc)
-                    " ")
-                  the-ann)
-             (+ @extra-columns (count the-ann))])
-          [the-ann (count the-ann)])
-        ; FIXME this should always be [""], but it adds a useless new line
-        ;file-slice
-        _ (assert (every? #{""} file-slice)
-                  file-slice)
-        final-split [(str full-first-line trailing)]
-        new-ls (restitch-ls ls line end-line final-split)
-        update-line (fn [old-line]
-                      ;; we never add a new line
-                      old-line)
-        update-column (fn [old-column old-line]
-                        (cond
-                          ;; changes in the current line. Compensate
-                          ;; for the type annotation.
-                          (and (= old-line line)
-                               (< column old-column))
-                          (+ old-column offset-first-line)
-                          ;; we preserve columns since we don't add
-                          ;; extra indentation.
-                          :else old-column))]
-    {:ls new-ls
-     :update-line update-line
-     :update-column update-column})))
-
-
-#?(:clj
-(defn insert-local-fn* [{:keys [line column end-line end-column] :as f} ls]
-  {:pre [(#{:local-fn} (::track-kind f))]}
-  (let [;_ (prn "current fn" f)
-        [before-first-pos file-slice trailing] (extract-file-slice ls line column end-line end-column)
-        ;_ (prn "before-first-pos" before-first-pos) 
-        ;_ (prn "file-slice" file-slice) 
-        ;_ (prn "trailing" trailing)
-        after-first-pos (nth file-slice 0)
-        ;_ (prn "after-first-pos" after-first-pos)
-        before-line (str
-                      before-first-pos
-                      (binding [*print-length* nil
-                                *print-level* nil]
-                        (with-out-str 
-                          ;; DON'T DELETE THESE PRINTS
-                          (print "(")
-                          ;(print (str "^" (pprint-str-no-line :clojure.core.typed/auto-gen) " "))
-                          (print (pprint-str-no-line (qualify-typed-symbol 'ann-form))))))
-        indentation *indentation*
-        indentation-spaces (apply str (repeat (+ (dec column) indentation) " "))
-        ;; insert column+indentation spaces
-        the-fn-line (str indentation-spaces after-first-pos)
-
-        rest-slice (if (= 1 (count file-slice))
-                     []
-                     (subvec file-slice 1 (count file-slice)))
-
-        ;; indent each line at column
-        indented-fn (map (fn [a]
-                           {:pre [(string? a)]}
-                           ;; insert indentation at column if there's already whitespace there
-                           (if (= \space (nth a (dec column)))
-                             (let [;_ (prn "indenting" a)
-                                   ;_ (prn "left half " (subs a 0 (dec column)))
-                                   ;_ (prn "right half" (subs a (dec column)))
-                                   ]
-                               (str (subs a 0 column)
-                                    (apply str (repeat indentation " "))
-                                    (subs a column)))
-                             (do
-                               (prn (str
-                                      "WARNING: Not indenting line " line
-                                      " of " (:ns f) ", found non-whitespace "
-                                      " at column " column "."))
-                               a)))
-                         rest-slice)
-        ;_ (prn "the type pp" (pprint-str-no-line (unparse-type (:type f))))
-        the-type-line (str indentation-spaces
-                           (pprint-str-no-line (unparse-type (:type f)))
-                           ")")
-        ;; now add any trailing code after end-column
-        ;; eg. (map (fn ...) c) ==> (map (ann-form (fn ...) ...)
-        ;;                               c)
-        trailing-line (when (not= 0 (count trailing))
-                        (str (apply str (repeat (dec column) " "))
-                             ;; TODO compensate for this change in update-column
-                             (if nil #_(= \space (nth trailing 0))
-                               (subs trailing 1)
-                               trailing)))
-
-        final-split (concat
-                      [before-line
-                       the-fn-line]
-                      indented-fn
-                      [the-type-line]
-                      (when trailing-line
-                        [trailing-line]))
-        new-ls (restitch-ls ls line end-line final-split)
-        update-line (fn [old-line]
-                      (cond
-                        ;; occurs before the current changes
-                        (< old-line line) old-line
-                        ;; occurs inside the bounds of the current function.
-                        ;; Since we've added an extra line before this function (the beginning ann-form)
-                        ;; we increment the line.
-                        (<= line old-line end-line) (inc old-line)
-                        ;; occurs after the current function.
-                        ;; We've added possibly 2-3 lines: 
-                        ;; - the beginning of the ann-form
-                        ;; - the end of the ann-form
-                        ;; - possibly, the trailing code
-                        :else (if trailing-line
-                                (+ 3 old-line)
-                                (+ 2 old-line))))
-        update-column (fn [old-column old-line]
-                        (cond
-                          ;; occurs before the current changes
-                          (< old-line line) old-column
-                          ;; occurs inside the bounds of the current function.
-                          ;; We indent each of these lines by 2.
-                          ;; WARNING: we might not have indented here
-                          (<= line old-line end-line) (+ 2 old-column)
-                          :else old-column))]
-  {:ls new-ls
-   :update-line update-line
-   :update-column update-column})))
-
-#?(:clj
-(defn insert-local-fns [local-fns old config]
-  {:post [(string? %)]}
-  ;(prn "insert-local-fns" local-fns)
-  (let [update-coords
-        (fn [update-line update-column]
-          ;; adjust the coordinates of any functions that have moved.
-          (fn [v]
-            (-> v
-                (update :line update-line)
-                (update :end-line update-line)
-                ;; pass original line
-                (update :column update-column (:line v))
-                ;; pass original end-line
-                (update :end-column update-column (:end-line v)))))
-        ;; reverse
-        sorted-fns (sort-by (juxt :line :column) local-fns)
-        ls (with-open [pbr (java.io.BufferedReader.
-                             (java.io.StringReader. old))]
-             (vec (doall (line-seq pbr))))]
-    ;(prn "top ls" (count ls))
-    (loop [ls ls
-           fns sorted-fns]
-      ;(prn "current ls")
-      ;(println (str/join "\n" ls))
-      (if (empty? fns)
-        (str/join "\n" ls)
-        (let [;; assume these coordinates are correct
-              f (first fns)
-              ;_ (prn "current f" f)
-              {:keys [ls update-line update-column]}
-              (case (::track-kind f)
-                :local-fn (insert-local-fn* f ls)
-                :loop-var (insert-loop-var f ls))
-              _ (assert (vector? ls))
-              _ (assert (fn? update-line))
-              _ (assert (fn? update-column))
-              next-fns (map 
-                         ;; adjust the coordinates of any functions that have moved.
-                         (update-coords update-line update-column)
-                         (next fns))]
-          (recur ls
-                 next-fns)))))))
-
-(comment
-  (println
-    (insert-local-fns
-      [{::track-kind :local-fn
-        :line 1 :column 1
-        :end-line 1 :end-column 11
-        :type {:op :Top}}]
-      "(fn [a] a)"
-      {}))
-  (println
-    (insert-local-fns
-      [{::track-kind :local-fn
-        :line 1 :column 1
-        :end-line 2 :end-column 5
-        :type {:op :Top}}]
-      "(fn [a]\n  a) foo"
-      {}))
-  (println
-    (insert-local-fns
-      [{::track-kind :local-fn
-        :line 1 :column 3
-        :end-line 2 :end-column 7
-        :type {:op :Top}}]
-      "  (fn [a]\n    a) foo"
-      {}))
-  (println
-    (insert-local-fns
-      [{::track-kind :local-fn
-        :line 1 :column 1
-        :end-line 1 :end-column 20
-        :type {:op :Top}}
-       {::track-kind :local-fn
-        :line 1 :column 9
-        :end-line 1 :end-column 19
-        :type {:op :Top}}]
-      "(fn [b] (fn [a] a))"
-      {}))
-  )
-
-#?(:clj
-(declare prepare-ann infer-anns))
-
-#?(:clj
-(defn insert-generated-annotations-in-str
-  "Insert annotations after ns form."
-  [old ns {:keys [replace-top-level? no-local-ann?] :as config}]
-  {:pre [(string? old)]
-   :post [(string? %)]}
-  ;(prn "insert" ann-str)
-  (binding [*ns* (the-ns ns)
-            *ann-for-ns* #(the-ns ns)]
-    (let [{:keys [requires top-level local-fns] :as as} (infer-anns ns config)
-          ann-str (prepare-ann requires top-level config)
-          _ (assert (string? ann-str))
-          old (if no-local-ann?
-                old
-                (insert-local-fns local-fns old config))
-          old (delete-generated-annotations-in-str old)
-          insert-after (ns-end-line old)]
-      (with-open [pbr (java.io.BufferedReader.
-                        (java.io.StringReader. old))]
-        (loop [ls (line-seq pbr)
-               current-line 0
-               out []]
-          (if (= current-line insert-after)
-            (str/join "\n" (concat out 
-                                   [(first ls)
-                                    ;""
-                                    ann-str]
-                                   (rest ls)))
-            (if (seq ls)
-              (recur (next ls)
-                     (inc current-line)
-                     (conj out (first ls)))
-              (str/join "\n" (concat out 
-                                     [""
-                                      ann-str]))))))))))
-    
-
-
-#?(:clj
-(defn delete-generated-annotations [ns config]
-  (impl/with-clojure-impl
-    (update-file (ns-file-name (if (symbol? ns)
-                                 ns ;; avoid `the-ns` call in case ns does not exist yet.
-                                 (ns-name ns)))
-                 nil
-                 delete-generated-annotations-in-str))))
-
-#?(:clj
-(defn prepare-ann [requires top-level config]
-  {:post [(string? %)]}
-  (binding [*print-length* nil
-            *print-level* nil]
-    (with-out-str
-      ;; print requires outside start/end annotations so we don't
-      ;; delete them between runs
-      (when (seq requires)
-        (println ";; Automatically added requires by core.typed")
-        (doseq [[n a] requires]
-          (pprint (list (qualify-core-symbol 'require) `'[~n :as ~a]))))
-      (println generate-ann-start)
-      (doseq [a top-level]
-        (pprint a))
-      (print generate-ann-end)))))
-
-#?(:clj
-(defn default-out-dir [{:keys [spec?] :as config}]
-  (let [cp-root (-> "" java.io.File. .getAbsoluteFile .getPath)
-        dir-name (str "generated-" (if spec? "spec" "type") "-annotations")]
-    (str cp-root "/" dir-name))))
-
-#?(:clj 
-(defn insert-or-replace-generated-annotations [ns {:keys [out-dir] :as config}]
-  (impl/with-clojure-impl
-    (let [nsym (ns-name ns)
-          ^java.net.URL
-          file-in (ns-file-name nsym)]
-      (update-file file-in
-                   (when (or out-dir 
-                             (not= "file" (.getProtocol file-in)))
-                     (str (or out-dir
-                              (default-out-dir config))
-                          "/" 
-                          (coerce/ns->file nsym)))
-                   insert-generated-annotations-in-str
-                   ns
-                   config)))))
-
-#?(:clj
-(defn insert-generated-annotations [ns config]
-  (insert-or-replace-generated-annotations ns config)))
-#?(:clj
-(defn replace-generated-annotations [ns config]
-  (insert-or-replace-generated-annotations ns (assoc config :replace-top-level? true))))
-
 #?(:clj
 (defn infer-anns
   ([ns {:keys [spec?] :as config}]
@@ -6270,6 +5622,9 @@
             *higher-order-fspec* (if-let [[_ higher-order-fspec] (find args :higher-order-fspec)]
                                    higher-order-fspec
                                    *higher-order-fspec*)
+            unparse-type (if (= :spec front-end)
+                           unparse-spec'
+                           unparse-type')
             ]
     ;(prn "args" args)
     (when *track-depth*
