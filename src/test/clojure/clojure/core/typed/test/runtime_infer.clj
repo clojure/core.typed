@@ -1,5 +1,3 @@
-;; FIXME this file is in module-check because it uses clojure.core.typed.check-form-clj,
-;; refactor it back into module-infer
 (ns clojure.core.typed.test.runtime-infer
   (:require [clojure.test :refer :all]
             [clojure.pprint :as pp]
