@@ -10,9 +10,10 @@
   "Intermediate representation for types"
   ; Note: clojure.core.typed.annotator.util depends on this ns
   )
-;; ========================
-;;     Predicates
-;; ========================
+
+;;========================
+;;Type Predicates
+;;========================
 
 (defn type? [t]
   (and (map? t)
@@ -23,6 +24,7 @@
 
 (defn HMap? [t]
   (= :HMap (:op t)))
+
 (defn HVec? [t]
   (= :HVec (:op t)))
 
@@ -43,10 +45,14 @@
     (when (union? t)
       (empty? (:types t)))))
 
+(def val? (comp boolean #{:val} :op))
+
+;;========================
+;;Type Constructors
+;;========================
+
 (defn -class? [m]
   (boolean (#{:class} (:op m))))
-
-(def val? (comp boolean #{:val} :op))
 
 (defn -alias [name]
   {:pre [(symbol? name)]}
@@ -74,6 +80,22 @@
    :clojure.core.typed.annotator.rep/HMap-req req
    :clojure.core.typed.annotator.rep/HMap-opt opt})
 
+;;========================
+;;   Inference results
+;;========================
+
+(defn infer-result [path type]
+  {:op :path-type
+   :type type
+   :path path})
+
+(defn infer-results [paths type]
+  (map #(infer-result % type) paths))
+
+;; ========================
+;;     Path elements
+;; ========================
+
 (defn key-path 
   ([keys key] (key-path {} keys key))
   ([kw-entries keys key]
@@ -89,18 +111,6 @@
 
 (defn map-vals-path []
   {:op :map-vals})
-
-(defn infer-result [path type]
-  {:op :path-type
-   :type type
-   :path path})
-
-(defn infer-results [paths type]
-  (map #(infer-result % type) paths))
-
-;; ========================
-;;     Path elements
-;; ========================
 
 ;; for zero arity, use (fn-dom-path 0 -1)
 (defn fn-dom-path [arity pos]
