@@ -180,3 +180,17 @@
     #?@(:clj [(instance? clojure.lang.ITransientCollection v) :transient])
     :else #?(:clj (.getName (class v))
              :cljs (goog/typeOf v))))
+
+(def list*-force (comp doall list*))
+
+(defn update-env [env & args]
+  (apply update env (current-ns) args))
+
+(defn update-type-env-in-ns [env ns & args]
+  (apply update-in env [(ns-name ns) :type-env] args))
+
+(defn update-type-env [env & args]
+  (apply update-type-env-in-ns env (current-ns) args))
+
+(defn update-alias-env [env & args]
+  (apply update-in env [(current-ns) :alias-env] args))

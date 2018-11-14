@@ -56,7 +56,12 @@
                                                        current-ns
                                                        namespace-alias-in
                                                        camel-case
-                                                       *debug*]]
+                                                       *debug*
+                                                       update-env
+                                                       update-type-env-in-ns
+                                                       update-type-env
+                                                       update-alias-env
+                                                       list*-force]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
             #?@(:clj [[clojure.tools.namespace.parse :as nprs]
@@ -201,8 +206,6 @@
 (def ^:dynamic *envs*
   (atom {}))
 
-(def list*-force (comp doall list*))
-
 (defn get-env [env] 
   {:pre [(map? env)]}
   (get env (current-ns)))
@@ -223,18 +226,6 @@
   #_{(current-ns)
    {:type-env {}
     :alias-env {}}})
-
-(defn update-env [env & args]
-  (apply update env (current-ns) args))
-
-(defn update-type-env-in-ns [env ns & args]
-  (apply update-in env [(ns-name ns) :type-env] args))
-
-(defn update-type-env [env & args]
-  (apply update-type-env-in-ns env (current-ns) args))
-
-(defn update-alias-env [env & args]
-  (apply update-in env [(current-ns) :alias-env] args))
 
 (declare get-infer-results unparse-infer-result)
 
