@@ -8,7 +8,7 @@
 
 (ns clojure.core.typed.annotator.pprint
   (:require [#?(:clj clojure.pprint :cljs cljs.pprint) :as pp]
-            [clojure.core.typed.annotator.util :refer [current-ns]]))
+            [clojure.core.typed.annotator.util :refer [current-ns unp]]))
 
 ;; copied from cljs.pprint
 #?(:cljs
@@ -107,3 +107,10 @@
     (let [s (with-out-str
               (apply pprint args))]
       (subs s 0 (dec (count s))))))
+
+(defn unp-str [t]
+  (let [^String s 
+        (with-out-str
+          (binding [pp/*print-right-margin* nil]
+            (pprint (unp t))))]
+    (.replaceAll s "\\n" "")))

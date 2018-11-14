@@ -70,9 +70,9 @@
                                                        alias-env
                                                        *envs*
                                                        unp
-                                                       unp-str
                                                        *spec*]]
-            [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
+            [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line
+                                                         unp-str]]
             [clojure.walk :as walk]
             #?@(:clj [[clojure.tools.namespace.parse :as nprs]
                       [clojure.tools.reader.reader-types :as rdrt]
@@ -367,8 +367,6 @@
    :post [(set? %)]}
   #{{:req-keyset (map-key-set (:clojure.core.typed.annotator.rep/HMap-req t))
      :opt-keyset (map-key-set (:clojure.core.typed.annotator.rep/HMap-opt t))}})
-
-(declare unp)
 
 ; gather-HMap-info : (All [a] [Env Type [HMap -> (Set a)] (Set Type) -> (Set a)])
 (defn gather-HMap-info
