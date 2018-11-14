@@ -10,9 +10,7 @@
   (:refer-clojure :exclude [any? #?(:cljs -val)])
   #?(:cljs
      (:require-macros [clojure.core.typed.runtime-infer
-                       :refer [
-                               prs
-                               debug-output
+                       :refer [debug-output
                                debug-output-when
                                when-fuel]]))
   (:require [#?(:clj clojure.pprint :cljs cljs.pprint) :as pp]
@@ -52,6 +50,8 @@
             [clojure.core.typed.annotator.env :refer [results-atom
                                                       initial-results
                                                       infer-results?]]
+            [clojure.core.typed.annotator.frontend.spec
+             :refer [def-spec]]
             [clojure.core.typed.annotator.debug-macros
              :refer [debug-flat
                      debug-when
@@ -3058,27 +3058,6 @@
 (defn comment-form [& body]
   (list* (qualify-core-symbol 'comment)
          body))
-
-(defn def-spec [k s]
-  (list (qualify-spec-symbol 'def)
-        k
-        ; handle possibly recursive specs
-        ; TODO intelligently order specs to minimize this issue
-        (if (or (symbol? s)
-                (set? s)
-                ;; already late bound
-                (and (seq? s)
-                     (let [fs (first s)]
-                       ((into #{}
-                              (map qualify-spec-symbol)
-                              ; late binding ops
-                              '[and keys cat alt or nilable coll-of
-                                fspec map-of tuple cat multi-spec
-                                *])
-                        fs))))
-          s
-          (list (qualify-spec-symbol 'and)
-                s))))
 
 #?(:clj
 (defmacro when-fuel [env & body]
