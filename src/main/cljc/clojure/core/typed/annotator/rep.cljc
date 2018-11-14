@@ -8,11 +8,18 @@
 
 (ns clojure.core.typed.annotator.rep
   "Intermediate representation for types"
+  ; Note: clojure.core.typed.annotator.util depends on this ns
   )
+;; ========================
+;;     Predicates
+;; ========================
 
 (defn type? [t]
   (and (map? t)
        (keyword? (:op t))))
+
+(defn alias? [t]
+  (= :alias (:op t)))
 
 (def -any {:op :Top})
 

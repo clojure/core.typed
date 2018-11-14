@@ -1,6 +1,7 @@
 (ns clojure.core.typed.annotator.util
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.core.typed.annotator.rep :as r]
             #?@(:clj [[clojure.core.typed.coerce-utils :as coerce]])
             ))
 
@@ -194,3 +195,79 @@
 
 (defn update-alias-env [env & args]
   (apply update-in env [(current-ns) :alias-env] args))
+
+(def ^:dynamic *envs*
+  (atom {}))
+
+(defn get-env [env] 
+  {:pre [(map? env)]}
+  (get env (current-ns)))
+
+(defn type-env 
+  ;([] (type-env @*envs*))
+  ([env] (get (get-env env) :type-env)))
+
+(defn alias-env 
+  ;([] (alias-env @*envs*))
+  ([env] (get (get-env env) :alias-env)))
+
+(defn resolve-alias [env {:keys [name] :as a}]
+  {:pre [(map? env)
+         (r/alias? a)
+         (symbol? name)]
+   :post [(r/type? %)]}
+  ;(prn "resolve-alias" name (keys (alias-env env)))
+  (get (alias-env env) name))
+
+; Env Type -> (Vec Sym)
+(defn fv
+  "Returns the aliases referred in this type, in order of
+  discovery. If recur? is true, also find aliases
+  referred by other aliases found."
+  ([env v] (fv env v false #{}))
+  ([env v recur?] (fv env v recur? #{}))
+  ([env v recur? seen-alias]
+   {:pre [(map? env)
+          (r/type? v)]
+    :post [(vector? %)
+           ;expensive
+           #_(every? symbol? %)]}
+   ;(prn "fv" v)
+   (let [fv (fn 
+              ([v] (fv env v recur? seen-alias))
+              ([v recur? seen-alias]
+               (fv env v recur? seen-alias)))
+         fvs   (case (:op v)
+                 (:free :Top :unknown :val) []
+                 :HMap (into []
+                             (mapcat fv)
+                             (concat
+                               (-> v :clojure.core.typed.annotator.rep/HMap-req vals)
+                               (-> v :clojure.core.typed.annotator.rep/HMap-opt vals)))
+                 :HVec (into []
+                             (mapcat fv)
+                             (-> v :vec))
+                 :union (into []
+                              (mapcat fv)
+                              (-> v :types))
+                 (:unresolved-class :class)
+                 (into []
+                       (mapcat fv)
+                       (-> v :args))
+                 :alias (if (seen-alias v)
+                          []
+                          (conj
+                            (if recur?
+                              (fv (resolve-alias env v)
+                                  recur?
+                                  (conj seen-alias v))
+                              [])
+                            (:name v)))
+                 :IFn (into []
+                            (mapcat (fn [f']
+                                      (into (into [] 
+                                                  (mapcat fv) 
+                                                  (:dom f'))
+                                            (fv (:rng f')))))
+                            (:arities v)))]
+   fvs)))

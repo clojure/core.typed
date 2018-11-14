@@ -25,7 +25,8 @@
                                                       index-path vec-entry-path
                                                       set-entry
                                                       make-HMap
-                                                      var-path]]
+                                                      var-path
+                                                      alias?]]
             [clojure.core.typed.annotator.track :refer [track-var'
                                                         track-def-init
                                                         gen-track-config
@@ -61,7 +62,13 @@
                                                        update-type-env-in-ns
                                                        update-type-env
                                                        update-alias-env
-                                                       list*-force]]
+                                                       list*-force
+                                                       fv
+                                                       resolve-alias
+                                                       get-env
+                                                       type-env
+                                                       alias-env
+                                                       *envs*]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
             #?@(:clj [[clojure.tools.namespace.parse :as nprs]
@@ -203,21 +210,6 @@
 (defalias Envs
   (Map Sym AliasTypeEnv))
 
-(def ^:dynamic *envs*
-  (atom {}))
-
-(defn get-env [env] 
-  {:pre [(map? env)]}
-  (get env (current-ns)))
-
-(defn type-env 
-  ;([] (type-env @*envs*))
-  ([env] (get (get-env env) :type-env)))
-
-(defn alias-env 
-  ;([] (alias-env @*envs*))
-  ([env] (get (get-env env) :alias-env)))
-
 (defn init-config []
   {})
 
@@ -314,9 +306,6 @@
 (defn HVec? [t]
   (= :HVec (:op t)))
 
-(defn alias? [t]
-  (= :alias (:op t)))
-
 (defn union? [t]
   (= :union (:op t)))
 
@@ -354,7 +343,7 @@
     (make-HMap (prs-map mandatory)
                (prs-map optional))))
 
-(declare make-Union resolve-alias postwalk)
+(declare make-Union postwalk)
 
 (def ^:dynamic *type-var-scope* #{})
 
@@ -2115,14 +2104,6 @@
            (update-alias-env env update sym #(if %1 (join %1 %2) %2) t)
            (register-alias env config sym t))]))
 
-(defn resolve-alias [env {:keys [name] :as a}]
-  {:pre [(map? env)
-         (alias? a)
-         (symbol? name)]
-   :post [(type? %)]}
-  ;(prn "resolve-alias" name (keys (alias-env env)))
-  (get (alias-env env) name))
-
 (defn resolve-alias-or-nil [env {:keys [name] :as a}]
   {:pre [(map? env)
          (alias? a)
@@ -2482,7 +2463,7 @@
                             t)))]
         [t @env-atom]))))
 
-(declare fv unparse-defalias-entry)
+(declare unparse-defalias-entry)
 
 (defn top-level-self-reference? 
   ([env t self] (top-level-self-reference? env t self #{}))
@@ -4409,59 +4390,6 @@
                               (assoc (meta k) :type v))
                             local-fn-env)})))))
 
-
-; Env Type -> (Vec Sym)
-(defn fv
-  "Returns the aliases referred in this type, in order of
-  discovery. If recur? is true, also find aliases
-  referred by other aliases found."
-  ([env v] (fv env v false #{}))
-  ([env v recur?] (fv env v recur? #{}))
-  ([env v recur? seen-alias]
-   {:pre [(map? env)
-          (type? v)]
-    :post [(vector? %)
-           ;expensive
-           #_(every? symbol? %)]}
-   ;(prn "fv" v)
-   (let [fv (fn 
-              ([v] (fv env v recur? seen-alias))
-              ([v recur? seen-alias]
-               (fv env v recur? seen-alias)))
-         fvs   (case (:op v)
-                 (:free :Top :unknown :val) []
-                 :HMap (into []
-                             (mapcat fv)
-                             (concat
-                               (-> v :clojure.core.typed.annotator.rep/HMap-req vals)
-                               (-> v :clojure.core.typed.annotator.rep/HMap-opt vals)))
-                 :HVec (into []
-                             (mapcat fv)
-                             (-> v :vec))
-                 :union (into []
-                              (mapcat fv)
-                              (-> v :types))
-                 (:unresolved-class :class)
-                 (into []
-                       (mapcat fv)
-                       (-> v :args))
-                 :alias (if (seen-alias v)
-                          []
-                          (conj
-                            (if recur?
-                              (fv (resolve-alias env v)
-                                  recur?
-                                  (conj seen-alias v))
-                              [])
-                            (:name v)))
-                 :IFn (into []
-                            (mapcat (fn [f']
-                                      (into (into [] 
-                                                  (mapcat fv) 
-                                                  (:dom f'))
-                                            (fv (:rng f')))))
-                            (:arities v)))]
-   fvs)))
 
 (defn var-constraints 
   "Return the bag of constraints in the current results-atom

@@ -25,7 +25,11 @@
                                                        spec-ns
                                                        current-ns
                                                        unparse-type
-                                                       *debug*]]
+                                                       *debug*
+                                                       update-alias-env
+                                                       type-env
+                                                       *envs*
+                                                       update-type-env]]
             )
   (:import (clojure.lang IExceptionInfo)))
 
