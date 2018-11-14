@@ -10,17 +10,19 @@
   (:refer-clojure :exclude [any? #?(:cljs -val)])
   #?(:cljs
      (:require-macros [clojure.core.typed.runtime-infer
-                       :refer [debug-flat
-                               debug
-                               debug-when
-                               debug-squash
+                       :refer [
                                prs
-                               time-if-slow
                                debug-output
                                debug-output-when
                                when-fuel]]))
   (:require [#?(:clj clojure.pprint :cljs cljs.pprint) :as pp]
             [#?(:clj clojure.core :cljs cljs.core) :as core]
+            [clojure.core.typed.annotator.debug-macros
+             :refer [debug-flat
+                     debug-when
+                     time-if-slow
+                     debug-squash
+                     debug]]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.typed.util-vars :as vs]
@@ -34,7 +36,8 @@
                                                        *ann-for-ns*
                                                        current-ns
                                                        namespace-alias-in
-                                                       camel-case]]
+                                                       camel-case
+                                                       *debug*]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
             #?@(:clj [[potemkin.collections :as pot]
@@ -47,25 +50,6 @@
                        :refer [replace-generated-annotations]]
                       [clojure.core.typed.coerce-utils :as coerce]])))
 
-
-(def ^:dynamic *debug* nil)
-(def ^:dynamic *debug-depth* 0)
-
-#?(:clj
-(defmacro debug-flat
-  ([msg]
-   `(when (= :all *debug*)
-      (print (str (apply str (repeat *debug-depth* "  ")) *debug-depth* ": "))
-      ~msg))))
-
-#?(:clj
-(defmacro debug 
-  ([msg body]
-   `(do
-      (debug-flat ~msg)
-      (binding [*debug-depth* (when (= :all *debug*)
-                                (inc *debug-depth*))]
-        ~body)))))
 
 #_
 (defalias Type
@@ -557,19 +541,6 @@
                              new
                              c)
                     c))))))
-
-#?(:clj
-(defmacro debug-when [state msg]
-  `(when (and (set? *debug*)
-              (contains? *debug* ~state))
-     (let [msg# ~msg]
-       (println)
-       (println (str "SQUASH ITERATION:\n" msg#))))))
-
-#?(:clj
-(defmacro debug-squash [msg]
-  `(debug-when :squash 
-               (str "\nSQUASH ITERATION:\n" ~msg "\n"))))
 
 (defn rename-alias [env old new]
   {:pre [(symbol? old)
@@ -1931,23 +1902,6 @@
         arities (mapv join-IFn1 grouped)]
     {:op :IFn
      :arities arities}))
-
-#?(:clj
-(defn current-time [] (. System (nanoTime))))
-#?(:cljs
-(defn current-time [] (.getTime (js/Date.))))
-
-#?(:clj
-(defmacro time-if-slow
-  "Evaluates expr and prints the time it took.  Returns the value of expr."
-  [msg expr]
-  `(let [start# (current-time)
-         ret# ~expr
-         msduration# (/ (double (- (current-time) start#)) 1000000.0)]
-     (when (< 1000 msduration#)
-       (prn (str "Elapsed time: " msduration# " msecs"))
-       (prn ~msg))
-     ret#)))
 
 ; join : Type Type -> Type
 (defn join [t1 t2]

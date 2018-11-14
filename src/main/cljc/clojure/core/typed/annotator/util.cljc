@@ -4,6 +4,15 @@
             #?@(:clj [[clojure.core.typed.coerce-utils :as coerce]])
             ))
 
+(def ^:dynamic *debug* nil)
+(def ^:dynamic *debug-depth* 0)
+
+#?(:clj
+(defn current-time [] (. System (nanoTime))))
+#?(:cljs
+(defn current-time [] (.getTime (js/Date.))))
+
+
 ;; https://github.com/r0man/inflections-clj/blob/master/src/inflections/core.cljc
 (defn str-name
   "Same as `clojure.core/name`, but keeps the namespace for keywords

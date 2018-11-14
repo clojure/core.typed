@@ -20,7 +20,8 @@
             [clojure.core.typed.annotator.util :refer [*ann-for-ns*
                                                        spec-ns
                                                        current-ns
-                                                       unparse-type]]
+                                                       unparse-type
+                                                       *debug*]]
             )
   (:import (clojure.lang IExceptionInfo)))
 
