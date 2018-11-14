@@ -68,7 +68,10 @@
                                                        get-env
                                                        type-env
                                                        alias-env
-                                                       *envs*]]
+                                                       *envs*
+                                                       unp
+                                                       unp-str
+                                                       *spec*]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
             #?@(:clj [[clojure.tools.namespace.parse :as nprs]
@@ -568,8 +571,6 @@
     (keyword (name (current-ns)) (name s))))
 
 (declare resolve-alias-or-nil)
-
-(def ^:dynamic *spec* false)
 
 (defn simplify-spec-alias [a]
   {:pre [(type? a)]
@@ -1259,17 +1260,6 @@
                                  (:known-params m))
                       (unparse-type (:type m)))
     (assert nil (str "No unparse-type case: " m))))
-
-(defn unp [t]
-  (binding [*spec* false]
-    (unparse-type t)))
-
-(defn unp-str [t]
-  (let [^String s 
-        (with-out-str
-          (binding [pp/*print-right-margin* nil]
-            (pprint (unp t))))]
-    (.replaceAll s "\\n" "")))
 
 (defn flatten-union [t]
   {:pre [(type? t)]

@@ -2,6 +2,8 @@
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.typed.annotator.rep :as r]
+            [#?(:clj clojure.pprint :cljs cljs.pprint) :as pp]
+            [clojure.core.typed.annotator.pprint :refer [pprint]]
             #?@(:clj [[clojure.core.typed.coerce-utils :as coerce]])
             ))
 
@@ -271,3 +273,16 @@
                                             (fv (:rng f')))))
                             (:arities v)))]
    fvs)))
+
+(def ^:dynamic *spec* false)
+
+(defn unp [t]
+  (binding [*spec* false]
+    (unparse-type t)))
+
+(defn unp-str [t]
+  (let [^String s 
+        (with-out-str
+          (binding [pp/*print-right-margin* nil]
+            (pprint (unp t))))]
+    (.replaceAll s "\\n" "")))
