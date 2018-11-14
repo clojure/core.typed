@@ -2856,7 +2856,8 @@
     (replace-generated-annotations ns 
                                    (merge
                                      (init-config)
-                                     {:no-local-ann? no-local-ann?
+                                     {:infer-anns infer-anns
+                                      :no-local-ann? no-local-ann?
                                       :no-squash-vertically no-squash-vertically
                                       :spec? (= :spec front-end)
                                       :polymorphic? polymorphic?

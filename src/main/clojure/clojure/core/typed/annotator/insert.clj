@@ -7,6 +7,11 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.annotator.insert
+  "Utilities to insert (spec or core.typed) annotations into an
+  existing file on the JVM.
+
+
+  "
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.core.typed.coerce-utils :as coerce]
@@ -376,11 +381,11 @@
       {}))
   )
 
-(declare prepare-ann infer-anns)
+(declare prepare-ann)
 
 (defn insert-generated-annotations-in-str
   "Insert annotations after ns form."
-  [old ns {:keys [replace-top-level? no-local-ann?] :as config}]
+  [old ns {:keys [replace-top-level? no-local-ann? infer-anns] :as config}]
   {:pre [(string? old)]
    :post [(string? %)]}
   ;(prn "insert" ann-str)
