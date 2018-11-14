@@ -523,71 +523,56 @@
                  (merge config
                         {:spec? true}))))
 
-(let [st-type (prs
-                '{:quads
-                  (Vec
-                    '{:klingons java.lang.Long,
-                      :quadrant (Vec java.lang.Long),
-                      :stars java.lang.Long,
-                      :bases java.lang.Long}),
-                  :stardate
-                  '{:start java.lang.Long,
-                    :current java.lang.Long,
-                    :end java.lang.Long},
-                  :current-klingons (Vec Nothing),
-                  :starting-klingons java.lang.Long,
-                  :lrs-history (Vec java.lang.String),
-                  :current-sector (Vec java.lang.Long),
-                  :enterprise
-                  '{:photon_torpedoes java.lang.Long,
-                    :sector (Vec java.lang.Long),
-                    :quadrant (Vec (U java.lang.Integer java.lang.Long)),
-                    :energy java.lang.Long,
-                    :damage
-                    '{:phasers java.lang.Long,
-                      :warp_engines java.lang.Long,
-                      :damage_control java.lang.Long,
-                      :long_range_sensors java.lang.Long,
-                      :short_range_sensors java.lang.Long,
-                      :computer_display java.lang.Long,
-                      :photon_torpedo_tubes java.lang.Long,
-                      :shields java.lang.Long},
-                    :is_docked false,
-                    :shields java.lang.Long}})]
-  (anns-from-tenv {'t1 st-type
-                   't2 st-type}))
-
-(let [t (prs
-  [(U
-    '{:exp '{:name Sym, :E ':var},
-      :P ':is,
-      :type '{:T ':intersection, :types (Set Nothing)}}
-    '{:P ':not,
-      :p
-      '{:P ':=,
-        :exps
-        (Set
-         (U
-          '{:name Sym, :E ':var}
-          '{:args (Vec '{:name Sym, :E ':var}),
-            :fun '{:name Sym, :E ':var},
-            :E ':app}))}}
-    '{:P ':=,
-      :exps
-      (Set
-       (U
-        '{:name Sym, :E ':var}
-        '{:args (Vec '{:name Sym, :E ':var}),
-          :fun '{:name Sym, :E ':var},
-          :E ':app}))}
-    '{:P (U ':or ':and),
-      :ps
-      (Set
-       (U
+(deftest gen-anns
+  (is (let [st-type (prs
+                    '{:quads
+                      (Vec
+                        '{:klingons java.lang.Long,
+                          :quadrant (Vec java.lang.Long),
+                          :stars java.lang.Long,
+                          :bases java.lang.Long}),
+                      :stardate
+                      '{:start java.lang.Long,
+                        :current java.lang.Long,
+                        :end java.lang.Long},
+                      :current-klingons (Vec Nothing),
+                      :starting-klingons java.lang.Long,
+                      :lrs-history (Vec java.lang.String),
+                      :current-sector (Vec java.lang.Long),
+                      :enterprise
+                      '{:photon_torpedoes java.lang.Long,
+                        :sector (Vec java.lang.Long),
+                        :quadrant (Vec (U java.lang.Integer java.lang.Long)),
+                        :energy java.lang.Long,
+                        :damage
+                        '{:phasers java.lang.Long,
+                          :warp_engines java.lang.Long,
+                          :damage_control java.lang.Long,
+                          :long_range_sensors java.lang.Long,
+                          :short_range_sensors java.lang.Long,
+                          :computer_display java.lang.Long,
+                          :photon_torpedo_tubes java.lang.Long,
+                          :shields java.lang.Long},
+                        :is_docked false,
+                        :shields java.lang.Long}})]
+      (anns-from-tenv {'t1 st-type
+                       't2 st-type})))
+  (is
+    (let [t (prs
+      [(U
         '{:exp '{:name Sym, :E ':var},
           :P ':is,
-          :type '{:T ':intersection, :types (Set Nothing)}
-          :foo Sym}
+          :type '{:T ':intersection, :types (Set Nothing)}}
+        '{:P ':not,
+          :p
+          '{:P ':=,
+            :exps
+            (Set
+             (U
+              '{:name Sym, :E ':var}
+              '{:args (Vec '{:name Sym, :E ':var}),
+                :fun '{:name Sym, :E ':var},
+                :E ':app}))}}
         '{:P ':=,
           :exps
           (Set
@@ -595,314 +580,355 @@
             '{:name Sym, :E ':var}
             '{:args (Vec '{:name Sym, :E ':var}),
               :fun '{:name Sym, :E ':var},
-              :E ':app}))}))})
-   :->
-   Any])]
-(anns-from-tenv {;'unparse-prop1 t
-                 'unparse-prop2 t}
-                {:debug :iterations}))
-
-(let [t (prs
-  ['{:P ':or
-     :ps
-     (Set
-       '{:P ':and
+              :E ':app}))}
+        '{:P (U ':or ':and),
+          :ps
+          (Set
+           (U
+            '{:exp '{:name Sym, :E ':var},
+              :P ':is,
+              :type '{:T ':intersection, :types (Set Nothing)}
+              :foo Sym}
+            '{:P ':=,
+              :exps
+              (Set
+               (U
+                '{:name Sym, :E ':var}
+                '{:args (Vec '{:name Sym, :E ':var}),
+                  :fun '{:name Sym, :E ':var},
+                  :E ':app}))}))})
+       :->
+       Any])]
+    (anns-from-tenv {;'unparse-prop1 t
+                     'unparse-prop2 t}
+                    {:debug :iterations})))
+  (is
+    (let [t (prs
+      ['{:P ':or
          :ps
          (Set
-           '{:P ':Top})})}
-   :->
-   Any])]
-(anns-from-tenv {;'unparse-prop1 t
-                 'unparse-prop2 t}
-                {:debug #{:iterations :squash}}))
+           '{:P ':and
+             :ps
+             (Set
+               '{:P ':Top})})}
+       :->
+       Any])]
+    (anns-from-tenv {;'unparse-prop1 t
+                     'unparse-prop2 t}
+                    {:debug #{:iterations :squash}})))
 
-(let [t (prs
-  ['{:P ':or
-     :ps
-     (Set
-       (U '{:P ':Top}
-       '{:P ':and
-         :ps
-         (Set
-           '{:P ':Top})}))}
-   :->
-   Any])]
-(anns-from-tenv {;'unparse-prop1 t
-                 'unparse-prop2 t}
-                {:debug #{:iterations :squash}}))
-
-(let [t (prs
-  '{:P ':or
-     :ps
-     (Set
-       '{:P ':and
+  (is
+    (let [t (prs
+      ['{:P ':or
          :ps
          (Set
            (U '{:P ':Top}
-              '{:P ':Bottom}))})}
-   )]
-(anns-from-tenv {;'unparse-prop1 t
-                 'unparse-prop2 t}
-                {:debug #{:squash :iterations
-                          :squash-horizontally}}))
+           '{:P ':and
+             :ps
+             (Set
+               '{:P ':Top})}))}
+       :->
+       Any])]
+    (anns-from-tenv {;'unparse-prop1 t
+                     'unparse-prop2 t}
+                    {:debug #{:iterations :squash}})))
 
+  (is
+    (let [t (prs
+      '{:P ':or
+         :ps
+         (Set
+           '{:P ':and
+             :ps
+             (Set
+               (U '{:P ':Top}
+                  '{:P ':Bottom}))})}
+       )]
+    (anns-from-tenv {;'unparse-prop1 t
+                     'unparse-prop2 t}
+                    {:debug #{:squash :iterations
+                              :squash-horizontally}}))))
+
+(deftest ann-combine
 ;; collapse maps with completely disjoint keys
-(let [t (prs
-          [(U '{:entry1 String}
-              '{:entry2 Boolean}
-              '{:entry3 Boolean})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U '{:entry1 String}
+                  '{:entry2 Boolean}
+                  '{:entry3 Boolean})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ;; don't collapse common keys with keyword entry
-(let [t (prs
-          [(U '{:op :foo
-                :entry1 String}
-              '{:op :bar
-                :entry2 Boolean}
-              '{:op :baz
-                :entry3 Boolean})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}
-                  {:debug true}))
+  (is
+    (let [t (prs
+              [(U '{:op :foo
+                    :entry1 String}
+                  '{:op :bar
+                    :entry2 Boolean}
+                  '{:op :baz
+                    :entry3 Boolean})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t}
+                      {:debug true})))
 
 ;; upcast Kw + HMap to Any
-(let [t (prs
-          [(U ':foo
-              '{:op :bar
-                :entry2 Boolean})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U ':foo
+                  '{:op :bar
+                    :entry2 Boolean})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ;; simplify keywords + seqables to Any
-(let [t (prs
-          [(U ':foo
-              (clojure.lang.Seqable String))
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U ':foo
+                  (clojure.lang.Seqable String))
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ;; simplify Sym/Kw + seqable to Any
-(let [t (prs
-          [(U Sym
-              (clojure.lang.Seqable String))
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U Sym
+                  (clojure.lang.Seqable String))
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ;; don't simplify Seqable + nil
-(let [t (prs
-          [(U nil
-              (clojure.lang.Seqable String))
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U nil
+                  (clojure.lang.Seqable String))
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ;; use optional keys
-(let [t (prs
-          [(U '{:foo String}
-              '{:foo String
-                :bar Boolean})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}
-                  {:debug true}))
+  (is
+    (let [t (prs
+              [(U '{:foo String}
+                  '{:foo String
+                    :bar Boolean})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t}
+                      {:debug true})))
 
 ;upcast union to Any
-(let [t (prs
-          [(U Any
-              '{:foo String
-                :bar Boolean})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U Any
+                  '{:foo String
+                    :bar Boolean})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ; Kw simplification
-(let [t (prs
-          [(U ':foo ':bar)
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U ':foo ':bar)
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ; join on class arguments
-(let [t (prs
-          [(U (Vec Integer)
-              (Vec Long))
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U (Vec Integer)
+                  (Vec Long))
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ; don't alias args implicitly
-(let [t (prs
-          [[Any :->  Any]
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [[Any :->  Any]
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t}))))
+
+(deftest ann-hmaps
+; upcast HMaps to Map if they appear in a union
+  (is
+    (let [t (prs
+              [(U '{:foo Any}
+                  (clojure.lang.IPersistentMap Any Any))
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ; upcast HMaps to Map if they appear in a union
-(let [t (prs
-          [(U '{:foo Any}
-              (clojure.lang.IPersistentMap Any Any))
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
-
-; upcast HMaps to Map if they appear in a union
-(let [t (prs
-          [(U '{:foo Any}
-              (clojure.lang.IPersistentMap Any Any))
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(U '{:foo Any}
+                  (clojure.lang.IPersistentMap Any Any))
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
 ; optional HMaps test
-(let [t (prs
-          [(HMap :optional {:foo String})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              [(HMap :optional {:foo String})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t})))
 
-(let [t (prs
-          [(U '{:op ':the-foo
-                :the-bar Sym
-                :opt Sym}
-              '{:op ':the-foo
-                :the-bar Sym})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}
-                  {:debug true}))
+  (is
+    (let [t (prs
+              [(U '{:op ':the-foo
+                    :the-bar Sym
+                    :opt Sym}
+                  '{:op ':the-foo
+                    :the-bar Sym})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t}
+                      {:debug true})))
 
 ; namespaced entry + spec
-(let [t (prs
-          ['{::op ':the-foo}
-           :->
-           Any])]
-  (specs-from-tenv {'config-in t}))
+  (is
+    (let [t (prs
+              ['{::op ':the-foo}
+               :->
+               Any])]
+      (specs-from-tenv {'config-in t})))
 
 ;; TODO recursive example of this test
-(let [t (prs
-          [(U '{:op ':the-bar
-                :the-foo String
-                :the-baz String}
-              '{:op ':the-foo
-                :the-foo Sym
-                :the-baz Sym})
-           :->
-           Any])]
-  (anns-from-tenv {'config-in t}
-                  {:debug true}))
+  (is
+    (let [t (prs
+              [(U '{:op ':the-bar
+                    :the-foo String
+                    :the-baz String}
+                  '{:op ':the-foo
+                    :the-foo Sym
+                    :the-baz Sym})
+               :->
+               Any])]
+      (anns-from-tenv {'config-in t}
+                      {:debug true})))
 
 ; HMap alias naming test
-(let [t (prs
-          [
-           '{:op ':foo
-             :the-bar '{:op ':term
-                        :val Sym}}
-           :->
-           Any])]
-  ((juxt specs-from-tenv
-         anns-from-tenv)
-    {'config-in t}))
+  (is
+    (let [t (prs
+              [
+               '{:op ':foo
+                 :the-bar '{:op ':term
+                            :val Sym}}
+               :->
+               Any])]
+      ((juxt specs-from-tenv
+             anns-from-tenv)
+        {'config-in t})))
 
 ; recursive HMaps test
-(let [t (prs
-          [(U
-           '{:op ':foo
-             :the-bar '{:op ':bar
-                        :the-foo '{:op ':foo
-                                   :the-bar '{:op ':term
-                                              :val Sym}}}}
-           '{:op ':foo
-             :opt Sym
-             :the-bar '{:op ':bar
-                        :the-foo '{:op ':foo
-                                   :the-bar '{:op ':term
-                                              :val Sym}}}}
-           #_
-             '{:op ':bar
-               :the-foo '{:op ':foo
-                          :the-bar '{:op ':bar
-                                     :the-foo '{:op ':term
-                                                :val Sym}}}}
-)
-           :->
-           Any])]
-         
-  ((juxt #_specs-from-tenv ;; FIXME
-         anns-from-tenv)
-    {'config-in t}
-    {:debug true}))
+  (is
+    (let [t (prs
+              [(U
+               '{:op ':foo
+                 :the-bar '{:op ':bar
+                            :the-foo '{:op ':foo
+                                       :the-bar '{:op ':term
+                                                  :val Sym}}}}
+               '{:op ':foo
+                 :opt Sym
+                 :the-bar '{:op ':bar
+                            :the-foo '{:op ':foo
+                                       :the-bar '{:op ':term
+                                                  :val Sym}}}}
+               #_
+                 '{:op ':bar
+                   :the-foo '{:op ':foo
+                              :the-bar '{:op ':bar
+                                         :the-foo '{:op ':term
+                                                    :val Sym}}}}
+    )
+               :->
+               Any])]
+             
+      ((juxt #_specs-from-tenv ;; FIXME
+             anns-from-tenv)
+        {'config-in t}
+        {:debug true})))
 
 ;; FIXME prefer :op over :type?
-(let [t (prs
-          [
-           (U
-           '{:op ':foo
-             :type (U ':int ':nil ':faz)
-             :the-bar '{:op ':bar
-                        :type (U ':int ':nil ':faz)
-                        :the-foo '{:op ':foo
-                                   :type (U ':int ':nil ':faz)
-                                   :the-bar '{:op ':term
-                                              :val Sym}}}}
-           '{:op ':foo
-             :type (U ':int ':nil ':faz)
-             :opt Sym
-             :the-bar '{:op ':bar
-                        :type (U ':int ':nil ':faz)
-                        :the-foo '{:op ':foo
-                                   :type (U ':int ':nil ':faz)
-                                   :the-bar '{:op ':term
-                                              :val Sym}}}}
-             '{:op ':bar
-               :type (U ':int ':nil ':faz)
-               :the-foo '{:op ':foo
-                          :type (U ':int ':nil ':faz)
-                          :the-bar '{:op ':bar
-                                     :type (U ':int ':nil ':faz)
-                                     :the-foo '{:op ':term
-                                                :val Sym}}}})
-           :->
-           Any])]
-  (;specs-from-tenv 
-   anns-from-tenv 
-   {'config-in t}
-   {:fuel 0})
-  )
+  (is
+    (let [t (prs
+              [
+               (U
+               '{:op ':foo
+                 :type (U ':int ':nil ':faz)
+                 :the-bar '{:op ':bar
+                            :type (U ':int ':nil ':faz)
+                            :the-foo '{:op ':foo
+                                       :type (U ':int ':nil ':faz)
+                                       :the-bar '{:op ':term
+                                                  :val Sym}}}}
+               '{:op ':foo
+                 :type (U ':int ':nil ':faz)
+                 :opt Sym
+                 :the-bar '{:op ':bar
+                            :type (U ':int ':nil ':faz)
+                            :the-foo '{:op ':foo
+                                       :type (U ':int ':nil ':faz)
+                                       :the-bar '{:op ':term
+                                                  :val Sym}}}}
+                 '{:op ':bar
+                   :type (U ':int ':nil ':faz)
+                   :the-foo '{:op ':foo
+                              :type (U ':int ':nil ':faz)
+                              :the-bar '{:op ':bar
+                                         :type (U ':int ':nil ':faz)
+                                         :the-foo '{:op ':term
+                                                    :val Sym}}}})
+               :->
+               Any])]
+      (;specs-from-tenv 
+       anns-from-tenv 
+       {'config-in t}
+       {:fuel 0})))
 
-(let [t (prs
-          [':a
-           Integer
-           ':b
-           Boolean
-           :->
-           Any])]
-         
-  ((juxt #_specs-from-tenv ;; FIXME
-         anns-from-tenv)
-    {'config-in t}
-    {:debug true}))
+  (is
+    (let [t (prs
+              [':a
+               Integer
+               ':b
+               Boolean
+               :->
+               Any])]
+             
+      ((juxt #_specs-from-tenv ;; FIXME
+             anns-from-tenv)
+        {'config-in t}
+        {:debug true})))
 
 ;; combine maps that look similar
-(let [t (prs
-          ['{:a Long
-             :b Long
-             :c Long
-             :d Long}
-           '{:a Long
-             :b Long
-             :c Long}
-           :->
-           Any])]
-         
-  ((juxt #_specs-from-tenv ;; FIXME
-         anns-from-tenv)
-    {'config-in t}
-    ))
+  (is
+    (let [t (prs
+              ['{:a Long
+                 :b Long
+                 :c Long
+                 :d Long}
+               '{:a Long
+                 :b Long
+                 :c Long}
+               :->
+               Any])]
+             
+      ((juxt #_specs-from-tenv ;; FIXME
+             anns-from-tenv)
+        {'config-in t}
+        ))))
 
 ;; performance tests
 (defn gen-height [n]
@@ -975,53 +1001,57 @@
       120)))
 )
 
+
+(deftest map-merge-test
 ; TODO
 ; other types don't collapse tagged maps
 ; should combining tagged and untagged maps upcast to (Map Any Any)?
-(let [t (prs
-          (U nil
-             '{:a ':b}
-             '{:op ':foo
-               :b Long
-               :c Long
-               :d Long}
-             '{:op ':bar
-               :e Long
-               :w Long
-               :q Long}))]
-         
-  ((juxt #_specs-from-tenv ;; FIXME
-         anns-from-tenv)
-    {'config-in t}
-    ))
+  (is
+    (let [t (prs
+              (U nil
+                 '{:a ':b}
+                 '{:op ':foo
+                   :b Long
+                   :c Long
+                   :d Long}
+                 '{:op ':bar
+                   :e Long
+                   :w Long
+                   :q Long}))]
+             
+      ((juxt #_specs-from-tenv ;; FIXME
+             anns-from-tenv)
+        {'config-in t}
+        )))
 
 ; merging sufficiently similar maps
-(let [t (prs
-          (U nil
-             (HMap
-               :mandatory {:name Sym}
-               :optional {:blah Sym})
-             (HMap
-               :mandatory {:name Sym
-                           :ns Sym}
-               :optional {:tag Sym
-                          :tag1 Sym
-                          :tag2 Sym
-                          :tag3 Sym
-                          :tag4 Sym
-                          :tag5 Sym
-                          :tag6 Sym
-                          :tag7 Sym
-                          :tag8 Sym
-                          :tag9 Sym
-                          :tag10 Sym
-                          :tag11 Sym
-                          })))]
-         
-  ((juxt #_specs-from-tenv ;; FIXME
-         anns-from-tenv)
-    {'config-in t}
-    ))
+  (is
+    (let [t (prs
+              (U nil
+                 (HMap
+                   :mandatory {:name Sym}
+                   :optional {:blah Sym})
+                 (HMap
+                   :mandatory {:name Sym
+                               :ns Sym}
+                   :optional {:tag Sym
+                              :tag1 Sym
+                              :tag2 Sym
+                              :tag3 Sym
+                              :tag4 Sym
+                              :tag5 Sym
+                              :tag6 Sym
+                              :tag7 Sym
+                              :tag8 Sym
+                              :tag9 Sym
+                              :tag10 Sym
+                              :tag11 Sym
+                              })))]
+             
+      ((juxt #_specs-from-tenv ;; FIXME
+             anns-from-tenv)
+        {'config-in t}
+        ))))
 
 (defmacro infer-test
   "Given a vector of definitions :defs and a vector of tests :tests, then
