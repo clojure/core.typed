@@ -145,7 +145,7 @@
          (subvec ls end-line))))
 
 (defn insert-loop-var [{:keys [line column end-line end-column] :as f} ls]
-  {:pre [(#{:loop-var} (::track-kind f))
+  {:pre [(#{:loop-var} (:clojure.core.typed.annotator.track/track-kind f))
          #_(= line end-line)
          #_(< column end-column)
          ]}
@@ -203,7 +203,7 @@
 
 
 (defn insert-local-fn* [{:keys [line column end-line end-column] :as f} ls]
-  {:pre [(#{:local-fn} (::track-kind f))]}
+  {:pre [(#{:local-fn} (:clojure.core.typed.annotator.track/track-kind f))]}
   (let [;_ (prn "current fn" f)
         [before-first-pos file-slice trailing] (extract-file-slice ls line column end-line end-column)
         ;_ (prn "before-first-pos" before-first-pos) 
@@ -329,7 +329,7 @@
               f (first fns)
               ;_ (prn "current f" f)
               {:keys [ls update-line update-column]}
-              (case (::track-kind f)
+              (case (:clojure.core.typed.annotator.track/track-kind f)
                 :local-fn (insert-local-fn* f ls)
                 :loop-var (insert-loop-var f ls))
               _ (assert (vector? ls))
@@ -345,7 +345,7 @@
 (comment
   (println
     (insert-local-fns
-      [{::track-kind :local-fn
+      [{:clojure.core.typed.annotator.track/track-kind :local-fn
         :line 1 :column 1
         :end-line 1 :end-column 11
         :type {:op :Top}}]
@@ -353,7 +353,7 @@
       {}))
   (println
     (insert-local-fns
-      [{::track-kind :local-fn
+      [{:clojure.core.typed.annotator.track/track-kind :local-fn
         :line 1 :column 1
         :end-line 2 :end-column 5
         :type {:op :Top}}]
@@ -361,7 +361,7 @@
       {}))
   (println
     (insert-local-fns
-      [{::track-kind :local-fn
+      [{:clojure.core.typed.annotator.track/track-kind :local-fn
         :line 1 :column 3
         :end-line 2 :end-column 7
         :type {:op :Top}}]
@@ -369,11 +369,11 @@
       {}))
   (println
     (insert-local-fns
-      [{::track-kind :local-fn
+      [{:clojure.core.typed.annotator.track/track-kind :local-fn
         :line 1 :column 1
         :end-line 1 :end-column 20
         :type {:op :Top}}
-       {::track-kind :local-fn
+       {:clojure.core.typed.annotator.track/track-kind :local-fn
         :line 1 :column 9
         :end-line 1 :end-column 19
         :type {:op :Top}}]
