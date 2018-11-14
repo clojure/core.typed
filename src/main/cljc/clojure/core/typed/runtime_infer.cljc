@@ -33,7 +33,8 @@
                                                        qualify-core-symbol
                                                        *ann-for-ns*
                                                        current-ns
-                                                       namespace-alias-in]]
+                                                       namespace-alias-in
+                                                       camel-case]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
             #?@(:clj [[potemkin.collections :as pot]
@@ -45,60 +46,6 @@
                       [clojure.core.typed.annotator.insert :as insert
                        :refer [replace-generated-annotations]]
                       [clojure.core.typed.coerce-utils :as coerce]])))
-
-;; https://github.com/r0man/inflections-clj/blob/master/src/inflections/core.cljc
-(defn str-name
-  "Same as `clojure.core/name`, but keeps the namespace for keywords
-  and symbols."
-  [x]
-  (cond
-    (nil? x)
-    x
-    (string? x)
-    x
-    (or (keyword? x)
-        (symbol? x))
-    (if-let [ns (namespace x)]
-      (str ns "/" (name x))
-      (name x))))
-(defn coerce
-  "Coerce the string `s` to the type of `obj`."
-  [obj s]
-  (cond
-    (keyword? obj)
-    (keyword s)
-    (symbol? obj)
-    (symbol s)
-    :else s))
-(defn camel-case
-  "Convert `word` to camel case. By default, camel-case converts to
-  UpperCamelCase. If the argument to camel-case is set to :lower then
-  camel-case produces lowerCamelCase. The camel-case fn will also
-  convert \"/\" to \"::\" which is useful for converting paths to
-  namespaces.
-  Examples:
-    (camel-case \"active_record\")
-    ;=> \"ActiveRecord\"
-    (camel-case \"active_record\" :lower)
-    ;=> \"activeRecord\"
-    (camel-case \"active_record/errors\")
-    ;=> \"ActiveRecord::Errors\"
-    (camel-case \"active_record/errors\" :lower)
-    ;=> \"activeRecord::Errors\""
-  [word & [mode]]
-  (when word
-    (->> (let [word (str-name word)]
-           (cond
-             (= mode :lower) (camel-case word str/lower-case)
-             (= mode :upper) (camel-case word str/upper-case)
-             (fn? mode) (str (mode (str (first word)))
-                             (apply str (rest (camel-case word nil))))
-             :else (-> (str/replace word #"/(.?)" #(str "::" (str/upper-case (nth % 1))))
-                       (str/replace #"(^|_|-)(.)"
-                                #(str (if (#{\_ \-} (nth % 1))
-                                        (nth % 1))
-                                      (str/upper-case (nth % 2)))))))
-         (coerce word))))
 
 
 (def ^:dynamic *debug* nil)
