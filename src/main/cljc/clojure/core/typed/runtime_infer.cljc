@@ -51,7 +51,12 @@
                                                       initial-results
                                                       infer-results?]]
             [clojure.core.typed.annotator.frontend.spec
-             :refer [def-spec]]
+             :refer [def-spec or-spec unparse-spec unparse-spec'
+                     alias-matches-key-for-spec-keys?
+                     alias->spec-kw
+                     *higher-order-fspec*
+                     spec-cat
+                     ]]
             [clojure.core.typed.annotator.debug-macros
              :refer [debug-flat
                      debug-when
@@ -93,7 +98,19 @@
                                                        HMap-likely-tag-key
                                                        kw-val?
                                                        kw-vals?
-                                                       *preserve-unknown*]]
+                                                       *preserve-unknown*
+                                                       kw->sym
+                                                       *used-aliases*
+                                                       *multispecs-needed*
+                                                       fully-resolve-alias
+                                                       *forbidden-aliases*
+                                                       find-top-level-var
+                                                       arglists-for-top-level-var
+                                                       alternative-arglists
+                                                       separate-fixed-from-rest-arglists
+                                                       uniquify
+                                                       gen-unique-alias-name
+                                                       ]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line
                                                          unp-str]]
             [clojure.core.typed.annotator.parse :refer [parse-type prs]]
@@ -400,543 +417,20 @@
       (.getSimpleName c)
       (.getName c))))
 
-(declare unparse-spec')
-
-(defn unparse-spec [m]
-  (unparse-spec' m))
-
-(defn kw->sym [k]
-  {:pre [(keyword? k)]
-   :post [(symbol? %)]}
-  (symbol (namespace k)
-          (name k)))
-
-(defn alias->spec-kw [s]
-  {:pre [(symbol? s)]
-   :post [(keyword? %)]}
-  (if (namespace s)
-    (keyword s)
-    (keyword (name (current-ns)) (name s))))
-
 (declare resolve-alias-or-nil)
-
-(defn simplify-spec-alias [a]
-  {:pre [(type? a)]
-   :post [(type? %)]}
-  (if (alias? a)
-    (let [a-res (resolve-alias @*envs* a)]
-      (if (and a-res (#{:class} (:op a-res)))
-        a-res
-        a))
-    a))
-
-(defn nil-val? [t]
-  (boolean
-    (and (#{:val} (:op t))
-         (nil? (:val t)))))
-
-(declare uniquify)
-
-(defn or-spec [alts]
-  {:pre [(every? type? alts)]}
-  (let [;; put instance comparisons at the front of the disjunction.
-        ;; avoid errors in checking specs that have both records
-        ;; and collections, since records do not implement `empty`.
-        {inst? true other false} (group-by (fn [t]
-                                             (boolean
-                                               (or (#{:val} (:op t))
-                                                   (and (#{:class} (:op t))
-                                                        (not
-                                                          (#{:set
-                                                             :map
-                                                             :vector
-                                                             :coll
-                                                             :seq}
-                                                            (:clojure.core.typed.annotator.rep/class-instance t)))))))
-                                           alts)]
-    ;(prn "or-spec" alts)
-    (cond
-      (and (seq alts)
-           (every? kw-val? alts))
-      (into #{} (map :val alts))
-
-      (and (= 2 (count (set alts)))
-           (some nil-val? alts)
-           (some (complement nil-val?) alts))
-      (list (qualify-spec-symbol 'nilable)
-            (unparse-spec (first (remove nil-val? alts))))
-
-      :else
-      (let [specs (into {}
-                        (map (fn [alt]
-                               [(unparse-spec alt) alt]))
-                        (concat (set inst?) (set other)))]
-        (if (= 1 (count specs))
-          (unparse-spec (simplify-spec-alias (second (first specs))))
-          (list*-force (qualify-spec-symbol 'or)
-                       (let [names (map 
-                                     (fn [[s orig]]
-                                       {:pre [(core/any? s)
-                                              (type? orig)]
-                                        :post [(keyword? %)]}
-                                       ;; we can enhance the naming for s/or tags here
-                                       (or ;; probably a predicate
-                                           (when (symbol? s)
-                                             (keyword (name s)))
-                                           ;; a spec alias
-                                           (when (keyword? s)
-                                             (keyword (name s)))
-                                           ;; literal keywords
-                                           (when (and (set? s)
-                                                      (every? keyword? s))
-                                             :kw)
-                                           ;; an instance check
-                                           (when (and (seq? s)
-                                                      (= (count s) 3)
-                                                      (= (first s) (qualify-core-symbol 'partial))
-                                                      (= (second s) (qualify-core-symbol 'instance?))
-                                                      (symbol? (nth s 2)))
-                                             (keyword (name (nth s 2))))
-                                           ;; a coll-of
-                                           (when (and (seq? s)
-                                                      (>= (count s) 2)
-                                                      (= (first s) (qualify-spec-symbol 'coll-of)))
-                                             :coll)
-                                           ;; a map-of
-                                           (when (and (seq? s)
-                                                      (>= (count s) 3)
-                                                      (= (first s) (qualify-spec-symbol 'map-of)))
-                                             :map)
-                                           ;; a tuple
-                                           (when (and (seq? s)
-                                                      (>= (count s) 1)
-                                                      (= (first s) (qualify-spec-symbol 'tuple)))
-                                             :tuple)
-                                           ;; an empty thing
-                                           (when (and (seq? s)
-                                                      (>= (count s) 3)
-                                                      (let [[c1 c2 c3] s]
-                                                        (= c1 (qualify-spec-symbol 'and))
-                                                        (#{(qualify-core-symbol 'empty?)} c2)
-                                                        (#{(qualify-core-symbol 'coll?)
-                                                           (qualify-core-symbol 'map?)}
-                                                                                c3)))
-                                             (keyword (str "empty"
-                                                           (case (symbol (name (nth s 2)))
-                                                             coll? (or (let [[_ _ _ & args] s]
-                                                                         (when (even? (count args))
-                                                                           (let [opts (apply hash-map args)]
-                                                                             (when (#{(qualify-core-symbol 'vector?)} (:into opts))
-                                                                               "-vector"))))
-                                                                       "-coll")
-                                                             map? "-map"
-                                                             nil))))
-                                           ;; give up, `uniquify` will handle clashes
-                                           :spec))
-                                     specs)
-                             names (uniquify names)
-                             ;; FIXME sort by key, but preserve instance checks first
-                             names+specs (map vector names (map first specs))]
-                         (apply concat names+specs))))))))
-
-(def ^:dynamic *used-aliases* nil)
-(def ^:dynamic *multispecs-needed* nil)
 
 (defn should-gen-just-in-time-alias? [t]
   (or (HMap? t)
       (alias? t)))
 
-(defn spec-cat [args]
-  (assert (even? (count args)))
-  (list*-force (qualify-spec-symbol 'cat) args))
-
-(defn spec-star [arg]
-  (list (qualify-spec-symbol '*) arg))
-
-(declare fully-resolve-alias 
-         register-just-in-time-alias)
+(declare register-just-in-time-alias)
 
 (defn HMap-has-tag-key? [m k]
   (kw-val? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
 
-(defn uniquify [ss]
-  {:pre [(every? keyword? ss)]
-   :post [(every? keyword? %)]}
-  (cond
-    (or (empty? ss)
-        (apply distinct? ss)) ss
-    :else
-    (let [repeats (into {}
-                        (remove (comp #{1} val))
-                        (frequencies ss))
-          ;; first, let's try and just append an index
-          ;; to each repeated entry. If that fails, just gensym.
-          optimistic-attempt (map-indexed
-                               (fn [i s]
-                                 {:pre [(keyword? s)]
-                                  :post [(keyword? %)]}
-                                 (if (contains? repeats s)
-                                   (keyword (str (name s) "-" i))
-                                   s))
-                               ss)]
-      (if (apply distinct? optimistic-attempt)
-        optimistic-attempt
-        (map (fn [s]
-               {:pre [(keyword? s)]
-                :post [(keyword? %)]}
-               (if (contains? repeats s)
-                 (keyword (str (gensym (name s))))
-                 s))
-             ss)))))
-(def ^:dynamic *higher-order-fspec* nil)
-
-(declare alias-matches-key-for-spec-keys? alternative-arglists)
-
-(defn find-top-level-var [top-level-def]
-  #?(:cljs nil
-     :clj
-     (when (and (symbol? top-level-def)
-                (namespace top-level-def)) ;; testing purposes
-       (some-> top-level-def find-var))))
-
-(defn arglists-for-top-level-var [top-level-var]
-  #?(:cljs nil
-     :clj
-     (when top-level-var
-       (or (-> top-level-var meta :arglists)
-           (->> top-level-var coerce/var->symbol (get @alternative-arglists))))))
-
-(defn separate-fixed-from-rest-arglists [arglists]
-  (group-by (fn [v]
-              {:pre [(vector? v)]}
-              (if (and (<= 2 (count v))
-                       (#{'&} (get v (- (count v) 2))))
-                :rest
-                :fixed))
-            arglists))
 
 (defn unq-spec-nstr [] (str (current-ns)))
 
-(defn gen-unique-multi-spec-name [env multispecs sym]
-  (if (or #?(:clj (resolve sym))
-          (contains? multispecs sym))
-    (gen-unique-multi-spec-name env multispecs (symbol (str (name sym) "__0")))
-    sym))
-
-(defn unparse-spec' [{:as m}]
-  (assert (type? m) m)
-  (case (:op m)
-    :alias (do
-             (when-let [used-aliases *used-aliases*]
-               (swap! used-aliases conj (:name m)))
-               (alias->spec-kw (:name m)))
-    :val (let [t (:val m)]
-           (cond
-             (::implicit-alias m) (unparse-spec (::implicit-alias m))
-             (nil? t) (qualify-core-symbol 'nil?)
-             (false? t) (qualify-core-symbol 'false?)
-             (keyword? t) #{t} #_(qualify-core-symbol 'keyword?)
-             (string? t) (qualify-core-symbol 'string?)
-             :else (qualify-core-symbol 'any?)))
-    :union (if (::implicit-alias m)
-             (unparse-spec (::implicit-alias m))
-             (let [env *envs*
-                   fully-res (if env
-                               #(fully-resolve-alias @env %)
-                               identity)
-                   ts (map fully-res (:types m))]
-               (if-let [tag (and env
-                                 (every? HMap? ts)
-                                 (HMap-likely-tag-key ts))]
-                 ;; if we have a bunch of maps with a similar key,
-                 ;; generate a multispec
-                 (let [multispecs *multispecs-needed*
-                       _ (assert multispecs)
-                       _ (assert (map? @multispecs))
-                       nme (gen-unique-multi-spec-name 
-                             env @multispecs
-                             (symbol (str (when-let [nstr (namespace tag)]
-                                            (str nstr "-"))
-                                          (name tag) "-multi-spec")))
-                       dmulti (list
-                                (qualify-core-symbol 'defmulti)
-                                (with-meta nme
-                                           {::generated true})
-                                tag)
-                       tag-for-hmap (fn [t]
-                                      {:pre [(HMap? t)]}
-                                      (let [this-tag (get (:clojure.core.typed.annotator.rep/HMap-req t) tag)
-                                            _ (assert (kw-val? this-tag) (unparse-spec t))]
-                                        (:val this-tag)))
-                       dmethods (mapv (fn [t]
-                                        {:pre [(HMap? t)]}
-                                        (let [this-tag (tag-for-hmap t)]
-                                          (list (qualify-core-symbol 'defmethod) 
-                                                nme 
-                                                this-tag
-                                                ['_]
-                                                (unparse-spec t))))
-                                      (sort-by tag-for-hmap ts))
-                       _ (when multispecs
-                           (swap! multispecs assoc nme (vec (cons dmulti dmethods))))]
-                   (list (qualify-spec-symbol 'multi-spec)
-                         nme
-                         tag))
-                 (or-spec (:types m)))))
-    :HVec (list* (qualify-spec-symbol 'tuple)
-                 (mapv unparse-spec (:vec m)))
-    :HMap (let [specify-keys 
-                (fn [entries]
-                  (->> entries
-                       (map (fn [[k v]]
-                              {:pre [(keyword? k)]}
-                              (let [a (or (when (alias? v) v)
-                                          (::implicit-alias v))]
-                                (assert (and (alias? a)
-                                             (alias-matches-key-for-spec-keys? a k))
-                                        [k (:op v)])
-                                (unparse-spec a))))
-                       sort
-                       vec))
-                group-by-qualified #(group-by (comp boolean namespace key) %)
-                {req true req-un false} (group-by-qualified (:clojure.core.typed.annotator.rep/HMap-req m))
-                {opt true opt-un false} (group-by-qualified (:clojure.core.typed.annotator.rep/HMap-opt m))]
-            (list* (qualify-spec-symbol 'keys)
-                   (concat
-                     (when (seq req)
-                       [:req (specify-keys req)])
-                     (when (seq opt)
-                       [:opt (specify-keys opt)])
-                     (when (seq req-un)
-                       [:req-un (specify-keys req-un)])
-                     (when (seq opt-un)
-                       [:opt-un (specify-keys opt-un)]))))
-    :IFn (let [{:keys [arities top-level-def]} m
-               top-level-var (find-top-level-var top-level-def)
-               ;_ (prn "top-level-var" top-level-def top-level-var)
-               arglists (arglists-for-top-level-var top-level-var)
-               ;_ (prn "arglists" arglists)
-               macro? (some-> top-level-var meta :macro)
-               {fixed-arglists :fixed [rest-arglist] :rest} (separate-fixed-from-rest-arglists arglists)
-               _ (assert ((some-fn nil? (every-pred vector? #(<= 2 (count %)))) rest-arglist))
-               ;; expand varargs into extra fixed arguments
-               fixed-arglists (into (or fixed-arglists [])
-                                    (when rest-arglist
-                                      (let [fixed-arg-nums (into #{} (map count) fixed-arglists)
-                                            fixed (subvec rest-arglist 0 (- (count rest-arglist) 2))
-                                            rst-arg (peek rest-arglist)
-                                            extra-fixed (if (vector? rst-arg)
-                                                          (vec (take-while (complement #{'& :as}) rst-arg))
-                                                          [])]
-                                        (->> (map #(into fixed (subvec extra-fixed 0 %)) (range (inc (count extra-fixed))))
-                                             ;; prefer actual fixed arguments over derived ones
-                                             (remove (comp fixed-arg-nums count))))))
-               ;_ (prn "fixed-arglists" fixed-arglists)
-               ;_ (prn "rest-arglist" rest-arglist)
-               ;; map from arity length to vector of fixed arguments
-               fixed-name-lookup (into {}
-                                       (map (fn [v]
-                                              [(count v) v]))
-                                       fixed-arglists)]
-           ;(prn "fixed-name-lookup" fixed-name-lookup)
-           (cond
-             ;; erase higher-order function arguments by default,
-             ;; use *higher-order-fspec* to leave as fspecs.
-             ; It's also important that we don't unparse specs
-             ; we don't use so we don't create garbage aliases, so
-             ; this must go first.
-             (not (or top-level-var *higher-order-fspec*))
-             (qualify-core-symbol 'ifn?)
-
-             :else
-             (let [;; if we have a macro, ignore the first two arguments
-                   ;; in each arity (&env and &form)
-                   arities (if macro?
-                             (map (fn [a]
-                                    (update a :dom (fn [dom]
-                                                     (if (<= 2 (count dom))
-                                                       (subvec dom 2)
-                                                       dom))))
-                                  arities)
-                             arities)
-                   doms (cond
-                          macro?
-                          [(spec-cat
-                             (concat
-                               ;; macros are very likely to having binding
-                               ;; forms as the first argument if it's always
-                               ;; a vector.
-                               (when (every? (fn [{:keys [dom]}]
-                                               ;; every first argument is a vector
-                                               (let [[d] dom]
-                                                 (when d
-                                                   (and
-                                                     (#{:class} (:op d))
-                                                     (= :vector
-                                                        (:clojure.core.typed.annotator.rep/class-instance d))))))
-                                             arities)
-                                 [:bindings (keyword (str core-specs-ns) "bindings")])
-                               ;; if there is more than one arity,
-                               ;; default to a rest argument.
-                               [:body
-                                (if (<= 2 (count arities))
-                                  (list (qualify-spec-symbol '*)
-                                        (qualify-core-symbol 'any?))
-                                  (qualify-core-symbol 'any?))]))]
-                          :else
-                          (mapv
-                            (fn [{:keys [dom] :as ifn}]
-                              {:pre [dom]}
-                              ;(prn "doms" (count dom) (keyword (get fixed-name-lookup (count dom))))
-                              (let [dom-knames 
-                                    (let [[matching-fixed-names rest-arg-name]
-                                          (or (when-let [f (get fixed-name-lookup (count dom))]
-                                                [f nil])
-                                              (when rest-arglist
-                                                (assert (vector? rest-arglist))
-                                                (when (>= (count dom) (dec (count rest-arglist)))
-                                                  [(subvec rest-arglist 0 (- (count rest-arglist) 2))
-                                                   (peek rest-arglist)])))
-                                          keywordify-arg 
-                                          (fn [arg]
-                                            ;; here we can improve naming by examining destructuring
-                                            (cond
-                                              ;; simple argument name
-                                              (symbol? arg) (keyword (namespace arg) (name arg))
-
-                                              ;; {:as foo} map destructuring
-                                              (and (map? arg)
-                                                   (symbol? (:as arg)))
-                                              (keyword (namespace (:as arg)) 
-                                                       (name (:as arg)))
-
-                                             ;; [:as foo] vector destructuring
-                                              (and (vector? arg)
-                                                   (<= 2 (count arg))
-                                                   (#{:as} (nth arg (- (count arg) 2)))
-                                                   (symbol? (peek arg)))
-                                              (keyword (namespace (peek arg))
-                                                       (name (peek arg)))))
-                                          combined-kws 
-                                          (let [fixed-kws (map-indexed (fn [n arg]
-                                                                         (or (keywordify-arg arg)
-                                                                             (let [s (or #_(some-> top-level-def name)
-                                                                                         "arg")]
-                                                                               (keyword (str s "-" n)))))
-                                                                       matching-fixed-names)
-                                                rest-kws (when rest-arg-name
-                                                           (let [dom-remain (- (count dom) (count fixed-kws))
-                                                                 kw-arg (keywordify-arg rest-arg-name)
-                                                                 prefix (if kw-arg
-                                                                          (str (when-let [n (namespace kw-arg)]
-                                                                                 (str n "/"))
-                                                                               (name kw-arg))
-                                                                          (str "rest-arg"))]
-                                                             (map (fn [n]
-                                                                    (keyword (str prefix "-" n)))
-                                                                  (range dom-remain))))
-                                                combined-kws (vec (uniquify (concat fixed-kws rest-kws)))]
-                                            (if (= (count dom) (count combined-kws))
-                                              combined-kws
-                                              (mapv (fn [n] (keyword (str "arg-" n)))
-                                                    (range (count dom)))))]
-                                      (assert (= (count dom) (count combined-kws)))
-                                      combined-kws)]
-                                (spec-cat
-                                  (concat
-                                    (mapcat (fn [n k d]
-                                              {:pre [(keyword? k)]}
-                                              (let [spec 
-                                                    (cond
-                                                      (and (zero? n)
-                                                           macro?
-                                                           (#{:class} (:op d))
-                                                           (= :vector
-                                                              (:clojure.core.typed.annotator.rep/class-instance d)))
-                                                      (keyword (str core-specs-ns) "bindings")
-
-                                                      :else (unparse-spec d))]
-                                                [k spec]))
-                                            (range)
-                                            dom-knames
-                                            dom)
-                                    (when-let [rest (:rest ifn)]
-                                      [(or (when-let [[_ n] (seq rest-arglist)]
-                                             (when (symbol? n)
-                                               (keyword (name n))))
-                                           :rest-arg)
-                                       (spec-star (unparse-spec rest))])))))
-                            arities))
-                   rngs (if macro?
-                          (qualify-core-symbol 'any?)
-                          (or-spec (let [u (make-Union (map :rng arities))]
-                                     (if (union? u)
-                                       (:types u)
-                                       [u]))))
-                   dom-specs (if (= 1 (count doms))
-                               (first doms)
-                               (list* (qualify-spec-symbol 'alt) ;; use alt to treat args as flat sequences
-                                      (let [named-alts (map (fn [alt]
-                                                              (let [kw (keyword (let [n (/ (dec (count alt)) 2)]
-                                                                                  (str n (or (when (= 1 n)
-                                                                                               "-arg")
-                                                                                             "-args"))))]
-                                                                [kw alt]))
-                                                            doms)]
-                                        (apply concat (sort-by first named-alts)))))]
-                (list* (qualify-spec-symbol 'fspec)
-                       [:args dom-specs
-                        :ret rngs]))))
-    :class (let [cls (:clojure.core.typed.annotator.rep/class-instance m)
-                 args (:args m)]
-             (cond
-               (#{:int} cls) (qualify-core-symbol 'int?)
-               (#{:integer} cls) (qualify-core-symbol 'integer?)
-               (#{:decimal} cls) (qualify-core-symbol 'decimal?)
-               (#{:double} cls) (qualify-core-symbol 'double?)
-               (#{:number} cls) (qualify-core-symbol 'number?)
-               (#{:char} cls) (qualify-core-symbol 'char?)
-               (#{:symbol} cls) (qualify-core-symbol 'symbol?)
-               (#{:keyword} cls) (qualify-core-symbol 'keyword?)
-               (#{:string} cls) (qualify-core-symbol 'string?)
-               (#{:ifn} cls) (qualify-core-symbol 'ifn?)
-               (#{:boolean} cls) (qualify-core-symbol 'boolean?)
-               ;; TODO check set elements
-               (#{:set} cls) (qualify-core-symbol 'set?)
-               (#{:map} cls)
-               ;; NOTE if we change the `empty?` specs here, also update
-               ;; `or-spec` tag generation.
-               (if (some nothing? args)
-                 (list (qualify-spec-symbol 'and)
-                       (qualify-core-symbol 'empty?)
-                       (qualify-core-symbol 'map?))
-                 (let [[k v] args]
-                   (list (qualify-spec-symbol 'map-of)
-                         (unparse-spec k)
-                         (unparse-spec v))))
-               (#{:vector :coll :seq} cls) 
-               (if (nothing? (first args))
-                 (list (qualify-spec-symbol 'and)
-                       (qualify-core-symbol 'empty?)
-                       (qualify-core-symbol 'coll?))
-                 (list*-force
-                   (qualify-spec-symbol 'coll-of)
-                   (unparse-spec
-                     (first args))
-                   (when (#{:vector} cls)
-                     [:into (qualify-core-symbol 'vector?)])))
-
-               :else (do
-                       (assert (string? cls))
-                       (list (qualify-core-symbol 'partial)
-                             (qualify-core-symbol 'instance?)
-                             (symbol cls)))))
-    :Top (qualify-core-symbol 'any?)
-    :unknown (cond 
-               *preserve-unknown* '?
-               :else (qualify-core-symbol 'any?))
-    :free (alias->spec-kw (:name m))
-    (assert nil (str "No unparse-type case: " m))))
 
 ; [Node :-> Any]
 (defn unparse-type' [{:as m}]
@@ -1106,9 +600,6 @@
                                  (:known-params m))
                       (unparse-type (:type m)))
     (assert nil (str "No unparse-type case: " m))))
-
-
-(def ^:dynamic *forbidden-aliases* nil)
 
 (defn update-grouped-paths [env {:keys [:spec?] :as config} {:keys [:current-level :inner-level] :as paths}]
   {:pre [(map? env)
@@ -1305,13 +796,6 @@
         ]
     sym))
 
-(defn gen-unique-alias-name [env config sym]
-  (if (or (contains? (alias-env env) sym)
-          (when-let [forbidden-aliases *forbidden-aliases*]
-            (contains? @forbidden-aliases sym)))
-    (gen-unique-alias-name env config (symbol (str (name sym) "__0")))
-    sym))
-
 (defn register-unique-alias [env config sym t]
   {:pre [(not (namespace sym))]}
   ;(debug (println "register-unique-alias:" sym (unp-str t))
@@ -1343,15 +827,6 @@
    :post []}
   ;(prn "resolve-alias" name (keys (alias-env env)))
   (get (alias-env env) name))
-
-(defn fully-resolve-alias 
-  ([env a] (fully-resolve-alias env a #{}))
-  ([env a seen]
-  (if (alias? a)
-    (do (assert (not (contains? seen (:name a))) "Infinite type detected")
-      (recur env (resolve-alias env a)
-             (conj seen (:name a))))
-    a)))
 
 #_ 
 (ann likely-HMap-dispatch [HMap -> (U nil '[Kw (Set Kw)])])
@@ -1563,14 +1038,6 @@
       (dissoc env
               ::alias-keyset-cache
               ::alias-tag-val-cache))))
-
-;; Answers: is this a good alias to generate `s/keys`?
-(defn alias-matches-key-for-spec-keys? [a k]
-  {:pre [(alias? a)
-         (keyword? k)]}
-  (if (namespace k)
-    (= (:name a) (kw->sym k))
-    (= (name (:name a)) (name k))))
 
 
 (defn alias-hmap-type
@@ -2182,7 +1649,6 @@
             expr]})))
 
 (def ^:dynamic *found-fn* false)
-(def alternative-arglists (atom {}))
 
 #?(:clj
 (defn infer-arglists [v expr]
@@ -3218,9 +2684,9 @@
 ; Problem:
 ; For tagged maps we preserve key information, and it would be a problem
 ; if we moved or erased the tags.
-; For these, add a ::implicit-alias entry to the :val (or :union, sometimes) map
+; For these, add a :clojure.core.typed.annotator.frontend.spec/implicit-alias entry to the :val (or :union, sometimes) map
 ; that is the alias to use in spec generation.
-; Then, need a special case in unparse-type to ensure ::implicit-alias counts as
+; Then, need a special case in unparse-type to ensure :clojure.core.typed.annotator.frontend.spec/implicit-alias counts as
 ; as an alias usage.
 
 (defn accumulate-env [f env config ts]
@@ -3245,7 +2711,7 @@
 (defn ensure-alias-for-spec-keys [env config [k t]]
   {:pre [(keyword? k)]}
   (let [a (or (when (alias? t) t)
-              (::implicit-alias t))]
+              (:clojure.core.typed.annotator.frontend.spec/implicit-alias t))]
     (if (and (alias? a)
              (good-alias-name-for-key? (:name a) k))
       [env t]
@@ -3254,7 +2720,7 @@
                        :name sym}]
         ;; maintain structure to calculate multi-spec's
         [env (if (kw-vals? t)
-               (assoc t ::implicit-alias new-alias)
+               (assoc t :clojure.core.typed.annotator.frontend.spec/implicit-alias new-alias)
                new-alias)]))))
 
 (defn implicit-aliases-for-type [env config m]

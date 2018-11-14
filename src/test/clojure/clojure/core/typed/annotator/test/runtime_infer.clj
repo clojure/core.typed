@@ -23,6 +23,7 @@
                                                        join*
                                                        join-HMaps
                                                        join]]
+            [clojure.core.typed.annotator.frontend.spec :refer [unparse-spec']]
             [clojure.core.typed.annotator.insert :refer [delete-generated-annotations-in-str
                                                          generate-ann-start
                                                          generate-ann-end]]

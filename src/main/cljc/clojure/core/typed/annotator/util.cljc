@@ -10,11 +10,21 @@
 
 (def ^:dynamic *preserve-unknown* nil)
 
+(def ^:dynamic *used-aliases* nil)
+(def ^:dynamic *multispecs-needed* nil)
+
+(def ^:dynamic *forbidden-aliases* nil)
+
 #?(:clj
 (defn current-time [] (. System (nanoTime))))
 #?(:cljs
 (defn current-time [] (.getTime (js/Date.))))
 
+(defn kw->sym [k]
+  {:pre [(keyword? k)]
+   :post [(symbol? %)]}
+  (symbol (namespace k)
+          (name k)))
 
 ;; https://github.com/r0man/inflections-clj/blob/master/src/inflections/core.cljc
 (defn str-name
@@ -306,6 +316,11 @@
   (intersection-or-empty
     (map HMap-req-keyset ms)))
 
+(defn nil-val? [t]
+  (boolean
+    (and (#{:val} (:op t))
+         (nil? (:val t)))))
+
 (def kw-val? (every-pred r/val? (comp keyword? :val)))
 
 (defn kw-vals? [t]
@@ -326,3 +341,76 @@
                    (kw-vals? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
                  hmaps)
      k)))
+
+;; resolving aliases
+
+(defn fully-resolve-alias 
+  ([env a] (fully-resolve-alias env a #{}))
+  ([env a seen]
+  (if (r/alias? a)
+    (do (assert (not (contains? seen (:name a))) "Infinite type detected")
+      (recur env (resolve-alias env a)
+             (conj seen (:name a))))
+    a)))
+
+(defn find-top-level-var [top-level-def]
+  #?(:cljs nil
+     :clj
+     (when (and (symbol? top-level-def)
+                (namespace top-level-def)) ;; testing purposes
+       (some-> top-level-def find-var))))
+
+(def alternative-arglists (atom {}))
+
+(defn arglists-for-top-level-var [top-level-var]
+  #?(:cljs nil
+     :clj
+     (when top-level-var
+       (or (-> top-level-var meta :arglists)
+           (->> top-level-var coerce/var->symbol (get @alternative-arglists))))))
+
+(defn separate-fixed-from-rest-arglists [arglists]
+  (group-by (fn [v]
+              {:pre [(vector? v)]}
+              (if (and (<= 2 (count v))
+                       (#{'&} (get v (- (count v) 2))))
+                :rest
+                :fixed))
+            arglists))
+
+(defn uniquify [ss]
+  {:pre [(every? keyword? ss)]
+   :post [(every? keyword? %)]}
+  (cond
+    (or (empty? ss)
+        (apply distinct? ss)) ss
+    :else
+    (let [repeats (into {}
+                        (remove (comp #{1} val))
+                        (frequencies ss))
+          ;; first, let's try and just append an index
+          ;; to each repeated entry. If that fails, just gensym.
+          optimistic-attempt (map-indexed
+                               (fn [i s]
+                                 {:pre [(keyword? s)]
+                                  :post [(keyword? %)]}
+                                 (if (contains? repeats s)
+                                   (keyword (str (name s) "-" i))
+                                   s))
+                               ss)]
+      (if (apply distinct? optimistic-attempt)
+        optimistic-attempt
+        (map (fn [s]
+               {:pre [(keyword? s)]
+                :post [(keyword? %)]}
+               (if (contains? repeats s)
+                 (keyword (str (gensym (name s))))
+                 s))
+             ss)))))
+
+(defn gen-unique-alias-name [env config sym]
+  (if (or (contains? (alias-env env) sym)
+          (when-let [forbidden-aliases *forbidden-aliases*]
+            (contains? @forbidden-aliases sym)))
+    (gen-unique-alias-name env config (symbol (str (name sym) "__0")))
+    sym))
