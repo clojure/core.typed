@@ -37,7 +37,9 @@
                                                         track-local-fn
                                                         *track-depth*
                                                         *track-count*
-                                                        *root-results*]]
+                                                        *root-results*
+                                                        local-fn-symbol?
+                                                        loop-var-symbol?]]
             [clojure.core.typed.annotator.join :refer [make-Union
                                                        flatten-unions
                                                        flatten-union
@@ -56,6 +58,7 @@
                      alias->spec-kw
                      *higher-order-fspec*
                      spec-cat
+                     unq-spec-nstr
                      ]]
             [clojure.core.typed.annotator.debug-macros
              :refer [debug-flat
@@ -110,6 +113,8 @@
                                                        separate-fixed-from-rest-arglists
                                                        uniquify
                                                        gen-unique-alias-name
+                                                       #?@(:clj [macro-symbol?])
+                                                       imported-symbol?
                                                        ]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line
                                                          unp-str]]
@@ -428,8 +433,6 @@
 (defn HMap-has-tag-key? [m k]
   (kw-val? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
 
-
-(defn unq-spec-nstr [] (str (current-ns)))
 
 
 ; [Node :-> Any]
@@ -1876,7 +1879,7 @@
                                  {pth-elem (group-by-path (inc path-index) rs)})
                                ps))})))
 
-(declare pprint-env local-fn-symbol? #?(:clj macro-symbol?))
+(declare pprint-env)
 
 #?(:clj
 (defn polymorphic-function-reports [config call-flows]
@@ -2618,25 +2621,6 @@
 ;                          [k (set (fv env v))]))
 ;                   as)]
 ;    ))
-
-(defn local-fn-symbol? [s]
-  (= :local-fn (::track-kind (meta s))))
-
-(defn loop-var-symbol? [s]
-  (= :loop-var (::track-kind (meta s))))
-
-#?(:clj 
-(defn macro-symbol? [s]
-  {:pre [(symbol? s)]}
-  (boolean
-    (when (namespace s)
-      (when-let [v (find-var s)]
-        (:macro (meta v)))))))
-
-(defn imported-symbol? [s]
-  {:pre [(symbol? s)]}
-  (not= (str (ns-name (current-ns)))
-        (namespace s)))
 
 ; Here we need to handle the pecularities of s/keys.
 ;

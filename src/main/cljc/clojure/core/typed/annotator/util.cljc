@@ -414,3 +414,16 @@
             (contains? @forbidden-aliases sym)))
     (gen-unique-alias-name env config (symbol (str (name sym) "__0")))
     sym))
+
+#?(:clj 
+(defn macro-symbol? [s]
+  {:pre [(symbol? s)]}
+  (boolean
+    (when (namespace s)
+      (when-let [v (find-var s)]
+        (:macro (meta v)))))))
+
+(defn imported-symbol? [s]
+  {:pre [(symbol? s)]}
+  (not= (str (ns-name (current-ns)))
+        (namespace s)))

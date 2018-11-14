@@ -28,6 +28,8 @@
 
 (def ^:dynamic *higher-order-fspec* nil)
 
+(defn unq-spec-nstr [] (str (current-ns)))
+
 (declare unparse-spec')
 
 (defn gen-unique-multi-spec-name [env multispecs sym]

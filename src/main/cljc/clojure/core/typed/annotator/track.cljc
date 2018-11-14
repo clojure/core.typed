@@ -27,6 +27,12 @@
             [clojure.core.typed.current-impl :as impl]
             ))
 
+(defn local-fn-symbol? [s]
+  (= :local-fn (:clojure.core.typed.annotator.track/track-kind (meta s))))
+
+(defn loop-var-symbol? [s]
+  (= :loop-var (:clojure.core.typed.annotator.track/track-kind (meta s))))
+
 (defn extend-paths [paths extension]
   (into #{}
         (map (fn [path]
@@ -795,7 +801,7 @@
   (track config
          results-atom val 
          #{[{:op :var
-             ::track-kind track-kind
+             :clojure.core.typed.annotator.track/track-kind track-kind
              :line line
              :column column
              :end-line end-line
@@ -812,7 +818,7 @@
                             end-line
                             "|"
                             end-column))
-                     {::track-kind track-kind
+                     {:clojure.core.typed.annotator.track/track-kind track-kind
                       :line line
                       :column column
                       :end-line end-line
