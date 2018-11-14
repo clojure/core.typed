@@ -2,9 +2,9 @@
          "src/main/cljc"
          "src/main/java"]
  :deps {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
-                                            :sha "24dd69273acdef3c6479fb4ddbbb7e1d10245ab5"}
+                                            :sha "e8d7a02b2a40549f8de20b36b204d22149decf79"}
         org.clojure/core.typed.checker.jvm {:git/url "https://github.com/typedclojure/core.typed.checker.jvm.git"
-                                            :sha "18a65960465cdd5f3aa1c7ae82fef9c40cb6d290"}
+                                            :sha "ccd5cd61a6a830c45f8c5d6a16cf7f18a0790a88"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
@@ -19,6 +19,14 @@
             :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
                          com.gfredericks/test.chuck {:mvn/version "0.2.6"}}
             }
+           :nREPL
+           {:extra-paths ["script"]
+            :extra-deps
+            {nrepl/nrepl {:mvn/version "0.4.5"}
+             cider/piggieback {:mvn/version "0.3.8"}}
+            :main-opts ["-m" "nrepl.cmdline"
+                        "--interactive"]}
+
            ; actually run tests, assumes :test alias
            :runner
            {:extra-deps {com.cognitect/test-runner
