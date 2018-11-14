@@ -21,6 +21,38 @@
 (defn alias? [t]
   (= :alias (:op t)))
 
+(defn HMap? [t]
+  (= :HMap (:op t)))
+(defn HVec? [t]
+  (= :HVec (:op t)))
+
+(defn union? [t]
+  (= :union (:op t)))
+
+(defn Any? [m]
+  {:pre [(map? m)]
+   :post [(boolean? %)]}
+  (= :Top (:op m)))
+
+(defn unknown? [m]
+  (= :unknown
+     (:op m)))
+
+(defn nothing? [t]
+  (boolean
+    (when (union? t)
+      (empty? (:types t)))))
+
+(defn -class? [m]
+  (boolean (#{:class} (:op m))))
+
+(def val? (comp boolean #{:val} :op))
+
+(defn -alias [name]
+  {:pre [(symbol? name)]}
+  {:op :alias
+   :name name})
+
 (def -any {:op :Top})
 
 (def -nothing {:op :union :types #{}})

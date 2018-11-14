@@ -12,12 +12,17 @@
             [clojure.core.typed.checker.jvm.check-form-clj :as chk-clj]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.annotator.pprint :refer [pprint]] 
+            [clojure.core.typed.annotator.parse :refer [prs parse-type]]
             [clojure.core.typed.annotator.rep :refer [infer-result
                                                       var-path
                                                       key-path
                                                       fn-rng-path
                                                       fn-dom-path ]]
             [clojure.core.typed.annotator.track :refer [track-var]]
+            [clojure.core.typed.annotator.join :refer [make-Union
+                                                       join*
+                                                       join-HMaps
+                                                       join]]
             [clojure.core.typed.annotator.insert :refer [delete-generated-annotations-in-str
                                                          generate-ann-start
                                                          generate-ann-end]]
@@ -29,7 +34,8 @@
                                                        update-alias-env
                                                        type-env
                                                        *envs*
-                                                       update-type-env]]
+                                                       update-type-env
+                                                       HMap-req-keyset]]
             )
   (:import (clojure.lang IExceptionInfo)))
 

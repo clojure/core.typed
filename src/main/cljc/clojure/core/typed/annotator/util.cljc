@@ -8,6 +8,8 @@
 (def ^:dynamic *debug* nil)
 (def ^:dynamic *debug-depth* 0)
 
+(def ^:dynamic *preserve-unknown* nil)
+
 #?(:clj
 (defn current-time [] (. System (nanoTime))))
 #?(:cljs
@@ -277,3 +279,50 @@
 (defn unp [t]
   (binding [*spec* false]
     (unparse-type t)))
+
+(defn intersection-or-empty [[& args]]
+  (if args
+    (apply set/intersection args)
+    #{}))
+
+;; HMap utils
+
+(defn map-key-set [m]
+  (set (keys m)))
+
+(defn HMap-req-keyset [t]
+  {:pre [(r/HMap? t)]
+   :post [(set? %)
+          (every? keyword? %)]}
+  (let [m (map-key-set (:clojure.core.typed.annotator.rep/HMap-req t))]
+    ;(when (not (every? keyword? m))
+    ;  (prn "bad HMap-req-keyset" m))
+    m))
+
+(defn HMap-common-req-keys [ms]
+  {:pre [(every? r/HMap? ms)]
+   :post [(set? %)
+          (every? keyword? %)]}
+  (intersection-or-empty
+    (map HMap-req-keyset ms)))
+
+(def kw-val? (every-pred r/val? (comp keyword? :val)))
+
+(defn kw-vals? [t]
+  (boolean
+    (or (kw-val? t)
+        (when (r/union? t)
+          (every? kw-val? (:types t))))))
+
+(defn HMap-likely-tag-key 
+  ([hmaps] (some #(HMap-likely-tag-key hmaps %)
+                 (HMap-common-req-keys hmaps)))
+  ([hmaps k]
+   {:pre [(every? r/HMap? hmaps)
+          (keyword? k)]
+    :post [((some-fn nil? keyword?) %)]}
+   (when (every? (fn [m]
+                   {:pre [(r/HMap? m)]}
+                   (kw-vals? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
+                 hmaps)
+     k)))
