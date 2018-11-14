@@ -427,3 +427,28 @@
   {:pre [(symbol? s)]}
   (not= (str (ns-name (current-ns)))
         (namespace s)))
+
+(defn top-level-self-reference? 
+  ([env t self] (top-level-self-reference? env t self #{}))
+  ([env t self seen]
+   {:pre [(symbol? self)]}
+   (cond
+     (r/alias? t) (or (= (:name t) self)
+                      (if (seen (:name t))
+                        false
+                        (top-level-self-reference?
+                          env
+                          (resolve-alias env t)
+                          self
+                          (conj seen (:name t)))))
+     (r/union? t) (boolean (some #(top-level-self-reference? env % self seen) (:types t)))
+     :else false)))
+
+(defn register-alias [env config name t]
+  {:pre [(map? env)
+         (symbol? name)
+         (r/type? t)]
+   :post [(map? %)]}
+  ;(prn "register" name)
+  (assert (not (top-level-self-reference? env t name)))
+  (update-alias-env env assoc name t))
