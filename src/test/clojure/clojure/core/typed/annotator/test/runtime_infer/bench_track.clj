@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer.bench-track
+(ns clojure.core.typed.annotator.test.runtime-infer.bench-track
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }

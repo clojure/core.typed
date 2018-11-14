@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer.kw-singleton
+(ns clojure.core.typed.annotator.test.runtime-infer.kw-singleton
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }

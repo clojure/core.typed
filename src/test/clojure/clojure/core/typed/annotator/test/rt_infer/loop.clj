@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.rt-infer.loop
+(ns clojure.core.typed.annotator.test.rt-infer.loop
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}}
   (:require [clojure.core.typed :as t]))

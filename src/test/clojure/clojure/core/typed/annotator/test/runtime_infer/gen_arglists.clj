@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer.gen-arglists
+(ns clojure.core.typed.annotator.test.runtime-infer.gen-arglists
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }

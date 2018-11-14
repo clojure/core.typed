@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer.polymorphic
+(ns clojure.core.typed.annotator.test.runtime-infer.polymorphic
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }

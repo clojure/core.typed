@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer.qualified-keys
+(ns clojure.core.typed.annotator.test.runtime-infer.qualified-keys
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }

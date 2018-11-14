@@ -4476,7 +4476,7 @@
   "Return the bag of constraints in the current results-atom
   for the given fully qualified var.
   
-  eg. (var-constraints 'clojure.core.typed.test.mini-occ/parse-exp)
+  eg. (var-constraints 'clojure.core.typed.annotator.test.mini-occ/parse-exp)
   "
 
   [vsym]
@@ -4653,7 +4653,7 @@
 
 (comment
 
-  (binding [*ns* (the-ns 'clojure.core.typed.test.mini-occ)]
+  (binding [*ns* (the-ns 'clojure.core.typed.annotator.test.mini-occ)]
     (-> (generate-tenv (init-env) (init-config) @results-atom)
         (envs-to-annotations (init-config))
         pprint)

@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer
+(ns clojure.core.typed.annotator.test.runtime-infer
   (:require [clojure.test :refer :all]
             [clojure.pprint :as pp]
             [clojure.repl :as repl]
@@ -391,7 +391,7 @@
 (deftest mini-occ-test
   (is 
     (do
-      (require 'clojure.core.typed.test.mini-occ :reload)
+      (require 'clojure.core.typed.annotator.test.mini-occ :reload)
       :ok)))
 
 (deftest optional-keys-test
@@ -508,7 +508,8 @@
             env (populate-envs env config)
             anns (f env config)]
         (when *print-anns*
-          (pprint anns))))))
+          (pprint anns)))
+      :ok)))
 
 (defn anns-from-tenv [tenv & [config]]
   (binding [unparse-type unparse-type']

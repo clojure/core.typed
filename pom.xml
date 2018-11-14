@@ -67,10 +67,10 @@
           <!-- Don't put AOT files in jar -->
           <temporaryOutputDirectory>true</temporaryOutputDirectory>
           <namespaces>
-            <namespace>!clojure.core.typed.test.mini-occ</namespace>
+            <namespace>!clojure.core.typed.annotator.test.mini-occ</namespace>
           </namespaces>
           <testNamespaces>
-            <namespace>!clojure.core.typed.test.mini-occ</namespace>
+            <namespace>!clojure.core.typed.annotator.test.mini-occ</namespace>
           </testNamespaces>
           <sourceDirectories>
             <sourceDirectory>src/main/clojure</sourceDirectory>

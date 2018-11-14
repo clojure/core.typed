@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.runtime-infer.def-name
+(ns clojure.core.typed.annotator.test.runtime-infer.def-name
   {:lang :core.typed
    :core.typed {:features #{:runtime-infer}}
    }
