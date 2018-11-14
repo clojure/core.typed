@@ -17,6 +17,25 @@
                                when-fuel]]))
   (:require [#?(:clj clojure.pprint :cljs cljs.pprint) :as pp]
             [#?(:clj clojure.core :cljs cljs.core) :as core]
+            [clojure.core.typed.annotator.rep :refer [-val key-path map-vals-path
+                                                      infer-result infer-results
+                                                      -class type? -any fn-dom-path
+                                                      fn-rng-path -nothing
+                                                      seq-entry transient-vector-entry
+                                                      index-path vec-entry-path
+                                                      set-entry
+                                                      make-HMap
+                                                      var-path]]
+            [clojure.core.typed.annotator.track :refer [track-var'
+                                                        track-def-init
+                                                        gen-track-config
+                                                        track-local-fn
+                                                        *track-depth*
+                                                        *track-count*
+                                                        *root-results*]]
+            [clojure.core.typed.annotator.env :refer [results-atom
+                                                      initial-results
+                                                      infer-results?]]
             [clojure.core.typed.annotator.debug-macros
              :refer [debug-flat
                      debug-when
@@ -40,8 +59,7 @@
                                                        *debug*]]
             [clojure.core.typed.annotator.pprint :refer [pprint pprint-str-no-line]] 
             [clojure.walk :as walk]
-            #?@(:clj [[potemkin.collections :as pot]
-                      [clojure.tools.namespace.parse :as nprs]
+            #?@(:clj [[clojure.tools.namespace.parse :as nprs]
                       [clojure.tools.reader.reader-types :as rdrt]
                       [clojure.java.io :as io]
                       [clojure.core.typed.ast-utils :as ast]
@@ -57,9 +75,9 @@
      (HMap
        :mandatory
        {:op :HMap 
-        ::HMap-req (Map Kw Type)}
+        :clojure.core.typed.annotator.rep/HMap-req (Map Kw Type)}
        :optional
-       {::HMap-opt (Map Kw Type)})
+       {:clojure.core.typed.annotator.rep/HMap-opt (Map Kw Type)})
 
      '{:op :HVec :vec (Vec Type)}
      '{:op :union :types (Set Type)}
@@ -67,7 +85,7 @@
        ::class-string String
        :args (Vec Type)}
      '{:op :class 
-       ::class-instance (U Keyword String)
+       :clojure.core.typed.annotator.rep/class-instance (U Keyword String)
        :args (Vec Type)}
      '{:op :IFn
        :arities (Vec (HMap
@@ -88,10 +106,6 @@
      '{:op :free
        :name Sym}
      '{:op :Top}))
-
-(def -any {:op :Top})
-
-(def -nothing {:op :union :types #{}})
 
 (declare union?)
 
@@ -222,23 +236,6 @@
 (defn update-alias-env [env & args]
   (apply update-in env [(current-ns) :alias-env] args))
 
-(defn initial-results 
-  ([] (initial-results nil []))
-  ([parent base]
-   {:infer-results #{}
-    :equivs []
-    ;; TODO
-    :path-occ {}}))
-
-(defn infer-results? [m]
-  (and (map? m)
-       (-> m :infer-results set?)
-       (-> m :path-occ map?)
-       (-> m :equivs vector?)))
-
-; results-atom : (Atom InferResultEnv)
-(def results-atom (atom (initial-results) :validator infer-results?))
-
 (declare get-infer-results unparse-infer-result)
 
 (defn ppresults 
@@ -249,30 +246,8 @@
 (defn swap-infer-results! [results-atom f & args]
   (apply swap! results-atom update :infer-results f args))
 
-(defn add-infer-results! [results-atom r]
-  (swap! results-atom
-         (fn [m]
-           (-> m
-               (update :root-results
-                       (fn [root-results]
-                         (reduce (fn [root-results nme]
-                                   (if (symbol? nme)
-                                     (update root-results nme (fnil inc 1))
-                                     root-results))
-                                 root-results
-                                 (map (comp :name #(nth % 0) :path) r))))
-               (update :infer-results #(into (or % #{}) r))))))
-
 (defn get-infer-results [results-atom]
   (get @results-atom :infer-results))
-
-(defn infer-result [path type]
-  {:op :path-type
-   :type type
-   :path path})
-
-(defn infer-results [paths type]
-  (map #(infer-result % type) paths))
 
 (defn equiv-result [ps cls]
   {:pre [(set? ps)
@@ -281,15 +256,6 @@
   {:op :equiv
    := ps
    :type cls})
-
-(defn var-path 
-  ([name] (var-path nil name))
-  ([ns name]
-   {:pre [((some-fn symbol? nil?) ns)
-          (symbol? name)]}
-   {:op :var
-    :ns ns
-    :name name}))
 
 (defn -alias [name]
   {:pre [(symbol? name)]}
@@ -302,72 +268,8 @@
   (= :unknown
      (:op m)))
 
-;; for zero arity, use (fn-dom-path 0 -1)
-(defn fn-dom-path [arity pos]
-  (assert (< pos arity)
-          (str "Arity: " arity
-               "Position:" pos))
-  {:op :fn-domain
-   :arity arity :position pos})
-
-(defn fn-rng-path [arity]
-  {:op :fn-range
-   :arity arity})
-
-(defn map-keys-path []
-  {:op :map-keys})
-
-(defn map-vals-path []
-  {:op :map-vals})
-
-(defn key-path 
-  ([keys key] (key-path {} keys key))
-  ([kw-entries keys key]
-   {:pre [(keyword? key)]}
-   {:op :key
-    ;; (Map Kw (ValType Kw)) for constant keyword entries
-    :kw-entries kw-entries
-    :keys keys
-    :key key}))
-
-(defn index-path [count nth]
-  {:op :index
-   :count count
-   :nth nth})
-
-(defn vec-entry-path []
-  {:op :vec-entry})
-
-(defn seq-entry []
-  {:op :seq-entry})
-
-(defn set-entry []
-  {:op :set-entry})
-
-(defn transient-vector-entry []
-  {:op :transient-vector-entry})
-
-(defn atom-contents []
-  {:op :atom-contents})
-
-(defn type? [t]
-  (and (map? t)
-       (keyword? (:op t))))
-
-(defn -class [cls args]
-  {:pre [(vector? args)
-         (every? type? args)]}
-  (assert ((some-fn keyword? string?) cls) cls)
-  {:op :class
-   ::class-instance cls
-   :args args})
-
 (defn -class? [m]
   (boolean (#{:class} (:op m))))
-
-(defn -val [v]
-  {:op :val
-   :val v})
 
 (defn make-free [name]
   {:pre [(symbol? name)]}
@@ -446,11 +348,11 @@
 
 (defn parse-literal-HMap [m]
   {:op :HMap
-   ::HMap-req (into {}
+   :clojure.core.typed.annotator.rep/HMap-req (into {}
                     (map (fn [[k v]]
                            [k (parse-type v)]))
                     m)
-   ::HMap-opt {}})
+   :clojure.core.typed.annotator.rep/HMap-opt {}})
 
 (defn parse-HMap [[_ & {:keys [mandatory optional]}]]
   (let [prs-map (fn [m]
@@ -458,9 +360,8 @@
                         (map (fn [[k v]]
                                [k (parse-type v)]))
                         m))]
-    {:op :HMap
-     ::HMap-req (prs-map mandatory)
-     ::HMap-opt (prs-map optional)}))
+    (make-HMap (prs-map mandatory)
+               (prs-map optional))))
 
 (declare make-Union resolve-alias postwalk)
 
@@ -473,7 +374,7 @@
   {:pre [(HMap? t)]
    :post [(set? %)
           (every? keyword? %)]}
-  (let [m (map-key-set (::HMap-req t))]
+  (let [m (map-key-set (:clojure.core.typed.annotator.rep/HMap-req t))]
     ;(when (not (every? keyword? m))
     ;  (prn "bad HMap-req-keyset" m))
     m))
@@ -481,8 +382,8 @@
 (defn HMap-req-opt-keysets [t]
   {:pre [(HMap? t)]
    :post [(set? %)]}
-  #{{:req-keyset (map-key-set (::HMap-req t))
-     :opt-keyset (map-key-set (::HMap-opt t))}})
+  #{{:req-keyset (map-key-set (:clojure.core.typed.annotator.rep/HMap-req t))
+     :opt-keyset (map-key-set (:clojure.core.typed.annotator.rep/HMap-opt t))}})
 
 (declare unp)
 
@@ -519,7 +420,7 @@
    :post [(set? %)
           (every? map? %)]}
   (gather-HMap-info env t (fn [m]
-                            #{(::HMap-req m)})))
+                            #{(:clojure.core.typed.annotator.rep/HMap-req m)})))
 
 (defn subst-alias [t old new]
   {:pre [(type? t)
@@ -559,29 +460,6 @@
     (-> env
         (update-type-env (constantly tenv))
         (update-alias-env (constantly aenv)))))
-
-; classify : Any -> Kw
-(defn classify [v]
-  {:pre [(some? v)]}
-  (cond
-    ;(nil? v) :nil
-    (char? v) :char
-    (int? v) :int
-    (integer? v) :integer
-    #?@(:clj [(decimal? v) :decimal])
-    (number? v) :number
-    (vector? v) :vector
-    (map? v) :map
-    (boolean? v) :boolean
-    (keyword? v) :keyword
-    (symbol? v) :symbol
-    (string? v) :string
-    (fn? v) :ifn
-    (coll? v) :coll
-    (seqable? v) :seqable
-    #?@(:clj [(instance? clojure.lang.ITransientCollection v) :transient])
-    :else #?(:clj (.getName (class v))
-             :cljs (goog/typeOf v))))
 
 (defn parse-type [m]
   (cond
@@ -745,7 +623,7 @@
                                                              :vector
                                                              :coll
                                                              :seq}
-                                                            (::class-instance t)))))))
+                                                            (:clojure.core.typed.annotator.rep/class-instance t)))))))
                                            alts)]
     ;(prn "or-spec" alts)
     (cond
@@ -850,7 +728,7 @@
          register-just-in-time-alias)
 
 (defn HMap-has-tag-key? [m k]
-  (kw-val? (get (::HMap-req m) k)))
+  (kw-val? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
 
 (defn uniquify [ss]
   {:pre [(every? keyword? ss)]
@@ -960,7 +838,7 @@
                                 tag)
                        tag-for-hmap (fn [t]
                                       {:pre [(HMap? t)]}
-                                      (let [this-tag (get (::HMap-req t) tag)
+                                      (let [this-tag (get (:clojure.core.typed.annotator.rep/HMap-req t) tag)
                                             _ (assert (kw-val? this-tag) (unparse-spec t))]
                                         (:val this-tag)))
                        dmethods (mapv (fn [t]
@@ -994,8 +872,8 @@
                        sort
                        vec))
                 group-by-qualified #(group-by (comp boolean namespace key) %)
-                {req true req-un false} (group-by-qualified (::HMap-req m))
-                {opt true opt-un false} (group-by-qualified (::HMap-opt m))]
+                {req true req-un false} (group-by-qualified (:clojure.core.typed.annotator.rep/HMap-req m))
+                {opt true opt-un false} (group-by-qualified (:clojure.core.typed.annotator.rep/HMap-opt m))]
             (list* (qualify-spec-symbol 'keys)
                    (concat
                      (when (seq req)
@@ -1068,7 +946,7 @@
                                                    (and
                                                      (#{:class} (:op d))
                                                      (= :vector
-                                                        (::class-instance d))))))
+                                                        (:clojure.core.typed.annotator.rep/class-instance d))))))
                                              arities)
                                  [:bindings (keyword (str core-specs-ns) "bindings")])
                                ;; if there is more than one arity,
@@ -1147,7 +1025,7 @@
                                                            macro?
                                                            (#{:class} (:op d))
                                                            (= :vector
-                                                              (::class-instance d)))
+                                                              (:clojure.core.typed.annotator.rep/class-instance d)))
                                                       (keyword (str core-specs-ns) "bindings")
 
                                                       :else (unparse-spec d))]
@@ -1182,7 +1060,7 @@
                 (list* (qualify-spec-symbol 'fspec)
                        [:args dom-specs
                         :ret rngs]))))
-    :class (let [cls (::class-instance m)
+    :class (let [cls (:clojure.core.typed.annotator.rep/class-instance m)
                  args (:args m)]
              (cond
                (#{:int} cls) (qualify-core-symbol 'int?)
@@ -1262,7 +1140,7 @@
                    ts (if (and k (every? #(HMap-has-tag-key? % k) ts))
                         (sort-by (fn [m]
                                    {:post [(keyword? %)]}
-                                   (:val (get (::HMap-req m) k)))
+                                   (:val (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
                                  ts)
                         ts)
                    ts (distinct (mapv unparse-type ts))]
@@ -1281,7 +1159,7 @@
                  (list* (qualify-typed-symbol 'U) 
                         ts))))
     :HVec `'~(mapv unparse-type (:vec m))
-    :HMap (let [{:keys [::HMap-req ::HMap-opt]} m
+    :HMap (let [{:keys [:clojure.core.typed.annotator.rep/HMap-req :clojure.core.typed.annotator.rep/HMap-opt]} m
                 unp-map (fn [m]
                           (into {}
                                 (map (fn [[k v]]
@@ -1383,7 +1261,7 @@
                        (if (seq args)
                          (list*-force cls (map unparse-type args))
                          cls)))]
-             (unparse-class (::class-instance m) (:args m)))
+             (unparse-class (:clojure.core.typed.annotator.rep/class-instance m) (:args m)))
     :Top (qualify-typed-symbol 'Any)
     :unknown (cond 
                *preserve-unknown* '?
@@ -1454,7 +1332,7 @@
     :post [((some-fn nil? keyword?) %)]}
    (when (every? (fn [m]
                    {:pre [(HMap? m)]}
-                   (kw-vals? (get (::HMap-req m) k)))
+                   (kw-vals? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
                  hmaps)
      k)))
 
@@ -1513,14 +1391,14 @@
                              ;(debug-flat (println "no common keys, upcasting to (Map Any Any)"))
                              ;#{(-class :map [-any -any])}
                              #{{:op :HMap
-                                ::HMap-req {}
-                                ::HMap-opt (apply merge-with join (mapcat (juxt ::HMap-req ::HMap-opt) hmaps-merged))}})
+                                :clojure.core.typed.annotator.rep/HMap-req {}
+                                :clojure.core.typed.annotator.rep/HMap-opt (apply merge-with join (mapcat (juxt :clojure.core.typed.annotator.rep/HMap-req :clojure.core.typed.annotator.rep/HMap-opt) hmaps-merged))}})
 
                            ;; if one of the common keys is always mapped to a singleton keyword,
                            ;; merge by the value of this key
                            likely-tag
                            (let [by-tag (group-by (fn [m]
-                                                    (get (::HMap-req m) likely-tag))
+                                                    (get (:clojure.core.typed.annotator.rep/HMap-req m) likely-tag))
                                                   hmaps-merged)
                                  new-maps (into #{}
                                                 (map merge-HMaps)
@@ -1542,10 +1420,10 @@
                                  res
                                  #{{:op :HMap
                                     ;; put all the common required keys as required
-                                    ::HMap-req (apply merge-with join
+                                    :clojure.core.typed.annotator.rep/HMap-req (apply merge-with join
                                                       (map (fn [m]
                                                              {:pre [(HMap? m)]}
-                                                             (let [es (select-keys (::HMap-req m) 
+                                                             (let [es (select-keys (:clojure.core.typed.annotator.rep/HMap-req m) 
                                                                                    common-keys)]
                                                                (doseq [[_ v] es]
                                                                  (when (unknown? v)
@@ -1553,13 +1431,13 @@
                                                                es))
                                                            hmaps-merged))
                                     ;; all the rest are optional
-                                    ::HMap-opt (apply merge-with join
+                                    :clojure.core.typed.annotator.rep/HMap-opt (apply merge-with join
                                                       (map (fn [m]
                                                              {:pre [(HMap? m)]}
                                                              (let [es 
                                                                    (merge-with join
-                                                                               (::HMap-opt m)
-                                                                               (apply dissoc (::HMap-req m)
+                                                                               (:clojure.core.typed.annotator.rep/HMap-opt m)
+                                                                               (apply dissoc (:clojure.core.typed.annotator.rep/HMap-req m)
                                                                                       common-keys))]
                                                                (doseq [[_ v] es]
                                                                  (when (unknown? v)
@@ -1581,10 +1459,10 @@
                         ;; upcast seqables if appropriate
                         classes (let [{seqable-classes true 
                                        non-seqable-classes false} 
-                                      (group-by #(contains? relevant-seqables (::class-instance %)) classes)
+                                      (group-by #(contains? relevant-seqables (:clojure.core.typed.annotator.rep/class-instance %)) classes)
                                       seqable-classes
                                       (if (some (comp #{:list :seq :coll}
-                                                      ::class-instance)
+                                                      :clojure.core.typed.annotator.rep/class-instance)
                                                 seqable-classes)
                                         ;; upcast all to Coll since we've probably lost too much type information
                                         ;; to bother keeping seqable-classes around.
@@ -1600,16 +1478,16 @@
                                              {:pre [(seq cs)
                                                     (every? -class? cs)
                                                     (apply = (map (comp count :args) cs))]}
-                                             (-class (-> cs first ::class-instance)
+                                             (-class (-> cs first :clojure.core.typed.annotator.rep/class-instance)
                                                      (apply mapv join* (map :args cs)))))
-                                     (vals (group-by ::class-instance classes)))]
+                                     (vals (group-by :clojure.core.typed.annotator.rep/class-instance classes)))]
                     (into classes non-classes))
 
         ;; delete HMaps if there's already a Map in this union,
         ;; unless it's a (Map Nothing Nothing)
         hmaps-merged (if (some (fn [m]
                                  (and (-class? m)
-                                      (#{:map} (::class-instance m))
+                                      (#{:map} (:clojure.core.typed.annotator.rep/class-instance m))
                                       (not-every? nothing? (:args m))))
                                non-hmaps)
                        #{}
@@ -1662,7 +1540,7 @@
                        (group-by
                          (every-pred
                            -class?
-                           (comp boolean #{:vector :coll} ::class-instance))
+                           (comp boolean #{:vector :coll} :clojure.core.typed.annotator.rep/class-instance))
                          non-HVecs)
                        _ (assert (= (count non-HVecs) (+ (count vec-classes) (count non-vecs))))
                        ;; erase HVec's if we have a IPV class
@@ -1670,7 +1548,7 @@
                        (if (seq vec-classes)
                          [[]
                           (cons 
-                            (let [class-name (if (every? (comp boolean #{:vector} ::class-instance) vec-classes)
+                            (let [class-name (if (every? (comp boolean #{:vector} :clojure.core.typed.annotator.rep/class-instance) vec-classes)
                                                :vector
                                                :coll)
                                   upcasted-HVecs (map upcast-HVec HVecs)]
@@ -1696,7 +1574,7 @@
                          ;; while string is "seqable", it mixes fine with named things.
                          ;; we don't include :string here so (U Str Sym) is preserved
                          ;; and not upcast to Any.
-                         (#{:vector :map :coll :seqable} (::class-instance m)))))
+                         (#{:vector :map :coll :seqable} (:clojure.core.typed.annotator.rep/class-instance m)))))
         atomic-type? (fn [v]
                        (boolean
                          (or
@@ -1704,7 +1582,7 @@
                                 (some? (:val v)))
                            (and (-class? v)
                                 (#{:symbol :string :keyword}
-                                  (::class-instance v))))))
+                                  (:clojure.core.typed.annotator.rep/class-instance v))))))
         ]
     ;(prn "union ts" ts)
     (assert (set? ts))
@@ -1770,8 +1648,8 @@
   ;; TODO and if 75% of the keys are the same
   ;; TODO and if common keys are not always different keywords
   (let [ts [t1 t2]
-        t1-map (::HMap-req t1)
-        t2-map (::HMap-req t2)
+        t1-map (:clojure.core.typed.annotator.rep/HMap-req t1)
+        t2-map (:clojure.core.typed.annotator.rep/HMap-req t2)
         res 
         (and
           (<= 2
@@ -1809,10 +1687,10 @@
   ;(prn "joining HMaps"
   ;     (unparse-type t1)
   ;     (unparse-type t2))
-  (let [t1-req (::HMap-req t1)
-        t2-req (::HMap-req t2)
-        t1-opt (::HMap-opt t1)
-        t2-opt (::HMap-opt t2)
+  (let [t1-req (:clojure.core.typed.annotator.rep/HMap-req t1)
+        t2-req (:clojure.core.typed.annotator.rep/HMap-req t2)
+        t1-opt (:clojure.core.typed.annotator.rep/HMap-opt t1)
+        t2-opt (:clojure.core.typed.annotator.rep/HMap-opt t2)
         all-reqs (set/union
                    (map-key-set t1-req)
                    (map-key-set t2-req))
@@ -1833,7 +1711,7 @@
         res ;(debug
             ;  (println "Joining HMaps:")
               {:op :HMap
-               ::HMap-req (into {}
+               :clojure.core.typed.annotator.rep/HMap-req (into {}
                                 (map (fn [k]
                                        {:pre [(keyword? k)]}
                                        (let [ts (keep k [t1-req t2-req])]
@@ -1842,7 +1720,7 @@
                                          (assert (seq ts))
                                          [k (apply join* ts)])))
                                 new-reqs)
-               ::HMap-opt (into {}
+               :clojure.core.typed.annotator.rep/HMap-opt (into {}
                                 (map (fn [k]
                                        {:pre [(keyword? k)]}
                                        (let [ts (keep k [t1-req t2-req
@@ -1951,21 +1829,21 @@
 
               (and (#{:class} (:op t1))
                    (#{:class} (:op t2))
-                   (= (::class-instance t1)
-                      (::class-instance t2))
+                   (= (:clojure.core.typed.annotator.rep/class-instance t1)
+                      (:clojure.core.typed.annotator.rep/class-instance t2))
                    (= (count (:args t1))
                       (count (:args t2))))
-              (-class (::class-instance t1) (mapv join (:args t1) (:args t2)))
+              (-class (:clojure.core.typed.annotator.rep/class-instance t1) (mapv join (:args t1) (:args t2)))
 
               (and (#{:class} (:op t1))
                    (= :ifn
-                      (::class-instance t1))
+                      (:clojure.core.typed.annotator.rep/class-instance t1))
                    (#{:IFn} (:op t2)))
               t2
 
               (and (#{:class} (:op t2))
                    (= :ifn
-                      (::class-instance t2))
+                      (:clojure.core.typed.annotator.rep/class-instance t2))
                    (#{:IFn} (:op t1)))
               t1
 
@@ -2040,12 +1918,12 @@
                               _ (when (and spec? forbidden-aliases)
                                   (swap! forbidden-aliases into (map kw->sym (cons key keys))))]
                           {:op :HMap
-                           ::HMap-req (merge (zipmap keys (repeat {:op :unknown}))
+                           :clojure.core.typed.annotator.rep/HMap-req (merge (zipmap keys (repeat {:op :unknown}))
                                              ;; immediately associate kw->kw entries
                                              ;; to distinguish in merging algorithm
                                              kw-entries
                                              {key type})
-                           ::HMap-opt {}})
+                           :clojure.core.typed.annotator.rep/HMap-opt {}})
                    :set-entry (-class :set [type])
                    :seq-entry (-class :seq [type])
                    :vec-entry (-class :vector [type])
@@ -2138,8 +2016,8 @@
                        {}
                        m))]
             (-> v
-                (update ::HMap-req up)
-                (update ::HMap-opt up)))
+                (update :clojure.core.typed.annotator.rep/HMap-req up)
+                (update :clojure.core.typed.annotator.rep/HMap-opt up)))
     (:class :unresolved-class)
            (update v :args (fn [m]
                              (reduce-kv
@@ -2296,7 +2174,7 @@
   [t]
   {:pre [(HMap? t)]
    :post [((some-fn nil? vector?) %)]}
-  (let [singles (into {} (filter (comp kw-vals? val) (::HMap-req t)))]
+  (let [singles (into {} (filter (comp kw-vals? val) (:clojure.core.typed.annotator.rep/HMap-req t)))]
     (when-let [[k t] (or
                        ;; TODO extensible hints
                        (when-let [e (or (find singles :op)
@@ -2348,10 +2226,10 @@
                                       (first
                                         (filter (fn [[k v]]
                                                   (kw-vals? v))
-                                                (::HMap-req t)))
+                                                (:clojure.core.typed.annotator.rep/HMap-req t)))
                                       ;; information from a union takes precedence
                                       [k v] (or (when-let [upper-k (::union-likely-tag (meta t))]
-                                                  (let [e (find (::HMap-req t) upper-k)]
+                                                  (let [e (find (:clojure.core.typed.annotator.rep/HMap-req t) upper-k)]
                                                     (when (kw-vals? (val e))
                                                       e)))
                                                 [k v])]
@@ -2362,18 +2240,18 @@
                                                 ;(prn "kw-vals" k v)
                                                 (str (name k) "-" (kw-vals->str v)))
                                               ;; for small number of keys, spell out the keys
-                                              (when (<= (+ (count (::HMap-req t))
-                                                           (count (::HMap-opt t)))
+                                              (when (<= (+ (count (:clojure.core.typed.annotator.rep/HMap-req t))
+                                                           (count (:clojure.core.typed.annotator.rep/HMap-opt t)))
                                                         2)
-                                                (apply str (interpose "-" (map name (concat (keys (::HMap-req t))
-                                                                                            (keys (::HMap-opt t)))))))
+                                                (apply str (interpose "-" (map name (concat (keys (:clojure.core.typed.annotator.rep/HMap-req t))
+                                                                                            (keys (:clojure.core.typed.annotator.rep/HMap-opt t)))))))
                                               ;; otherwise give abbreviated keys
                                               (apply str (interpose "-" 
                                                                     (map (fn [k]
                                                                            (apply str (take 3 (name k))))
                                                                          (concat
-                                                                           (keys (::HMap-req t))
-                                                                           (keys (::HMap-opt t)))))))))
+                                                                           (keys (:clojure.core.typed.annotator.rep/HMap-req t))
+                                                                           (keys (:clojure.core.typed.annotator.rep/HMap-opt t)))))))))
                           t)))]
               [t @env-atom]))]
     (let [env (reduce
@@ -2424,8 +2302,8 @@
                                                      (if-let [likely-tag
                                                               (when existing-t
                                                                 (HMap-likely-tag-key [existing-t t]))]
-                                                       (= (get-in existing-t [::HMap-req likely-tag])
-                                                          (get-in t [::HMap-req likely-tag]))
+                                                       (= (get-in existing-t [:clojure.core.typed.annotator.rep/HMap-req likely-tag])
+                                                          (get-in t [:clojure.core.typed.annotator.rep/HMap-req likely-tag]))
                                                        true))
                                    compatible-alias-entry 
                                    (first (filter compatible-tag?
@@ -2543,7 +2421,7 @@
                                       t (reduce (fn [t k]
                                                   (update t k #(into {} (map update-entry) %)))
                                                 t
-                                                [::HMap-req ::HMap-opt])]
+                                                [:clojure.core.typed.annotator.rep/HMap-req :clojure.core.typed.annotator.rep/HMap-opt])]
                                   t)
                                 t)
                         t)
@@ -2554,13 +2432,13 @@
                                            [(fully-resolve-alias @env-atom t)])]
                                   (when (every? HMap? ts)
                                     (let [common-keys (intersection-or-empty
-                                                        (map (comp set keys ::HMap-req) ts))
+                                                        (map (comp set keys :clojure.core.typed.annotator.rep/HMap-req) ts))
                                           common-tag (first
                                                        (filter
                                                          (fn [k]
                                                            (every? (fn [m]
                                                                      {:pre [(HMap? m)]}
-                                                                     (kw-val? (get (::HMap-req m) k)))
+                                                                     (kw-val? (get (:clojure.core.typed.annotator.rep/HMap-req m) k)))
                                                                    ts))
                                                          common-keys))]
                                       (when common-tag
@@ -2571,7 +2449,7 @@
                                                                   (map (comp name
                                                                              :val
                                                                              common-tag 
-                                                                             ::HMap-req)
+                                                                             :clojure.core.typed.annotator.rep/HMap-req)
                                                                        ts))
                                                             ["alias"])))))))
                                 "alias"))
@@ -2941,810 +2819,6 @@
     [t env]))
 
 (declare generate-tenv)
-
-; ppenv : Env -> nil
-(defn ppenv [env]
-  (pprint (into {}
-                (map (fn [[k v]]
-                       [k (unparse-type v)]))
-                env)))
-
-
-(defn path-root [path]
-  (-> path first :name))
-
-(defn extend-paths [paths extension]
-  (into #{}
-        (map (fn [path]
-               (conj path extension)))
-        paths))
-
-(def ^:dynamic *should-track* true)
-
-(def ^:const apply-realize-limit 20)
-
-(def ^:dynamic *track-depth* nil #_5)
-(def ^:dynamic *track-count* nil #_5)
-(def ^:dynamic *root-results* nil #_5)
-
-(def stored-call-ids (atom {}))
-
-(defn gen-call-id [paths]
-  [paths (swap! stored-call-ids update paths (fnil inc 0))])
-
-(declare track)
-
-#?(:clj
-(pot/def-map-type PersistentMapProxy [^clojure.lang.IPersistentMap m k-to-track-info config results-atom 
-                                      ;; if started as HMap tracking map, map from kw->Type
-                                      ;; for all keyword keys with keyword values
-                                      current-kw-entries-types
-                                      current-ks current-all-kws?]
-  Object
-  (toString [this] (.toString m))
-  (equals [this obj] (.equals m obj))
-
-  clojure.lang.Counted
-  (count [this] (count m))
-
-  ;; TODO (.seq this), .iterator, .vals
-  java.util.Map
-  (size [this] (.size ^java.util.Map m))
-  (containsKey [this obj] (.containsKey ^java.util.Map m obj))
-
-  (equiv [this obj]
-    (.equiv m obj))
-
-  (get [this key default-value] (if (contains? m key)
-                                  (let [v (get m key)
-                                        track-infos (get k-to-track-info key)]
-                                    (if (empty? track-infos)
-                                      ;; this entry has no relation to paths
-                                      v
-                                      (let [{:keys [paths call-ids]}
-                                            (binding [*should-track* false]
-                                              (reduce (fn [acc [{:keys [ks kw-entries-types all-kws?] :as track-info}
-                                                                {:keys [paths call-ids]}]]
-                                                        {:pre [(boolean? all-kws?)
-                                                               (set? ks)
-                                                               (map? kw-entries-types)
-                                                               (set? paths)
-                                                               (set? call-ids)]}
-                                                        (let [path-extension (if (and (keyword? key)
-                                                                                      all-kws?)
-                                                                               ;; HMap tracking
-                                                                               (key-path kw-entries-types ks key)
-                                                                               ;; homogeneous map tracking
-                                                                               ;; FIXME what about map-keys-path tracking?
-                                                                               (map-vals-path))]
-                                                          (-> acc 
-                                                              (update :call-ids into call-ids)
-                                                              (update :paths into (extend-paths paths path-extension)))))
-                                                      {:paths #{}
-                                                       :call-ids #{}}
-                                                      track-infos))]
-                                        (track config results-atom v paths call-ids))))
-                                  default-value))
-  (assoc [this key value] (PersistentMapProxy. (assoc m key value)
-                                               ;; new value has no relation to paths
-                                               (dissoc k-to-track-info key)
-                                               config
-                                               results-atom
-                                               (if (and (keyword? key)
-                                                        (keyword? value))
-                                                 (assoc current-kw-entries-types key (-val value))
-                                                 current-kw-entries-types)
-                                               (conj current-ks key)
-                                               (and current-all-kws?
-                                                    (keyword? key))))
-  (dissoc [this key] (PersistentMapProxy. (dissoc m key)
-                                          ;; new value has no relation to paths
-                                          (dissoc k-to-track-info key)
-                                          config
-                                          results-atom
-                                          (dissoc current-kw-entries-types key)
-                                          (disj current-ks key)
-                                          (or current-all-kws?
-                                              ;; might have deleted the last non-keyword key
-                                              (every? keyword? (disj current-ks key)))))
-  ;; TODO wrap
-  (keys [this] (keys m))
-  ;; TODO vals
-  (meta [this] (meta m))
-  (hashCode [this] (.hashCode ^Object m))
-  (hasheq [this] (.hasheq ^clojure.lang.IHashEq m))
-  (with-meta [this meta] (PersistentMapProxy. (with-meta m meta)
-                                              k-to-track-info
-                                              config
-                                              results-atom
-                                              current-kw-entries-types
-                                              current-ks
-                                              current-all-kws?))))
-
-(defn unwrap-value [v]
-  (if-some [[_ u] (or (-> v meta (find ::unwrapped-fn))
-                      (-> v meta (find ::unwrapped-seq))
-                      #?(:clj
-                         (when (instance? PersistentMapProxy v)
-                           [nil (.m ^PersistentMapProxy v)])))]
-    ;; values are only wrapped one level, no recursion calls needed
-    u
-    v))
-
-(def track-metric-cache (atom {}))
-
-; track : (Atom InferResultEnv) Value Path -> Value
-(defn track 
-  ([{:keys [track-depth track-count track-strategy track-metric root-results force-depth] :as config} results-atom v paths call-ids]
-   {:pre [((con/set-c? vector?) paths)
-          (seq paths)
-          ((con/set-c? vector?) call-ids)]}
-   #?(:clj
-   (when (string? track-metric)
-     (let [tm (or (get @track-metric-cache track-metric)
-                  (-> track-metric read-string eval))
-           _ (when-not (@track-metric-cache track-metric)
-               (reset! track-metric-cache {track-metric tm}))]
-       (tm (merge config 
-                  {:results-atom results-atom
-                   :v v 
-                   :paths paths 
-                   :call-ids call-ids})))))
-   (let [;FIXME memory intensive
-         #_#_
-         _ (let [hs ((juxt 
-                       #(System/identityHashCode %)
-                       class)
-                     (unwrap-value v))]
-             ;(prn "call-ids" (map (comp #(map (comp :name first) %) first) call-ids))
-             (swap! results-atom update :call-flows
-                    (fn [flows]
-                      (reduce (fn [flows call-id]
-                                (reduce (fn [flows path]
-                                          (let [vname (-> path first :name)
-                                                _ (assert (symbol? vname))]
-                                            (update-in flows [vname call-id]
-                                                       (fn [m]
-                                                         (-> m
-                                                             (update-in [:path-hashes path] (fnil conj #{}) hs)
-                                                             (update-in [:hash-occurrences hs] (fnil conj #{}) path))))))
-                                        flows
-                                        paths))
-                              flows
-                              call-ids))))
-         paths-that-exceed-root-results (let [rr (:root-results @results-atom)]
-                                          (when root-results
-                                            (filter #(< root-results (get rr (-> % first :name) 0))
-                                                    paths)))]
-     (cond
-       ((some-fn keyword? nil? false?) v)
-       (do
-         (add-infer-results! results-atom (infer-results (remove (set paths-that-exceed-root-results) paths)
-                                                         (-val v)))
-         v)
-
-       ;; cut off path
-       (or
-         (not *should-track*)
-         ;; cap at 1000 results per var
-         (seq paths-that-exceed-root-results)
-         (let [smallest-path-count (apply min (map count paths))]
-           (if (and force-depth (>= force-depth smallest-path-count))
-             false
-             (when track-depth
-               (> smallest-path-count track-depth)))))
-       ;(debug
-       ;  (println "Cut off inference at path "
-       ;           (unparse-path path)
-       ;           "(due to " (if *should-track*
-       ;                        (str "track depth of" *track-depth*
-       ;                             "being exceeded")
-       ;                        (str "disabled tracking of internal ops"))
-       ;           ")")
-         (let [;; record as unknown so this doesn't
-               ;; cut off actually recursive types.
-               _ (add-infer-results! results-atom (infer-results (remove (set paths-that-exceed-root-results) paths)
-                                                                 {:op :unknown}))]
-           (unwrap-value v))
-       ;)
-
-       ;; only accurate up to 20 arguments.
-       ;; all arities 21 and over will collapse into one.
-       (fn? v) (let [[paths unwrapped-fn] (if (-> v meta ::wrapped-fn?)
-                                            ((juxt ::paths ::unwrapped-fn) 
-                                             ;; combine paths
-                                             (update (meta v) ::paths into paths))
-                                            [paths v])
-                     _ (assert (set? paths))
-                     ;; Now, remember this value is at least a function, in case it is never invoked.
-                     ;; This will get noted redundantly for older paths, if that's
-                     ;; some kind of issue, we should remember which paths we've already noted.
-                     _ (add-infer-results! results-atom (infer-results paths (-class :ifn [])))
-                     call-ids (conj call-ids (gen-call-id paths))
-                     ;; space-efficient function wrapping
-                     wrap-fn (fn [paths unwrapped-fn]
-                               (with-meta
-                                 (fn [& args]
-                                   (let [blen (bounded-count apply-realize-limit args) ;; apply only realises 20 places
-                                         _ (when (= 0 blen)
-                                             (track config results-atom 
-                                                    -any ;ignored, just noting this is called with 0-args
-                                                    (extend-paths paths (fn-dom-path 0 -1))
-                                                    call-ids))
-                                         ;; here we throw away arities after 20 places.
-                                         ;; no concrete reason for this other than it feeling like a sensible
-                                         ;; compromise.
-                                         args (map-indexed
-                                                (fn [n arg]
-                                                  (if (< n blen)
-                                                    (track config results-atom arg
-                                                           (extend-paths paths (fn-dom-path blen n))
-                                                           call-ids)
-                                                    arg))
-                                                args)]
-                                     (track config results-atom (apply unwrapped-fn args)
-                                            (extend-paths paths (fn-rng-path blen))
-                                            call-ids)))
-                                 (merge (meta unwrapped-fn)
-                                        {::wrapped-fn? true
-                                         ::paths paths
-                                         ::unwrapped-fn unwrapped-fn})))]
-                 (wrap-fn paths v))
-
-       (list? v)
-       (let []
-         (when (empty? v)
-           (add-infer-results!
-             results-atom
-             (infer-results paths
-                           (-class :list [-nothing]))))
-         (let [res 
-               (with-meta
-                 (apply list
-                        (map (fn [e]
-                               (track config results-atom e (extend-paths paths (seq-entry))
-                                      call-ids))
-                             v))
-                 (meta v))]
-           (assert (list? res))
-           res))
-
-       (and (seq? v)
-            (not (list? v)))
-       (let [[paths unwrapped-seq paths-where-original-coll-could-be-empty]
-             (if (-> v meta ::wrapped-seq?)
-               ((juxt ::paths ::unwrapped-seq ::paths-where-original-coll-could-be-empty)
-                ;; combine paths
-                (-> (meta v)
-                    (update ::paths into paths)
-                    (update ::paths-where-original-coll-could-be-empty into paths)))
-               [paths v paths])
-             _ (assert (set? paths))
-             ;; space-efficient wrapping
-             wrap-lseq 
-             (fn wrap-lseq [unwrapped-seq paths-where-original-coll-could-be-empty]
-               (with-meta
-                 (lazy-seq
-                   (if (empty? unwrapped-seq)
-                     (let []
-                       (when (seq paths-where-original-coll-could-be-empty)
-                         (add-infer-results!
-                           results-atom
-                           (infer-results
-                             paths-where-original-coll-could-be-empty
-                             (-class :seq [-nothing]))))
-                       unwrapped-seq)
-                     (cons (track config results-atom
-                                  (first unwrapped-seq)
-                                  (extend-paths paths (seq-entry))
-                                  call-ids)
-                           (wrap-lseq (rest unwrapped-seq)
-                                      ;; collection can no longer be empty for these paths
-                                      #{}))))
-                 (merge (meta unwrapped-seq)
-                        {::wrapped-seq? true
-                         ::paths-where-original-coll-could-be-empty paths-where-original-coll-could-be-empty
-                         ::paths paths
-                         ::unwrapped-seq unwrapped-seq})))]
-         (wrap-lseq unwrapped-seq paths-where-original-coll-could-be-empty))
-
-       (instance? #?(:clj clojure.lang.ITransientVector :cljs TransientVector) v)
-       (let [cnt (count v)]
-         (reduce
-           (fn [v i]
-             (let [e (nth v i)
-                   e' (track config results-atom e
-                             (extend-paths paths (transient-vector-entry))
-                             call-ids)]
-               (if (identical? e e')
-                 v
-                 (binding [*should-track* false]
-                   (assoc! v i e')))))
-           v
-           (range cnt)))
-
-       ;; cover map entries
-       (and (vector? v) 
-            (= 2 (count v)))
-       (let [k  (track config results-atom (nth v 0) (extend-paths paths (index-path 2 0)) call-ids)
-             vl (track config results-atom (nth v 1) (extend-paths paths (index-path 2 1)) call-ids)]
-         (assoc v 0 k 1 vl))
-
-       (vector? v)
-       (let [heterogeneous? (<= (count v) 4)
-             len (count v)
-             so-far (atom 0)]
-         (when (= 0 len)
-           (add-infer-results! results-atom (infer-results paths (-class :vector [-nothing]))))
-         (reduce
-           (fn [e [k v]]
-             (swap! so-far inc)
-             (let [v' (track config results-atom v (extend-paths 
-                                                     paths 
-                                                     (if heterogeneous?
-                                                       (index-path len k)
-                                                       (vec-entry-path)))
-                             call-ids)]
-               (cond
-                 (when-let [tc track-count]
-                   (< tc @so-far)) 
-                 (reduced (binding [*should-track* false]
-                            (assoc e k v')))
-
-                 (identical? v v') e
-                 :else
-                 (binding [*should-track* false]
-                   (assoc e k v')))))
-           v
-           (map-indexed vector v)))
-
-       (set? v)
-       (do
-         (when (empty? v)
-           (add-infer-results!
-             results-atom
-             (infer-results paths
-                           (-class :set [-nothing]))))
-         ;; preserve sorted sets
-         (binding [*should-track* false]
-           (into (empty v)
-                 (map (fn [e]
-                        (binding [*should-track* true]
-                          (track config results-atom e (extend-paths paths (set-entry))
-                                 call-ids))))
-                 v)))
-
-       #?(:clj (instance? PersistentMapProxy v))
-       #?(:clj
-       (let [^PersistentMapProxy v v
-             ks (.current-ks v)
-             _ (assert (set? ks))
-             all-kws? (.current-all-kws? v)
-             _ (assert (boolean? all-kws?))
-             kw-entries-types (.current-kw-entries-types v)
-             _ (assert (map? kw-entries-types))
-             track-info {:all-kws? all-kws?
-                         :ks ks
-                         :kw-entries-types kw-entries-types}]
-         ;; TODO do we update the config/results-atom? What if they're different than the proxy's?
-         (PersistentMapProxy. (.m v)
-                              (reduce (fn [m k]
-                                        (update-in m [k track-info]
-                                                   #(merge-with (fnil into #{})
-                                                                %
-                                                                {:paths paths
-                                                                 :call-ids call-ids})))
-                                      (.k-to-track-info v)
-                                      ;; FIXME we should remove known kw entries
-                                      ks)
-                              (.config v)
-                              (.results-atom v)
-                              (.current-kw-entries-types v)
-                              (.current-ks v)
-                              (.current-all-kws? v))))
-
-       #?(:clj
-           (or (instance? clojure.lang.PersistentHashMap v)
-               (instance? clojure.lang.PersistentArrayMap v)
-               (instance? clojure.lang.PersistentTreeMap v))
-          :cljs (map? v))
-       (let [ks (set (keys v))]
-         (when (empty? v)
-           (add-infer-results!
-             results-atom
-             (infer-results paths (parse-literal-HMap {}))))
-         (cond
-           (every? keyword? ks)
-           (let [{with-kw-val true
-                  no-kw-val false}
-                 (binding [*should-track* false]
-                   (group-by (fn [e]
-                               (keyword? (val e)))
-                             v))
-                 kw-entries-types
-                 (into {}
-                       (map (fn [[k v]]
-                              {:pre [(keyword? v)]}
-                              [k (-val v)]))
-                       with-kw-val)
-                 ;; we rely on the no-kw-val map to
-                 ;; track the simple keyword entries -- if there
-                 ;; are none, just pick one of the kw-entries-types
-                 ;; and track it.
-                 _ (when (and (empty? no-kw-val)
-                              (seq kw-entries-types))
-                     (let [k (key (first kw-entries-types))]
-                       (track config results-atom (get v k)
-                              (binding [*should-track* false]
-                                (extend-paths paths (key-path kw-entries-types ks k)))
-                              call-ids)))
-                 v #?(:cljs v
-                      :clj (if (= track-strategy :lazy)
-                             (PersistentMapProxy. v
-                                                  (zipmap (apply disj ks with-kw-val)
-                                                          (repeat {{:all-kws? true
-                                                                    :kw-entries-types kw-entries-types
-                                                                    :ks ks}
-                                                                   {:paths paths
-                                                                    :call-ids call-ids}}))
-                                                  config
-                                                  results-atom
-                                                  kw-entries-types
-                                                  ks
-                                                  true)
-                             v))]
-             (reduce
-               (fn [m [k orig-v]]
-                 (let [v (track config results-atom orig-v
-                                (binding [*should-track* false]
-                                  (extend-paths paths (key-path kw-entries-types ks k)))
-                                call-ids)]
-                   (cond
-                     ;; only assoc if needed
-                     (identical? v orig-v) m
-
-                     :else
-                     (binding [*should-track* false]
-                       (assoc m k v)))))
-               v
-               no-kw-val))
-
-           :else
-           (let [so-far (atom 0)
-                 v #?(:cljs v
-                      :clj (if (= track-strategy :lazy)
-                             (PersistentMapProxy. v
-                                                  (zipmap ks (repeat {{:all-kws? false
-                                                                       :kw-entries-types {}
-                                                                       :ks ks}
-                                                                      {:paths paths
-                                                                       :call-ids call-ids}}))
-                                                  config
-                                                  results-atom
-                                                  {}
-                                                  ks
-                                                  false)
-                             v))]
-             (reduce
-               (fn [m k]
-                 (swap! so-far inc)
-                 (let [orig-v (get m k)
-                       [new-k v] 
-                       (cond
-                         ;; We don't want to pollute the HMap-req-ks with
-                         ;; non keywords (yet), disable.
-                         ;(keyword? k)
-                         ;[k (track config results-atom orig-v
-                         ;          (binding [*should-track* false]
-                         ;            (extend-paths paths (key-path {} ks k))))]
-
-                         :else 
-                         [(track config results-atom k
-                                 (binding [*should-track* false]
-                                   (extend-paths paths (map-keys-path)))
-                                 call-ids)
-                          (track config results-atom orig-v
-                                 (binding [*should-track* false]
-                                   (extend-paths paths (map-vals-path)))
-                                 call-ids)])]
-                   (cond
-                     ; cut off homogeneous map
-                     (when-let [tc *track-count*]
-                       (< tc @so-far))
-                     (reduced
-                       (binding [*should-track* false]
-                         (-> m
-                             ;; ensure we replace the key
-                             (dissoc k)
-                             (assoc new-k v))))
-
-                     ;; only assoc if needed
-                     (identical? v orig-v) m
-
-                     ;; make sure we replace the key
-                     (not (identical? new-k k))
-                     (binding [*should-track* false]
-                       (-> m
-                           (dissoc k)
-                           (assoc new-k v)))
-
-                     :else
-                     (binding [*should-track* false]
-                       (assoc m new-k v)))))
-               v
-               (keys v)))))
-
-        (instance? #?(:clj clojure.lang.IAtom :cljs Atom) v)
-        (let [old-val (-> v meta :clojure.core.typed/old-val)
-              new-paths (binding [*should-track* false]
-                         (extend-paths paths (atom-contents)))
-              should-track? (binding [*should-track* false]
-                              (not= @v old-val))
-              _ (when should-track?
-                  (track config results-atom @v new-paths
-                         call-ids))
-              #_#_
-              _ (binding [*should-track* false]
-                  (add-watch
-                    v
-                    new-paths
-                    (fn [_ _ _ new]
-                      (binding [*should-track* true]
-                        (track config results-atom new new-paths
-                               call-ids)))))]
-          v)
-
-       :else (do
-               (add-infer-results! results-atom (infer-results paths (-class (classify v) [])))
-               v)))))
-
-(declare gen-track-config)
-
-#?(:cljs
-(defn track-cljs-val [v root]
-  (track (gen-track-config)
-         results-atom
-         v
-         #{[(var-path
-              'root
-              root)]}
-         #{})))
-
-#?(:clj
-(def prim-invoke-interfaces
-  (into #{}
-        (->>
-          (map (fn [ss] (apply str ss))
-               (apply concat
-                      (for [n (range 1 6)]
-                        (apply comb/cartesian-product (repeat n [\D \O \L])))))
-          (remove (fn [ss]
-                    (every? #{\O} ss)))))))
-
-#?(:clj
-(defn char->tag [c]
-  {:pre [(char? c)]
-   :post [(symbol? %)]}
-  (case c
-    \L 'long
-    \D 'double
-    \O 'java.lang.Object)))
-
-#?(:clj
-(defn tag->char [t]
-  {:pre [((some-fn nil? symbol?) t)]
-   :post [(char? %)]}
-  (case t
-    long \L
-    double \D
-    \O)))
-
-#?(:clj
-(defn gen-prim-invokes [f-this prims]
-  ;(prn "gen-prim-invokes" prims)
-  (mapcat
-    (fn [p]
-      {:pre [(string? p)]}
-      (let [args (into []
-                       (map-indexed
-                         (fn [n c]
-                           (-> (symbol (str "arg" n))
-                               #_(vary-meta 
-                                 assoc :tag (char->tag c)))))
-                       (butlast p))
-            interface (symbol (str "clojure.lang.IFn$" p))
-            rettag (char->tag (nth p (dec (count p))))
-            ;_ (prn "rettag" rettag)
-            this (gensym 'this)
-            argvec (-> (vec (cons this args))
-                       #_(vary-meta assoc :tag rettag))]
-        #_
-        (binding [*print-meta* true]
-          (prn "argvec" argvec))
-        [interface
-         (list 'invokePrim argvec
-               `(~(f-this this) ~@(map #(with-meta % nil) args)))]))
-    prims)))
-
-#?(:clj
-(defn gen-nonvariadic-invokes [f-this]
-  (for [arity (range 0 20),
-        :let [args (repeatedly arity gensym)
-              this (gensym 'this)]]
-    `(~'invoke [~this ~@args]
-       (~(f-this this) ~@args)))))
-
-#?(:clj
-(defn gen-variadic-invoke [f-this]
-  (let [args (repeatedly 21 gensym)
-        this (gensym 'this)]
-    `(~'invoke [~this ~@args] (apply ~(f-this this) ~@args)))))
-
-#?(:clj
-(defn gen-apply-to [f-this]
-  (let [this (gensym 'this)]
-    `(~'applyTo [~this args#] (apply ~(f-this this) args#)))))
-
-#?(:clj
-(defn extend-IFn [f-this prims]
-  `(clojure.lang.IFn
-    ~@(gen-nonvariadic-invokes f-this)
-    ~(gen-variadic-invoke f-this)
-    ~(gen-apply-to f-this)
-    ~@(gen-prim-invokes f-this prims))))
-
-#?(:clj
-(defmacro deftypefn
-  "Like deftype, but accepts a function f before any specs that is
-  used to implement clojure.lang.IFn.  f should accept at least one
-  argument, 'this'."
-  [name prims & opts+specs]
-  (let [field 'f
-        f-this (fn [this]
-                 (list '. this (symbol (str "-" field))))
-        source `(deftype ~name [~field]
-                  ~@(extend-IFn f-this prims)
-                  ~@opts+specs)]
-    #_
-    (binding [*print-meta* true]
-      (pprint source))
-    source)))
-
-#?(:clj
-(def this-ns *ns*))
-
-#?(:clj
-(defn arglist-prim-string [args]
-  {:pre [(vector? args)]
-   :post [((some-fn nil? string?) %)]}
-  (let [s (apply str
-            (concat
-              (->> args
-                   (map (comp :tag meta))
-                   (map tag->char))
-              [(tag->char (-> args meta :tag))]))]
-    (when (prim-invoke-interfaces s)
-      s))))
-
-#?(:clj
-(defn wrap-prim [vr f]
-  {:pre [(var? vr)]}
-  ;(prn "wrap-prim" vr)
-  (let [prim-arglists 
-        (sort
-          (->> (-> vr meta :arglists)
-               (map arglist-prim-string)
-               (filter string?)))]
-    (cond
-      (seq prim-arglists)
-      (let [type-name (symbol
-                        (str "PrimFn"
-                             (apply str
-                                    (interpose
-                                      "_"
-                                      prim-arglists))))
-            ;_ (prn "type-name" type-name)
-            cls (or #_(ns-resolve this-ns type-name)
-                    (binding [*ns* this-ns]
-                      (eval
-                        `(deftypefn ~type-name ~prim-arglists))))
-            _ (assert (class? cls))
-            ctor (ns-resolve this-ns 
-                             (symbol
-                               (str "->" type-name)))
-            _ (assert (var? ctor))]
-        (ctor f))
-      
-      :else f))))
-
-(defn gen-track-config []
-  (merge 
-    {:track-strategy :lazy
-     :track-depth *track-depth*
-     :track-count *track-count*
-     :root-results *root-results*}
-    vs/*instrument-infer-config*))
-
-; track-var : (IFn [Var -> Value] [(Atom Result) Var Sym -> Value])
-#?(:clj
-(defn track-var'
-  ([vr] (track-var' (gen-track-config) results-atom vr *ns*))
-  ([config vr] (track-var' config results-atom vr *ns*))
-  ([config results-atom vr ns]
-   {:pre [(var? vr)
-          (instance? #?(:clj clojure.lang.IAtom :cljs Atom) results-atom)]}
-   ;(prn "tracking" vr "in ns" ns)
-   (wrap-prim
-     vr
-     (track config
-            results-atom @vr #{[(var-path
-                                  (ns-name (the-ns ns))
-                                  (impl/var->symbol vr))]}
-            #{})))))
-
-#?(:clj
-(defmacro track-var [v]
-  `(track-var' (var ~v))))
-
-; track-def-init : Sym Sym Value -> Value
-#?(:clj 
-(defn track-def-init [config vsym ns val]
-  {:pre [(symbol? vsym)
-         (namespace vsym)]}
-  ;(prn "track-def-init")
-  (let [v (ns-resolve ns vsym)]
-    ;(prn v)
-    (wrap-prim
-      v
-      (track config
-             results-atom val 
-             #{[{:op :var
-                 :ns (ns-name ns)
-                 :name vsym}]}
-             #{})))))
-
-#?(:clj 
-(defn track-local-fn [config track-kind line column end-line end-column ns val]
-  {:pre [(#{:local-fn :loop-var} track-kind)]}
-  #_
-  (prn "track-local-fn" 
-       (symbol
-         (str (ns-name ns)
-              "|"
-              line
-              "|"
-              column
-              "|"
-              end-line
-              "|"
-              end-column)))
-  (track config
-         results-atom val 
-         #{[{:op :var
-             ::track-kind track-kind
-             :line line
-             :column column
-             :end-line end-line
-             :end-column end-column
-             :ns (ns-name ns)
-             :name (with-meta
-                     (symbol
-                       (str (ns-name ns)
-                            "|"
-                            line
-                            "|"
-                            column
-                            "|"
-                            end-line
-                            "|"
-                            end-column))
-                     {::track-kind track-kind
-                      :line line
-                      :column column
-                      :end-line end-line
-                      :end-column end-column
-                      :ns (ns-name ns)})}]}
-         #{})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Analysis compiler pass
@@ -4423,8 +3497,8 @@
                                                              {:pre [(HMap? hmap)]}
                                                              (set
                                                                (filter namespace
-                                                                       (concat (keys (::HMap-req hmap))
-                                                                               (keys (::HMap-opt hmap))))))
+                                                                       (concat (keys (:clojure.core.typed.annotator.rep/HMap-req hmap))
+                                                                               (keys (:clojure.core.typed.annotator.rep/HMap-opt hmap))))))
                                                 ]
                                           (case (:op t)
                                             :HMap (map (fn [qkey]
@@ -4470,7 +3544,7 @@
                                                 %)]}
                                        (when (kw-val? t)
                                          [k (:val t)]))
-                                     (::HMap-req t)))]))
+                                     (:clojure.core.typed.annotator.rep/HMap-req t)))]))
                 (filter (comp seq second)))
               hmap-aliases)
         all-tags (mapcat (fn [ts]
@@ -4632,9 +3706,9 @@
                                                        camel-case
                                                        (concat
                                                          (sort
-                                                           (map name (keys (::HMap-req t))))
+                                                           (map name (keys (:clojure.core.typed.annotator.rep/HMap-req t))))
                                                          (sort
-                                                           (map name (keys (::HMap-opt t))))))
+                                                           (map name (keys (:clojure.core.typed.annotator.rep/HMap-opt t))))))
                                       a-new (gen-unique-alias-name
                                               env config
                                               (symbol
@@ -5028,11 +4102,11 @@
                                                [env ts] (accumulate-env ensure-alias-for-spec-keys env config es)
                                                es (zipmap (keys es) ts)]
                                            [env es]))
-                  [env req] (process-HMap-entries env (::HMap-req m))
-                  [env opt] (process-HMap-entries env (::HMap-opt m))]
+                  [env req] (process-HMap-entries env (:clojure.core.typed.annotator.rep/HMap-req m))
+                  [env opt] (process-HMap-entries env (:clojure.core.typed.annotator.rep/HMap-opt m))]
               [env (assoc m
-                          ::HMap-req req
-                          ::HMap-opt opt)])
+                          :clojure.core.typed.annotator.rep/HMap-req req
+                          :clojure.core.typed.annotator.rep/HMap-opt opt)])
       (:class :unresolved-class) (recur-vec-entry env m :args)
       :IFn (recur-vec-entry env m :arities)
       :IFn1 (let [[env m] (recur-vec-entry env m :dom)
@@ -5368,8 +4442,8 @@
                  :HMap (into []
                              (mapcat fv)
                              (concat
-                               (-> v ::HMap-req vals)
-                               (-> v ::HMap-opt vals)))
+                               (-> v :clojure.core.typed.annotator.rep/HMap-req vals)
+                               (-> v :clojure.core.typed.annotator.rep/HMap-opt vals)))
                  :HVec (into []
                              (mapcat fv)
                              (-> v :vec))
@@ -5463,13 +4537,13 @@
                                                                               (fn [c]
                                                                                 (cond
                                                                                   (when (= :class (:op c))
-                                                                                    (let [^Class inst (::class-instance c)
+                                                                                    (let [^Class inst (:clojure.core.typed.annotator.rep/class-instance c)
                                                                                           _ (assert (class? inst))
                                                                                           nme (.getName inst)]
                                                                                       (and (not (.startsWith nme "clojure.lang"))
                                                                                            (not (.startsWith nme "java.lang")))))
                                                                                   {:op :unresolved-class
-                                                                                   ::class-string (let [^Class inst (::class-instance c)]
+                                                                                   ::class-string (let [^Class inst (:clojure.core.typed.annotator.rep/class-instance c)]
                                                                                                     (.getName inst))
                                                                                    :args (:args c)}
                                                                                   :else c)))))))

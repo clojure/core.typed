@@ -157,3 +157,26 @@
   {:pre [(symbol? s)]
    :post [(symbol? %)]}
   (qualify-symbol-in 'clojure.core s))
+
+; classify : Any -> Kw
+(defn classify [v]
+  {:pre [(some? v)]}
+  (cond
+    ;(nil? v) :nil
+    (char? v) :char
+    (int? v) :int
+    (integer? v) :integer
+    #?@(:clj [(decimal? v) :decimal])
+    (number? v) :number
+    (vector? v) :vector
+    (map? v) :map
+    (boolean? v) :boolean
+    (keyword? v) :keyword
+    (symbol? v) :symbol
+    (string? v) :string
+    (fn? v) :ifn
+    (coll? v) :coll
+    (seqable? v) :seqable
+    #?@(:clj [(instance? clojure.lang.ITransientCollection v) :transient])
+    :else #?(:clj (.getName (class v))
+             :cljs (goog/typeOf v))))
