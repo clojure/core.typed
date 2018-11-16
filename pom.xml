@@ -31,6 +31,12 @@
       <artifactId>core.async</artifactId>
       <version>0.3.465</version>
       <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>clojure</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <!-- cljs.core.typed.async -->
     <dependency>
@@ -38,6 +44,12 @@
       <artifactId>clojurescript</artifactId>
       <version>0.0-2311</version>
       <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>clojure</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 </project>
