@@ -1,3 +1,7 @@
+# 0.7.0 - SNAPSHOT
+
+- moved to core.typed.checker.jvm
+
 # 0.6.0 - 8 November 2018
 
 - Breaking: Removed deprecated/replaced macros (since 0.2.45) to improve future loading times
