@@ -21,12 +21,11 @@
     <version>0.2.2</version>
   </parent>
 
+  <properties>
+    <clojure.version>1.9.0</clojure.version>
+  </properties>
+
   <dependencies>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojure</artifactId>
-      <version>1.9.0</version>
-    </dependency>
     <!-- clojure.core.typed.async -->
     <dependency>
       <groupId>org.clojure</groupId>
