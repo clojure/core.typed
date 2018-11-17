@@ -38,24 +38,6 @@
       <version>1.10.439</version>
       <scope>provided</scope>
     </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>0.3.465</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>tools.analyzer.jvm</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.6.1-SNAPSHOT</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 </project>
 

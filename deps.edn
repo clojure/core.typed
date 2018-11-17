@@ -7,10 +7,7 @@
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
            :test
-           {:extra-paths ["src/test/clojure"]
-            :extra-deps {org.clojure/core.async {:mvn/version "0.3.465"
-                                                 :exclusions [org.clojure/tools.analyzer.jvm]}
-                         org.clojure/core.typed.rt {:mvn/version "0.5.5"}}}
+           {:extra-paths ["src/test/clojure"]}
            :runner
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"

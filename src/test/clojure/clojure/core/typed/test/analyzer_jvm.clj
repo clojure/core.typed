@@ -32,6 +32,7 @@
   (is (= "a"
          (:result (ast (.toString (reify Object (toString [this] "a")))))))
   (is (= 2 (:result (ast (#(inc %) 1)))))
+  #_
   (is (->
         (ast (do (ns bar
                    (:require [clojure.core.typed :as t]))
@@ -46,6 +47,7 @@
   )
 
 (deftest async-test
+  #_
   (is (-> (ast (do (ns asdfasdf
                      (:require [clojure.core.async :as a]
                                [clojure.core.typed.async :refer [go chan]]))
