@@ -5,7 +5,7 @@
   <artifactId>core.typed.analyzer.jvm</artifactId>
   <description>A variant of tools.analyzer.jvm.</description>
   <name>core.typed.analyzer.jvm</name>
-  <version>0.7.0</version>
+  <version>0.7.1-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -39,9 +39,5 @@
       <scope>provided</scope>
     </dependency>
   </dependencies>
-
-  <scm>
-    <tag>core.typed.analyzer.jvm-0.7.0</tag>
-  </scm>
 </project>
 
