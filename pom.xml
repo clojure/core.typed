@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed.annotator.jvm</artifactId>
-  <version>0.7.0</version>
+  <version>0.7.1-SNAPSHOT</version>
   <description>Runtime type inference algorithm for core.typed and clojure.spec.</description>
   <name>core.typed.annotator.jvm</name>
 
@@ -130,9 +130,5 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
-  <scm>
-    <tag>core.typed.annotator.jvm-0.7.0</tag>
-  </scm>
 </project>
 
