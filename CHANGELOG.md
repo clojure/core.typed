@@ -1,6 +1,7 @@
-# 0.7.0 - SNAPSHOT
+# 0.7.0 - 17 November 2018
 
-- moved to core.typed.checker.jvm
+- split `org.clojure/core.typed.runtime.jvm` out from core.typed, replaces
+  old `org.clojure/core.typed.rt` coordinate.
 
 # 0.6.0 - 8 November 2018
 
