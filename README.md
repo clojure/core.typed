@@ -6,8 +6,9 @@ Optional typing in Clojure, as a library.
 
 ## Split into smaller repositories
 
-This repository has been split into smaller repositories.
-See UPDATING.md for upgrading.
+This repository has been split into smaller repositories and will
+no longer be updated.
+See [UPGRADING.md](UPGRADING.md) for instructions on upgrading.
 
 * [core.typed.runtime.jvm](https://github.com/clojure/core.typed.runtime.jvm): Runtime dependencies
 * [core.typed.checker.jvm](https://github.com/clojure/core.typed.checker.jvm): The type checker
