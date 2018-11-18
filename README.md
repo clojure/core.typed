@@ -4,6 +4,34 @@
 
 Automatic annotator for Typed Clojure and clojure.spec annotations, for JVM Clojure.
 
+## Releases and Dependency Information
+
+Latest stable release is 0.7.0.
+
+* [All Released Versions](https://search.maven.org/search?q=g:org.clojure%20AND%20a:core.typed.annotator.jvm)
+
+[deps.edn](https://clojure.org/reference/deps_and_cli) dependency information:
+
+```clj
+  org.clojure/core.typed.annotator.jvm {:mvn/version "0.7.0"}
+ ```
+
+[Leiningen](https://github.com/technomancy/leiningen) dependency information:
+
+```clojure
+[org.clojure/core.typed.annotator.jvm "0.7.0"]
+```
+
+[Maven](https://maven.apache.org/) dependency information:
+
+```XML
+<dependency>
+  <groupId>org.clojure</groupId>
+  <artifactId>core.typed.annotator.jvm</artifactId>
+  <version>0.7.0</version>
+</dependency>
+```
+
 ## YourKit
 
 YourKit is kindly supporting core.typed and other open source projects with its full-featured Java Profiler.

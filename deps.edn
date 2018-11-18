@@ -1,10 +1,8 @@
 {:paths ["src/main/clojure"
          "src/main/cljc"
          "src/main/java"]
- :deps {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
-                                            :sha "e8d7a02b2a40549f8de20b36b204d22149decf79"}
-        org.clojure/core.typed.checker.jvm {:git/url "https://github.com/clojure/core.typed.checker.jvm.git"
-                                            :sha "ccd5cd61a6a830c45f8c5d6a16cf7f18a0790a88"}
+ :deps {org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.0"}
+        org.clojure/core.typed.checker.jvm {:mvn/version "0.7.0"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
@@ -13,7 +11,13 @@
         ;; can't vendor this as it includes Java sources that need to be compiled.
         ;; perhaps we can make it optional in the future.
         potemkin {:mvn/version "0.4.5"}}
- :aliases {; profile for testing
+ :aliases {:HEAD
+           {:extra-deps
+            {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
+                                                 :sha "a2c8e17965ac96c4ae3e9c6483d5c1c7051783ef"}
+             org.clojure/core.typed.checker.jvm {:git/url "https://github.com/clojure/core.typed.checker.jvm.git"
+                                                 :sha "bcc0d3bdef97d7aaf23a5ce5682b4e06d6a9f01f"}}}
+           ; profile for testing
            :test
            {:extra-paths ["src/test/clojure"]
             :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
