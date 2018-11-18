@@ -1,17 +1,22 @@
 {:paths ["src/main/clojure"]
- :deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
-        org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
-                                            :sha "11370405143a8214b1f4ceb292e3144d476249b0"
-                                            :deps/manifest :deps}
-        org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/clojure/core.typed.analyzer.jvm.git"
-                                             :sha "b5d7164bdde2177873c98ddf209abe873faf10fc"
-                                             :deps/manifest :deps}
+ :deps {org.clojure/clojure {:mvn/version "1.9.0"}
+        org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.0"}
+        org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.0"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/core.cache {:mvn/version "0.6.5"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
                                         :exclusions [org.clojure/clojure]}}
- :aliases {:nREPL
+ :aliases {:HEAD
+           {:extra-deps
+            {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
+             org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
+                                                 :sha "a2c8e17965ac96c4ae3e9c6483d5c1c7051783ef"
+                                                 :deps/manifest :deps}
+             org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/clojure/core.typed.analyzer.jvm.git"
+                                                  :sha "f30e7431f643701f13317ab7b4bcbbde74a47c48"
+                                                  :deps/manifest :deps}}
+           :nREPL
            {:extra-paths ["script"]
             :extra-deps
             {nrepl/nrepl {:mvn/version "0.4.5"}

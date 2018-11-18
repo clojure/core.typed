@@ -1,3 +1,8 @@
+# 0.7.0 - 17 November 2018
+
+- split out `org.clojure/core.typed.checker.jvm` from core.typed, replacing
+  `org.clojure/core.typed` coordinate.
+
 # 0.6.0 - 8 November 2018
 
 - Breaking: Removed deprecated/replaced macros (since 0.2.45) to improve future loading times
