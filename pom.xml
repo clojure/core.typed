@@ -84,7 +84,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.checker.jvm</artifactId>
-      <version>0.6.1-SNAPSHOT</version>
+      <version>0.7.0</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
