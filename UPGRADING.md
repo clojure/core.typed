@@ -1,3 +1,16 @@
+# Upgrading from 0.6.x to split repository
+
+## Update packages
+
+- update `[org.clojure/core.typed "0.6.x"]` to `[org.clojure/core.typed.checker.jvm "0.7.0"]`
+  - follow updates at [core.typed.checker.jvm](https://github.com/clojure/core.typed.checker.jvm)
+- update `[org.clojure/core.typed.rt "0.6.x"]` to `[org.clojure/core.typed.runtime.jvm "0.7.0"]`
+  - follow updates at [core.typed.runtime.jvm](https://github.com/clojure/core.typed.runtime.jvm)
+- update `[org.clojure/core.typed.infer "0.6.x"]` to `[org.clojure/core.typed.annotator.jvm "0.7.0"]`
+  - follow updates at [core.typed.annotator.jvm](https://github.com/clojure/core.typed.annotator.jvm)
+- update `[org.clojure/core.typed.analyzer.jvm "0.6.x"]` to `[org.clojure/core.typed.analyzer.jvm "0.7.0"]`
+  - follow updates at [core.typed.analyzer.jvm](https://github.com/clojure/core.typed.analyzer.jvm): Analyzer
+
 # Upgrading from 0.2.x
 
 ## Renamed macros

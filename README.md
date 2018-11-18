@@ -4,6 +4,16 @@
 
 Optional typing in Clojure, as a library.
 
+## Split into smaller repositories
+
+This repository has been split into smaller repositories.
+See UPDATING.md for upgrading.
+
+* [core.typed.runtime.jvm](https://github.com/clojure/core.typed.runtime.jvm): Runtime dependencies
+* [core.typed.checker.jvm](https://github.com/clojure/core.typed.checker.jvm): The type checker
+* [core.typed.annotator.jvm](https://github.com/clojure/core.typed.annotator.jvm): Automatic annotator
+* [core.typed.analyzer.jvm](https://github.com/clojure/core.typed.analyzer.jvm): Analyzer
+
 ## Releases and Dependency Information
 
 Latest stable release is 0.6.0.
