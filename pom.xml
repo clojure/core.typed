@@ -5,7 +5,7 @@
   <artifactId>core.typed.checker.jvm</artifactId>
   <description>An optional type system for Clojure — full system for annotating and type-checking.</description>
   <name>core.typed.checker.jvm</name>
-  <version>0.7.0</version>
+  <version>0.7.1-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -151,8 +151,4 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
-  <scm>
-    <tag>core.typed.checker.jvm-0.7.0</tag>
-  </scm>
 </project>
