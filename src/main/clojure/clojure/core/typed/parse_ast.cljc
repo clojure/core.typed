@@ -599,7 +599,7 @@
 
 (defn parse-I 
   [[_I_ & args]]
-  {:op (if (empty? args) :U :I) ; normalise (I) to (U)
+  {:op :I
    :types (mapv parse args)
    :children [:types]})
 
