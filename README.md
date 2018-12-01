@@ -32,6 +32,21 @@ Latest stable release is 0.7.0.
 </dependency>
 ```
 
+## Differences from tools.analyzer.jvm
+
+core.typed.analyzer.jvm is a heavily modified variant of tools.analyzer.jvm.
+If you're familiar with the latter, here's what this library does differently.
+
+- Adds an `:unanalyzed` AST node that just holds a `:form` and `:env`.
+- Forms are analyzed lazily, with `:unanalyzed` nodes being used for immediate children.
+- `:unanalyzed` nodes support a `:clojure.core.typed.analyzer/config` entry which will be associated
+  onto whatever node it becomes when analyzed.
+- `clojure.tools.analyzer.env` is not used.
+- `resolve-{sym,ns}` are now dynamic variables that are implemented for each platform.
+- `run-passes` only supports a single pass
+- `uniquify-locals` is a default pass that is compatible with `:unanalyzed` nodes
+- Gilardi scenario should be handled manually (e.g., see `{pre,post}-gilardi}` functions in core.typed.checker.jvm, might be moved here)
+
 ## License
 
 Copyright © Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.

@@ -151,7 +151,7 @@
    ::config {}})
 
 (defn analyze-outer
-  ""
+  "If ast is :unanalyzed, then analyze it, otherwise returns ast."
   [ast]
   {:post [(not= :unanalyzed (:op %))]}
   (case (:op ast)
