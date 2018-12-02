@@ -7,7 +7,16 @@
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
                                         :exclusions [org.clojure/clojure]}}
- :aliases {:HEAD
+ :aliases {; eg. if this repo is in ~/Projects/core.typed.checker.jvm, clone in these directories:
+           ; - ~/Projects/core.typed.runtime.jvm
+           ; - ~/Projects/core.typed.analyzer.jvm
+           :local-dev
+           {:extra-deps
+            {org.clojure/core.typed.runtime.jvm {:local/root "../core.typed.runtime.jvm"
+                                                 :deps/manifest :deps}
+             org.clojure/core.typed.analyzer.jvm {:local/root "../core.typed.analyzer.jvm"
+                                                  :deps/manifest :deps}}}
+           :HEAD
            {:extra-deps
             {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
              org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
@@ -35,7 +44,7 @@
             {com.bhauman/rebel-readline {:mvn/version "0.1.4"}}
             :main-opts ["-m" "start-repl"]}
 
-           :clj-1.10.0-beta5 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}}}
+           :clj-latest {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-RC2"}}}
            :test
            {:extra-paths ["src/test/clojure"
                           "src/test/resources"]
