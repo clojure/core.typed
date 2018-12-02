@@ -1,4 +1,4 @@
-(defproject org.typedclojure/core.typed.lang.jvm "0.7.0-SNAPSHOT"
+(defproject org.typedclojure/core.typed.lang.jvm "0.7.0"
   :description "Extensible languages in Clojure, a la Racket's #lang."
   :url "https://github.com/typedclojure/core.typed.lang.jvm"
   :license {:name "Eclipse Public License"
