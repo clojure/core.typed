@@ -1,8 +1,5 @@
 (ns clojure.core.typed.test.ctyp-284
   (:require [clojure.test :refer :all]
-            [clojure.core.typed.load :as load]
-            [clojure.core.typed.lang :as lang]
-            [clojure.core.typed.errors :as err]
             [clojure.core.typed.test.test-utils :refer :all]))
 
 (deftest transitive-no-reload
