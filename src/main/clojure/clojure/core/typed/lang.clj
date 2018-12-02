@@ -27,8 +27,9 @@
           {:lang :new-impl})
       will use `my-load` to load the file.
   "
-  (:require [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
-            [clojure.core.typed.current-impl :as impl]))
+  (:require [clojure.tools.namespace.file :as ns-file]
+            [clojure.tools.namespace.parse :as ns-parse]
+            [clojure.java.io :as io]))
 
 ; (Map Kw (HMap :optional {:eval [Any -> Any], 
 ;                          :load [Str -> nil]}))
@@ -48,15 +49,50 @@
   [form]
   (. clojure.lang.Compiler (eval form)))
 
+(defn- ns-form-for-file
+  "Returns the namespace declaration for the file, or
+  nil if not found"
+  [file]
+  (some-> (io/resource file)
+          (ns-file/read-file-ns-decl ns-parse/clj-read-opts)))
+
+(defn- take-when
+  "When pred is true of the head of seq, return [head tail]. Otherwise
+  [nil seq]. Used as a helper for parsing optinal typed elements out
+  of sequences. Say docstrings out of argument seqs."
+  [pred seq]
+  (if (pred (first seq))
+    ((juxt first rest) seq)
+    [nil seq]))
+
+(defn- ns-form-name
+  "Returns the symbol naming this namespace, with any
+  metadata attached."
+  [ns-form]
+  {:post [(symbol? %)]}
+  (let [ns-form (next ns-form)
+        [nsym ns-form] (take-when symbol? ns-form)
+        _ (when-not (symbol? nsym)
+            (throw (ex-info "Malformed ns form" {})))
+        [docstr ns-form]  (take-when string? ns-form)
+        [metamap ns-form] (take-when map? ns-form)]
+    (if (map? metamap)
+      (vary-meta nsym merge metamap)
+      nsym)))
+
+(defn- ns-meta
+  "Returns the metadata map for this namespace"
+  [ns-form]
+  (meta (ns-form-name ns-form)))
+
 ; [Str -> Any]
 (defn file-lang
   "Returns the :lang entry in ns form in the given namespace."
   [res]
-  (impl/with-clojure-impl
-    (some-> res 
-            ns-utils/ns-form-for-file 
-            ns-utils/ns-meta 
-            :lang)))
+  (some-> res 
+          ns-form-for-file 
+          ns-meta 
+          :lang))
 
 ; [Namespace -> Any]
 (defn ns-lang
