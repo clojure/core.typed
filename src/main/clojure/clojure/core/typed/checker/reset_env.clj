@@ -8,7 +8,6 @@
 
 (ns ^:skip-wiki clojure.core.typed.checker.reset-env
   (:require [clojure.core.typed.checker.jvm.base-env :as bse-clj]
-            [clojure.core.typed.checker.jvm.ns-deps :as deps]
             [clojure.core.typed.checker.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.jvm.mm-env :as mmenv]))
@@ -25,14 +24,12 @@
       :clojure
       (do (bse-clj/reset-clojure-envs!)
           (mmenv/reset-mm-dispatch-env!)
-          (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))
       :cljs
       (do
         (assert cljs? "No ClojureScript dependency")
         (when cljs?
           (@reset-cljs-envs!)
-          (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
     nil)))
 
@@ -46,7 +43,6 @@
       :clojure
       (do (bse-clj/refresh-core-clojure-envs!)
           ;(mmenv/reset-mm-dispatch-env!)
-          ;(deps/reset-deps!)
           ;(ns-opts/reset-ns-opts!)
           )
       :cljs
@@ -55,7 +51,6 @@
         (assert cljs? "No ClojureScript dependency")
         (when cljs?
           (@reset-cljs-envs!)
-          (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
     nil)))
 

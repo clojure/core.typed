@@ -11,7 +11,6 @@
             [clojure.core.typed.checker.object-rep :as obj]
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana]
-            [clojure.core.typed.checker.jvm.ns-deps :as ns-deps]
             [clojure.core.typed.checker.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.checker.jvm.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
@@ -436,16 +435,12 @@
 
 (defn check-deps [nsym {:keys [check-ns] :as config}]
   (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
-    (let [deps (ns-deps/typed-deps nsym)]
-      (checked-ns! nsym)
-      ;check deps added with typed-deps
-      (doseq [dep deps]
-        (check-ns dep))
-      ;check normal dependencies
-      (doseq [dep (ns-depsu/deps-for-ns nsym)]
-        ;; ensure namespace actually exists
-        (when (ns-depsu/should-check-ns? nsym)
-          (check-ns dep))))))
+    (checked-ns! nsym)
+    ;check normal dependencies
+    (doseq [dep (ns-depsu/deps-for-ns nsym)]
+      ;; ensure namespace actually exists
+      (when (ns-depsu/should-check-ns? nsym)
+        (check-ns dep)))))
 
 (defn check-ns-and-deps*
   "Type check a namespace and its dependencies.

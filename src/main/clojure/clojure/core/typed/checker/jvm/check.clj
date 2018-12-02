@@ -84,7 +84,6 @@
             [clojure.core.typed.checker.inst :as inst]
             [clojure.core.typed.checker.lex-env :as lex]
             [clojure.core.typed.checker.jvm.mm-env :as mm]
-            [clojure.core.typed.checker.jvm.ns-deps :as ns-deps]
             [clojure.core.typed.checker.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.checker.ns-options :as ns-opts]
             [clojure.core.typed.checker.object-rep :as obj]
@@ -147,16 +146,12 @@
 
 (defn check-deps [nsym]
   (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
-    (let [deps (ns-deps/typed-deps nsym)]
-      (checked-ns! nsym)
-      ;check deps added with typed-deps
-      (doseq [dep deps]
-        (check-ns-and-deps dep))
-      ;check normal dependencies
-      (doseq [dep (ns-depsu/deps-for-ns nsym)]
-        ;; ensure namespace actually exists
-        (when (ns-depsu/should-check-ns? nsym)
-          (check-ns-and-deps dep))))))
+    (checked-ns! nsym)
+    ;check normal dependencies
+    (doseq [dep (ns-depsu/deps-for-ns nsym)]
+      ;; ensure namespace actually exists
+      (when (ns-depsu/should-check-ns? nsym)
+        (check-ns-and-deps dep)))))
 
 (declare check-top-level)
 

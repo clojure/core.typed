@@ -18,9 +18,6 @@
             [clojure.core.typed.checker.declared-kind-env :as decl-env]
             [clojure.core.typed.checker.jvm.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.checker.name-env]
-            [clojure.core.typed.checker.var-env]
-            [clojure.core.typed.checker.jvm.ns-deps]
             [clojure.pprint :as pprint]))
 
 (defn qualify-in-cct [as]
