@@ -25,6 +25,7 @@
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.reflect :as reflect]
             [clojure.pprint :as pp]
             [clojure.string :as str]
             [clojure.tools.analyzer.ast :as ast]
