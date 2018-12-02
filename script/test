@@ -1,4 +1,3 @@
 #!/bin/sh
 
-mvn compile
-#clojure -Atest:runner
+clojure -Atest:runner
