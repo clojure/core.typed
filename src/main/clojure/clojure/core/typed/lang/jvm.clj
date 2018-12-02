@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.lang
+(ns clojure.core.typed.lang.jvm
   "Extensible languages in Clojure, a la Racket's #lang.
   
   This is a simple library that monkey patches clojure.core/load
