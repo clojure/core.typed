@@ -11,7 +11,6 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
-            [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer.env :as env]
             [clojure.core.typed.current-impl :as impl]
             [clojure.tools.reader.reader-types :as readers]
@@ -78,7 +77,6 @@
                      (let [{:keys [ex]} (chk-frm/check-form-info config form)]
                        (when ex
                          (throw ex)))
-                     ;(ana-clj/analyze+eval form (assoc env :ns (ns-name *ns*)) opts)
                      (recur))))))))))))
 
 (defn typed-load1

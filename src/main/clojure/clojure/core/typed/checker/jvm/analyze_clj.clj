@@ -8,46 +8,31 @@
 
 (ns ^:skip-wiki clojure.core.typed.checker.jvm.analyze-clj
   (:refer-clojure :exclude [macroexpand-1 get-method eval])
-  (:require [clojure.tools.analyzer :as ta]
-            [clojure.pprint :as pp]
-            [clojure.core.typed.analyzer.env :as env]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.utils :as ta-utils]
-            [clojure.tools.analyzer.jvm.utils :as taj-utils]
-            [clojure.core.typed.analyzer.passes :as passes]
-            [clojure.tools.analyzer.passes.source-info :as source-info]
-            [clojure.tools.analyzer.passes.cleanup :as cleanup]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.tools.analyzer.passes.trim :as trim]
-            [clojure.tools.analyzer.passes.jvm.warn-on-reflection :as warn-reflect]
-            [clojure.core.typed.analyzer.jvm :as jana2]
-            [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]
-            [clojure.core.typed.analyzer :as ana2]
-            [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
-            [clojure.tools.reader :as tr]
-            [clojure.tools.reader.reader-types :as readers]
-            [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.java.io :as io]
-            [clojure.reflect :as reflect]
-            [clojure.core.typed.checker.utils :as u]
-            [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.coerce-utils :as coerce]
-            [clojure.core.typed.contract-utils :as con]
-            [clojure.tools.analyzer.ast :as ast]
+  (:require [clojure.core :as core]
             [clojure.core.typed :as T]
             [clojure.core.typed :as t]
-            [clojure.core.cache :as cache]
-            [clojure.core.typed.special-form :as spec]
+            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.env :as env]
+            [clojure.core.typed.analyzer.jvm :as jana2]
+            [clojure.core.typed.analyzer.passes :as passes]
+            [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.checker.ns-deps-utils :as dep-u]
+            [clojure.core.typed.checker.utils :as u]
+            [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
-            [clojure.set :as set]
-            [clojure.string :as str]
-            [clojure.core :as core]
-            [clojure.core.typed.rules :as rules]
             [clojure.core.typed.expand :as expand]
-            [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.checker.jvm.ns-deps :as dep]
-            [clojure.core.typed.checker.ns-deps-utils :as dep-u])
-  (:import (clojure.tools.analyzer.jvm ExceptionThrown)))
+            [clojure.core.typed.rules :as rules]
+            [clojure.core.typed.special-form :as spec]
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.pprint :as pp]
+            [clojure.string :as str]
+            [clojure.tools.analyzer.ast :as ast]
+            [clojure.tools.analyzer.jvm :as taj]
+            [clojure.tools.analyzer.jvm.utils :as taj-utils]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.tools.analyzer.passes.jvm.validate :as validate]
+            [clojure.tools.analyzer.utils :as ta-utils]))
 
 ; Updated for Clojure 1.8
 ;  https://github.com/clojure/clojure/commit/7f79ac9ee85fe305e4d9cbb76badf3a8bad24ea0
@@ -77,13 +62,6 @@
            references (remove #(= :gen-class (first %)) references)
            ;ns-effect (clojure.core/in-ns name)
            name-metadata (meta name)]
-       ;; core.typed side effect
-       ;(prn "ns form" &form)
-       (let [prs-ns (dep-u/ns-form-name &form)
-             deps   (dep-u/ns-form-deps &form)
-             tdeps (set (filter dep-u/should-check-ns? deps))]
-         ;; is this line needed?
-         (dep/add-ns-deps prs-ns tdeps))
        `(do
           ::T/special-collect
           ::core/ns
