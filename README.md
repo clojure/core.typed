@@ -1,4 +1,4 @@
-# core.typed.checker.jvm
+# core.typed.lang.jvm
 
 <a href='http://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
 
@@ -11,13 +11,13 @@ No stable release.
 [deps.edn](https://clojure.org/reference/deps_and_cli) dependency information:
 
 ```clj
-  org.typedclojure/core.typed.lang.jvm {:mvn/version "?"}
+  org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.0-SNAPSHOT"}
  ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.typedclojure/core.typed.lang.jvm "?"]
+[org.typedclojure/core.typed.lang.jvm "0.7.0-SNAPSHOT"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -26,7 +26,7 @@ No stable release.
 <dependency>
   <groupId>org.typedclojure</groupId>
   <artifactId>core.typed.jvm</artifactId>
-  <version>?</version>
+  <version>0.7.0-SNAPSHOT</version>
 </dependency>
 ```
 
