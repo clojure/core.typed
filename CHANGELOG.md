@@ -1,3 +1,7 @@
+# ?? - ??
+
+- split out #lang machinery to `org.typedclojure/core.typed.lang.jvm`
+
 # 0.7.0 - 17 November 2018
 
 - split out `org.clojure/core.typed.checker.jvm` from core.typed, replacing
