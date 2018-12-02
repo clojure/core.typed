@@ -19,7 +19,7 @@
             [clojure.java.io :as io]
             [clojure.core.typed.checker.jvm.check-form-clj :as chk-frm-clj]
             [clojure.core.typed.checker.check-form-common :as chk-frm]
-            [clojure.core.typed.lang :as lang]
+            [clojure.core.typed.lang.jvm :as lang]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.core.typed.analyzer.jvm :as ana2]
             [clojure.core.typed.util-vars :as vs])

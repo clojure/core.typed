@@ -3,7 +3,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.test :as test :refer [is]]
-            [clojure.core.typed.lang :as lang]
+            [clojure.core.typed.lang.jvm :as lang]
             [clojure.core.typed.load :as load]
             [clojure.core.typed.test.common-utils :as common-test]))
 
