@@ -21,6 +21,13 @@
     <version>0.2.2</version>
   </parent>
 
+  <repositories>
+    <repository>
+      <id>clojars.org</id>
+      <url>https://repo.clojars.org</url>
+    </repository>
+  </repositories>
+
   <build>
     <plugins>
       <plugin>

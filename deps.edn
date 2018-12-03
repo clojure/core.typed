@@ -12,11 +12,13 @@
            ; - ~/Projects/core.typed.runtime.jvm
            ; - ~/Projects/core.typed.analyzer.jvm
            :local-dev
-           {:extra-deps
+           {:override-deps
             {org.clojure/core.typed.runtime.jvm {:local/root "../core.typed.runtime.jvm"
                                                  :deps/manifest :deps}
              org.clojure/core.typed.analyzer.jvm {:local/root "../core.typed.analyzer.jvm"
-                                                  :deps/manifest :deps}}}
+                                                  :deps/manifest :deps}
+             org.typedclojure/core.typed.lang.jvm {:local/root "../core.typed.lang.jvm"
+                                                   :deps/manifest :deps}}}
            :HEAD
            {:extra-deps
             {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
