@@ -20,9 +20,8 @@
              org.typedclojure/core.typed.lang.jvm {:local/root "../core.typed.lang.jvm"
                                                    :deps/manifest :deps}}}
            :HEAD
-           {:extra-deps
-            {org.clojure/clojure {:mvn/version "1.10.0-beta5"}
-             org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
+           {:override-deps
+            {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
                                                  :sha "a2c8e17965ac96c4ae3e9c6483d5c1c7051783ef"
                                                  :deps/manifest :deps}
              org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/clojure/core.typed.analyzer.jvm.git"
