@@ -1,6 +1,5 @@
 {:paths ["src/main/clojure"
-         "src/main/cljc"
-         "src/main/java"]
+         "src/main/cljc"]
  :deps {org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.0"}
         org.clojure/core.typed.checker.jvm {:mvn/version "0.7.0"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
@@ -11,8 +10,15 @@
         ;; can't vendor this as it includes Java sources that need to be compiled.
         ;; perhaps we can make it optional in the future.
         potemkin {:mvn/version "0.4.5"}}
- :aliases {:HEAD
-           {:extra-deps
+ :aliases {:local-dev
+           {:override-deps
+            {org.clojure/core.typed.runtime.jvm {:local/root "../core.typed.runtime.jvm"
+                                                 :deps/manifest :deps}
+             org.clojure/core.typed.checker.jvm {:local/root "../core.typed.checker.jvm"
+                                                  :deps/manifest :deps}}}
+
+           :HEAD
+           {:override-deps
             {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
                                                  :sha "a2c8e17965ac96c4ae3e9c6483d5c1c7051783ef"}
              org.clojure/core.typed.checker.jvm {:git/url "https://github.com/clojure/core.typed.checker.jvm.git"
