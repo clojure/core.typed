@@ -21,10 +21,10 @@
                                                    :deps/manifest :deps}}}
            :HEAD
            {:override-deps
-            {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
+            {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
                                                  :sha "bf7ca55d08c6911517990ff3c952b0d0de34bb20"
                                                  :deps/manifest :deps}
-             org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/clojure/core.typed.analyzer.jvm.git"
+             org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/typedclojure/core.typed.analyzer.jvm.git"
                                                   :sha "f30e7431f643701f13317ab7b4bcbbde74a47c48"
                                                   :deps/manifest :deps}}}
            :nREPL
