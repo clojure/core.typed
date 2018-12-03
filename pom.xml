@@ -26,6 +26,10 @@
       <id>clojars.org</id>
       <url>https://repo.clojars.org</url>
     </repository>
+    <repository>
+      <id>sonatype-oss-public</id>
+      <url>https://oss.sonatype.org/content/groups/public/</url>
+    </repository>
   </repositories>
 
   <build>
@@ -76,17 +80,22 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.7.0</version>
+      <version>0.7.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.jvm</artifactId>
-      <version>0.7.0</version>
+      <version>0.7.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.typedclojure</groupId>
       <artifactId>core.typed.lang.jvm</artifactId>
       <version>0.7.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typedclojure</groupId>
+      <artifactId>core.typed.lib.clojure</artifactId>
+      <version>0.7.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

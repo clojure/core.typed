@@ -60,7 +60,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
-(base-rclass/reset-rclass-env!)
+;(base-rclass/reset-rclass-env!)
 
 (delay-and-cache-env ^:private init-protocol-env 
                      {}
@@ -2069,13 +2069,13 @@ clojure.lang.Delay (All [x]
   (defn reset-clojure-envs! []
     (impl/with-clojure-impl
       ;(reset-alias-env!)
+      (base-rclass/reset-rclass-env!)
       (@reset-var-type-env! (init-var-env) (init-var-nochecks))
       (@reset-nonnilable-method-return-env! (init-method-nonnilable-return-env))
       (@reset-method-nilable-param-env! (init-method-nilable-param-env))
       (@reset-method-override-env! (init-method-override-env))
       (@reset-constructor-override-env! (init-ctor-override-env))
       (@reset-protocol-env! (init-protocol-env))
-      (base-rclass/reset-rclass-env!)
       (@reset-declared-kinds! (init-declared-kinds))
       (@reset-datatype-env! (init-datatype-env))
       (@reset-datatype-ancestors! (init-datatype-ancestor-env)))

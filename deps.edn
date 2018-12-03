@@ -1,13 +1,15 @@
 {:paths ["src/main/clojure"]
  :deps {org.clojure/clojure {:mvn/version "1.9.0"}
-        org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.0"}
-        org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.0"}
-        org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.0"}
+        org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.1-SNAPSHOT"}
+        org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.1-SNAPSHOT"}
+        org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.0-SNAPSHOT"}
+        org.typedclojure/core.typed.lib.clojure {:mvn/version "0.7.0-SNAPSHOT"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/core.cache {:mvn/version "0.6.5"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
         org.clojure/math.combinatorics {:mvn/version "0.1.4"
                                         :exclusions [org.clojure/clojure]}}
+ :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {; eg. if this repo is in ~/Projects/core.typed.checker.jvm, clone in these directories:
            ; - ~/Projects/core.typed.runtime.jvm
            ; - ~/Projects/core.typed.analyzer.jvm
@@ -18,11 +20,13 @@
              org.clojure/core.typed.analyzer.jvm {:local/root "../core.typed.analyzer.jvm"
                                                   :deps/manifest :deps}
              org.typedclojure/core.typed.lang.jvm {:local/root "../core.typed.lang.jvm"
-                                                   :deps/manifest :deps}}}
+                                                   :deps/manifest :deps}
+             org.typedclojure/core.typed.lib.clojure {:local/root "../core.typed.lib.clojure"
+                                                      :deps/manifest :deps}}}
            :HEAD
            {:override-deps
             {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/typedclojure/core.typed.runtime.jvm.git"
-                                                 :sha "bf7ca55d08c6911517990ff3c952b0d0de34bb20"
+                                                 :sha "7ac2434b60e8493aa9031cc1d5f0f7bd414e3d04"
                                                  :deps/manifest :deps}
              org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/typedclojure/core.typed.analyzer.jvm.git"
                                                   :sha "f30e7431f643701f13317ab7b4bcbbde74a47c48"
