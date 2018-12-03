@@ -6,10 +6,7 @@
   (:use clojure.test))
 
 (deftest typed-clojure-loaded
-  (is clojure.core.typed/load-if-needed)
-  ;pred forces a few namespaces to load
-  (is ((t/pred Number) 1))
-  (println "Successfully required TC without dependencies"))
+  (is (nil? (require 'clojure.core.typed))))
 
 (deftest async-ns
   (is (io/resource "clojure/core/typed/async.clj")))
@@ -78,6 +75,14 @@
         (catch clojure.lang.ExceptionInfo e#
           (boolean (-> e# ex-data :blame)))))
 
+; commented - these require c.t.lib.clojure which is not a dependency of this project atm
+
+#_
+(deftest pred-test
+  ;pred forces a few namespaces to load
+  (is ((t/pred Number) 1)))
+
+#_
 (deftest cast-test
   (is (= 1 (t/cast t/Int 1)))
   (is (= nil (t/cast nil nil)))
