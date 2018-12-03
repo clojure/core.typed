@@ -226,7 +226,7 @@
     :forms '[(SortedSet t)]}
   t/SortedSet
   (t/TFn [[x :variance :covariant]]
-       (t/Extends [(clojure.lang.IPersistentSet x) clojure.lang.Sorted])))
+       (Extends [(clojure.lang.IPersistentSet x) clojure.lang.Sorted])))
 
 (defalias
   ^{:doc "A type that can be used to create a sequence of member type x."
@@ -299,7 +299,7 @@
     :forms '[(Future t)]}
   t/Future 
   (t/TFn [[x :variance :covariant]]
-       (t/Extends [(clojure.lang.IDeref x)
+       (Extends [(clojure.lang.IDeref x)
                  (clojure.lang.IBlockingDeref x)
                  clojure.lang.IPending
                  java.util.concurrent.Future])))

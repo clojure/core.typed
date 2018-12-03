@@ -45,10 +45,6 @@
   (env/swap-checker! assoc-in [current-var-annotations-kw sym] type)
   nil)
 
-(defn add-tc-alias [sym type]
-  (env/swap-checker! assoc-in [current-var-annotations-kw sym] type)
-  nil)
-
 (defn add-nocheck-var [sym]
   (env/swap-checker! update current-nocheck-var?-kw (fnil conj #{}) sym)
   nil)
