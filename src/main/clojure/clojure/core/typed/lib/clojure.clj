@@ -6,10 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.types.core
-  ;clojure.core.typed.lib.base
-  "Type annotations for the base Clojure distribution.
-  Don't depend on this directly yet, it may move."
+(ns ^:skip-wiki clojure.core.typed.lib.clojure
+  "Type annotations for the base Clojure distribution."
   (:require [clojure.core.typed :refer [defalias] :as t]
             [clojure.core :as core]))
 
