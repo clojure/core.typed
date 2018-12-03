@@ -60,22 +60,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
-(defmacro insert-aliases []
-  `(delay-and-cache-env ~'init-alias-env
-    (base-rclass/reset-rclass-env!)
-    (h/alias-mappings
-      ~@@#'t/init-aliases*)))
-
-;defines init-alias-env
-(insert-aliases)
-
-(defn reset-alias-env! []
-  (let [alias-env (init-alias-env)]
-    (nme-env/reset-name-env! alias-env)))
-
-(defn refresh-core-alias-env! []
-  (let [alias-env (init-alias-env)]
-    (nme-env/merge-name-env! alias-env)))
+(base-rclass/reset-rclass-env!)
 
 (delay-and-cache-env ^:private init-protocol-env 
                      {}
@@ -122,7 +107,7 @@ clojure.java.io/IOFactory
 (def this-ns *ns*)
 
 (delay-and-cache-env ^:private init-var-env
-  (reset-alias-env!)
+  ;(reset-alias-env!)
   (merge
    (common/parse-clj-ann-map @common/common-var-annotations)
    (h/var-mappings
@@ -1825,7 +1810,7 @@ java.lang.String/toUpperCase :all
 ;; Method override annotations
 
 (delay-and-cache-env ^:private init-method-override-env
-  (reset-alias-env!)
+  ;(reset-alias-env!)
   (merge
     {'clojure.lang.RT/nth (nth-type)}
     (h/method-override-mappings
@@ -2053,7 +2038,7 @@ clojure.lang.Numbers/num   [Number -> Number]
                                  )))
 
 (delay-and-cache-env ^:private init-ctor-override-env
-  (reset-alias-env!)
+  ;(reset-alias-env!)
   (h/ctor-override-mappings
 
 clojure.lang.LazySeq (All [x]
@@ -2083,7 +2068,7 @@ clojure.lang.Delay (All [x]
       reset-datatype-ancestors! (delay (impl/dynaload 'clojure.core.typed.checker.datatype-ancestor-env/reset-datatype-ancestors!))]
   (defn reset-clojure-envs! []
     (impl/with-clojure-impl
-      (reset-alias-env!)
+      ;(reset-alias-env!)
       (@reset-var-type-env! (init-var-env) (init-var-nochecks))
       (@reset-nonnilable-method-return-env! (init-method-nonnilable-return-env))
       (@reset-method-nilable-param-env! (init-method-nilable-param-env))
@@ -2104,7 +2089,7 @@ clojure.lang.Delay (All [x]
       merge-constructor-override-env! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.ctor-override-env/merge-constructor-override-env!))]
   (defn refresh-core-clojure-envs! []
     (impl/with-clojure-impl
-      (refresh-core-alias-env!)
+      ;(refresh-core-alias-env!)
       (@merge-protocol-env! (init-protocol-env))
       (@refresh-var-type-env! (init-var-env) (init-var-nochecks))
       (@merge-method-nilable-param-env! (init-method-nilable-param-env))

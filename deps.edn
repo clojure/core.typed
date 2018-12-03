@@ -22,7 +22,7 @@
            :HEAD
            {:override-deps
             {org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
-                                                 :sha "a2c8e17965ac96c4ae3e9c6483d5c1c7051783ef"
+                                                 :sha "bf7ca55d08c6911517990ff3c952b0d0de34bb20"
                                                  :deps/manifest :deps}
              org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/clojure/core.typed.analyzer.jvm.git"
                                                   :sha "f30e7431f643701f13317ab7b4bcbbde74a47c48"
