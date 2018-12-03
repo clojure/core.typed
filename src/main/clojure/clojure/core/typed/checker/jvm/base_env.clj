@@ -2090,6 +2090,7 @@ clojure.lang.Delay (All [x]
   (defn refresh-core-clojure-envs! []
     (impl/with-clojure-impl
       ;(refresh-core-alias-env!)
+      (base-rclass/reset-rclass-env!)
       (@merge-protocol-env! (init-protocol-env))
       (@refresh-var-type-env! (init-var-env) (init-var-nochecks))
       (@merge-method-nilable-param-env! (init-method-nilable-param-env))
