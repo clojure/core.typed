@@ -15,17 +15,7 @@
  {"sonatype-oss-public"
   {:url "https://oss.sonatype.org/content/groups/public/"}},
  :aliases
- {:local-dev
-  {:override-deps
-   {org.clojure/core.typed.runtime.jvm
-    {:local/root "../core.typed.runtime.jvm", :deps/manifest :deps},
-    org.clojure/core.typed.analyzer.jvm
-    {:local/root "../core.typed.analyzer.jvm", :deps/manifest :deps},
-    org.typedclojure/core.typed.lang.jvm
-    {:local/root "../core.typed.lang.jvm", :deps/manifest :deps},
-    org.typedclojure/core.typed.lib.clojure
-    {:local/root "../core.typed.lib.clojure", :deps/manifest :deps}}},
-  :script {:extra-paths ["script"]},
+ {:script {:extra-paths ["script"]},
   :nREPL
   {:extra-deps
    {nrepl/nrepl {:mvn/version "0.4.5"},
