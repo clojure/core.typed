@@ -16,22 +16,24 @@
             {org.clojure/core.typed.runtime.jvm {:local/root "../core.typed.runtime.jvm"
                                                  :deps/manifest :deps}
              org.clojure/core.typed.checker.jvm {:local/root "../core.typed.checker.jvm"
-                                                  :deps/manifest :deps}}}
-           ; profile for testing
+                                                 :deps/manifest :deps}
+             org.clojure/core.typed.analyzer.jvm {:local/root "../core.typed.analyzer.jvm"
+                                                  :deps/manifest :deps}
+             org.typedclojure/core.typed.lib.clojure {:local/root "../core.typed.lib.clojure"
+                                                      :deps/manifest :deps}
+             org.typedclojure/core.typed.lang.jvm {:local/root "../core.typed.lang.jvm"
+                                                   :deps/manifest :deps}}}
            :test
            {:extra-paths ["src/test/clojure"]
             :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
-                         com.gfredericks/test.chuck {:mvn/version "0.2.6"}}
-            }
+                         com.gfredericks/test.chuck {:mvn/version "0.2.6"}}}
+           :script {:extra-paths ["script"]}
            :nREPL
-           {:extra-paths ["script"]
-            :extra-deps
+           {:extra-deps
             {nrepl/nrepl {:mvn/version "0.4.5"}
              cider/piggieback {:mvn/version "0.3.8"}}
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
-
-           ; actually run tests, assumes :test alias
            :runner
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"
