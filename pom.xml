@@ -23,8 +23,8 @@
 
   <repositories>
     <repository>
-      <id>clojars.org</id>
-      <url>https://repo.clojars.org</url>
+      <id>clojars</id>
+      <url>https://repo.clojars.org/</url>
     </repository>
     <repository>
       <id>sonatype-oss-public</id>
@@ -69,6 +69,7 @@
         </configuration>
       </plugin>
     </plugins>
+  <sourceDirectory>src/main/clojure</sourceDirectory>
   </build>
 
   <dependencies>
@@ -79,18 +80,8 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.7.1-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.jvm</artifactId>
       <version>0.7.1-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>org.typedclojure</groupId>
-      <artifactId>core.typed.lang.jvm</artifactId>
-      <version>0.7.0</version>
     </dependency>
     <dependency>
       <groupId>org.typedclojure</groupId>
@@ -99,18 +90,13 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>tools.reader</artifactId>
-      <version>1.1.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.cache</artifactId>
-      <version>0.6.5</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
       <version>0.3.0-alpha4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>core.typed.runtime.jvm</artifactId>
+      <version>0.7.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -125,51 +111,18 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>tools.nrepl</artifactId>
-      <version>0.2.6</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
-      <optional>true</optional>
+      <artifactId>tools.reader</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typedclojure</groupId>
+      <artifactId>core.typed.lang.jvm</artifactId>
+      <version>0.7.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>0.3.465</version>
-      <optional>true</optional>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>tools.analyzer.jvm</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>tools.trace</artifactId>
-      <version>0.7.5</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>test.check</artifactId>
-      <version>0.9.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.gfredericks</groupId>
-      <artifactId>test.chuck</artifactId>
-      <version>0.2.6</version>
-      <scope>test</scope>
+      <artifactId>core.cache</artifactId>
+      <version>0.6.5</version>
     </dependency>
   </dependencies>
 </project>
