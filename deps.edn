@@ -2,11 +2,7 @@
  :deps {org.clojure/clojure {:mvn/version "1.9.0"}
         org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.1-SNAPSHOT"}}
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
- :aliases {:local-dev
-           {:override-deps
-            {org.clojure/core.typed.runtime.jvm {:local/root "../core.typed.runtime.jvm"
-                                                 :deps/manifest :deps}}}
-           :nREPL
+ :aliases {:nREPL
            {:extra-paths ["script"]
             :extra-deps
             {nrepl/nrepl {:mvn/version "0.4.5"}
