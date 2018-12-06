@@ -41,35 +41,16 @@
         <executions>
           <execution>
             <id>clojure-compile</id>
-            <phase>compile</phase>
+            <phase>none</phase>
           </execution>
           <execution>
             <id>clojure-test</id>
-            <phase>test</phase>
+            <phase>none</phase>
           </execution>
         </executions>
-        <configuration>
-          <!-- don't put AOT files in jar -->
-          <temporaryOutputDirectory>true</temporaryOutputDirectory>
-          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
-          <namespaces>
-            <namespace>clojure.core.typed.*</namespace>
-          </namespaces>
-          <testDeclaredNamespaceOnly>true</testDeclaredNamespaceOnly>
-          <testNamespaces>
-            <namespace>clojure.core.typed.test.*</namespace>
-          </testNamespaces>
-          <warnOnReflection>true</warnOnReflection>
-          <sourceDirectories>
-            <sourceDirectory>src/main/clojure</sourceDirectory>
-          </sourceDirectories>
-          <testSourceDirectories>
-            <testSourceDirectory>src/test/clojure</testSourceDirectory>
-          </testSourceDirectories>
-        </configuration>
       </plugin>
     </plugins>
-  <sourceDirectory>src/main/clojure</sourceDirectory>
+    <sourceDirectory>src/main/clojure</sourceDirectory>
   </build>
 
   <dependencies>
