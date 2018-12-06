@@ -21,6 +21,26 @@
     <version>0.2.2</version>
   </parent>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.theoryinpractise</groupId>
+        <artifactId>clojure-maven-plugin</artifactId>
+        <version>1.7.1</version>
+        <executions>
+          <execution>
+            <id>clojure-compile</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>clojure-test</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -32,12 +52,5 @@
       <artifactId>tools.analyzer.jvm</artifactId>
       <version>0.7.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojurescript</artifactId>
-      <version>1.10.439</version>
-      <scope>provided</scope>
-    </dependency>
   </dependencies>
 </project>
-
