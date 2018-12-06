@@ -4,6 +4,7 @@
 
 set -e
 
-REVISION=`git rev-list v0.0..HEAD --count`
+VERSION=`git --no-replace-objects describe --match v0.0 | cut -d "-" -f2 | cut -d "-" -f1`
 
-echo $REVISION
+
+echo $VERSION
