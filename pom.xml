@@ -41,31 +41,13 @@
         <executions>
           <execution>
             <id>clojure-compile</id>
-            <phase>compile</phase>
+            <phase>none</phase>
           </execution>
           <execution>
             <id>clojure-test</id>
-            <phase>test</phase>
+            <phase>none</phase>
           </execution>
         </executions>
-        <configuration>
-          <!-- Don't put AOT files in jar -->
-          <temporaryOutputDirectory>true</temporaryOutputDirectory>
-          <namespaces>
-            <namespace>!clojure.core.typed.annotator.test.mini-occ</namespace>
-          </namespaces>
-          <testNamespaces>
-            <namespace>!clojure.core.typed.annotator.test.mini-occ</namespace>
-          </testNamespaces>
-          <sourceDirectories>
-            <sourceDirectory>src/main/clojure</sourceDirectory>
-            <sourceDirectory>src/main/cljc</sourceDirectory>
-            <sourceDirectory>src/main/java</sourceDirectory>
-          </sourceDirectories>
-          <testSourceDirectories>
-            <testSourceDirectory>src/test/clojure</testSourceDirectory>
-          </testSourceDirectories>
-        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -116,18 +98,6 @@
       <groupId>potemkin</groupId>
       <artifactId>potemkin</artifactId>
       <version>0.4.5</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>test.check</artifactId>
-      <version>0.9.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.gfredericks</groupId>
-      <artifactId>test.chuck</artifactId>
-      <version>0.2.6</version>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
