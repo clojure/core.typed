@@ -14,7 +14,7 @@ if [ $branch_name != "$MASTER" ]; then
   exit 1;
 fi
 
-git pull clojure --ff-only master
+git pull clojure --ff-only master --tags
 git pull typedclojure --ff-only master
-git push typedclojure master
-git push clojure master
+git push typedclojure master --tags
+git push clojure master --tags
