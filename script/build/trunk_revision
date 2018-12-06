@@ -6,5 +6,4 @@ set -e
 
 VERSION=`git --no-replace-objects describe --match v0.0 | cut -d "-" -f2 | cut -d "-" -f1`
 
-
 echo $VERSION
