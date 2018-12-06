@@ -1,7 +1,12 @@
-{:paths ["src/main/clojure"
+{:deps {org.clojure/clojure {:mvn/version "1.9.0"}}
+ :paths ["src/main/clojure"
          "src/main/cljs"]
  :aliases {:test
-           {:extra-paths ["src/test/clojure"]}
+           {:extra-paths ["src/test/clojure"]
+            :extra-deps {org.clojure/core.async {:mvn/version "0.3.465"
+                                                 :exclusions [org.clojure/clojure]}
+                         org.clojure/clojurescript {:mvn/version "0.0-2311"
+                                                    :exclusions [org.clojure/clojure]}}}
            :nREPL
            {:extra-deps
             {nrepl/nrepl {:mvn/version "0.4.5"}

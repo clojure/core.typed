@@ -24,32 +24,23 @@
     <clojure.version>1.9.0</clojure.version>
   </properties>
 
-  <dependencies>
-    <!-- clojure.core.typed.async -->
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>0.3.465</version>
-      <scope>provided</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <!-- cljs.core.typed.async -->
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojurescript</artifactId>
-      <version>0.0-2311</version>
-      <scope>provided</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.theoryinpractise</groupId>
+        <artifactId>clojure-maven-plugin</artifactId>
+        <version>1.7.1</version>
+        <executions>
+          <execution>
+            <id>clojure-compile</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>clojure-test</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>
