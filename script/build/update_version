@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-mvn versions:set -DgenerateBackupPoms=false -DnewVersion=`script/build/revision`-SNAPSHOT
