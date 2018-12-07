@@ -21,8 +21,6 @@
    {nrepl/nrepl {:mvn/version "0.4.5"},
     cider/piggieback {:mvn/version "0.3.8"}},
    :main-opts ["-m" "nrepl.cmdline" "--interactive"]},
-  :clj-latest
-  {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-RC2"}}},
   :test
   {:extra-paths ["src/test/clojure" "src/test/resources"],
    :extra-deps
