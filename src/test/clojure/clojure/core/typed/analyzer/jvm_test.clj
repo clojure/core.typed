@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.analyzer-jvm
+(ns clojure.core.typed.analyzer.jvm-test
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.jvm.utils :as ju]
