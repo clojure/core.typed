@@ -75,8 +75,7 @@
       (let [[{pre-passes  :passes :as pre}
              {post-passes :passes :as post}
              :as ps]
-            (-> (passes/schedule-passes info)
-                (update-in [0 :passes] #(vec (cons #'ana/analyze-outer %))))
+            (passes/schedule-passes info)
 
             _ (assert (= 2 (count ps)) ps)
             _ (assert (= :pre (:walk pre)))

@@ -9,6 +9,7 @@
 (ns clojure.core.typed.analyzer.passes.uniquify
   (:require [clojure.tools.analyzer.ast :refer [update-children children]]
             [clojure.tools.analyzer.utils :refer [update-vals]]
+            [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.analyzer.env :as env]))
 
 (def ^:dynamic *locals-counter*) ;; global counter, map sym -> count

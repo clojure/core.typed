@@ -51,6 +51,15 @@
        :doc      "Resolves the ns mapped by the given sym in the global env"}
   resolve-ns)
 
+(def ^{:dynamic  true
+       :doc      "Evaluates an AST node, attaching result to :result."}
+  eval-ast)
+
+(def ^{:dynamic  true
+       :doc      "If given a var, returns the fully qualified symbol for that var, otherwise nil."}
+  var->sym)
+
+#_
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different
@@ -63,6 +72,14 @@
   (ast/walk ast
             (:pre scheduled-passes)
             (:post scheduled-passes)))
+
+(defn run-pre-passes
+  [ast]
+  ((:pre scheduled-passes) ast))
+
+(defn run-post-passes
+  [ast]
+  ((:post scheduled-passes) ast))
 
 (def specials
   '#{do if new quote set! try var
@@ -78,7 +95,7 @@
          analyze-seq
          analyze-const)
 
-(def ^:dynamic analyze-form
+(def analyze-form
   "Like analyze, but does not mark the form with :top-level true"
   -analyze-form)
 
@@ -126,21 +143,6 @@
   [form env]
   (analyze-const form env))
 
-(defn analyze
-  "Given a top-level form to analyze and an environment, a map containing:
-   * :locals     a map from binding symbol to AST of the binding value
-   * :context    a keyword describing the form's context from the :ctx/* hierarchy.
-    ** :ctx/expr      the form is an expression: its value is used
-    ** :ctx/return    the form is an expression in return position, derives :ctx/expr
-    ** :ctx/statement the value of the form is not used
-   * :ns         a symbol representing the current namespace of the form to be
-                 analyzed
-
-   returns one level of the AST for that form, with all children
-   stubbed out with :unanalyzed nodes."
-  [form env]
-  (assoc (analyze-form form env) :top-level true))
-
 (defn unanalyzed
   [form env]
   {:op :unanalyzed
@@ -150,16 +152,53 @@
    ;; this :unanalyzed node becomes when analyzed
    ::config {}})
 
-(defn analyze-outer
-  "If ast is :unanalyzed, then analyze it, otherwise returns ast."
+(defn unanalyzed-top-level
+  [form env]
+  (assoc-in (unanalyzed form env) [::config :top-level] true))
+
+(defn propagate-top-level
+  "Propagate :top-level down :do nodes. Attach ::ana2/eval-gildardi? to
+  root nodes that should be evaluated."
+  [{:keys [op] :as ast}]
+  (if (and (not= :unanalyzed op)
+           (get-in ast [::config :top-level]))
+    ; we know this root node is fully analyzed, so we can reliably predict
+    ; whether to evaluate it under the Gilardi scenario.
+    (case (:op ast)
+      :do (ast/update-children ast #(assoc-in % [::config :top-level] true))
+      (assoc ast ::eval-gildardi? true))
+    ast))
+
+(defn propagate-result
+  "Propagate :result from :top-level :do nodes."
   [ast]
-  {:post [(not= :unanalyzed (:op %))]}
+  {:pre [(:op ast)]}
+  (cond-> ast
+    (and (= :do (:op ast))
+         (get-in ast [::config :top-level])
+         (contains? (:ret ast) :result))
+    (assoc :result (:result (:ret ast)))))
+
+(defn eval-top-level
+  "Evaluate ::ana/eval-gildardi? nodes and propagate :result from :top-level :do nodes."
+  [ast]
+  {:pre [(:op ast)]}
+  (if (or (::eval-gildardi? ast)
+          (and (get-in ast [::config :top-level])
+               (= :unanalyzed (:op ast))))
+    (eval-ast ast)
+    (propagate-result ast)))
+
+(defn analyze-outer
+  "If ast is :unanalyzed, then call analyze-form on it, otherwise returns ast."
+  [ast]
   (case (:op ast)
     :unanalyzed (let [{:keys [form env ::config]} ast
                       ast (-> form
                               (analyze-form env)
                               ;TODO rename to ::inherited
-                              (assoc ::config config))]
+                              (assoc ::config config)
+                              propagate-top-level)]
                     ast)
     ast))
 
@@ -175,7 +214,7 @@
 
 ;; this node wraps non-quoted collections literals with metadata attached
 ;; to them, the metadata will be evaluated at run-time, not treated like a constant
-(defn pre-wrapping-meta
+(defn wrapping-meta
   [{:keys [form env] :as expr}]
   (let [meta (meta form)]
     (if (and (u/obj? form)
@@ -207,7 +246,7 @@
   [form env]
   (let [items-env (u/ctx env :ctx/expr)
         items (mapv (unanalyzed-in-env items-env) form)]
-    (pre-wrapping-meta
+    (wrapping-meta
      {:op       :vector
       :env      env
       :items    items
@@ -222,7 +261,7 @@
                                [[] []] form)
         ks (mapv (unanalyzed-in-env kv-env) keys)
         vs (mapv (unanalyzed-in-env kv-env) vals)]
-    (pre-wrapping-meta
+    (wrapping-meta
      {:op       :map
       :env      env
       :keys     ks
@@ -234,7 +273,7 @@
   [form env]
   (let [items-env (u/ctx env :ctx/expr)
         items (mapv (unanalyzed-in-env items-env) form)]
-    (pre-wrapping-meta
+    (wrapping-meta
      {:op       :set
       :env      env
       :items    items
@@ -267,8 +306,7 @@
                     :class mform})))
              {:env  env
               :form mform})
-      ;; FIXME not 100% sure if this is the correct analyze-* call
-      (-> (analyze-form mform env)
+      (-> (unanalyzed mform env)
         (update-in [:raw-forms] (fnil conj ()) sym)))))
 
 (defn analyze-seq
@@ -282,7 +320,7 @@
     (let [mform (macroexpand-1 form env)]
       (if (= form mform) ;; function/special-form invocation
         (parse mform env)
-        (-> (analyze-form mform env)
+        (-> (unanalyzed mform env)
             (update-in [:raw-forms] (fnil conj ())
                        (vary-meta form assoc ::resolved-op (resolve-sym op env))))))))
 
@@ -642,7 +680,7 @@
 
 (defn parse-fn*
   [[op & args :as form] env]
-  (pre-wrapping-meta
+  (wrapping-meta
    (let [[n meths] (if (symbol? (first args))
                      [(first args) (next args)]
                      [nil (seq args)])
