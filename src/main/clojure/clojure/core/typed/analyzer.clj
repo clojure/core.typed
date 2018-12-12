@@ -59,7 +59,7 @@
        :doc      "If given a var, returns the fully qualified symbol for that var, otherwise nil."}
   var->sym)
 
-(declare analyze-outer)
+(declare analyze-outer-root)
 
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
@@ -70,14 +70,9 @@
    run-passes can be bound to."
   [ast]
   {:pre [(map? scheduled-passes)]}
-  (let [analyze-outer-fix-point (fn [ast]
-                                  (let [ast' (analyze-outer ast)]
-                                    (if (identical? ast ast')
-                                      ast'
-                                      (recur ast'))))]
-    (ast/walk ast
-              (comp (:pre scheduled-passes) analyze-outer-fix-point)
-              (:post scheduled-passes))))
+  (ast/walk ast
+            (comp (:pre scheduled-passes) analyze-outer-root)
+            (:post scheduled-passes)))
 
 (defn run-pre-passes
   [ast]
@@ -173,12 +168,38 @@
    ;; this :unanalyzed node becomes when analyzed
    ::config {}})
 
+(defn mark-top-level
+  [ast]
+  ; in ::config because an :unanalyzed node is still top-level
+  ; once analyzed
+  (assoc-in ast [::config :top-level] true))
+
+(defn unmark-top-level
+  [ast]
+  (update ast ::config dissoc :top-level))
+
+(defn top-level?
+  [ast]
+  (boolean (get-in ast [::config :top-level])))
+
+(defn mark-eval-top-level
+  [ast]
+  (assoc ast ::eval-gilardi? true))
+
+(defn unmark-eval-top-level
+  [ast]
+  (dissoc ast ::eval-gilardi?))
+
+(defn eval-top-level?
+  [ast]
+  (boolean (get ast ::eval-gilardi?)))
+
 (defn unanalyzed-top-level
   [form env]
-  (assoc-in (unanalyzed form env) [::config :top-level] true))
+  (mark-top-level (unanalyzed form env)))
 
 (defn propagate-top-level
-  "Propagate :top-level down :do nodes. Attach ::ana2/eval-gildardi? to
+  "Propagate :top-level down :do nodes. Attach ::ana2/eval-gilardi? to
   root nodes that should be evaluated."
   [{:keys [op] :as ast}]
   (if (and (not= :unanalyzed op)
@@ -186,8 +207,8 @@
     ; we know this root node is fully analyzed, so we can reliably predict
     ; whether to evaluate it under the Gilardi scenario.
     (case (:op ast)
-      :do (ast/update-children ast #(assoc-in % [::config :top-level] true))
-      (assoc ast ::eval-gildardi? true))
+      :do (ast/update-children ast mark-top-level)
+      (mark-eval-top-level ast))
     ast))
 
 (defn propagate-result
@@ -204,8 +225,8 @@
   "Evaluate ::ana/eval-gildardi? nodes and propagate :result from :top-level :do nodes."
   [ast]
   {:pre [(:op ast)]}
-  (if (or (::eval-gildardi? ast)
-          (and (get-in ast [::config :top-level])
+  (if (or (eval-top-level? ast)
+          (and (top-level? ast)
                (= :unanalyzed (:op ast))))
     (eval-ast ast)
     (propagate-result ast)))
@@ -222,6 +243,14 @@
                               propagate-top-level)]
                     ast)
     ast))
+
+(defn analyze-outer-root
+  "Repeatedly call analyze-outer to a fixed point."
+  [ast]
+  (let [ast' (analyze-outer ast)]
+    (if (identical? ast ast')
+      ast'
+      (recur ast'))))
 
 (defn unanalyzed-in-env
   "Takes an env map and returns a function that analyzes a form in that env"

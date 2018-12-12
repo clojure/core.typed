@@ -19,28 +19,31 @@
 (def ^:dynamic *found-defns* nil)
 
 (defn check-expr [expr expected]
-  (case (:op expr)
-    :unanalyzed (let [{:keys [form]} expr
-                      _ (when *intermediate-forms*
-                          (swap! *intermediate-forms* conj form))
-                      sym (when (and (seq? form)
-                                     (seq form)
-                                     (symbol? (first form))
-                                     (not (contains? jana2/specials (first form))))
-                            (-> (ana2/resolve-sym (first form) (:env expr))
-                                ana2/var->sym))]
-                  (case sym
-                    clojure.core/defn (do (some-> *found-defns*
-                                                  (swap! update (second form) (fnil inc 0)))
+  (let [expr (assoc-in expr [:env :ns] (ns-name *ns*))]
+    (case (:op expr)
+      :unanalyzed (let [{:keys [form]} expr
+                        ;_ (prn "found form" form)
+                        ;_ (prn "*ns*" (ns-name *ns*))
+                        _ (when *intermediate-forms*
+                            (swap! *intermediate-forms* conj form))
+                        sym (when (and (seq? form)
+                                       (seq form)
+                                       (symbol? (first form))
+                                       (not (contains? jana2/specials (first form))))
+                              (-> (ana2/resolve-sym (first form) (:env expr))
+                                  ana2/var->sym))]
+                    (case sym
+                      clojure.core/defn (do (some-> *found-defns*
+                                                    (swap! update (second form) (fnil inc 0)))
+                                            (recur (ana2/analyze-outer expr) expected))
+                      clojure.core/ns (do ;(prn "found ns")
                                           (recur (ana2/analyze-outer expr) expected))
-                    clojure.core/ns (do (prn "found ns")
-                                        (recur (ana2/analyze-outer expr) expected))
-                    (recur (ana2/analyze-outer expr) expected)))
-    (-> expr
-        ana2/run-pre-passes
-        (-check expected)
-        ana2/run-post-passes
-        ana2/eval-top-level)))
+                      (recur (ana2/analyze-outer expr) expected)))
+      (-> expr
+          ana2/run-pre-passes
+          (-check expected)
+          ana2/run-post-passes
+          ana2/eval-top-level))))
 
 (defn check-top-level
   ([form expected] (check-top-level form expected {}))
@@ -62,6 +65,20 @@
 
 (deftest gildardi-test
   (is (= 1 (:result (chk 1 nil))))
+  (is (= 2 (:result
+             (chk `(do (ns ~(gensym 'foo))
+                       (require '~'[clojure.core :as core])
+                       ;(prn (ns-aliases *ns*))
+                       ;(println "foo ADSF")
+                       ;(prn (ns-name *ns*) (ns-aliases *ns*))
+                       (~'core/inc 1))
+                  nil))))
+  (is (= 2 (:result
+             (chk `(do (ns ~(gensym 'foo)
+                         ~'(:require [clojure.core :as core]))
+                       ;(println "foo ADSF")
+                       (~'core/inc 1))
+                  nil))))
   (is (= 'hello
          (:result
            (chk '(do (defmacro blah []
