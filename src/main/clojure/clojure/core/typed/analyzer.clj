@@ -59,6 +59,8 @@
        :doc      "If given a var, returns the fully qualified symbol for that var, otherwise nil."}
   var->sym)
 
+(declare analyze-outer)
+
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different
@@ -68,9 +70,14 @@
    run-passes can be bound to."
   [ast]
   {:pre [(map? scheduled-passes)]}
-  (ast/walk ast
-            (:pre scheduled-passes)
-            (:post scheduled-passes)))
+  (let [analyze-outer-fix-point (fn [ast]
+                                  (let [ast' (analyze-outer ast)]
+                                    (if (identical? ast ast')
+                                      ast'
+                                      (recur ast'))))]
+    (ast/walk ast
+              (comp (:pre scheduled-passes) analyze-outer-fix-point)
+              (:post scheduled-passes))))
 
 (defn run-pre-passes
   [ast]
