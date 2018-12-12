@@ -59,7 +59,6 @@
        :doc      "If given a var, returns the fully qualified symbol for that var, otherwise nil."}
   var->sym)
 
-#_
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different
@@ -142,6 +141,21 @@
 (defmethod -analyze-form :default
   [form env]
   (analyze-const form env))
+
+(defn analyze
+  "Given a top-level form to analyze and an environment, a map containing:
+   * :locals     a map from binding symbol to AST of the binding value
+   * :context    a keyword describing the form's context from the :ctx/* hierarchy.
+    ** :ctx/expr      the form is an expression: its value is used
+    ** :ctx/return    the form is an expression in return position, derives :ctx/expr
+    ** :ctx/statement the value of the form is not used
+   * :ns         a symbol representing the current namespace of the form to be
+                 analyzed
+
+   returns one level of the AST for that form, with all children
+   stubbed out with :unanalyzed nodes."
+  [form env]
+  (assoc (analyze-form form env) :top-level true))
 
 (defn unanalyzed
   [form env]
