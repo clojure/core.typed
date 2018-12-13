@@ -203,6 +203,11 @@
   (when (symbol? sym)
     (ns-resolve ns locals sym)))
 
+(defn current-ns-name
+  "Returns the current namespace symbol."
+  [env]
+  (ns-name *ns*))
+
 (defn var->sym
   "If given a var, returns the fully qualified symbol for that var, otherwise nil."
   [^clojure.lang.Var v]
@@ -456,7 +461,9 @@
                             #'ana/var?          var?
                             #'ana/resolve-ns    resolve-ns
                             #'ana/resolve-sym   resolve-sym
-                            #'*ns*              (the-ns (:ns env))}
+                            #'ana/current-ns-name current-ns-name
+                            ;#'*ns*              (the-ns (:ns env))
+                            }
                            (:bindings opts))
        (env/ensure (global-env)
          (env/with-env (u/mmerge (env/deref-env) {:passes-opts (get opts :passes-opts default-passes-opts)})
@@ -485,7 +492,9 @@
    #'ana/resolve-sym   resolve-sym
    #'ana/var->sym      var->sym
    #'ana/eval-ast      eval-ast2
-   #'*ns*              (the-ns (:ns env))})
+   #'ana/current-ns-name current-ns-name
+   ;#'*ns*              (the-ns (:ns env))
+   })
 
 (defmethod emit-form/-emit-form :unanalyzed
   [{:keys [form] :as ast} opts]
@@ -538,9 +547,10 @@
      (env/ensure (global-env)
        (let [env (merge env (u/-source-info form env))
              [mform raw-forms] (with-bindings {Compiler/LOADER     (RT/makeClassLoader)
-                                               #'*ns*              (the-ns (:ns env))
+                                               ;#'*ns*              (the-ns (:ns env))
                                                #'ana/resolve-ns    resolve-ns
                                                #'ana/resolve-sym   resolve-sym
+                                               #'ana/current-ns-name current-ns-name
                                                #'ana/macroexpand-1 (get-in opts [:bindings #'ana/macroexpand-1]
                                                                            macroexpand-1)}
                                  (loop [form form raw-forms []]

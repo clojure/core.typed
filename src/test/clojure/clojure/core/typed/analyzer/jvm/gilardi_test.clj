@@ -50,12 +50,12 @@
                       clojure.core/defn (do (some-> *found-defns*
                                                     (swap! update (second form) (fnil inc 0)))
                                             (recur (ana2/analyze-outer expr) expected))
-                      clojure.core/ns
-                      (let [cexpr expr]
-                        (-> (ana2/analyze-outer-root cexpr)
-                            ana2/run-pre-passes
-                            ana2/run-post-passes
-                            ana2/eval-top-level))
+                      ;clojure.core/ns
+                      ;(let [cexpr expr]
+                      ;  (-> (ana2/analyze-outer-root cexpr)
+                      ;      ana2/run-pre-passes
+                      ;      ana2/run-post-passes
+                      ;      ana2/eval-top-level))
                       (recur (ana2/analyze-outer expr) expected)))
       (-> expr
           ana2/run-pre-passes
@@ -77,6 +77,11 @@
   (binding [*ns* (create-ns (gensym 'test-ns))]
     (refer-clojure)
     (apply check-top-level args)))
+
+(defn eval-in-fresh-ns [& args]
+  (binding [*ns* (create-ns (gensym 'eval-ns))]
+    (refer-clojure)
+    (apply eval args)))
 
 (defn chk [& args]
   (apply check-top-level-fresh-ns args))
@@ -109,7 +114,7 @@
   (is (= 2 (:result
              (chk `(do (ns ~(gensym 'foo)
                          ~'(:require [clojure.core :as core]))
-                       ;(println "foo ADSF")
+                       ;(println (ns-name *ns*) "foo ADSF")
                        (~'core/inc 1))
                   nil))))
   (is (= 'hello
@@ -151,14 +156,22 @@
                  (chk `(my-body (change-to-clojure-repl-on-mexpand)
                                 (~'demunge "a"))
                       nil))))
-  (is (thrown-with-msg?
-        clojure.lang.ExceptionInfo
-        #"Could not resolve var: demunge"
-        (string? (:result
-                   (chk `(let* []
-                           (my-body (change-to-clojure-repl-on-mexpand)
-                                    (~'demunge "a")))
-                        nil)))))
+  (is (= "a" (:result
+               (chk `(let* []
+                       (my-body (change-to-clojure-repl-on-mexpand)
+                                (~'demunge "a")))
+                    nil))))
+  (is (= "a" (:result
+               (chk `(let* []
+                       (do (change-to-clojure-repl-on-mexpand)
+                           (~'demunge "a")))
+                    nil))))
+  (is (= "a" (eval-in-fresh-ns `(let* []
+                                  (do (change-to-clojure-repl-on-mexpand)
+                                      (~'demunge "a"))))))
+  (is (= "a" (eval-in-fresh-ns `(let* []
+                                  (my-body (change-to-clojure-repl-on-mexpand)
+                                           (~'demunge "a"))))))
   (is (string? (:result
                  (chk `(do (let* []
                              (change-to-clojure-repl-on-mexpand))
@@ -180,9 +193,19 @@
                 (my-body (change-to-clojure-repl-on-eval)
                          (~'demunge "a")))
              nil)))
+  (is (thrown-with-msg?
+        clojure.lang.ExceptionInfo
+        #"Could not resolve var: demunge"
+        (chk `(let* []
+                (do (change-to-clojure-repl-on-eval)
+                    (~'demunge "a")))
+             nil)))
   (is (string? (:result
                  (chk `(do (let* []
                              (change-to-clojure-repl-on-eval))
                            (~'demunge "a"))
                       nil))))
+
+  ; var is interned under let*
+  (is (= 1 (:result (chk '(let* [] (def a 1) a) nil))))
   )

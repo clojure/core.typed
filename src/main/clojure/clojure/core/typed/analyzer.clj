@@ -52,6 +52,10 @@
   resolve-ns)
 
 (def ^{:dynamic  true
+       :doc      "Returns the name symbol of the current namespace."}
+  current-ns-name)
+
+(def ^{:dynamic  true
        :doc      "Evaluates an AST node, attaching result to :result."}
   eval-ast)
 
@@ -240,7 +244,8 @@
                               (analyze-form env)
                               ;TODO rename to ::inherited
                               (assoc ::config config)
-                              propagate-top-level)]
+                              propagate-top-level
+                              (assoc-in [:env :ns] (current-ns-name env)))]
                     ast)
     ast))
 
