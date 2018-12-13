@@ -159,6 +159,11 @@
                            (my-body (change-to-clojure-repl-on-mexpand)
                                     (~'demunge "a")))
                         nil)))))
+  (is (string? (:result
+                 (chk `(do (let* []
+                             (change-to-clojure-repl-on-mexpand))
+                           (~'demunge "a"))
+                      nil))))
   ; - on eval
   (is (string? (:result
                  (chk `(do (change-to-clojure-repl-on-eval)
@@ -175,4 +180,9 @@
                 (my-body (change-to-clojure-repl-on-eval)
                          (~'demunge "a")))
              nil)))
+  (is (string? (:result
+                 (chk `(do (let* []
+                             (change-to-clojure-repl-on-eval))
+                           (~'demunge "a"))
+                      nil))))
   )
