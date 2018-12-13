@@ -61,6 +61,14 @@
 
 (declare analyze-outer-root)
 
+(defn run-pre-passes
+  [ast]
+  ((:pre scheduled-passes) ast))
+
+(defn run-post-passes
+  [ast]
+  ((:post scheduled-passes) ast))
+
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different
@@ -71,16 +79,8 @@
   [ast]
   {:pre [(map? scheduled-passes)]}
   (ast/walk ast
-            (comp (:pre scheduled-passes) analyze-outer-root)
-            (:post scheduled-passes)))
-
-(defn run-pre-passes
-  [ast]
-  ((:pre scheduled-passes) ast))
-
-(defn run-post-passes
-  [ast]
-  ((:post scheduled-passes) ast))
+            (comp run-pre-passes analyze-outer-root)
+            run-post-passes))
 
 (def specials
   '#{do if new quote set! try var
@@ -222,7 +222,7 @@
     (assoc :result (:result (:ret ast)))))
 
 (defn eval-top-level
-  "Evaluate ::ana/eval-gildardi? nodes and propagate :result from :top-level :do nodes."
+  "Evaluate ::ana/eval-gilardi? nodes and propagate :result from :top-level :do nodes."
   [ast]
   {:pre [(:op ast)]}
   (if (or (eval-top-level? ast)

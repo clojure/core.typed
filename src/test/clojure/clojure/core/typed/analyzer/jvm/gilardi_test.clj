@@ -21,7 +21,7 @@
 (defn check-expr [expr expected]
   (let [expr (assoc-in expr [:env :ns] (ns-name *ns*))]
     (case (:op expr)
-      :unanalyzed (let [{:keys [form]} expr
+      :unanalyzed (let [{:keys [form env]} expr
                         ;_ (prn "found form" form)
                         ;_ (prn "*ns*" (ns-name *ns*))
                         _ (when *intermediate-forms*
@@ -33,11 +33,29 @@
                               (-> (ana2/resolve-sym (first form) (:env expr))
                                   ana2/var->sym))]
                     (case sym
+                      clojure.core.typed.analyzer.jvm.gilardi-test/my-body
+                      (let [arg-forms (rest form)
+                            ; Note: if top-level, must check args in evaluation order
+                            cargs (mapv (if (ana2/top-level? expr)
+                                          #(check-expr (ana2/unanalyzed-top-level % env) nil)
+                                          #(check-expr (ana2/unanalyzed % env) nil))
+                                        arg-forms)
+                            cexpr (-> expr
+                                      (assoc :form (list* (first form) (map emit-form/emit-form cargs))))
+                            ; returns nil on no args
+                            final-result (get (peek cargs) :result nil)]
+                        (-> cexpr
+                            ana2/run-passes
+                            (assoc :result final-result)))
                       clojure.core/defn (do (some-> *found-defns*
                                                     (swap! update (second form) (fnil inc 0)))
                                             (recur (ana2/analyze-outer expr) expected))
-                      clojure.core/ns (do ;(prn "found ns")
-                                          (recur (ana2/analyze-outer expr) expected))
+                      clojure.core/ns
+                      (let [cexpr expr]
+                        (-> (ana2/analyze-outer-root cexpr)
+                            ana2/run-pre-passes
+                            ana2/run-post-passes
+                            ana2/eval-top-level))
                       (recur (ana2/analyze-outer expr) expected)))
       (-> expr
           ana2/run-pre-passes
@@ -63,7 +81,22 @@
 (defn chk [& args]
   (apply check-top-level-fresh-ns args))
 
-(deftest gildardi-test
+;; example macros for typing rules
+
+(defmacro my-body [& body]
+  `(do ~@body))
+
+(defmacro change-to-clojure-repl-on-mexpand []
+  (require 'clojure.repl)
+  (in-ns 'clojure.repl)
+  nil)
+
+(defn change-to-clojure-repl-on-eval []
+  (require 'clojure.repl)
+  (in-ns 'clojure.repl)
+  nil)
+
+(deftest gilardi-test
   (is (= 1 (:result (chk 1 nil))))
   (is (= 2 (:result
              (chk `(do (ns ~(gensym 'foo))
@@ -103,4 +136,43 @@
                          12)
                        (ttest))
                   nil))))
-    (is (= {'ttest 1} @*found-defns*))))
+    (is (= {'ttest 1} @*found-defns*)))
+  (is (= 1 (:result (chk `(my-body nil 1) nil))))
+  (is (= {:result nil} (select-keys (chk `(my-body nil) nil) [:result])))
+  (is (= {:result nil} (select-keys (chk `(my-body) nil) [:result])))
+
+  ; *ns* side effects
+  ; - on mexpand
+  (is (string? (:result
+                 (chk `(do (change-to-clojure-repl-on-mexpand)
+                           (~'demunge "a"))
+                      nil))))
+  (is (string? (:result
+                 (chk `(my-body (change-to-clojure-repl-on-mexpand)
+                                (~'demunge "a"))
+                      nil))))
+  (is (thrown-with-msg?
+        clojure.lang.ExceptionInfo
+        #"Could not resolve var: demunge"
+        (string? (:result
+                   (chk `(let* []
+                           (my-body (change-to-clojure-repl-on-mexpand)
+                                    (~'demunge "a")))
+                        nil)))))
+  ; - on eval
+  (is (string? (:result
+                 (chk `(do (change-to-clojure-repl-on-eval)
+                           (~'demunge "a"))
+                      nil))))
+  (is (string? (:result
+                 (chk `(my-body (change-to-clojure-repl-on-eval)
+                                (~'demunge "a"))
+                      nil))))
+  (is (thrown-with-msg?
+        clojure.lang.ExceptionInfo
+        #"Could not resolve var: demunge"
+        (chk `(let* []
+                (my-body (change-to-clojure-repl-on-eval)
+                         (~'demunge "a")))
+             nil)))
+  )
