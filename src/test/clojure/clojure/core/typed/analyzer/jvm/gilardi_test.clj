@@ -50,12 +50,10 @@
                       clojure.core/defn (do (some-> *found-defns*
                                                     (swap! update (second form) (fnil inc 0)))
                                             (recur (ana2/analyze-outer expr) expected))
-                      ;clojure.core/ns
-                      ;(let [cexpr expr]
-                      ;  (-> (ana2/analyze-outer-root cexpr)
-                      ;      ana2/run-pre-passes
-                      ;      ana2/run-post-passes
-                      ;      ana2/eval-top-level))
+                      clojure.core/ns
+                      (let [cexpr expr]
+                        (-> (ana2/run-passes cexpr)
+                            ))
                       (recur (ana2/analyze-outer expr) expected)))
       (-> expr
           ana2/run-pre-passes

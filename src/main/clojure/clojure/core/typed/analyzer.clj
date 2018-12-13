@@ -73,6 +73,8 @@
   [ast]
   ((:post scheduled-passes) ast))
 
+(declare eval-top-level)
+
 (defn run-passes
   "Function that will be invoked on the AST tree immediately after it has been constructed,
    by default runs the passes declared in #'default-passes, should be rebound if a different
@@ -84,7 +86,7 @@
   {:pre [(map? scheduled-passes)]}
   (ast/walk ast
             (comp run-pre-passes analyze-outer-root)
-            run-post-passes))
+            (comp eval-top-level run-post-passes)))
 
 (def specials
   '#{do if new quote set! try var
