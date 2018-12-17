@@ -675,8 +675,7 @@ for checking namespaces, cf for checking individual forms."}
             
             (Difference t s) is the same as type t with type s removed.
             
-            eg. (Difference (U Int Long) Int) => Long
-                (Difference (U Num nil) nil)  => Num
+            eg. (Difference (U Num nil) nil)  => Num
             "
        :forms '[(Difference type type type*)]
        ::special-type true}
