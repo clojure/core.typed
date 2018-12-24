@@ -45,7 +45,7 @@
                             ; returns nil on no args
                             final-result (get (peek cargs) :result nil)]
                         (-> cexpr
-                            ana2/run-passes
+                            ana2/unmark-top-level
                             (assoc :result final-result)))
                       clojure.core/defn (do (some-> *found-defns*
                                                     (swap! update (second form) (fnil inc 0)))
@@ -54,6 +54,7 @@
                       (let [cexpr expr]
                         (-> (ana2/run-passes cexpr)
                             ))
+                      #_:else
                       (recur (ana2/analyze-outer expr) expected)))
       (-> expr
           ana2/run-pre-passes
@@ -99,6 +100,21 @@
   (in-ns 'clojure.repl)
   nil)
 
+(def ^:dynamic *expand-counter* nil)
+(def ^:dynamic *call-counter* nil)
+
+(defn can-only-call-once []
+  (assert *call-counter* "Must bind *call-counter* to (atom 0)")
+  (assert (= 0 @*call-counter*)
+          "Called can-only-call-once twice!")
+  (reset! *call-counter* 1))
+
+(defmacro can-only-expand-once []
+  (assert *expand-counter* "Must bind *expand-counter* to (atom 0)")
+  (assert (= 0 @*expand-counter*)
+          "Expanded can-only-expand-once twice!")
+  (reset! *expand-counter* 1))
+
 (deftest gilardi-test
   (is (= 1 (:result (chk 1 nil))))
   (is (= 2 (:result
@@ -143,6 +159,14 @@
   (is (= 1 (:result (chk `(my-body nil 1) nil))))
   (is (= {:result nil} (select-keys (chk `(my-body nil) nil) [:result])))
   (is (= {:result nil} (select-keys (chk `(my-body) nil) [:result])))
+  (binding [*call-counter* (atom 0)]
+    (is (= 1 (eval-in-fresh-ns `(do (can-only-call-once) 1)))))
+  (binding [*expand-counter* (atom 0)]
+    (is (= 1 (eval-in-fresh-ns `(do (can-only-expand-once) 1)))))
+  (binding [*call-counter* (atom 0)]
+    (is (= {:result 1} (select-keys (chk `(my-body (can-only-call-once)) nil) [:result]))))
+  (binding [*expand-counter* (atom 0)]
+    (is (= {:result 1} (select-keys (chk `(my-body (can-only-expand-once)) nil) [:result]))))
 
   ; *ns* side effects
   ; - on mexpand
@@ -164,9 +188,28 @@
                        (do (change-to-clojure-repl-on-mexpand)
                            (~'demunge "a")))
                     nil))))
+  (is (= "a" (:result
+               (chk `(let* [_# (change-to-clojure-repl-on-mexpand)]
+                       (~'demunge "a"))
+                    nil))))
+  (is (= "a" (:result
+               (chk `(second [(change-to-clojure-repl-on-mexpand) (~'demunge "a")])
+                    nil))))
+  (is (fn? (:result
+             (chk `(fn* []
+                        (my-body (change-to-clojure-repl-on-mexpand)
+                                 (~'demunge "a")))
+                  nil))))
+  (is (= "a" (:result
+               (chk `(do (fn* [] (change-to-clojure-repl-on-mexpand))
+                         (~'demunge "a"))
+                    nil))))
   (is (= "a" (eval-in-fresh-ns `(let* []
                                   (do (change-to-clojure-repl-on-mexpand)
                                       (~'demunge "a"))))))
+  (is (fn? (eval-in-fresh-ns `(fn* []
+                                   (do (change-to-clojure-repl-on-mexpand)
+                                       (~'demunge "a"))))))
   (is (= "a" (eval-in-fresh-ns `(let* []
                                   (my-body (change-to-clojure-repl-on-mexpand)
                                            (~'demunge "a"))))))
@@ -192,12 +235,24 @@
                          (~'demunge "a")))
              nil)))
   (is (thrown-with-msg?
+        Exception
+        #"Unable to resolve symbol: demunge in this context"
+        (eval-in-fresh-ns `(let* []
+                             (my-body (change-to-clojure-repl-on-eval)
+                                      (~'demunge "a"))))))
+  (is (thrown-with-msg?
         clojure.lang.ExceptionInfo
         #"Could not resolve var: demunge"
         (chk `(let* []
                 (do (change-to-clojure-repl-on-eval)
                     (~'demunge "a")))
              nil)))
+  (is (thrown-with-msg?
+        Exception
+        #"Unable to resolve symbol: demunge in this context"
+        (eval-in-fresh-ns `(let* []
+                             (do (change-to-clojure-repl-on-eval)
+                                 (~'demunge "a"))))))
   (is (string? (:result
                  (chk `(do (let* []
                              (change-to-clojure-repl-on-eval))
