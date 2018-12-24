@@ -23,11 +23,10 @@
 
 (defn check-cast
   [check expr expected]
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        {[_ _ texpr :as statements] :statements :keys [env] frm :ret :as expr}
+  (let [{[_ _ texpr :as statements] :statements :keys [env] frm :ret :as expr}
         (-> expr 
             (update-in [:statements 2] ana2/run-passes)
-            (update :ret pre))
+            (update :ret (comp ana2/run-pre-passes ana2/analyze-outer-root)))
         _ (assert (#{3} (count statements)))
         tsyn-quoted (ast-u/map-expr-at texpr :type)
         _ (impl/impl-case
@@ -50,7 +49,7 @@
         expr (-> expr
                  (update-in [:ret :fn] ana2/run-passes)
                  (update-in [:ret :args 0] check)
-                 (update :ret post))]
+                 (update :ret ana2/run-post-passes))]
     (assoc expr
            :statements statements
            u/expr-type (r/ret parsed-t))))

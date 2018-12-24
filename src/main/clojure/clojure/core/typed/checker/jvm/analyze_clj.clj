@@ -316,19 +316,15 @@
 
 ;; (All [x ...] [-> '{(Var x) x ...})])
 (defn thread-bindings [& [opts]]
-  (t/tc-ignore
-    {Compiler/LOADER     (clojure.lang.RT/makeClassLoader)
-     #'ana2/macroexpand-1 macroexpand-1
-     #'ana2/scheduled-passes (if vs/*custom-expansions*
-                               @scheduled-passes-for-custom-expansions
-                               @jana2/scheduled-default-passes)
-     #'ana2/parse         jana2/parse
-     #'ana2/var?          var?
-     #'ana2/create-var    jana2/create-var
-     #'ana2/resolve-ns    jana2/resolve-ns
-     #'ana2/resolve-sym   jana2/resolve-sym
-     #'*ns*               (the-ns (or (-> opts :env :ns)
-                                      *ns*))}))
+  (let [ns (the-ns (or (-> opts :env :ns)
+                       *ns*))]
+    (merge
+      (jana2/default-thread-bindings {:ns (ns-name ns)})
+      {#'ana2/macroexpand-1 macroexpand-1
+       #'ana2/scheduled-passes (if vs/*custom-expansions*
+                                 @scheduled-passes-for-custom-expansions
+                                 @jana2/scheduled-default-passes)
+       })))
 
 (defn will-custom-expand? [form env]
   (boolean

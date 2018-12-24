@@ -222,92 +222,51 @@
                   {:pre [((some-fn nil? r/TCResult?) expected)]}
                   (:op expr)))
 
-(defn check-expr [{:keys [op env] :as expr} & [expected]]
+(defn check-expr [expr & [expected]]
   {:pre [(:op expr)
          ((some-fn nil? r/TCResult?) expected)]
    :post [(r/TCResult? (u/expr-type %))]}
-  (when vs/*trace-checker*
-    (println "Checking line:" (:line env))
-    (flush))
   ;(prn "check-expr" op)
   ;(clojure.pprint/pprint (emit-form/emit-form expr))
-  (cond
-    (u/expr-type expr) (do
-                         ;(prn "skipping already analyzed form")
-                         expr)
-    (= :unanalyzed op) (let [{:keys [pre post]} ana2/scheduled-passes]
-                         (-> expr
-                             ;; ensures ::jana2/state is propagated properly,
-                             ;; instead of simply calling analyze
-                             pre
-                             (check-expr expected)))
-    :else
-    (let [{:keys [pre post]} ana2/scheduled-passes]
-      (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
-                vs/*current-expr* expr]
-        (let [cexpr (-> expr
-                        pre
-                        (-check expected)
-                        post)]
-          ;(prn "post" (:op cexpr))
-          ;(clojure.pprint/pprint (emit-form/emit-form cexpr))
-          cexpr)))))
-
-(defn pre-gilardi [ast]
-  {:pre [(not (= :unanalyzed (:op ast)))]}
-  ;(prn "pre-gilardi" (get-in ast [::ana2/config :top-level]))
-  (if (get-in ast [::ana2/config :top-level])
-    (case (:op ast)
-      :do (ast/update-children ast #(assoc-in % [::ana2/config :top-level] true))
-      (assoc ast ::eval-gildardi? true))
-    ast))
-
-(defn post-gilardi [ast]
-  {:pre [(:op ast)]}
-  ;(prn "post-gilardi" (::eval-gildardi? ast))
-  ;(clojure.pprint/pprint (emit-form/emit-form ast))
-  (if (or (::eval-gildardi? ast)
-          (and (get-in ast [::ana2/config :top-level])
-               (::t/tc-ignore ast)))
-    (let [form (emit-form/emit-form ast)
-          ;_ (prn "before eval" *ns*)
-          ;_ (clojure.pprint/pprint form)
-          ;_ (prn "refers defmacro" ('defmacro (ns-refers *ns*)))
-          result (clojure.lang.Compiler/eval form)]
-      ;(prn "after eval" *ns*)
-      (assoc ast :result result))
-    (cond-> ast
-      (and (= :do (:op ast))
-           (get-in ast [::ana2/config :top-level])
-           (:result (:ret ast)))
-      (assoc :result (:result (:ret ast))))))
+  (let [{:keys [op env] :as expr} (assoc-in expr [:env :ns] (ns-name *ns*))]
+    (when vs/*trace-checker*
+      (println "Checking line:" (:line env))
+      (flush))
+    (cond
+      ;(u/expr-type expr) (do
+      ;                     ;(prn "skipping already analyzed form")
+      ;                     expr)
+      (= :unanalyzed op) (let [cexpr (-> expr
+                                         ana2/analyze-outer
+                                         (check-expr expected))]
+                           ; if still unanalyzed, this could be a top-level
+                           ; form we chose not to traverse with the type checker.
+                           ; So we call eval-top-level here for that case.
+                           (if (= :unanalyzed (:op cexpr))
+                             (ana2/eval-top-level cexpr)
+                             cexpr))
+      :else
+      (let []
+        (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
+                  vs/*current-expr* expr]
+          (let [cexpr (-> expr
+                          ana2/run-pre-passes
+                          (-check expected)
+                          ana2/run-post-passes
+                          ana2/eval-top-level)]
+            ;(prn "post" (:op cexpr))
+            ;(clojure.pprint/pprint (emit-form/emit-form cexpr))
+            cexpr))))))
 
 (defn check-top-level 
   ([form expected] (check-top-level form expected {}))
   ([form expected {:keys [env] :as opts}]
   ;(prn "check-top-level" form)
   ;(prn "*ns*" *ns*)
-  (with-bindings (assoc (dissoc (ana-clj/thread-bindings) #'*ns*)
-                        #'ana2/macroexpand-1 #'ana-clj/macroexpand-1
-                        #'ana2/scheduled-passes (-> @jana2/scheduled-default-passes
-                                                    (update :pre (fn [pre]
-                                                                   (fn [ast]
-                                                                     (cond-> ast
-                                                                       (not (:pre-done ast))
-                                                                       ((comp pre-gilardi pre))
-                                                                       true
-                                                                       (assoc :pre-done true)))))
-                                                    (update :post (fn [post]
-                                                                    (fn [ast]
-                                                                      (cond-> ast
-                                                                        (not (:post-done ast))
-                                                                        ((comp post-gilardi post))
-                                                                        true
-                                                                        (assoc :post-done true)))))))
+  (with-bindings (dissoc (ana-clj/thread-bindings) #'*ns*) ; *ns* is managed by higher-level ops like check-ns1
     (env/ensure (jana2/global-env)
       (let [res (-> form
-                    (ana2/unanalyzed (or env (taj/empty-env)))
-                    (assoc-in [::ana2/config :top-level] true)
+                    (ana2/unanalyzed-top-level (or env (taj/empty-env)))
                     (check-expr expected))]
         res)))))
 
@@ -624,10 +583,9 @@
                           (if (nil? v)
                             r/-nil
                             (c/RClass-of-with-unknown-params v)))
-            {:keys [pre post]} ana2/scheduled-passes
             ; build expected types for each method map
             extends (for [[prcl-expr mmap-expr] (partition 2 protos)]
-                      (let [prcl-expr (pre prcl-expr)
+                      (let [prcl-expr (ana2/run-pre-passes (ana2/analyze-outer-root prcl-expr))
                             protocol (do (when-not (= :var (:op prcl-expr))
                                            (err/int-error  "Must reference protocol directly with var in extend"))
                                          (ptl-env/resolve-protocol (coerce/var->symbol (:var prcl-expr))))
@@ -817,10 +775,9 @@
           (-> % u/expr-type r/TCResult?)]}
   (when-not (= 1 (count args))
     (err/int-error (str "push-thread-bindings expected one argument, given " (count args))))
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        bindings-expr (pre bindings-expr)
+  (let [bindings-expr (ana2/run-pre-passes (ana2/analyze-outer-root bindings-expr))
         bindings-expr (if (#{:invoke} (-> bindings-expr :op))
-                        (update bindings-expr :fn pre)
+                        (update bindings-expr :fn (comp ana2/run-pre-passes ana2/analyze-outer-root))
                         bindings-expr)
         ; only support (push-thread-bindings (hash-map @~[var bnd ...]))
         ; like `binding`s expansion
@@ -836,7 +793,7 @@
                 (vec
                   (apply concat
                          (for [[var-expr bnd-expr] new-bindings-exprs]
-                           (let [{:keys [op var] :as var-expr} (pre var-expr)]
+                           (let [{:keys [op var] :as var-expr} (ana2/run-pre-passes (ana2/analyze-outer-root var-expr))]
                              (when-not (#{:the-var} op)
                                (err/int-error (str "push-thread-bindings must have var literals for keys")))
                              (let [expected (var-env/type-of (coerce/var->symbol var))
@@ -1119,9 +1076,8 @@
 (declare maybe-special-apply)
 
 (defn check-apply [expr expected]
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        expr (-> expr
-                 (update-in [:args 0] pre))
+  (let [expr (-> expr
+                 (update-in [:args 0] (comp ana2/run-pre-passes ana2/analyze-outer-root)))
         e (-invoke-apply expr expected)
         e (if (= e cu/not-special)
             (maybe-special-apply check-expr expr expected)
@@ -1747,13 +1703,12 @@
 ; FIXME this needs a line number from somewhere!
 (defmethod -host-call-special 'clojure.lang.MultiFn/addMethod
   [expr expected]
-  {:post [(every? :post-done (cons (:target %) (:args %)))]}
+  {:post [#_(every? :post-done (cons (:target %) (:args %)))]}
   (when-not (= 2 (count (:args expr)))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn/addMethod"))
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        {[dispatch-val-expr _] :args target :target :keys [env] :as expr}
+  (let [{[dispatch-val-expr _] :args target :target :keys [env] :as expr}
         (-> expr
-            (update :target pre))
+            (update :target (comp ana2/run-pre-passes ana2/analyze-outer-root)))
         _ (when-not (#{:var} (:op target))
             (err/int-error "Must call addMethod with a literal var"))
         var (:var target)
@@ -1789,7 +1744,7 @@
             (-> expr
                 (update :target check-expr)
                 (update-in [:args 0] check-expr)
-                (update-in [:args 1] pre))
+                (update-in [:args 1] (comp ana2/run-pre-passes ana2/analyze-outer-root)))
             _ (assert (#{:var} (:op target)))
             _ (when-not (#{:fn} (:op method-expr))
                 (err/int-error (str "Method must be a fn")))
@@ -1842,8 +1797,7 @@
 (def expected-visitor (Exception.))
 
 (defn check-invoke [expr expected]
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        {fexpr :fn :keys [args env] :as expr} (update expr :fn pre)
+  (let [{fexpr :fn :keys [args env] :as expr} (update expr :fn (comp ana2/run-pre-passes ana2/analyze-outer))
         e (-invoke-special expr expected)]
     (cond
       (not= :default e) e
@@ -2088,15 +2042,16 @@
                      (fn [ast & args] ast)
                      check-expr)
         ctarget (check-expr target)
-        cargs (when args
-                (mapv check-expr args))
-        _ (assert (:post-done ctarget))
-        _ (assert (every? :post-done cargs))
-        {:keys [pre post]} ana2/scheduled-passes
+        ;_ (prn (->> target :env :locals
+        ;            (map (fn [[k v]]
+        ;                   [k (select-keys v [:op :tag :form])]))))
+        cargs (mapv check-expr args)
+        ;_ (assert (:post-done ctarget))
+        ;_ (assert (every? :post-done cargs))
         expr (-> (assoc expr
                         :target ctarget
                         :args cargs)
-                 post)
+                 ana2/run-post-passes)
         give-up (fn []
                   (do
                     (err/tc-delayed-error (str "Unresolved host interop: " (or m-or-f (:method expr))
@@ -2110,13 +2065,14 @@
     ;; try to rewrite, otherwise error on reflection
     (cond
       (not= original-op (:op expr)) (check-expr expr expected)
+
       (cu/should-rewrite?)
       (let [ctarget (add-type-hints ctarget)
             cargs (mapv add-type-hints cargs)
             nexpr (assoc expr 
                          :target ctarget
                          :args cargs)
-            ;_ (prn (-> nexpr :target ((juxt :o-tag :tag))))
+            ;_ (prn "host interop" (-> nexpr :target ((juxt :o-tag :tag))))
             rewrite (try-resolve-reflection nexpr)]
         (case (:op rewrite)
           (:static-call :instance-call)
@@ -2142,8 +2098,8 @@
     (if (= :default maybe-checked-expr)
       (check-host expr expected)
       (let [expr maybe-checked-expr]
-        (assert (:post-done (:target expr)))
-        (assert (every? :post-done (:args expr)))
+        ;(assert (:post-done (:target expr)))
+        ;(assert (every? :post-done (:args expr)))
         (check-host maybe-checked-expr expected :no-check true)))))
 
 (defmethod -check :host-field
@@ -2152,8 +2108,7 @@
 
 (defmethod -check :maybe-host-form
   [expr expected]
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        expr (pre expr)]
+  (let [expr (ana2/run-pre-passes expr)]
     (if (= :maybe-host-form (:op expr))
       (err/tc-delayed-error (str "Unresolved host interop: " (:form expr)
                                  "\n\nHint: use *warn-on-reflection* to identify reflective calls")
@@ -2263,8 +2218,7 @@
 
 (defmethod -check :maybe-class
   [expr expected]
-  (let [{:keys [pre post]} ana2/scheduled-passes
-        expr (post expr)]
+  (let [expr (ana2/run-post-passes expr)]
     (if (= :maybe-class (:op expr))
       (err/tc-delayed-error (str "Unresolved host interop: " (:form expr)
                                  "\n\nHint: use *warn-on-reflection* to identify reflective calls")
@@ -2381,11 +2335,10 @@
         (not= cu/not-special spec) spec
         :else
         (let [inst-types *inst-ctor-types*
-              {:keys [pre post]} ana2/scheduled-passes
               expr (-> expr
                        (update :args #(binding [*inst-ctor-types* nil]
                                         (mapv check-expr %)))
-                       post)
+                       ana2/run-post-passes)
               ;; call when we're convinced there's no way to rewrite this AST node
               ;; in a non-reflective way.
               give-up (fn [expr]

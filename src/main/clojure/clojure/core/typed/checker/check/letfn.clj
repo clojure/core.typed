@@ -21,7 +21,7 @@
 ; annotations are in the first expression of the body (a :do)
 (defn check-letfn [bindings body letfn-expr expected check]
   (let [;; must pass over bindings first to uniquify
-        bindings (mapv #((:pre ana2/scheduled-passes) %) bindings)
+        bindings (mapv ana2/run-pre-passes bindings)
         body (update-in body [:statements 0] ana2/run-passes)
         inits-expected
         ;try and find annotations, and throw a delayed error if not found

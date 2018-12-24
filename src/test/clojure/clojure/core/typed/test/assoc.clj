@@ -9,8 +9,8 @@
   (is-tc-e (assoc {:a 1} :b 2)
            '{:a Number :b Number})
 
-  (is-tc-err (let [a 1]
-               (assoc a :b 2)))
+  (is-tc-err #(let [a 1]
+                (assoc a :b 2)))
   (is-tc-err
     (do (t/ann-record FooRec [a :- t/Num
                               b :- t/Symbol])

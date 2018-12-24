@@ -4497,7 +4497,7 @@
     (is-tc-e (locking :a (+ 1 2)) Number))
 
   (testing "can't lock nil"
-    (is-tc-err (locking nil (+ 1 2) Number)))
+    (is-tc-err #(locking nil (+ 1 2) Number)))
 
   (testing "incorrect return value"
     (is-tc-err (locking :a :b) Number)))
@@ -5068,8 +5068,8 @@
               (java.io.File. a)))))
   (testing "type hint is only added via a :local node"
     (is-tc-err (java.io.File. (first [(str "a")]))))
-  (is-tc-err (let [[a] [(long 1)]]
-               (java.io.File. a)))
+  (is-tc-err #(let [[a] [(long 1)]]
+                (java.io.File. a)))
   (is-tc-e (fn [a]
              (java.io.File. a))
            [Str -> java.io.File]))

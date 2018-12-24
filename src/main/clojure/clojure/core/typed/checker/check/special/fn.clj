@@ -213,11 +213,13 @@
          (#{3} (count statements))]}
   ;(prn "check-special-fn")
   (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-    (let [{:keys [pre post]} ana2/scheduled-passes
-          fexpr (pre fexpr)
+    (let [fexpr (-> fexpr
+                    ana2/analyze-outer-root
+                    ana2/run-pre-passes)
           statements (update statements 2 ana2/run-passes)
           [_ _ fn-ann-expr :as statements] statements
-          _ (assert (#{:fn} (:op fexpr)))
+          _ (assert (#{:fn} (:op fexpr))
+                    ((juxt :op :form) fexpr))
           fn-anns-quoted (ast-u/map-expr-at fn-ann-expr :ann)
           ;_ (prn "fn-anns-quoted" fn-anns-quoted)
           poly-quoted    (ast-u/map-expr-at fn-ann-expr :poly)

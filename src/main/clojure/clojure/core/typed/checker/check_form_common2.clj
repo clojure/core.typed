@@ -140,14 +140,13 @@
             c-ast (try
                     (check-top-level form expected)
                     (catch Throwable e
-                      ;(prn "caught throwable")
                       (let [e (if (some-> e ex-data err/tc-error?)
                                 (try
                                   ;(prn "printing errors")
                                   (err/print-errors! (vec (concat (delayed-errors-fn) [e])))
                                   (catch Throwable e
                                     e))
-                                e)]
+                                (throw e))]
                         ;(prn "reset terminal-error")
                         (reset! terminal-error e)
                         nil)))
