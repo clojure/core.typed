@@ -228,7 +228,8 @@
     (assoc :result (:result (:ret ast)))))
 
 (defn eval-top-level
-  "Evaluate ::ana/eval-gilardi? nodes and propagate :result from :top-level :do nodes."
+  "Evaluate `eval-top-level?` nodes and unanalyzed `top-level?` nodes.
+  Otherwise, propagate result from children."
   [ast]
   {:pre [(:op ast)]}
   (if (or (eval-top-level? ast)

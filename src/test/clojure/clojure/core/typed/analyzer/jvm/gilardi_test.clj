@@ -235,8 +235,8 @@
                          (~'demunge "a")))
              nil)))
   (is (thrown-with-msg?
-        Exception
-        #"Unable to resolve symbol: demunge in this context"
+        RuntimeException
+        #"" ;#"Unable to resolve symbol: demunge in this context"
         (eval-in-fresh-ns `(let* []
                              (my-body (change-to-clojure-repl-on-eval)
                                       (~'demunge "a"))))))
@@ -248,8 +248,8 @@
                     (~'demunge "a")))
              nil)))
   (is (thrown-with-msg?
-        Exception
-        #"Unable to resolve symbol: demunge in this context"
+        RuntimeException
+        #"" ;#"Unable to resolve symbol: demunge in this context"
         (eval-in-fresh-ns `(let* []
                              (do (change-to-clojure-repl-on-eval)
                                  (~'demunge "a"))))))
