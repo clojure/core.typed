@@ -47,14 +47,13 @@
     (if (and cls
              (#{:local} (:op expr)))
       (-> expr
-          (assoc 
-            :o-tag cls
-            :tag cls)
-          (update-in [:form] 
-                     (fn [f]
-                       (if (obj? f)
-                         (vary-meta f assoc :tag (class->sym cls))
-                         f))))
+          (assoc :o-tag cls
+                 :tag cls)
+          (update :form
+                  (fn [f]
+                    (if (obj? f)
+                      (vary-meta f assoc :tag (class->sym cls))
+                      f))))
       expr)))
 
 (defn check-host
