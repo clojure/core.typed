@@ -319,7 +319,23 @@
   (let [ns (the-ns (or (-> opts :env :ns)
                        *ns*))]
     (merge
-      (jana2/default-thread-bindings {:ns (ns-name ns)})
+      (update (jana2/default-thread-bindings {:ns (ns-name ns)})
+              #'ana2/eval-ast (fn [old]
+                                (fn [& args]
+                                  ; don't evaluate a form if there are delayed type errors
+                                  (let [throw-this (atom nil)
+                                        _ (swap! vs/*delayed-errors*
+                                                 (fn [delayed]
+                                                   {:pre [(vector? delayed)]
+                                                    :post [(vector? %)]}
+                                                   (if (seq delayed)
+                                                     ; take the last type error to throw
+                                                     (do (reset! throw-this (peek delayed))
+                                                         (pop delayed))
+                                                     delayed)))
+                                        _ (when-some [e @throw-this]
+                                            (throw e))]
+                                    (apply old args)))))
       {#'ana2/macroexpand-1 macroexpand-1
        #'ana2/scheduled-passes (if vs/*custom-expansions*
                                  @scheduled-passes-for-custom-expansions
