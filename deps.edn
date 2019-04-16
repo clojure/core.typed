@@ -1,7 +1,7 @@
 {:paths ["src/main/clojure"],
  :deps
  {org.clojure/clojure {:mvn/version "1.9.0"},
-  org.clojure/core.typed.analyzer.jvm {:mvn/version "0.8.0-20190416.180201-18"},
+  org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.1"},
   org.typedclojure/core.typed.lib.clojure
   {:mvn/version "0.7.0-SNAPSHOT"},
   org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"},
