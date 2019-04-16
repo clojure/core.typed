@@ -1,4 +1,4 @@
-# 0.7.1 - SNAPSHOT
+# 0.7.1 - 16 April 2019
 
 - Correct initialize pass :state via `unanalyzed`
 
