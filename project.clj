@@ -1,4 +1,4 @@
-(defproject org.typedclojure/core.typed.lib.clojure "0.7.0"
+(defproject org.typedclojure/core.typed.lib.clojure "0.7.1-SNAPSHOT"
   :description "Type annotations and macros for the base Clojure distribution."
   :url "https://github.com/typedclojure/core.typed.lib.clojure"
   :license {:name "Eclipse Public License"

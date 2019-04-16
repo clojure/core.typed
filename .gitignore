@@ -28,3 +28,4 @@ nashorn_*
 .cpcache
 .rebel_readline_history
 junit-output.xml
+*.asc
