@@ -1,6 +1,8 @@
-# ?? - ??
+# 0.7.1 ?? - ??
 
 - split out #lang machinery to `org.typedclojure/core.typed.lang.jvm`
+- bump runtime.jvm
+  - splits core Clojure annotations to `org.typedclojure/core.typed.lib.clojure`
 
 # 0.7.0 - 17 November 2018
 

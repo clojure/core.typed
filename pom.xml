@@ -77,7 +77,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.7.1-SNAPSHOT</version>
+      <version>0.7.1</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
