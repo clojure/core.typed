@@ -17,4 +17,4 @@
   :source-paths ["src/main/clojure/"]
   :test-paths ["src/test/clojure/"]
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [org.clojure/core.typed.runtime.jvm "0.7.1-SNAPSHOT"]])
+                 [org.clojure/core.typed.runtime.jvm "0.7.1"]])
