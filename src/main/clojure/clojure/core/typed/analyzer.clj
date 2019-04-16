@@ -39,8 +39,11 @@
 
                  (ast/walk ast (:pre scheduled-passes) (:post scheduled-passes))
 
-                 runs the passes currently scheduled.
-                 "}
+                 runs the passes currently scheduled, and
+                 
+                 ((:init-ast scheduled-passes) ast)
+                 
+                 initializes the AST for traversal."}
   scheduled-passes)
 
 (def ^{:dynamic  true
@@ -167,12 +170,15 @@
 
 (defn unanalyzed
   [form env]
-  {:op :unanalyzed
-   :form form
-   :env env
-   ;; ::config will be inherited by whatever node
-   ;; this :unanalyzed node becomes when analyzed
-   ::config {}})
+  (let [init-ast (:init-ast scheduled-passes)
+        _ (assert init-ast "scheduled-passes must bind :init-ast")]
+    (init-ast
+      {:op :unanalyzed
+       :form form
+       :env env
+       ;; ::config will be inherited by whatever node
+       ;; this :unanalyzed node becomes when analyzed
+       ::config {}})))
 
 (defn mark-top-level
   [ast]

@@ -21,4 +21,3 @@
                :state (fn [] (atom {}))}}
   [state ast]
   (add-binding-atom/add-binding-atom state ast))
-

@@ -46,8 +46,33 @@
          ((juxt :op :field) (ast clojure.lang.Compiler/LOADER))))
   )
 
+(deftest local-tag-test
+  (is (= java.lang.String
+         (:tag (ast "asdf"))))
+  (is (= [:const java.lang.String]
+         (-> (ast (let [a "asdf"]))
+             :bindings
+             first
+             :init
+             ((juxt :op :tag)))))
+  (is (= [:binding java.lang.String]
+         (-> (ast (let [a "asdf"]))
+             :bindings
+             first
+             ((juxt :op :tag)))))
+  (is (= [:local java.lang.String]
+         (-> (ast (let [a "asdf"]
+                    a))
+             :body
+             :ret
+             ((juxt :op :tag)))))
+  (is (= java.lang.String
+         (:tag (ast (let [a "asdf"]
+                      a)))))
+  )
+
+#_
 (deftest async-test
-  #_
   (is (-> (ast (do (ns asdfasdf
                      (:require [clojure.core.async :as a]
                                [clojure.core.typed.async :refer [go chan]]))

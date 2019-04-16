@@ -14,6 +14,7 @@
 
 (defn compile-passes [pre-passes post-passes info]
   (let [with-state (filter (comp :state info) (concat pre-passes post-passes))
+        ; (Map Var Atom) that is reinitialized once for each AST at the root
         state      (zipmap with-state (mapv #(:state (info %)) with-state))
 
         pfns-fn    (fn [passes]
@@ -31,11 +32,22 @@
                              (fn [ast] ast)
                              passes))
         pre-passes  (pfns-fn pre-passes)
-        post-passes (pfns-fn post-passes)]
-    {:pre (fn [ast]
-            (let [state (or (-> ast :env ::ana/state)
-                            (u/update-vals state #(%)))]
-              (pre-passes (assoc-in ast [:env ::ana/state] state))))
+        post-passes (pfns-fn post-passes)
+        init-ast (fn [ast]
+                   (let [; immediately when starting to analyze an AST, generate
+                         ; atoms for each pass that requires state. these will
+                         ; be passed around in (-> ast :env ::ana/state).
+                         state-fn (fn [root-state]
+                                    (or root-state
+                                        ; this line assumes that ::ana/state is correctly propagated from its
+                                        ; inception at the root of the AST.
+                                        ; Note: if this code executes more than once per AST (which would be
+                                        ; incorrect, since it should only run at the root), then it's probably
+                                        ; a bug somewhere else that fails to propagate :env down the AST.
+                                        (u/update-vals state #(%))))]
+                     (update-in ast [:env ::ana/state] state-fn)))]
+    {:init-ast init-ast
+     :pre pre-passes
      :post post-passes}))
 
 (defn schedule
