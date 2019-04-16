@@ -33,13 +33,13 @@
             [clojure.core.typed.checker.check.invoke-kw :as invoke-kw]
             [clojure.core.typed.checker.check.isa :as isa]
             [clojure.core.typed.checker.check.jvm.host-interop :as host-interop]
+            [clojure.core.typed.checker.check.jvm.method :as method]
             [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.checker.check.let :as let]
             [clojure.core.typed.checker.check.letfn :as letfn]
             [clojure.core.typed.checker.check.local :as local]
             [clojure.core.typed.checker.check.loop :as loop]
             [clojure.core.typed.checker.check.map :as map]
-            [clojure.core.typed.checker.check.method :as method]
             [clojure.core.typed.checker.check.monitor :as monitor]
             [clojure.core.typed.checker.check.multi :as multi]
             [clojure.core.typed.checker.check.multi-utils :as multi-u]
@@ -936,99 +936,6 @@
         {out-expr-type ::rules/expr-type} (rules/typing-rule rule-args)]
     (assoc expr u/expr-type (cu/map->TCResult out-expr-type))))
 
-(defn swap!-dummy-arg-expr [env [target-expr & [f-expr & args]]]
-  (assert f-expr)
-  (assert target-expr)
-  (let [; transform (swap! t f a ...) to (swap! t (fn [t'] (f t' a ...)))
-        ;
-        ;generate fresh symbol for function param
-        sym (gensym 'swap-val)
-        derefed-param (ast-u/dummy-local-binding-expr sym env)
-        ;
-        ;dummy-fn is (fn [t'] (f t' a ...)) with hygienic bindings
-        dummy-fn-expr (ast-u/dummy-fn-expr
-                        [; (fn [t'] (f t' a ...))
-                         (ast-u/dummy-fn-method-expr
-                           ; (f t' a ...)
-                           (ast-u/dummy-invoke-expr f-expr
-                                              (concat [derefed-param]
-                                                      args)
-                                              env)
-                           [(ast-u/dummy-local-binding-expr sym env)]
-                           nil
-                           env)]
-                        nil
-                        env)]
-    dummy-fn-expr))
-
-; Any Type Env -> Expr
-(defn dummy-ann-form-expr [expr t env]
-  (ast-u/dummy-do-expr
-    [(ast-u/dummy-const-expr spec/special-form env)
-     (ast-u/dummy-const-expr ::t/ann-form env)
-     (ast-u/dummy-const-expr 
-       {:type (binding [vs/*verbose-types* true]
-                `(quote ~(prs/unparse-type t)))}
-       env)]
-    expr
-    env))
-
-;; TODO repopulate :args etc.
-;swap!
-;
-; attempt to rewrite a call to swap! to help type inference
-#_
-(defmethod -invoke-special 'clojure.core/swap!
-  [expr & [expected]]
-  (let [{[ctarget-expr :as args] :args :keys [env] :as expr}
-        (-> expr
-            (update-in [:args 0] check-expr))
-        target-t (-> ctarget-expr u/expr-type r/ret-t c/fully-resolve-type)
-        deref-type (when (and (r/RClass? target-t)
-                              (= 'clojure.lang.Atom (:the-class target-t)))
-                     (when-not (= 2 (count (:poly? target-t)))
-                       (err/int-error (str "Atom takes 2 arguments, found " (count (:poly? target-t)))))
-                     (second (:poly? target-t)))
-        ]
-    (if deref-type
-      (cond
-        ; TODO if this is a lambda we can do better eg. (swap! (atom :- Number 1) (fn [a] a))
-        ;(#{:fn} (:op (second args)))
-
-        :else
-          (let [dummy-arg (swap!-dummy-arg-expr env args)
-                ;_ (prn (ast-u/emit-form-fn dummy-arg) "\n" deref-type)
-                expected-dummy-fn-type (r/make-FnIntersection
-                                         (r/make-Function
-                                           [deref-type]
-                                           deref-type))
-                delayed-errors (err/-init-delayed-errors)
-                actual-dummy-fn-type 
-                (binding [vs/*delayed-errors* delayed-errors]
-                  (-> (invoke/normal-invoke check-expr 
-                                     expr
-                                     (ast-u/dummy-var-expr
-                                       'clojure.core/swap!
-                                       env)
-                                     [(first args)
-                                      (dummy-ann-form-expr
-                                        dummy-arg
-                                        expected-dummy-fn-type
-                                        env)]
-                                     expected)
-                      u/expr-type r/ret-t))]
-            ;(prn "deref expected" deref-type)
-            ;(prn "expected-dummy-fn-type" expected-dummy-fn-type)
-            ;(prn "actual-dummy-fn-type" actual-dummy-fn-type)
-            ;(prn "subtype?" (sub/subtype? actual-dummy-fn-type expected-dummy-fn-type))
-            (if (seq @delayed-errors)
-              :default
-              (assoc expr
-                     u/expr-type (below/maybe-check-below
-                                   (r/ret deref-type)
-                                   expected)))))
-      :default)))
-
 ;=
 (defmethod -invoke-special 'clojure.core/= 
   [{:keys [args] :as expr} & [expected]]
@@ -1707,6 +1614,8 @@
     (err/int-error "Wrong arguments to clojure.lang.MultiFn/addMethod"))
   (let [{[dispatch-val-expr _] :args target :target :keys [env] :as expr}
         (-> expr
+            ; don't think this is needed because check-host-call already runs run-passes
+            ; on :target
             (update :target (comp ana2/run-pre-passes ana2/analyze-outer-root)))
         _ (when-not (#{:var} (:op target))
             (err/int-error "Must call addMethod with a literal var"))
@@ -1996,7 +1905,7 @@
 
 (defmethod -check :host-interop
   [{:keys [m-or-f target] :as expr} expected]
-  (host-interop/check-host check-expr expr expected))
+  (host-interop/check-host-interop check-expr expr expected))
 
 (defmethod -check :host-call
   [expr expected]
@@ -2004,7 +1913,7 @@
 
 (defmethod -check :host-field
   [expr expected]
-  (host-interop/check-host check-expr expr expected))
+  (host-interop/check-host-interop check-expr expr expected))
 
 (defmethod -check :maybe-host-form
   [expr expected]
@@ -2324,9 +2233,6 @@
   [{:keys [test then else] :as expr} expected]
   (if/check-if check-expr expr expected))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Multimethods
-
 (defmethod -check :def
   [{:keys [var env] :as expr} expected]
   ; annotation side effect
@@ -2555,15 +2461,15 @@
              u/expr-type case-result))))
 
 (defmethod -check :catch
-  [{handler :body :keys [local] :as expr} expected]
+  [expr expected]
   (catch/check-catch check-expr expr expected))
 
 (defmethod -check :try
-  [{:keys [body catches finally] :as expr} expected]
+  [expr expected]
   {:post [(vector? (:catches %))
           (-> % u/expr-type r/TCResult?)]}
   (try/check-try check-expr expr expected))
 
 (defmethod -check :set!
-  [{:keys [target val env] :as expr} expected]
+  [expr expected]
   (set!/check-set! check-expr expr expected))

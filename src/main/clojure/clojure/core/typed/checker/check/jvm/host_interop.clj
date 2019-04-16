@@ -15,7 +15,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.checker.utils :as u]
-            [clojure.core.typed.checker.check.method :as method]))
+            [clojure.core.typed.checker.check.jvm.method :as method]))
 
 (defn try-resolve-reflection [ast]
   (-> ast
@@ -56,23 +56,24 @@
                       f))))
       expr)))
 
-(defn check-host
-  [check-expr {original-op :op :keys [m-or-f target args] :as expr} expected & {:keys [no-check]}]
+;FIXME some spaghetti logic/shadowing in this code, maybe do explicit `case`
+; on the various :host-* forms. Remember, some use :target, others :instance.
+(defn check-host-interop
+  [check-expr {original-op :op :as expr} expected & {:keys [no-check]}]
   {:post [(-> % u/expr-type r/TCResult?)]}
   (let [check-expr (if no-check
-                     (fn [ast & args] ast)
+                     (fn [ast & _] #_(ana2/run-passes ast) ast)
                      check-expr)
-        ctarget (check-expr target)
-        ;_ (prn (->> target :env :locals
+        ;_ (prn (->> expr target :env :locals
         ;            (map (fn [[k v]]
         ;                   [k (select-keys v [:op :tag :form])]))))
-        cargs (mapv check-expr args)
-        ;_ (assert (:post-done ctarget))
-        ;_ (assert (every? :post-done cargs))
-        expr (-> (assoc expr
-                        :target ctarget
-                        :args cargs)
-                 ana2/run-post-passes)
+        ;_ (prn "old keys" original-op (vec (keys expr)))
+        {ctarget :target cargs :args :keys [m-or-f] :as expr}
+        (-> expr
+            (update :target check-expr)
+            (update :args #(mapv check-expr %))
+            ana2/run-post-passes)
+        ;_ (prn "new op" (:op expr) (vec (keys expr)))
         give-up (fn []
                   (do
                     (err/tc-delayed-error (str "Unresolved host interop: " (or m-or-f (:method expr))
@@ -109,15 +110,16 @@
 
 (defn check-host-call
   [check-expr -host-call-special expr expected]
-  ;(prn "host-call" (:method expr))
-  (let [expr (update expr :target ana2/run-passes)
+  (let [; should this be a type check instead? -host-call-special basically uses
+        ; :target's :tag information to help check :args
+        expr (update expr :target ana2/run-passes)
         maybe-checked-expr (-host-call-special expr expected)]
     (if (= :default maybe-checked-expr)
-      (check-host check-expr expr expected)
+      (check-host-interop check-expr expr expected)
       (let [expr maybe-checked-expr]
         ;(assert (:post-done (:target expr)))
         ;(assert (every? :post-done (:args expr)))
-        (check-host check-expr maybe-checked-expr expected :no-check true)))))
+        (check-host-interop check-expr maybe-checked-expr expected :no-check true)))))
 
 (defn check-maybe-host-form
   [check-expr expr expected]

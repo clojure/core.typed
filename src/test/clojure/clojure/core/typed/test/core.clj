@@ -1054,19 +1054,6 @@
  (defprotocol some-proto (some-proto-method [_]))
  some-proto-method)
 
-(deftest array-test
-  (is-clj (= (Class/forName "[I") 
-             (class (into-array> int [1]))))
-  (is-clj (clj (= (Class/forName "[Ljava.lang.Object;") 
-                  (class (into-array> (clojure.core.typed/U nil int) [1])))))
-  (is-clj (clj (= (Class/forName "[Ljava.lang.Number;") 
-                  (class (into-array> (clojure.core.typed/U nil Number) [1])))))
-  (is-clj (clj (= (Class/forName "[Ljava.lang.Object;") 
-                  (class (into-array> (clojure.core.typed/U clojure.lang.Symbol Number) [1])))))
-  (is-clj (= (Class/forName "[Ljava.lang.Object;") 
-             (class (into-array> Object (clojure.core.typed/U clojure.lang.Symbol Number) [1]))))
-  )
-
 (deftest class-pathelem-test
   (is-clj (= (-> (ety #(class %))
                  :types first :rng Result-object*)
@@ -1164,11 +1151,6 @@
   (is-tc-err (do (ann a? (Pred ':b))
                  (defn a? [x]
                    (= :a x)))))
-
-(deftest array-primitive-hint-test
-  (is-tc-e (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
-             (alength a))))
-
 
 (deftest flow-assert-test
   (is-clj (subtype?
@@ -1543,11 +1525,6 @@
       (print-env "a") 
       (ann-form a Sym))
     [Long -> Sym]))
-
-; FIXME this is wrong, should not just be nil
-#_(deftest array-first-test
-    (is-cf (let [a (clojure.core.typed/into-array> Long [1 2])]
-             (first a))))
 
 (deftest every?-update-test
   (is-tc-e (let [a (ann-form [] (U nil (Coll Any)))]
@@ -2500,15 +2477,6 @@
 (deftest CTYP-85-abo-test
   (is-tc-e (fn [] (fn [b] b))
            [-> [Any -> Any]]))
-
-(deftest array-reflection-test
-  (is-tc-e (fn make-process [script]
-             {:post [%]}
-             (let [^Runtime r (Runtime/getRuntime)
-                   _ (assert r)
-                   ^"[Ljava.lang.String;" arr (into-array> String ["echo 'hello'"])]
-               (.exec r arr)))
-           [String -> java.lang.Process]))
 
 (deftest expected-IPersistentMap-test
   (is-tc-e {:a #(+ %1 %2)}
