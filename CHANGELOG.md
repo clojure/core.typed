@@ -1,3 +1,7 @@
+# 0.7.1 - SNAPSHOT
+
+- split out core Clojure annotations to `org.typedclojure/core.typed.lib.clojure`
+
 # 0.7.0 - 17 November 2018
 
 - split `org.clojure/core.typed.runtime.jvm` out from core.typed, replaces
