@@ -98,7 +98,7 @@
     <dependency>
       <groupId>org.typedclojure</groupId>
       <artifactId>core.typed.lang.jvm</artifactId>
-      <version>0.7.0-SNAPSHOT</version>
+      <version>0.7.0</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
