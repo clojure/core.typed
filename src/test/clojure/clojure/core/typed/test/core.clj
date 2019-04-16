@@ -5251,20 +5251,6 @@
                    :negative "clojure.core.typed.test.gradual.import-untyped"
                    :positive "Annotation for clojure.core.typed.test.gradual.untyped/b"}))))))
 
-(deftest typed-cast-test
-  (is-tc-e (cast Int 1) Int)
-  (is-tc-err #(cast Int (inc 'a)))
-  (is-tc-e (cast [Int -> Int] identity) [Int -> Int])
-  (is-tc-e (cast '{:a Int} {:a 1}) '{:a Int})
-  (is-tc-e #(cast Int nil) [:-> Int])
-  ;; runtime errors
-  (is (thrown? Exception
-               (tc-e (cast '{:a Int} {:a nil}))))
-  (is (thrown? Exception
-               (tc-e
-                 ((:a (cast '{:a [Int :-> Int]} {:a str}))
-                  1))))
-  )
 
 (deftest CTYP-313-substitution-in-optional-hmap
   (is-tc-e (do

@@ -25,7 +25,10 @@
   [check expr expected]
   (let [{[_ _ texpr :as statements] :statements :keys [env] frm :ret :as expr}
         (-> expr 
-            (update-in [:statements 2] ana2/run-passes)
+            ; don't need to check these statements because it's just metadata
+            ; embedded in the expression by the `t/cast` macro
+            (update :statements #(mapv ana2/run-passes %))
+            ; but we do want to check (a subset) of this, so just run pre-passes
             (update :ret (comp ana2/run-pre-passes ana2/analyze-outer-root)))
         _ (assert (#{3} (count statements)))
         tsyn-quoted (ast-u/map-expr-at texpr :type)
@@ -44,12 +47,15 @@
         ;; frm is of the form ((fn [x] ...) x), we want to type check
         ;; x, but not the lambda.
         _ (assert (= :invoke (:op frm)))
-        _ (assert (== 1 (count (:args frm))))
+        _ (assert (= 1 (count (:args frm))))
         ;; allows silly down casts, might want to change that.
         expr (-> expr
+                 ; just need to traverse :fn using the analyzer
                  (update-in [:ret :fn] ana2/run-passes)
+                 ; check the expression being cast
                  (update-in [:ret :args 0] check)
-                 (update :ret ana2/run-post-passes))]
+                 ; top-level could be propagated here since this is a :do form,
+                 ; so call eval-top-level
+                 (update :ret (comp ana2/eval-top-level ana2/run-post-passes)))]
     (assoc expr
-           :statements statements
            u/expr-type (r/ret parsed-t))))
