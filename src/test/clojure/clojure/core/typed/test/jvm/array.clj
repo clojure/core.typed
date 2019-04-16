@@ -7,15 +7,15 @@
 
 (deftest array-test
   (is-clj (= (Class/forName "[I") 
-             (class (t/into-array> int [1]))))
+             (eval `(class (t/into-array> ~'int [1])))))
   (is-clj (clj (= (Class/forName "[Ljava.lang.Object;") 
-                  (class (t/into-array> (t/U nil int) [1])))))
+                  (eval `(class (t/into-array> (t/U nil ~'int) [1]))))))
   (is-clj (clj (= (Class/forName "[Ljava.lang.Number;") 
-                  (class (t/into-array> (t/U nil Number) [1])))))
+                  (eval `(class (t/into-array> (t/U nil Number) [1]))))))
   (is-clj (clj (= (Class/forName "[Ljava.lang.Object;") 
-                  (class (t/into-array> (t/U t/Sym Number) [1])))))
+                  (eval `(class (t/into-array> (t/U t/Sym Number) [1]))))))
   (is-clj (= (Class/forName "[Ljava.lang.Object;") 
-             (class (t/into-array> Object (t/U t/Sym Number) [1]))))
+             (eval `(class (t/into-array> Object (t/U t/Sym Number) [1])))))
   )
 
 (deftest array-primitive-hint-test
