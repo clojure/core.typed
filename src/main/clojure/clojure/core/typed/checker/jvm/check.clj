@@ -13,7 +13,6 @@
             [clojure.core.typed.analyzer.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
-            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as ana-host]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.check.apply :as apply]
@@ -33,6 +32,7 @@
             [clojure.core.typed.checker.check.invoke :as invoke]
             [clojure.core.typed.checker.check.invoke-kw :as invoke-kw]
             [clojure.core.typed.checker.check.isa :as isa]
+            [clojure.core.typed.checker.check.jvm.host-interop :as host-interop]
             [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.checker.check.let :as let]
             [clojure.core.typed.checker.check.letfn :as letfn]
@@ -114,7 +114,6 @@
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.jvm.utils :as jtau]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.tools.analyzer.utils :as tau]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as readers])
@@ -1995,125 +1994,21 @@
   [expr expected]
   (local/check-local expr expected))
 
-;; from clojure.tools.analyzer.passes.jvm.emit-form
-(defn class->sym [class]
-  (if (symbol? class)
-    class
-    (symbol (.getName ^Class class))))
-
-;; from clojure.tools.analyzer.utils
-(defn obj?
-  "Returns true if x implements IObj"
-  [x]
-  (instance? clojure.lang.IObj x))
-
-(defn add-type-hints 
-  "Add type hints to an expression, only if it can
-  be preserved via emit-form to the Clojure compiler.
-
-  The most reliable AST node to convey a type hint
-  is :local, so we restrict adding type hints to only
-  :local nodes."
-  [expr]
-  (let [{:keys [t]} (u/expr-type expr)
-        cls (cu/Type->Class t)]
-    (if (and cls
-             (#{:local} (:op expr)))
-      (-> expr
-          (assoc 
-            :o-tag cls
-            :tag cls)
-          (update-in [:form] 
-                     (fn [f]
-                       (if (obj? f)
-                         (vary-meta f assoc :tag (class->sym cls))
-                         f))))
-      expr)))
-
-(defn try-resolve-reflection [ast]
-  (-> ast
-      ana-host/analyze-host-expr
-      validate/validate))
-
-(defn check-host
-  [{original-op :op :keys [m-or-f target args] :as expr} expected & {:keys [no-check]}]
-  {:post [(-> % u/expr-type r/TCResult?)]}
-  (let [check-expr (if no-check
-                     (fn [ast & args] ast)
-                     check-expr)
-        ctarget (check-expr target)
-        ;_ (prn (->> target :env :locals
-        ;            (map (fn [[k v]]
-        ;                   [k (select-keys v [:op :tag :form])]))))
-        cargs (mapv check-expr args)
-        ;_ (assert (:post-done ctarget))
-        ;_ (assert (every? :post-done cargs))
-        expr (-> (assoc expr
-                        :target ctarget
-                        :args cargs)
-                 ana2/run-post-passes)
-        give-up (fn []
-                  (do
-                    (err/tc-delayed-error (str "Unresolved host interop: " (or m-or-f (:method expr))
-                                               (type-hints/suggest-type-hints 
-                                                 (or m-or-f (:method expr))
-                                                 (-> ctarget u/expr-type r/ret-t) 
-                                                 [])
-                                               "\n\nHint: use *warn-on-reflection* to identify reflective calls"))
-                    (assoc expr 
-                           u/expr-type (cu/error-ret expected))))]
-    ;; try to rewrite, otherwise error on reflection
-    (cond
-      (not= original-op (:op expr)) (check-expr expr expected)
-
-      (cu/should-rewrite?)
-      (let [ctarget (add-type-hints ctarget)
-            cargs (mapv add-type-hints cargs)
-            nexpr (assoc expr 
-                         :target ctarget
-                         :args cargs)
-            ;_ (prn "host interop" (-> nexpr :target ((juxt :o-tag :tag))))
-            rewrite (try-resolve-reflection nexpr)]
-        (case (:op rewrite)
-          (:static-call :instance-call)
-          (if no-check
-            rewrite
-            (let [e (method/check-invoke-method check-expr rewrite expected
-                                                :ctarget ctarget
-                                                :cargs cargs)]
-              e))
-          ;; TODO field cases
-          (give-up)))
-      :else (give-up))))
-
 (defmethod -check :host-interop
   [{:keys [m-or-f target] :as expr} expected]
-  (check-host expr expected))
+  (host-interop/check-host check-expr expr expected))
 
 (defmethod -check :host-call
   [expr expected]
-  ;(prn "host-call" (:method expr))
-  (let [expr (update expr :target ana2/run-passes)
-        maybe-checked-expr (-host-call-special expr expected)]
-    (if (= :default maybe-checked-expr)
-      (check-host expr expected)
-      (let [expr maybe-checked-expr]
-        ;(assert (:post-done (:target expr)))
-        ;(assert (every? :post-done (:args expr)))
-        (check-host maybe-checked-expr expected :no-check true)))))
+  (host-interop/check-host-call check-expr -host-call-special expr expected))
 
 (defmethod -check :host-field
-  [{:keys [m-or-f target args] :as expr} expected]
-  (check-host expr expected))
+  [expr expected]
+  (host-interop/check-host check-expr expr expected))
 
 (defmethod -check :maybe-host-form
   [expr expected]
-  (let [expr (ana2/run-pre-passes expr)]
-    (if (= :maybe-host-form (:op expr))
-      (err/tc-delayed-error (str "Unresolved host interop: " (:form expr)
-                                 "\n\nHint: use *warn-on-reflection* to identify reflective calls")
-                            :return (assoc expr u/expr-type r/-error))
-      (check-expr expr expected))))
+  (host-interop/check-maybe-host-form check-expr expr expected))
 
 (defn clojure-lang-call? [^String m]
   (or 
@@ -2249,7 +2144,7 @@
 
 (defmethod -check :instance?
   [{cls :class the-expr :target :as expr} expected]
-  (assert nil ":instance? node not used")
+  ;(assert nil ":instance? node not used")
   (let [inst-of (c/RClass-of-with-unknown-params cls)
         cexpr (check-expr the-expr)
         expr-tr (u/expr-type cexpr)]
@@ -2271,7 +2166,7 @@
   [expr & [expected]]
   (when-not (== 4 (count (:args expr)))
     (err/int-error "Wrong arguments to clojure.lang.MultiFn constructor"))
-  (let [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr}
+  (let [{[nme-expr dispatch-expr default-expr hierarchy-expr] :args :as expr}
         (-> expr
             ;name
             (update-in [:args 0] check-expr)
@@ -2381,8 +2276,8 @@
           (cond
             (:validated? expr) (check-validated expr)
 
-            (cu/should-rewrite?) (let [expr (update expr :args #(mapv add-type-hints %))
-                                       rexpr (try-resolve-reflection expr)]
+            (cu/should-rewrite?) (let [expr (update expr :args #(mapv host-interop/add-type-hints %))
+                                       rexpr (host-interop/try-resolve-reflection expr)]
                                    ;; rexpr can only be :new
                                    (case (:op rexpr)
                                      (:new) (if (:validated? rexpr)
