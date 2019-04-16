@@ -1,3 +1,7 @@
+# 0.7.1 - SNAPSHOT
+
+- Correct initialize pass :state via `unanalyzed`
+
 # 0.7.0 - 18 November 2018
 
 - split out `org.clojure/core.typed.analyzer.jvm` from
