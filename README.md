@@ -1,6 +1,6 @@
 # core.typed.analyzer.jvm
 
-<a href='http://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
+<a href='https://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
 
 Analyzer for JVM Clojure, tuned for consumption by an optional type checker.
 
