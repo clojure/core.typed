@@ -24,7 +24,7 @@
                                         TCResult TCError FlowSet Extends
                                         JSNumber CLJSInteger JSObject JSString ArrayCLJS
                                         JSBoolean AssocType GetType KwArgsSeq HSequential HSet
-                                        JSUndefined JSNull JSSymbol JSObj TypeOf)
+                                        JSUndefined JSNull JSSymbol JSObj TypeOf SymbolicClosure)
            (clojure.core.typed.checker.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.checker.object_rep NoObject EmptyObject Path)
@@ -272,6 +272,7 @@
 (add-default-fold-case B ret-first)
 (add-default-fold-case F ret-first)
 (add-default-fold-case TypeOf ret-first)
+(add-default-fold-case SymbolicClosure ret-first)
 
 (add-default-fold-case Result 
                        (fn [ty _]

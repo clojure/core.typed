@@ -33,7 +33,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousMap
                                         CountRange Name Value Top TypeOf Unchecked TopFunction B F Result AnyValue
-                                        KwArgsSeq TCError Extends JSNumber JSBoolean
+                                        KwArgsSeq TCError Extends JSNumber JSBoolean SymbolicClosure
                                         CLJSInteger ArrayCLJS JSNominal JSString TCResult AssocType
                                         GetType HSequential HSet JSUndefined JSNull JSSymbol JSObject
                                         JSObj)
@@ -1622,6 +1622,10 @@
   (if (symbol? name)
     (-> name r/make-F r/F-original-name)
     `(~'B ~name)))
+
+(defmethod unparse-type* SymbolicClosure
+  [{:keys [fexpr env]}]
+  (list 'SymbolicClosure))
 
 (defmethod unparse-type* Function
   [{:keys [dom rng kws rest drest prest pdot]}]

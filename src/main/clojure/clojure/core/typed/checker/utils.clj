@@ -106,11 +106,11 @@
      (valAt [this# k# else#]
        (case k# ~@(mapcat (fn [fld] [(keyword fld) fld]) 
                           fields)
-         (throw (UnsupportedOperationException. (str "lookup on " '~name-sym k#)))))
+         (throw (UnsupportedOperationException. (str "lookup on " '~name-sym " " k#)))))
      (valAt [this# k#]
        (case k# ~@(mapcat (fn [fld] [(keyword fld) fld]) 
                           fields)
-         (throw (UnsupportedOperationException. (str "lookup on " '~name-sym k#)))))
+         (throw (UnsupportedOperationException. (str "lookup on " '~name-sym " " k#)))))
 
      clojure.lang.IKeywordLookup
      (getLookupThunk [this# k#]
@@ -126,7 +126,7 @@
                            (. ~hinted-target ~(symbol (str "-" fld)))
                            ~'thunk)))])
                  fields))
-           (throw (UnsupportedOperationException. (str "lookup on " '~name-sym k#))))))
+           (throw (UnsupportedOperationException. (str "lookup on " '~name-sym " " k#))))))
 
      clojure.lang.IPersistentMap
      (assoc [this# k# ~gs]
@@ -134,8 +134,8 @@
          ~@(mapcat (fn [fld]
                      [(keyword fld) `(~maker ~@(replace {fld gs} fields) :meta ~meta-field)])
                    fields)
-         (throw (UnsupportedOperationException. (str "assoc on " '~name-sym k#)))))
-     (entryAt [this# k#] (throw (UnsupportedOperationException. (str "entryAt on " '~name-sym k#))))
+         (throw (UnsupportedOperationException. (str "assoc on " '~name-sym " " k#)))))
+     (entryAt [this# k#] (throw (UnsupportedOperationException. (str "entryAt on " '~name-sym " " k#))))
      (count [this#] (throw (UnsupportedOperationException. (str "count on " '~name-sym))))
      ;; hack for pr-on, don't use empty
      (empty [this#] this#)

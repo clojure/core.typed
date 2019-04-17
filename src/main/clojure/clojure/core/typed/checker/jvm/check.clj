@@ -1738,7 +1738,7 @@
   ;(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (binding [vs/*current-env* env
             vs/*current-expr* expr]
-    (or (when vs/*custom-expansions*
+    (or #_(when vs/*custom-expansions*
           (let [replace-atom (atom nil)
                 fexpr (visit-tail-pos fexpr
                                       (fn [{:keys [op] :as ast}]
@@ -1808,7 +1808,7 @@
             (vector? (:methods %))
             true)]}
   ;(prn "check :fn" expected)
-  (or (when vs/*custom-expansions*
+  (or #_(when vs/*custom-expansions*
         ;; try to beta-expand
         (when-not (:local expr) ;; no recursive functions
           (when-let [args (::invoke-args expr)]
@@ -1853,7 +1853,9 @@
       (prepare-check-fn env expr
                         (if expected
                           (fn/check-fn expr expected)
-                          (special-fn/check-core-fn-no-expected check-expr expr)))))
+                          (if r/enable-symbolic-closures?
+                            (assoc expr u/expr-type (r/ret (r/symbolic-closure expr vs/*lexical-env*)))
+                            (special-fn/check-core-fn-no-expected check-expr expr))))))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
 (u/special-do-op spec/special-form internal-special-form)

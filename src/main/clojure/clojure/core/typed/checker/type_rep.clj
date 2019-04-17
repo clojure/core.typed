@@ -1100,6 +1100,19 @@
                                (-kw-args :mandatory (or mandatory-kws {})
                                          :optional (or optional-kws {}))) prest pdot))
 
+;; Symbolic closures
+
+(def enable-symbolic-closures? false)
+
+(u/def-type SymbolicClosure [fexpr env]
+  "Symbolic closure"
+  [(map? fexpr)]
+  :methods
+  [p/TCType])
+
+(defn symbolic-closure [fexpr env]
+  (prn "creating symbolic-closure")
+  (SymbolicClosure-maker fexpr env))
 
 ;;;;;;;;;;;;;;;;;
 ;; Clojurescript types

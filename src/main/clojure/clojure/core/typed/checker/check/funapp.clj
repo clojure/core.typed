@@ -25,7 +25,9 @@
             [clojure.core.typed.checker.indirect-utils :as ind-u]
             [clojure.core.typed.checker.indirect-ops :as ind]
             [clojure.core.typed.checker.filter-ops :as fops]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.env :as env]
+            [clojure.core.typed.checker.utils :as u]
             [clojure.set :as set]
             [clojure.core.typed :as t]
             [clojure.core.typed.checker.subst :as subst]
@@ -37,7 +39,7 @@
 
 ; Expr Expr^n TCResult TCResult^n (U nil TCResult) -> TCResult
 ;TODO HeterogeneousMap case
-(defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
+(defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected & {:keys [check-fn]}]
   {:pre [(r/TCResult? fexpr-ret-type)
          (every? r/TCResult? arg-ret-types)
          ((some-fn nil? r/TCResult?) expected)]
@@ -166,7 +168,7 @@
       (let [fixed (:fixed fexpr-type)
             ret (cond
                   (not (#{1} (count arg-ret-types))) 
-                  (do (err/tc-delayed-error (str "Wrong number of arguments to set (" (count args)")"))
+                  (do (err/tc-delayed-error (str "Wrong number of arguments to set (" (count args) ")"))
                       (r/ret r/Err))
 
                   :else
@@ -218,6 +220,14 @@
         (if success-ret-type
           success-ret-type
           (app-err/plainapp-type-error fexpr args fexpr-type arg-ret-types expected)))
+
+      (and (r/SymbolicClosure? fexpr-type) check-fn)
+      (binding [vs/*lexical-env* (:env fexpr-type)]
+        (-> (:fexpr fexpr-type)
+            (check-fn (r/ret (r/make-FnIntersection
+                               (r/make-Function arg-types
+                                                r/-infer-any))))
+            u/expr-type))
 
       ;ordinary polymorphic function without dotted rest
       (when (r/Poly? fexpr-type)
