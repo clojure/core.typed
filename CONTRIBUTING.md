@@ -11,12 +11,9 @@ Pull requests are used for developing patches in core.typed, see the Contributio
 See [Contributing] and the [FAQ] on the Clojure development [wiki] for
 more information on how to contribute.
 
-[Clojure contrib]: http://dev.clojure.org/display/doc/Clojure+Contrib
-[Contributing]: http://dev.clojure.org/display/community/Contributing
-[FAQ]: http://dev.clojure.org/display/community/Contributing+FAQ
+[Clojure contrib]: https://clojure.org/community/contrib_libs
+[Contributing]: https://clojure.org/community/contributing
 [JIRA]: http://dev.clojure.org/jira/browse/CTYP
-[guidelines]: http://dev.clojure.org/display/community/Guidelines+for+Clojure+Contrib+committers
-[wiki]: http://dev.clojure.org/
 
 # Contribution Guide
 
