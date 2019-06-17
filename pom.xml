@@ -45,13 +45,17 @@
           </execution>
           <execution>
             <id>clojure-test</id>
-            <phase>none</phase>
+            <phase>test</phase>
           </execution>
         </executions>
         <configuration>
           <sourceDirectories>
+            <sourceDirectory>src/main/clojure</sourceDirectory>
             <sourceDirectory>src/main/cljc</sourceDirectory>
           </sourceDirectories>
+          <testSourceDirectories>
+            <sourceDirectory>src/test/clojure</sourceDirectory>
+          </testSourceDirectories>
         </configuration>
       </plugin>
     </plugins>
@@ -70,8 +74,8 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.typed.checker.jvm</artifactId>
-      <version>0.7.1-SNAPSHOT</version>
+      <artifactId>core.typed.analyzer.jvm</artifactId>
+      <version>0.7.1</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -103,6 +107,18 @@
       <groupId>potemkin</groupId>
       <artifactId>potemkin</artifactId>
       <version>0.4.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>test.check</artifactId>
+      <version>0.9.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.gfredericks</groupId>
+      <artifactId>test.chuck</artifactId>
+      <version>0.2.6</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
