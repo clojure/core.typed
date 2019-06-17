@@ -142,7 +142,7 @@
 ;KEEP
     #'source-info/source-info
     #'elide-meta/elide-meta
-    #'constant-lift/constant-lift
+    #'constant-lift/constant-lift  ; might cause troubles, treat suspiciously
 ;KEEP
 
     ; not compatible with core.typed
