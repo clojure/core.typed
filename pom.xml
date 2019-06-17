@@ -48,6 +48,11 @@
             <phase>none</phase>
           </execution>
         </executions>
+        <configuration>
+          <sourceDirectories>
+            <sourceDirectory>src/main/cljc</sourceDirectory>
+          </sourceDirectories>
+        </configuration>
       </plugin>
     </plugins>
   </build>
