@@ -1,5 +1,4 @@
-{:paths ["src/main/clojure"
-         "src/main/cljc"]
+{:paths ["src/main/clojure"]
  :deps {org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.1-SNAPSHOT"}
         org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.1"}
         org.clojure/tools.reader {:mvn/version "1.1.1"}

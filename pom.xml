@@ -48,15 +48,6 @@
             <phase>test</phase>
           </execution>
         </executions>
-        <configuration>
-          <sourceDirectories>
-            <sourceDirectory>src/main/clojure</sourceDirectory>
-            <sourceDirectory>src/main/cljc</sourceDirectory>
-          </sourceDirectories>
-          <testSourceDirectories>
-            <sourceDirectory>src/test/clojure</sourceDirectory>
-          </testSourceDirectories>
-        </configuration>
       </plugin>
     </plugins>
   </build>
