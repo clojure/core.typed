@@ -8,8 +8,10 @@
             [com.gfredericks.test.chuck.generators :as gen']
             [clojure.test.check.generators :as gen]
             [clojure.core.typed :as t]
+            [clojure.core.typed.analyzer :as ana2]
+            [clojure.tools.analyzer.jvm :as taj]
+            [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.runtime-infer :refer :all :as infer]
-            [clojure.core.typed.checker.jvm.check-form-clj :as chk-clj]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.annotator.pprint :refer [pprint]] 
             [clojure.core.typed.annotator.parse :refer [prs parse-type]]
@@ -17,7 +19,7 @@
                                                       var-path
                                                       key-path
                                                       fn-rng-path
-                                                      fn-dom-path ]]
+                                                      fn-dom-path]]
             [clojure.core.typed.annotator.track :refer [track-var]]
             [clojure.core.typed.annotator.join :refer [make-Union
                                                        join*
@@ -1066,33 +1068,27 @@
         {'config-in t}
         ))))
 
-(defmacro infer-test
-  "Given a vector of definitions :defs and a vector of tests :tests, then
-  does these steps in order. Short-circuits and returns a false value if previous steps fail.
-  Returns a true value on success.
+(deftest instrument-top-level-form-test
+  (is (.contains (with-out-str (instrument-top-level-form '(println "a")))
+                 "a\n"))
+  (is (.contains 
+        (with-out-str (instrument-top-level-form '(do (def a "a") (println a))))
+        "a\n")))
 
-  1. Generates specs and types for the definitions
-  2. Ensure generated specs and types are identical to :expected-types and :expected-specs, respectively (when provided).
-     These are either vectors of annotations, or a string that contains vectors
-     of annotations that will be `read` in the correct namespace (useful to aid keyword namespace
-     resolution in specs).
-     If one of these is not provided, the respective annotations are pprint'ed so they can
-     be easily copied into the test.
-  3. Evaluates generated specs.
-  4. Exercises spec aliases.
-  5. Exercises spec'd functions.
-  6. Instruments all spec'd functions.
-  7. Runs :test code again under spec instrumentation."
-  [& {:keys [defs tests expected-specs expected-types] :as opts}]
+(declare *-from-infer-results)
+
+;TODO remove # suffixes
+(defn infer-test*
+  [{:keys [defs tests expected-specs expected-types] :as opts}]
   (assert (vector? defs))
   (assert (vector? tests))
-  `(let [ns# (create-ns (gensym))]
+  (let [ns# (create-ns (gensym))]
      (binding [*ns* ns#
                *ann-for-ns* (constantly ns#)]
        (refer-clojure)
-       (require '~'[clojure.core.typed :as t])
+       (require '[clojure.core.typed :as t])
        (when spec-ns
-         (require [spec-ns :as '~'s]))
+         (require [spec-ns :as 's]))
        (let [result# (atom :ok)
              run-until-bad-result!# (fn [f# c#]
                                       (loop [c# c#]
@@ -1100,26 +1096,23 @@
                                           (when (seq c#)
                                             (do (f# (first c#))
                                                 (recur (rest c#)))))))
-             defs# '~defs
-             tests# '~tests
-             _# (t/refresh-runtime-infer)
+             defs# defs
+             tests# tests
+             _# (infer/refresh-runtime-infer)
              _# (run-until-bad-result!#
                   (fn [f#]
-                    (let [{ex# :ex} (chk-clj/check-form-info-with-config
-                                      f#
-                                      (assoc (chk-clj/config-map) :should-runtime-infer? true)
-                                      {})]
-                      (when ex#
-                        (println (str "Form " f# " failed to evaluate, with error: " ex#))
-                        (reset! result# nil))))
+                    (try (instrument-top-level-form f#)
+                         (catch Throwable e#
+                           (println (str "Failed to evaluate " f# " with error " e#))
+                           (reset! result# nil))))
                   (concat defs# tests#))]
          (when @result#
-           (let [expected-specs# (let [s# '~expected-specs]
+           (let [expected-specs# (let [s# expected-specs]
                                    (if (string? s#)
                                      (read-string s#)
                                      s#))
                  _# (assert ((some-fn nil? vector?) expected-specs#))
-                 expected-types# (let [t# '~expected-types]
+                 expected-types# (let [t# expected-types]
                                    (if (string? t#)
                                      (read-string t#)
                                      t#))
@@ -1149,7 +1142,7 @@
                (let [instrumentable-syms# (set
                                             (keep (fn [spc#]
                                                     (when (seq? spc#)
-                                                      (when (= '~'s/fdef (first spc#))
+                                                      (when (= 's/fdef (first spc#))
                                                         (let [^clojure.lang.Var v# (resolve (second spc#))]
                                                           (when (var? v#)
                                                             (coerce/var->symbol v#))))))
@@ -1157,18 +1150,18 @@
                      spec-defs# (set
                                   (keep (fn [spc#]
                                           (when (seq? spc#)
-                                            (when (= '~'s/def (first spc#))
+                                            (when (= 's/def (first spc#))
                                               (let [kw# (second spc#)]
                                                 (when (keyword? kw#)
                                                   (when (namespace kw#)
                                                     kw#))))))
                                         (:top-level specs#)))
-                     _# (require ['~'clojure.spec.test.alpha])
-                     instrument# (resolve '~'clojure.spec.test.alpha/instrument)
+                     _# (require ['clojure.spec.test.alpha])
+                     instrument# (resolve 'clojure.spec.test.alpha/instrument)
                      _# (assert instrument#)
-                     exercise# (resolve '~'clojure.spec.alpha/exercise)
+                     exercise# (resolve 'clojure.spec.alpha/exercise)
                      _# (assert exercise#)
-                     exercise-fn# (resolve '~'clojure.spec.alpha/exercise-fn)
+                     exercise-fn# (resolve 'clojure.spec.alpha/exercise-fn)
                      _# (assert exercise-fn#)
                      exercise-fn-or-fail# (fn [sym#]
                                             (try (doall (exercise-fn# sym#))
@@ -1218,6 +1211,26 @@
                  (testing "tests should evaluate under instrumentation"
                    (run-until-bad-result!# eval-or-fail# tests#))))
              @result#))))))
+
+(defmacro infer-test
+  "Given a vector of definitions :defs and a vector of tests :tests, then
+  does these steps in order. Short-circuits and returns a false value if previous steps fail.
+  Returns a true value on success.
+
+  1. Generates specs and types for the definitions
+  2. Ensure generated specs and types are identical to :expected-types and :expected-specs, respectively (when provided).
+     These are either vectors of annotations, or a string that contains vectors
+     of annotations that will be `read` in the correct namespace (useful to aid keyword namespace
+     resolution in specs).
+     If one of these is not provided, the respective annotations are pprint'ed so they can
+     be easily copied into the test.
+  3. Evaluates generated specs.
+  4. Exercises spec aliases.
+  5. Exercises spec'd functions.
+  6. Instruments all spec'd functions.
+  7. Runs :test code again under spec instrumentation."
+  [& {:keys [defs tests expected-specs expected-types] :as opts}]
+  `(infer-test* '~opts))
 
 (defn *-from-infer-results [ns config]
   (binding [*ann-for-ns* (constantly *ns*)
