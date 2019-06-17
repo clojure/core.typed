@@ -2734,7 +2734,7 @@
 
 #?(:clj
 (defn infer-anns
-  ([ns {:keys [spec?] :as config}]
+  ([ns {:keys [spec? results-atom] :as config :or {results-atom results-atom}}]
    {:pre [(or (instance? clojure.lang.Namespace ns)
               (symbol? ns))]}
    (binding [*forbidden-aliases* (when spec?
