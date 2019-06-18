@@ -19,17 +19,20 @@
                                                       var-path
                                                       key-path
                                                       fn-rng-path
-                                                      fn-dom-path]]
-            [clojure.core.typed.annotator.track :refer [track-var]]
+                                                      fn-dom-path]
+             :as rep]
+            [clojure.core.typed.annotator.track :refer [track-var] :as track]
             [clojure.core.typed.annotator.join :refer [make-Union
                                                        join*
                                                        join-HMaps
                                                        join]]
+            [clojure.core.typed.annotator.env :as env]
             [clojure.core.typed.annotator.frontend.spec :refer [unparse-spec'
                                                                 envs-to-specs]]
             [clojure.core.typed.annotator.insert :refer [delete-generated-annotations-in-str
                                                          generate-ann-start
-                                                         generate-ann-end]]
+                                                         generate-ann-end]
+             :as insert]
             [clojure.core.typed.annotator.util :refer [*ann-for-ns*
                                                        spec-ns
                                                        current-ns
@@ -1074,6 +1077,43 @@
   (is (.contains 
         (with-out-str (instrument-top-level-form '(do (def a "a") (println a))))
         "a\n")))
+
+(defn code-to-gen-spec [root-ns root-key samples {:keys [spec?] :as config}]
+  (binding [*ns* *ns*]
+    (in-ns root-ns)
+    (binding [*ns* (the-ns root-ns)
+              *ann-for-ns* #(the-ns root-ns)
+              unparse-type (if spec?
+                             unparse-spec'
+                             unparse-type')]
+      (let [results-atom (atom (env/initial-results))
+            ;instrument and track
+            _ (run!
+                 (fn [e]
+                   (track/track
+                     (track/gen-track-config)
+                     results-atom
+                     e
+                     #{[(rep/var-path root-ns root-key)]}
+                     #{}))
+                 (concat (map eval (:eval samples))
+                         (:edn samples)))
+            _ (prn @results-atom)
+            infer-out
+            (infer/infer-anns root-ns
+                              {:spec? spec?
+                               :allow-top-level-non-IFn true
+                               :results-atom results-atom})
+            _ (prn "infer out" infer-out)
+            spec-out
+            (apply insert/prepare-ann
+                   ((juxt :requires :top-level :local-fns) infer-out))]
+        spec-out))))
+
+
+(deftest manual-track-test
+  (is (code-to-gen-spec 'user 'user/foo-bar {:eval '[(inc 1)] :edn '[a]}
+                        {:spec? true})))
 
 (declare *-from-infer-results)
 

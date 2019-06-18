@@ -2648,7 +2648,8 @@
                                        (symbol (name k))
                                        ;; imports
                                        k)
-                                     (unparse-type (assoc v :top-level-def k)))]
+                                     (unparse-type
+                                       (assoc v :top-level-def k)))]
                               (when polymorphic?
                                 (prn "polymorphic?" polymorphic? k)
                                 (let [call-ids (get call-flows k)]

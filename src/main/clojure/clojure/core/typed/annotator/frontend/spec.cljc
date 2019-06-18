@@ -744,7 +744,7 @@
                    (assoc done-sdefs a e))))))))
 
 
-(defn envs-to-specs [env {:keys [spec-macros] :as config}]
+(defn envs-to-specs [env {:keys [spec-macros allow-top-level-non-IFn] :as config}]
   ;(prn "envs-to-specs" (keys (alias-env env)))
   (let [should-spec-macros? (boolean spec-macros)
         trim-type-env #?(:clj
@@ -762,10 +762,15 @@
                                            ;; top level def's are functions, which breaks spec instrumentation.
                                            ;; We work around this behaviour by simply
                                            ;; omitting non-function specs.
-                                           (not (#{:IFn} (:op v))))))
+                                           (if allow-top-level-non-IFn
+                                             false
+                                             (not (#{:IFn} (:op v)))))))
                              %)
                          :cljs identity)
+        ;_ (prn "pre env" env)
         env (update-type-env env trim-type-env)
+        ;_ (prn "allow-top-level-non-IFn" allow-top-level-non-IFn)
+        ;_ (prn "env" env)
         env (implicit-aliases-for-env env config)
         aliases-generated (atom #{})]
     (binding [*envs* (atom env)]
