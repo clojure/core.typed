@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.ast-ops
+(ns ^:no-doc ^:skip-wiki clojure.core.typed.ast-ops
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]))
 

@@ -21,6 +21,7 @@
     buffer
       use buffer> (similar for other buffer constructors)
     "}
+  ^:no-doc
   cljs.core.typed.async
   (:require-macros [cljs.core.typed :refer [ann ann-datatype def-alias ann-protocol inst
                                             tc-ignore]

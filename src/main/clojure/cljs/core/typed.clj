@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns cljs.core.typed
+(ns ^:no-doc cljs.core.typed
   "Macros for Clojurescript type checking"
   (:refer-clojure :exclude [fn loop let defn atom defprotocol])
   (:require [clojure.core.typed.load-if-needed :as load]

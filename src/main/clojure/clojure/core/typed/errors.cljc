@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.errors
+(ns ^:no-doc clojure.core.typed.errors
   {:skip-wiki true
    :core.typed {:collect-only true}}
   (:require [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]

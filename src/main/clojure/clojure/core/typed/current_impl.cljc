@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ; untyped, clojure.core.typed depends on this namespace
-(ns ^:skip-wiki clojure.core.typed.current-impl
+(ns ^:no-doc ^:skip-wiki clojure.core.typed.current-impl
   #?(:cljs (:refer-clojure :exclude [-val]))
   (:require [clojure.set :as set]
             [clojure.core.typed.env :as env]

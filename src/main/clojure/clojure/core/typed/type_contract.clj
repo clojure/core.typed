@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;flat contracts only
-(ns ^:skip-wiki clojure.core.typed.type-contract
+(ns ^:no-doc ^:skip-wiki clojure.core.typed.type-contract
   (:require [clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]

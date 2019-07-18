@@ -14,6 +14,11 @@
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
 
+           :codox
+           {:extra-deps {codox {:mvn/version "0.10.5"}}
+            :extra-paths ["script"]
+            :main-opts ["-m" "gen-doc"]}
+
            :runner
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"

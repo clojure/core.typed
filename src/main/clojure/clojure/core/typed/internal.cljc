@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.internal
+(ns ^:no-doc ^:skip-wiki clojure.core.typed.internal
   (:require [clojure.set :as set]
             [clojure.core.typed.contract-utils :as con]))
 

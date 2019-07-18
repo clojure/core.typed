@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:skip-wiki clojure.core.typed.coerce-utils
+(ns ^:no-doc ^:skip-wiki clojure.core.typed.coerce-utils
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.core.typed.current-impl :as impl])
