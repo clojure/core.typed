@@ -25,7 +25,6 @@
 (defmacro is-tc-err [& body]
   `(is (tc-err ~@body)))
 
-(comment
 (deftest ns-test
   (is-tc-e (ns foo) nil)
   (is-tc-err (ns foo) Symbol))
@@ -186,6 +185,19 @@
              [Number -> Number])
   )
 
+(deftest assoc-in-inline-test
+  (is-tc-e (assoc-in {} [:a] 1) '{:a Num})
+  ;; improved msg
+  (is-tc-err (assoc-in {} [:a :b] 1) '{:a Num})
+  ;; improved msg
+  (is-tc-err (assoc-in 'a [:a] 1))
+  ;; improved msg
+  (is-tc-err (assoc-in {:a (ann-form 'a Sym)} [:a :b] 1))
+  (is-tc-err (assoc-in {:a {:b (ann-form 'a Sym)}} [:a :b :c] 1))
+  (is-tc-err (assoc-in {:a []} [:a :b] 1))
+  (is-tc-e (assoc-in {:a []} [:a 0] 1) '{:a '[Num]}))
+
+(comment
 (deftest for-test
   (is-tc-e #(clojure.core/for [a [1 2]] a))
   (is-tc-e #(clojure.core/for [a [1 2]] a) [-> (Seqable Number)])
@@ -203,18 +215,6 @@
   ;; example of bad type propagating to body
   (is-tc-err #(clojure.core/for [a [1 2] b [2 3]] (fn* [c] (+ c a b))) [-> (Seq [nil -> Num])])
 )
-
-(deftest assoc-in-inline-test
-  (is-tc-e (assoc-in {} [:a] 1) '{:a Num})
-  ;; improved msg
-  (is-tc-err (assoc-in {} [:a :b] 1) '{:a Num})
-  ;; improved msg
-  (is-tc-err (assoc-in 'a [:a] 1))
-  ;; improved msg
-  (is-tc-err (assoc-in {:a (ann-form 'a Sym)} [:a :b] 1))
-  (is-tc-err (assoc-in {:a {:b (ann-form 'a Sym)}} [:a :b :c] 1))
-  (is-tc-err (assoc-in {:a []} [:a :b] 1))
-  (is-tc-e (assoc-in {:a []} [:a 0] 1) '{:a '[Num]}))
 
 (deftest get-in-test
   (is-tc-e (get-in {:a {:b 1}} [:a :b])
