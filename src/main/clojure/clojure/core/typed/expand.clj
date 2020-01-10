@@ -15,6 +15,19 @@
             [clojure.pprint :as pp]
             [clojure.core.typed.internal :as internal]))
 
+;; TODO need a way to specify a custom expansion for the Gilardi scenario
+;;      that's actually evaluated (ie. used instead of :original-form in eval-ast).
+;; This would be used only in analyze+eval.
+;; Rationale: we assume macroexpansion is idempotent and unordered, but (obviously) not evaluation.
+;; To properly type check a top-level form, it much be evaluated using top-level
+;; `do` rules, and so either:
+;; - the type checking requires evaluation order of top-level `do`'s to be respected,
+;;   and type checking fails, or
+;;   - eg. custom expansion of (do (defmacro a ...) (a ...))
+;; - :original-form will be out of date and subsequently evaluating it
+;;    may involve repeated evaluation
+;;   - unsure, but this scenario might be impossible.
+
 (defmulti -expand-macro (fn [form {:keys [vsym]}] vsym))
 ;; TODO equivalent to :inline-arities
 (defmulti -expand-inline (fn [form {:keys [vsym]}] vsym))
