@@ -28,6 +28,10 @@
 ;;    may involve repeated evaluation
 ;;   - unsure, but this scenario might be impossible.
 
+;; eg., perhaps a flag that designates an expansion "safe" for top-level usage.
+;; Note: this isn't atomic with the other multimethods, consider single stateful reference
+#_(defonce *eval-top-level-expansion (atom #{}))
+
 (defmulti -expand-macro (fn [form {:keys [vsym]}] vsym))
 ;; TODO equivalent to :inline-arities
 (defmulti -expand-inline (fn [form {:keys [vsym]}] vsym))
