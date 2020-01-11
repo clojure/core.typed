@@ -197,10 +197,12 @@
   (is-tc-err (assoc-in {:a []} [:a :b] 1))
   (is-tc-e (assoc-in {:a []} [:a 0] 1) '{:a '[Num]}))
 
-(comment
 (deftest for-test
   (is-tc-e #(clojure.core/for [a [1 2]] a))
   (is-tc-e #(clojure.core/for [a [1 2]] a) [-> (Seqable Number)])
+  (is-tc-e #(clojure.core/for [a '(1 2)] (ann-form a Number)) [-> (Seqable Number)])
+  (is-tc-e #(clojure.core/for [a [1 2]] (ann-form a Number)) [-> (Seqable Number)])
+  ;; FIXME could make error more localized
   (is-tc-err #(clojure.core/for [a [1 2]] a) [-> (Seqable Boolean)])
   ;; FIXME improve error
   (is-tc-err #(clojure.core/for [a [1 2]] a) [-> Number])
@@ -209,12 +211,16 @@
   (is-tc-e #(clojure.core/for [a [1 2] b [2 3]] [a b]))
   (is-tc-e #(clojure.core/for [a [1 2] b [2 3]] [a b]) [-> (Seq '[Num Num])])
   ;FIXME use t/fn instead of fn*
-  ;; propagates expected type to body
+  ;; TODO propagates expected type to body
+  #_
   (is-tc-e #(clojure.core/for [a [1 2] b [2 3]] (fn* [c] (+ c a b)))
            [-> (Seq [Num -> Num])])
-  ;; example of bad type propagating to body
+  ;; FIXME example of bad type propagating to body
+  #_
   (is-tc-err #(clojure.core/for [a [1 2] b [2 3]] (fn* [c] (+ c a b))) [-> (Seq [nil -> Num])])
 )
+
+(comment
 
 (deftest get-in-test
   (is-tc-e (get-in {:a {:b 1}} [:a :b])
