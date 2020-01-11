@@ -219,8 +219,6 @@
   (is-tc-err #(clojure.core/for [a [1 2] b [2 3]] (fn* [c] (+ c a b))) [-> (Seq [nil -> Num])])
 )
 
-(comment
-
 (deftest get-in-test
   (is-tc-e (get-in {:a {:b 1}} [:a :b])
            Num)
@@ -231,6 +229,8 @@
   (is-tc-err (get-in {:a {:b 1}} [:a :b] 1))
   (is-tc-err (get-in {:a {:b 1}} [:a :b] 1)
              Sym))
+
+(comment
 
 (deftest update-in-inline-test
   (is-tc-e (update-in {:a {:b 1}} [:a :b] identity)
