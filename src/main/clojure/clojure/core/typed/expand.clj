@@ -455,7 +455,7 @@
         :blame-form ~form})))
 
 (defmethod -expand-inline 'clojure.core/get-in [form {:keys [internal-error]}]
-  (when-not (= 4 (count form))
+  (when-not (#{3 4} (count form))
     (internal-error (str "Must provide 2 or 3 arguments to clojure.core/get-in, found " (dec (count form))
                          ": " form)))
   (let [[_ _ path] form
