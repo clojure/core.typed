@@ -304,13 +304,12 @@
                                        :msg-fn (fn [_#]
                                                  (str "'for' expects Seqables in binding form"))})]
                        ~body))))
+              ;; TODO push inner expected type into body-form
               body-form
               (partition 2 (rseq seq-forms)))]
-    ;; FIXME correctly handle expected type 
     `(check-expected
-       ;; TODO figure out what `solve` even does with the expected type
-       (solve (ignore-expected-if true ~ret)
-              {:query (t/All [a#] [a# :-> (t/Seq a#)])})
+       (solve ~ret
+              {:query (t/All [a#] [a# :-> (t/ASeq a#)])})
        {:msg-fn (fn [_#]
                   "The return type of this 'for' expression does not agree with the expected type.")
         :blame-form ~form})))

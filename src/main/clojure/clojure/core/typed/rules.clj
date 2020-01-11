@@ -112,8 +112,8 @@
 ;;    :blame-form ~coll})
 (defmethod typing-rule 'clojure.core.typed.expand/solve
   [{:keys [expr opts expected check solve delayed-error form maybe-check-expected]}]
-  (let [{:keys [::expr-type] :as m} (check expr)
-        {:keys [query msg-fn blame-form]} opts
+  (let [{:keys [query msg-fn blame-form]} opts
+        {::keys [expr-type] :as m} (check expr)
         res (solve expr-type query)]
     (when-not res
       (let [form (if (contains? opts :blame-form)
