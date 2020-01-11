@@ -261,8 +261,7 @@
           ~@(map expand-sig sigs))))
 
 (defmacro solve [expr opts]
-  (assert nil)
-  (prn "bad solve"))
+  expr)
 
 (defmethod -expand-macro `solve
   [[_ expr opts :as form] _]
@@ -305,7 +304,7 @@
                                        :msg-fn (fn [_#]
                                                  (str "'for' expects Seqables in binding form"))})]
                        ~body))))
-              `[~body-form]
+              body-form
               (partition 2 (rseq seq-forms)))]
     ;; FIXME correctly handle expected type 
     `(check-expected
