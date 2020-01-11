@@ -200,13 +200,12 @@
 (deftest for-test
   (is-tc-e #(clojure.core/for [a [1 2]] a))
   (is-tc-e #(clojure.core/for [a [1 2]] a) [-> (Seqable Number)])
+  (is-tc-e #(clojure.core/for [a [1 2]] a) [-> (ASeq Number)])
   (is-tc-e #(clojure.core/for [a '(1 2)] (ann-form a Number)) [-> (Seqable Number)])
   (is-tc-e #(clojure.core/for [a [1 2]] (ann-form a Number)) [-> (Seqable Number)])
-  ;; FIXME could make error more localized
+  ;; FIXME improve error locality
   (is-tc-err #(clojure.core/for [a [1 2]] a) [-> (Seqable Boolean)])
-  ;; FIXME improve error
   (is-tc-err #(clojure.core/for [a [1 2]] a) [-> Number])
-  ;; FIXME improve error
   (is-tc-err #(clojure.core/for [a [1 2]] a) [-> nil])
   (is-tc-e #(clojure.core/for [a [1 2] b [2 3]] [a b]))
   (is-tc-e #(clojure.core/for [a [1 2] b [2 3]] [a b]) [-> (Seq '[Num Num])])
