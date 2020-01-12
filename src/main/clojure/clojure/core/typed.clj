@@ -1389,6 +1389,14 @@ for checking namespaces, cf for checking individual forms."}
   []
   `(tc-ignore (warn-on-unannotated-vars* '~(ns-name *ns*))))
 
+(core/defn default-check-config []
+  {:check-ns-dep :recheck
+   :unannotated-def :infer
+   :unannotated-var :error
+   :unannotated-multi :error
+   :type-check-eval :interleave
+   #_#_:unannotated-arg :any})
+
 (core/let [chkfi (delay (dynaload 'clojure.core.typed.checker.jvm.check-form-clj/check-form-info))]
   (core/defn check-form-info 
     "Function that type checks a form and returns a map of results from type checking the
@@ -1407,6 +1415,7 @@ for checking namespaces, cf for checking individual forms."}
                        It is highly recommended to evaluate :out-form manually.
     - :beta-limit      A natural integer which denotes the maximum number of beta reductions
                        the type system can perform on a single top-level form (post Gilardi-scenario).
+    - :check-config    Configuration map for the type checker. (See same option for `check-ns`)
     
     Default return map
     - :ret             TCResult inferred for the current form
@@ -1420,7 +1429,8 @@ for checking namespaces, cf for checking individual forms."}
                        added as a dependency. Must use the \"slim\" JAR."
     [form & opt]
     (load-if-needed)
-    (apply @chkfi form opt)))
+    (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
+      (apply @chkfi form opt))))
 
 (core/let [chkf* (delay (dynaload 'clojure.core.typed.checker.jvm.check-form-clj/check-form*))]
   (core/defn check-form*
@@ -1456,15 +1466,6 @@ for checking namespaces, cf for checking individual forms."}
       ;=> [Number -> Number]"
    ([form] `(check-form* '~form))
    ([form expected] `(check-form* '~form '~expected)))
-
-
-(core/defn default-check-config []
-  {:check-ns-dep :recheck
-   :unannotated-def :infer
-   :unannotated-var :error
-   :unannotated-multi :error
-   :type-check-eval :interleave
-   #_#_:unannotated-arg :any})
 
 (core/let [chknsi (delay (dynaload 'clojure.core.typed.checker.jvm.check-ns-clj/check-ns-info))]
   (core/defn check-ns-info
