@@ -1541,8 +1541,11 @@ for checking namespaces, cf for checking individual forms."}
                          #{:unchecked :any}
                          Default: :any
     (Experimental)
-    - :type-check-eval   If :pre-eval, evaluates file in advance before type checking,
+    - :type-check-eval   If :pre-eval, evaluates each form in advance before type checking,
                          and subsequently does not interleave type checking with evaluation.
+                         Furthermore, if checking a file, the first form is assumed to be
+                         the `ns` form and is evaluated *after* type checking to gain the
+                         desired ns side effect.
                          If :interleave, type checking and evaluation is interleaved,
                          respecting top-level evaluation order.
                          Default: :interleave
