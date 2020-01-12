@@ -74,7 +74,8 @@
                (loop []
                  (let [form (reader/read opts pbr)]
                    (when-not (identical? form eof)
-                     (let [{:keys [ex]} (chk-frm/check-form-info config form)]
+                     (let [{:keys [ex]} (chk-frm/check-form-info config form
+                                                                 :check-config (t/default-check-config))]
                        (when ex
                          (throw ex)))
                      (recur))))))))))))

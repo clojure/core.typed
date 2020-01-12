@@ -4,5 +4,7 @@
 
 ;; ensures evaluation occurs
 (deftest evaluation-test
-  (is (thrown? clojure.lang.ExceptionInfo
-               (load/typed-load1 "clojure/core/typed/test/typed_load/eval"))))
+  (is (try (load/typed-load1 "clojure/core/typed/test/typed_load/eval")
+           nil
+           (catch clojure.lang.ExceptionInfo e
+             (-> e ex-data :blame :file #{"clojure/core/typed/test/typed_load/eval.clj"})))))

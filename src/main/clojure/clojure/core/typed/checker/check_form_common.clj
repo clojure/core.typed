@@ -73,6 +73,7 @@
 ;;                     Will be updated during macroexpansion and evaluation.
 ;;  - :beta-limit      A natural integer which denotes the maximum number of beta reductions
 ;;                     the type system can perform.
+;;  - :check-config    Map of options for vs/*check-config*
 ;;  
 ;;  Default return map
 ;;  - :ret             TCResult inferred for the current form
@@ -98,9 +99,11 @@
            unparse-ns
            analyze-bindings-fn]}
    form & {:keys [expected-ret expected type-provided? file-mapping
-                  checked-ast no-eval bindings-atom beta-limit]}]
+                  checked-ast no-eval bindings-atom beta-limit
+                  check-config]}]
   {:pre [((some-fn nil? con/atom?) bindings-atom)
-         ((some-fn nil? symbol?) unparse-ns)]}
+         ((some-fn nil? symbol?) unparse-ns)
+         (map? check-config)]}
   (assert (not (and expected-ret type-provided?)))
   (do
     (reset-caches/reset-caches)
@@ -178,13 +181,14 @@
                                  (eval-cexp c-ast opt)))))
             terminal-error (atom nil)
             c-ast (try
-                    (ast-for-form form
-                                  {:bindings-atom bindings-atom
-                                   :analyze-bindings-fn analyze-bindings-fn
-                                   :eval-fn eval-ast
-                                   :expected expected
-                                   :stop-analysis stop-analysis
-                                   :env env})
+                    (binding [vs/*check-config* (atom check-config)]
+                      (ast-for-form form
+                                    {:bindings-atom bindings-atom
+                                     :analyze-bindings-fn analyze-bindings-fn
+                                     :eval-fn eval-ast
+                                     :expected expected
+                                     :stop-analysis stop-analysis
+                                     :env env}))
                     (catch Throwable e
                       (let [e (if (some-> e ex-data err/tc-error?)
                                 (try
