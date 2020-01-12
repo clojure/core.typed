@@ -58,7 +58,6 @@
           (binding [vs/*delayed-errors* (err/-init-delayed-errors)
                     vs/*already-checked* (atom #{})
                     vs/*trace-checker* trace
-                    vs/*analyze-ns-cache* (cache/soft-cache-factory {})
                     ; we only use this if we have exactly one namespace passed
                     vs/*checked-asts* (when (#{impl/clojure} impl)
                                         (when (== 1 (count nsym-coll))

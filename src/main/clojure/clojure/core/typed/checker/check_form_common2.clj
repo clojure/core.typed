@@ -99,7 +99,6 @@
     (reset-caches/reset-caches)
     (binding [vs/*already-checked* (atom #{})
               vs/*delayed-errors* (err/-init-delayed-errors)
-              vs/*analyze-ns-cache* (cache/soft-cache-factory {})
               vs/*in-check-form* true
               vs/*lexical-env* (lex-env/init-lexical-env)
               ;; custom expansions might not even evaluate
