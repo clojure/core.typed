@@ -228,9 +228,7 @@
 (defn check-ns-and-deps
   "Type check a namespace and its dependencies."
   ([nsym] (check-ns-and-deps nsym nil))
-  ([nsym {:keys [check-ns1-fn]
-          :or {check-ns1-fn check-ns1}
-          :as opts}]
+  ([nsym opts]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (let []
