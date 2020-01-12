@@ -208,7 +208,7 @@
                                  nil)
        :else
        ; check deps
-       (let [_ (check-deps nsym opts)]
+       (let [_ (check-deps nsym)]
          ; ignore ns declaration
          (let [ns-form (ns-depsu/ns-form-for-ns nsym)
                check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
