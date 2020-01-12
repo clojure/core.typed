@@ -175,6 +175,7 @@
 
 (defn check-form*
   [{:keys [impl unparse-ns] :as config} form expected type-provided? opt]
+  {:pre [(map? opt)]}
   (let [{:keys [ex delayed-errors ret]} (apply check-form-info config form
                                                       :expected expected 
                                                       :type-provided? type-provided?

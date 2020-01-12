@@ -86,5 +86,5 @@
                  1 (config-map)
                  2 (config-map2))]
     (impl/with-full-impl (:impl config)
-      (apply (:check-form* config) config
-        form expected type-provided? (apply concat opt)))))
+      ((:check-form* config) config
+        form expected type-provided? opt))))
