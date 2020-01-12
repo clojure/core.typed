@@ -281,9 +281,7 @@
   (with-bindings (dissoc (ana-clj/thread-bindings) #'*ns*) ; *ns* is managed by higher-level ops like check-ns1
     (env/ensure (jana2/global-env)
       (let [unanalyzed-fn (case (some-> vs/*check-config* deref :type-check-eval)
-                            ; TODO `check-form-info` doesn't bind the vs/*check-config*
-                            ; yet, adding nil logic for now
-                            (nil :interleave) ana2/unanalyzed-top-level
+                            :interleave ana2/unanalyzed-top-level
                             :pre-eval (do (eval form)
                                           ana2/unanalyzed))
             res (-> form
