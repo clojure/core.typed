@@ -256,7 +256,10 @@
              (let [start (. System (nanoTime))
                    _ (println "Start checking" nsym)
                    _ (flush)
-                   _ (check-ns1-fn nsym)
+                   _ (let [check-ns1-fn (case (some-> vs/*check-config* deref :type-check-eval)
+                                          :interleave check-ns1
+                                          :pre-eval check-ns1-fn)]
+                       (check-ns1-fn nsym))
                    _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
                    _ (flush)
                    ]
