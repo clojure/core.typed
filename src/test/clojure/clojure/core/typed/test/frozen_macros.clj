@@ -230,8 +230,6 @@
   (is-tc-err (get-in {:a {:b 1}} [:a :b] 1)
              Sym))
 
-(comment
-
 (deftest update-in-inline-test
   (is-tc-e (update-in {:a {:b 1}} [:a :b] identity)
            '{:a '{:b Num}})
@@ -256,6 +254,7 @@
   (is-tc-err (let [m {:a []}]
                (update-in m [:a :b] identity))))
 
+(comment
 (deftest map-test
   (is-tc-e (map identity [1 2 3]))
   (is-tc-e (map identity (map identity [1 2 3])))
