@@ -176,13 +176,16 @@
                                  read-opts)
                      _ (case (some-> vs/*check-config* deref :type-check-eval)
                          :interleave nil
-                         ; read, eval, and discard `ns` form
+                         ; process the ns form as a "post-eval", since we
+                         ; want the ns side effect to occur *after* we analyze+type check
+                         ; the form.
                          :pre-eval
                          (let [ns-form (reader/read read-opts pbr)
                                _ (assert (and (seq? ns-form)
                                               (#{'ns} (first ns-form)))
                                          (str "First form of namespace '" ns "' must be "
                                               "an 'ns' form."))]
+                           (check-top-level ns-form nil {:env (assoc env :ns (ns-name *ns*))})
                            (eval ns-form)))]
                  (loop []
                    (let [form (reader/read read-opts pbr)]
