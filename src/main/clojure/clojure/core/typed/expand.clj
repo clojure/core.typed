@@ -28,6 +28,71 @@
 ;;    may involve repeated evaluation
 ;;   - unsure, but this scenario might be impossible.
 
+;; Discussion:
+;; we're at a fork in the road at how seriously we need to handle the Gilardi
+;; scenario and interleaving macroexpansion and evaluation.
+;; If we could simplify type checking to just involve macroexpansion (and
+;; never needing to evaluate intermediate forms), things would be simpler.
+;; We basically assume that macros and "compile-time" things are static,
+;; which, IME, outside of clojure.core bootstrapping (eg., `clojure.core/defn`)
+;; is actually a pretty good assumption.
+;; Very early versions of Typed Clojure used to evaluate a file before type
+;; checking it, and then type check each form using `analyze` to get the AST 
+;; instead of `analyze+eval`. IIRC this worked well enough.
+;; If we're going to do things like symbolic closures that cross top-level forms,
+;; then it's very likely we're going to break the normal macroexpansion/evaluation
+;; order (if, eg., reducing the symbolic closure involves macroexpansion, like
+;; the following scenario):
+;;  (defmacro i-change [] 1)
+;;  (defn a [x] (i-change))
+;;  (defmacro i-change [] 2)
+;;  (defn b [y] (a 1))
+;; I find it hard to believe that this happens often, because in almost any Clojure
+;; file I've worked with, you can eval a form at any point in the file with no inconsistencies.
+;; You can probably rearrange the order of any Clojure expression in the same "phase"
+;; and it will mostly work.
+
+;; If we strictly want to adhere to Clojure's evaluation order as we type check,
+;; then non-compound top-level forms seem easy to deal with if we want to throw
+;; away macro-expansion: just throw away the type checker's macroexpanded code
+;; after type checking, and `eval` the originally non-compound top-level expression instead.
+;; For compound top-level forms, the "real" and "fake" expansions need to coincide
+;; at least in the number and order of their top-level children.
+;; eg., (defmacro deftype [..] (do e1  e2  e3))  ;; actual expansion
+;;      (defmacro deftype [..] (do e1' e2' e3')) ;; fake expansion
+;; We then process each top-level subform in lockstep, evaluating the real expansion
+;; before type checking the next one. ie.,
+;; 1. type check e1'
+;; 2. eval e1
+;; 3. type check e2'
+;; 4. eval e2
+;; etc.
+;; If any top-level expression is itself a compound top-level expression, it is also
+;; processed with this assumption in mind.
+
+;; However, as above, symbolic closures crossing top-level forms complicates this greatly,
+;; I think irreparably. Think: you might need a symbolic closure from further down the
+;; same file that you haven't evaluated yet, or even from another namespace that you processed
+;; long ago. Even the simple case of using a symbolic closure from a top-level form you
+;; just processed might break some assumptions.
+
+;; Is Typed Clojure more a linter or a type system? Well, it's both, but I think
+;; it's qualities as a linter are more in demand. Its greatest inheritance from the world of
+;; type systems is the notion of soundness "up-to" specific assumptions.
+;; I want to add a new assumption: rearranging the order of any forms in the same "stage" is equivalent
+;; in any file Typed Clojure type checks. This is a common assumption as devs often copy-paste
+;; and re-eval code in their REPL without carefully recreating the precise order of 
+;; top-level forms before it. If we can assume it while type checking, it enables the
+;; kinds of symbolic execution that I think is necessary to elide many top-level annotations
+;; a la Flow lang.
+
+;; The new strategy for type checking a file would be:
+;; 1. re-load the file
+;; 2. type-check each form in the file without evaluating the end results
+;; I guess this also assumes that re-evaluating reader eval #= forms is ok.
+;; Using these assumptios to their logical conclusion, we could parallelize
+;; the type checking of individual forms.
+
 ;; eg., perhaps a flag that designates an expansion "safe" for top-level usage.
 ;; Note: this isn't atomic with the other multimethods, consider single stateful reference
 #_(defonce *eval-top-level-expansion (atom #{}))
