@@ -1415,7 +1415,7 @@ for checking namespaces, cf for checking individual forms."}
                        It is highly recommended to evaluate :out-form manually.
     - :beta-limit      A natural integer which denotes the maximum number of beta reductions
                        the type system can perform on a single top-level form (post Gilardi-scenario).
-    - :check-config    Configuration map for the type checker. (See same option for `check-ns`)
+    - :check-config    Configuration map for the type checker. (See corresponding option for `check-ns`)
     
     Default return map
     - :ret             TCResult inferred for the current form
@@ -1549,7 +1549,7 @@ for checking namespaces, cf for checking individual forms."}
                            Furthermore, if checking a file, the first form is assumed to be
                            the `ns` form and is evaluated *after* type checking to gain the
                            desired ns side effect.
-                         - If :simulate, two separate macroexpansions will be maintained:
+                         - If :simulate, two separate macroexpansions will be maintained simultaneously:
                            the 'real' expansion that will be evaluated, and
                            a 'fake' expansion just for type checking, derived via custom expansions
                            for typing rules.
