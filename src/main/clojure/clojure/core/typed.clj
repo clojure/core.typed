@@ -1541,13 +1541,24 @@ for checking namespaces, cf for checking individual forms."}
                          #{:unchecked :any}
                          Default: :any
     (Experimental)
-    - :type-check-eval   If :pre-eval, evaluates each form in advance before type checking,
-                         and subsequently does not interleave type checking with evaluation.
-                         Furthermore, if checking a file, the first form is assumed to be
-                         the `ns` form and is evaluated *after* type checking to gain the
-                         desired ns side effect.
-                         If :interleave, type checking and evaluation is interleaved,
-                         respecting top-level evaluation order.
+    - :type-check-eval   - If :interleave, type checking and evaluation is interleaved,
+                           in a similar spirit to how analysis and evaluation in tools.analyzer's
+                           analyze+eval is interleaved to respect Clojure's top-level evaluation order.
+                         - If :pre-eval, evaluates each form in advance before type checking,
+                           and subsequently does not interleave type checking with evaluation.
+                           Furthermore, if checking a file, the first form is assumed to be
+                           the `ns` form and is evaluated *after* type checking to gain the
+                           desired ns side effect.
+                         - If :simulate, two separate macroexpansions will be maintained:
+                           the 'real' expansion that will be evaluated, and
+                           a 'fake' expansion just for type checking. They must agree
+                           on the number of top-level forms they contain. As of Clojure 1.10,
+                           that only requires that all top-level 'do' forms (after macroexpansion)
+                           have the same number of children and in the same order.
+                           This enables much more ambitious transformations on the 
+                           'fake' expansions that are tailored to the needs of type checking (eg., symbolic
+                           execution, simplified expansions that don't actually 'run' but are
+                           easy to type check).
                          Default: :interleave
 
   Removed:
