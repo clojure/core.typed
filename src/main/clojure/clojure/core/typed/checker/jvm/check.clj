@@ -178,11 +178,52 @@
                        (check-top-level form nil {:env (assoc env :ns (ns-name *ns*))})
                        (recur))))))))))))
 
+(defn check-ns1-pre-eval
+  "Type checks an entire namespace, but evaluates entire file
+  in advance, and does not interleave evaluation with type checking.
+  
+  Assumes first form is the `ns` form, and the rest of the file is evaluated
+  in the namespace `(the-ns ns)`."
+  ([ns] (check-ns1-pre-eval ns (taj/empty-env)))
+  ([ns env]
+     ; pre-evaluate entire file
+     (require ns :reload)
+     ; type-check file without evaluation
+     (env/ensure (jana2/global-env)
+       (let [^java.net.URL res (jtau/ns-url ns)]
+         (assert res (str "Can't find " ns " in classpath"))
+         (let [filename (str res)
+               path     (.getPath res)]
+           (binding [*ns*   (the-ns ns)
+                     *file* filename]
+             (with-open [rdr (io/reader res)]
+               (let [pbr (readers/indexing-push-back-reader
+                           (java.io.PushbackReader. rdr) 1 filename)
+                     eof (Object.)
+                     read-opts {:eof eof :features #{:clj}}
+                     read-opts (if (.endsWith filename "cljc")
+                                 (assoc read-opts :read-cond :allow)
+                                 read-opts)
+                     ; read and discard `ns` form
+                     _ (reader/read read-opts pbr)]
+                 (loop []
+                   (let [form (reader/read read-opts pbr)]
+                     (when-not (identical? form eof)
+                       (check-top-level form nil
+                                        {:env (assoc env :ns (ns-name *ns*))
+                                         ; treat as non top-level form, so it is not
+                                         ; implicitly evaluated when type-checking unwinds
+                                         :unanalyzed-fn ana2/unanalyzed})
+                       (recur))))))))))))
+
 
 (t/ann check-ns-and-deps [t/Sym -> nil])
 (defn check-ns-and-deps
   "Type check a namespace and its dependencies."
-  ([nsym]
+  ([nsym] (check-ns-and-deps nsym nil))
+  ([nsym {:keys [check-ns1-fn]
+          :or {check-ns1-fn check-ns1}
+          :as opts}]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (let []
@@ -208,7 +249,7 @@
              (let [start (. System (nanoTime))
                    _ (println "Start checking" nsym)
                    _ (flush)
-                   _ (check-ns1 nsym)
+                   _ (check-ns1-fn nsym)
                    _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
                    _ (flush)
                    ]
@@ -259,13 +300,15 @@
 
 (defn check-top-level 
   ([form expected] (check-top-level form expected {}))
-  ([form expected {:keys [env] :as opts}]
+  ([form expected {:keys [env unanalyzed-fn]
+                   :or {unanalyzed-fn ana2/unanalyzed-top-level}
+                   :as opts}]
   ;(prn "check-top-level" form)
   ;(prn "*ns*" *ns*)
   (with-bindings (dissoc (ana-clj/thread-bindings) #'*ns*) ; *ns* is managed by higher-level ops like check-ns1
     (env/ensure (jana2/global-env)
       (let [res (-> form
-                    (ana2/unanalyzed-top-level (or env (taj/empty-env)))
+                    (unanalyzed-fn (or env (taj/empty-env)))
                     (check-expr expected))]
         res)))))
 

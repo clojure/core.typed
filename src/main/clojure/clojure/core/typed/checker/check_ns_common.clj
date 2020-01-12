@@ -79,32 +79,7 @@
                                                (chk-clj/check-ns-and-deps %))
                                    :cljs    @check-cljs-ns)]
                     (doseq [nsym nsym-coll]
-                      (check-ns nsym)))
-                  #_
-                  (let [vs (var-env/vars-with-unchecked-defs)]
-                    (binding [*out* *err*]
-                      (doseq [v vs]
-                        (println "WARNING: Type Checker: Definition missing:" v 
-                                 "\nHint: Use :no-check metadata with ann if this is an unchecked var")
-                        (flush))))
-                  #_
-                  (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                        checked (some-> vs/*already-checked* deref)
-                        _ (when (#{impl/clojure} impl)
-                            (u/trace 
-                              (binding [*print-length* nil]
-                                (let [checked (set (filter ns-deps-u/should-check-ns? checked))]
-                                  (str "Checked namespaces: " checked
-                                       ", " (apply + (for [nsym checked]
-                                                       (with-open [rdr (io/reader 
-                                                                         (impl/impl-case
-                                                                           :clojure (jvm-u/ns-url nsym)
-                                                                           :cljs    (cljs-reader nsym)))]
-                                                         (count (line-seq rdr)))))
-                                       " lines")))))]
-                    (println "Checked" (count checked) "namespaces "
-                             "in" ms "msecs")
-                    (flush)))
+                      (check-ns nsym))))
                 (catch ExceptionInfo e
                   (if (-> e ex-data :type-error)
                     (reset! terminal-error e)
