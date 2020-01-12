@@ -1463,6 +1463,7 @@ for checking namespaces, cf for checking individual forms."}
    :unannotated-def :infer
    :unannotated-var :error
    :unannotated-multi :error
+   :type-check-eval :interleave
    #_#_:unannotated-arg :any})
 
 (core/let [chknsi (delay (dynaload 'clojure.core.typed.checker.jvm.check-ns-clj/check-ns-info))]
