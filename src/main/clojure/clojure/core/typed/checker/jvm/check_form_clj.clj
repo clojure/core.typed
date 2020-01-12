@@ -79,10 +79,10 @@
            form opt)))
 
 (defn check-form*
-  [form expected type-provided?]
+  [form expected type-provided? opt]
   (let [config (case (int version)
                  1 (config-map)
                  2 (config-map2))]
     (impl/with-full-impl (:impl config)
-      ((:check-form* config) config
-        form expected type-provided?))))
+      (apply (:check-form* config) config
+        form expected type-provided? (apply concat opt)))))
