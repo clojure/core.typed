@@ -93,6 +93,12 @@
 ;; Using these assumptios to their logical conclusion, we could parallelize
 ;; the type checking of individual forms.
 
+;; Update: I found a discussion where Rich Hickey explicitly says macros should not have
+;; side effects (that are relied on) 
+;; - https://groups.google.com/d/msg/clojure/Ch4aaR_pTD0/Gpiqi4JJeK8J
+;; (This was basically what I hypothesized in my dissertation, but I would have saved
+;; a lot of space if I found this earlier!)
+
 ;; eg., perhaps a flag that designates an expansion "safe" for top-level usage.
 ;; Note: this isn't atomic with the other multimethods, consider single stateful reference
 #_(defonce *eval-top-level-expansion (atom #{}))
