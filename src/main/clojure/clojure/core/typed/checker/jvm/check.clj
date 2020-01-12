@@ -282,6 +282,8 @@
       (let [unanalyzed-fn (case (some-> vs/*check-config* deref :type-check-eval)
                             :interleave ana2/unanalyzed-top-level
                             :pre-eval (do (eval form)
+                                          ; a non top-level unanalyzed form is never evaluated
+                                          ; via `ana2/eval-top-level`
                                           ana2/unanalyzed))
             res (-> form
                     (unanalyzed-fn (or env (taj/empty-env)))
