@@ -327,7 +327,7 @@
   (with-bindings (dissoc (ana-clj/thread-bindings) #'*ns*) ; *ns* is managed by higher-level ops like check-ns1
     (env/ensure (jana2/global-env)
       (let [_ (case (some-> vs/*check-config* deref :type-check-eval)
-                :interleave nil
+                (:interleave :simulate) nil
                 :pre-eval (eval form))
             res (-> form
                     (unanalyzed-top-level (or env (taj/empty-env)))
