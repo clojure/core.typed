@@ -1427,10 +1427,10 @@ for checking namespaces, cf for checking individual forms."}
     - :delayed-errors  A sequence of delayed errors (ex-info instances)
     - :profile         Use Timbre to profile the type checker. Timbre must be
                        added as a dependency. Must use the \"slim\" JAR."
-    [form & opt]
+    [form & {:as opt}]
     (load-if-needed)
     (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
-      (apply @chkfi form opt))))
+      (apply @chkfi form (apply concat opt)))))
 
 (core/let [chkf* (delay (dynaload 'clojure.core.typed.checker.jvm.check-form-clj/check-form*))]
   (core/defn check-form*
