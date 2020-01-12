@@ -1436,12 +1436,17 @@ for checking namespaces, cf for checking individual forms."}
   (core/defn check-form*
     "Function that takes a form and optional expected type syntax and
     type checks the form. If expected is provided, type-provided?
-    must be true."
+    must be true.
+    
+    Takes same options as check-form-info, except 2nd argument is :expected,
+    3rd argument is :type-provided?, and subsequent keys in opt will be merged over
+    them."
     ([form] (check-form* form nil nil))
     ([form expected] (check-form* form expected true))
-    ([form expected type-provided?]
+    ([form expected type-provided? & {:as opt}]
      (load-if-needed)
-     (@chkf* form expected type-provided?))))
+     (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
+       (@chkf* form expected type-provided? opt)))))
 
 ; cf can pollute current type environment to allow REPL experimentation
 (defmacro cf
