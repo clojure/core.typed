@@ -234,16 +234,21 @@
   mode."
   [expr]
   (case (some-> vs/*check-config* deref :type-check-eval)
-    :interleaved (ana2/eval-top-level expr)
+    :interleave (ana2/eval-top-level expr)
     :pre-eval expr
-    :simulate (update-in expr [:clojure.core.typed.analyzer/config ::real-expr] ana2/eval-top-level)))
+    :simulate (let [fake-expr (update-in expr [:clojure.core.typed.analyzer/config ::real-expr] ana2/eval-top-level)
+                    real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
+                    _ (assert (:op real-expr))]
+                ; forward :result
+                (merge fake-expr
+                       (select-keys real-expr [:result])))))
 
 (defn analyze-outer
   "Analyze the outermost AST node the equivalent of one macroexpansion,
   while respecting the current :type-check-eval mode."
   [expr]
   (case (some-> vs/*check-config* deref :type-check-eval)
-    (:interleaved :pre-eval) (ana2/analyze-outer expr)
+    (:interleave :pre-eval) (ana2/analyze-outer expr)
     :simulate (let [fake-expr (-> expr
                                   ana2/analyze-outer
                                   (#(binding [ana2/macroexpand-1 clojure.core/macroexpand-1]
@@ -265,7 +270,7 @@
   the current :type-check-eval mode."
   [form env]
   (case (some-> vs/*check-config* deref :type-check-eval)
-    (:interleaved :pre-eval) (ana2/unanalyzed-top-level form env)
+    (:interleave :pre-eval) (ana2/unanalyzed-top-level form env)
     :simulate (let [expr (ana2/unanalyzed-top-level form env)]
                 (assoc-in expr [:clojure.core.typed.analyzer/config ::real-expr] expr))))
 
