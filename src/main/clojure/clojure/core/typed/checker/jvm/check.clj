@@ -142,14 +142,16 @@
 
 (declare check-ns-and-deps)
 
-(defn check-deps [nsym]
-  (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
-    (checked-ns! nsym)
-    ;check normal dependencies
-    (doseq [dep (ns-depsu/deps-for-ns nsym)]
-      ;; ensure namespace actually exists
-      (when (ns-depsu/should-check-ns? nsym)
-        (check-ns-and-deps dep)))))
+(defn check-deps
+  ([nsym] (check-deps nsym nil))
+  ([nsym opts]
+   (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
+     (checked-ns! nsym)
+     ;check normal dependencies
+     (doseq [dep (ns-depsu/deps-for-ns nsym)]
+       ;; ensure namespace actually exists
+       (when (ns-depsu/should-check-ns? nsym)
+         (check-ns-and-deps dep opts))))))
 
 (declare check-top-level)
 
@@ -234,7 +236,7 @@
                                  nil)
        :else
        ; check deps
-       (let [_ (check-deps nsym)]
+       (let [_ (check-deps nsym opts)]
          ; ignore ns declaration
          (let [ns-form (ns-depsu/ns-form-for-ns nsym)
                check? (boolean (some-> ns-form ns-depsu/should-check-ns-form?))]
