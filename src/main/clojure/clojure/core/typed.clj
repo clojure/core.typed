@@ -1533,6 +1533,12 @@ for checking namespaces, cf for checking individual forms."}
                          If `:any`, unannotated fn arguments are give type `Any` (sound).
                          #{:unchecked :any}
                          Default: :any
+    (Experimental)
+    - :type-check-eval   If :pre-eval, evaluates file in advance before type checking,
+                         and subsequently does not interleave type checking with evaluation.
+                         If :interleave, type checking and evaluation is interleaved,
+                         respecting top-level evaluation order.
+                         Default: :interleave
 
   Removed:
   - :profile       If true, use Timbre to profile the type checker. Timbre must be
@@ -1569,7 +1575,8 @@ for checking namespaces, cf for checking individual forms."}
                           #(merge {:check-ns-dep :never
                                    :unannotated-def :unchecked
                                    :unannotated-var :unchecked
-                                   :unannotated-arg :unchecked}
+                                   :unannotated-arg :unchecked
+                                   :type-check-eval :interleave}
                                   %))]
      (@chk-ns-clj ns-or-syms opt))))
 
