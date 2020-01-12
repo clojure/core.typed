@@ -159,8 +159,7 @@
   ([ns] (check-ns1 ns (taj/empty-env)))
   ([ns env]
      (env/ensure (jana2/global-env)
-       (let [type-check-eval (some-> vs/*check-config* deref :type-check-eval)
-             ^java.net.URL res (jtau/ns-url ns)]
+       (let [^java.net.URL res (jtau/ns-url ns)]
          (assert res (str "Can't find " ns " in classpath"))
          (let [filename (str res)
                path     (.getPath res)]
