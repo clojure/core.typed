@@ -174,7 +174,7 @@
                                  (assoc read-opts :read-cond :allow)
                                  read-opts)
                      _ (case (some-> vs/*check-config* deref :type-check-eval)
-                         :interleave nil
+                         (:simulate :interleave) nil
                          ; process the ns form as a "post-eval", since we
                          ; want the ns side effect to occur *after* we analyze+type check
                          ; the form.
@@ -228,6 +228,48 @@
                    ]
          nil))))))))
 
+(defn eval-top-level
+  "Evaluate top-level AST's according to core.typed.analyzer's
+  top-level information, while respecting the current :type-check-eval
+  mode."
+  [expr]
+  (case (some-> vs/*check-config* deref :type-check-eval)
+    :interleaved (ana2/eval-top-level expr)
+    :pre-eval expr
+    :simulate (update-in expr [:clojure.core.typed.analyzer/config ::real-expr] ana2/eval-top-level)))
+
+(defn analyze-outer
+  "Analyze the outermost AST node the equivalent of one macroexpansion,
+  while respecting the current :type-check-eval mode."
+  [expr]
+  (case (some-> vs/*check-config* deref :type-check-eval)
+    (:interleaved :pre-eval) (ana2/analyze-outer expr)
+    :simulate (let [fake-expr (-> expr
+                                  ana2/analyze-outer
+                                  (#(binding [ana2/macroexpand-1 clojure.core/macroexpand-1]
+                                      (update-in % [:clojure.core.typed.analyzer/config ::real-expr] ana2/analyze-outer))))
+                    real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
+                    _ (when (ana2/eval-top-level? real-expr)
+                        (assert (ana2/eval-top-level? fake-expr)
+                                "Real and fake expansion must coincide: real is top-level, but fake is not")
+                        (when (#{:do} (:op fake-expr))
+                          (assert (= (:op fake-expr)
+                                     (:op real-expr))
+                                  (str "Real and fake expansion must coincide: real is top-level :do, but fake is top-level "
+                                       (or (:op fake-expr)
+                                           "(unknown AST node)")))))]
+                fake-expr)))
+
+(defn unanalyzed-top-level
+  "Return an AST node for top-level form in env, while respecting
+  the current :type-check-eval mode."
+  [form env]
+  (case (some-> vs/*check-config* deref :type-check-eval)
+    (:interleaved :pre-eval) (ana2/unanalyzed-top-level form env)
+    :simulate (let [expr (ana2/unanalyzed-top-level form env)]
+                (assoc-in expr [:clojure.core.typed.analyzer/config ::real-expr] expr))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
@@ -250,13 +292,13 @@
       ;                     ;(prn "skipping already analyzed form")
       ;                     expr)
       (= :unanalyzed op) (let [cexpr (-> expr
-                                         ana2/analyze-outer
+                                         analyze-outer
                                          (check-expr expected))]
                            ; if still unanalyzed, this could be a top-level
                            ; form we chose not to traverse with the type checker.
                            ; So we call eval-top-level here for that case.
                            (if (= :unanalyzed (:op cexpr))
-                             (ana2/eval-top-level cexpr)
+                             (eval-top-level cexpr)
                              cexpr))
       :else
       (let []
@@ -266,7 +308,7 @@
                           ana2/run-pre-passes
                           (-check expected)
                           ana2/run-post-passes
-                          ana2/eval-top-level)]
+                          eval-top-level)]
             ;(prn "post" (:op cexpr))
             ;(clojure.pprint/pprint (emit-form/emit-form cexpr))
             cexpr))))))
@@ -279,14 +321,11 @@
   ;(prn "*ns*" *ns*)
   (with-bindings (dissoc (ana-clj/thread-bindings) #'*ns*) ; *ns* is managed by higher-level ops like check-ns1
     (env/ensure (jana2/global-env)
-      (let [unanalyzed-fn (case (some-> vs/*check-config* deref :type-check-eval)
-                            :interleave ana2/unanalyzed-top-level
-                            :pre-eval (do (eval form)
-                                          ; a non top-level unanalyzed form is never evaluated
-                                          ; via `ana2/eval-top-level`
-                                          ana2/unanalyzed))
+      (let [_ (case (some-> vs/*check-config* deref :type-check-eval)
+                :interleave nil
+                :pre-eval (eval form))
             res (-> form
-                    (unanalyzed-fn (or env (taj/empty-env)))
+                    (unanalyzed-top-level (or env (taj/empty-env)))
                     (check-expr expected))]
         res)))))
 
