@@ -73,13 +73,15 @@
 
 (defn check-form-info-with-config
   [form config opt]
-  {:pre [(map? config)]}
+  {:pre [(map? config)
+         (not (map? opt))]}
   (impl/with-full-impl (:impl config)
     (apply (:check-form-info config) config
            form opt)))
 
 (defn check-form*
   [form expected type-provided? opt]
+  {:pre [(map? opt)]}
   (let [config (case (int version)
                  1 (config-map)
                  2 (config-map2))]
