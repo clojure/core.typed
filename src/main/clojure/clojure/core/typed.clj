@@ -1551,11 +1551,13 @@ for checking namespaces, cf for checking individual forms."}
                            desired ns side effect.
                          - If :simulate, two separate macroexpansions will be maintained:
                            the 'real' expansion that will be evaluated, and
-                           a 'fake' expansion just for type checking. They must agree
-                           on the number of top-level forms they contain. As of Clojure 1.10,
-                           that only requires that all top-level 'do' forms (after macroexpansion)
-                           have the same number of children and in the same order.
-                           This enables much more ambitious transformations on the 
+                           a 'fake' expansion just for type checking, derived via custom expansions
+                           for typing rules.
+                           For each top-level form in the 'real' expansion, there must be
+                           a corresponding top-level form in the 'fake' expansion in the same
+                           syntactic position (ie., nested in the same number of `do` expressions,
+                           in the same positions).
+                           This enables more ambitious transformations on the 
                            'fake' expansions that are tailored to the needs of type checking (eg., symbolic
                            execution, simplified expansions that don't actually 'run' but are
                            easy to type check).
