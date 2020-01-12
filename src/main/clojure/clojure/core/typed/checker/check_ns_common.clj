@@ -76,7 +76,8 @@
                 (when-not collect-only
                   (let [check-ns (impl/impl-case
                                    :clojure #(binding [vs/*check-config* (atom check-config)]
-                                               (chk-clj/check-ns-and-deps %))
+                                               (chk-clj/check-ns-and-deps %
+                                                                          {:check-ns1-fn chk-clj/check-ns1}))
                                    :cljs    @check-cljs-ns)]
                     (doseq [nsym nsym-coll]
                       (check-ns nsym))))

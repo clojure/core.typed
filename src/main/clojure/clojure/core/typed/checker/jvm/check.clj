@@ -196,7 +196,8 @@
          (assert res (str "Can't find " ns " in classpath"))
          (let [filename (str res)
                path     (.getPath res)]
-           (binding [*ns*   (the-ns ns)
+           (binding [*ns*   (the-ns ns) ; fudging here, assuming we can read the entire
+                                        ; file in `ns` namespace, even the ns form.
                      *file* filename]
              (with-open [rdr (io/reader res)]
                (let [pbr (readers/indexing-push-back-reader
@@ -207,7 +208,11 @@
                                  (assoc read-opts :read-cond :allow)
                                  read-opts)
                      ; read and discard `ns` form
-                     _ (reader/read read-opts pbr)]
+                     ns-form (reader/read read-opts pbr)
+                     _ (assert (and (seq? ns-form)
+                                    (#{'ns} (first ns-form)))
+                               (str "First form of namespace '" ns "' must be "
+                                    "an 'ns' form."))]
                  (loop []
                    (let [form (reader/read read-opts pbr)]
                      (when-not (identical? form eof)
