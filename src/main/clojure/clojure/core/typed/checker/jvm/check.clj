@@ -173,17 +173,7 @@
                      read-opts {:eof eof :features #{:clj}}
                      read-opts (if (.endsWith filename "cljc")
                                  (assoc read-opts :read-cond :allow)
-                                 read-opts)
-                     _ (case (some-> vs/*check-config* deref :type-check-eval)
-                         :interleave nil
-                         ; read, eval, and discard `ns` form
-                         :pre-eval
-                         (let [ns-form (reader/read read-opts pbr)
-                               _ (assert (and (seq? ns-form)
-                                              (#{'ns} (first ns-form)))
-                                         (str "First form of namespace '" ns "' must be "
-                                              "an 'ns' form."))]
-                           (eval ns-form)))]
+                                 read-opts)]
                  (loop []
                    (let [form (reader/read read-opts pbr)]
                      (when-not (identical? form eof)
