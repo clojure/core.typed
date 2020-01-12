@@ -143,15 +143,14 @@
 (declare check-ns-and-deps)
 
 (defn check-deps
-  ([nsym] (check-deps nsym nil))
-  ([nsym opts]
+  ([nsym]
    (when (= :recheck (some-> vs/*check-config* deref :check-ns-dep))
      (checked-ns! nsym)
      ;check normal dependencies
      (doseq [dep (ns-depsu/deps-for-ns nsym)]
        ;; ensure namespace actually exists
        (when (ns-depsu/should-check-ns? nsym)
-         (check-ns-and-deps dep opts))))))
+         (check-ns-and-deps dep))))))
 
 (declare check-top-level)
 
@@ -160,7 +159,8 @@
   ([ns] (check-ns1 ns (taj/empty-env)))
   ([ns env]
      (env/ensure (jana2/global-env)
-       (let [^java.net.URL res (jtau/ns-url ns)]
+       (let [type-check-eval (some-> vs/*check-config* deref :type-check-eval)
+             ^java.net.URL res (jtau/ns-url ns)]
          (assert res (str "Can't find " ns " in classpath"))
          (let [filename (str res)
                path     (.getPath res)]
@@ -173,62 +173,28 @@
                      read-opts {:eof eof :features #{:clj}}
                      read-opts (if (.endsWith filename "cljc")
                                  (assoc read-opts :read-cond :allow)
-                                 read-opts)]
+                                 read-opts)
+                     _ (case (some-> vs/*check-config* deref :type-check-eval)
+                         :interleave nil
+                         ; read, eval, and discard `ns` form
+                         :pre-eval
+                         (let [ns-form (reader/read read-opts pbr)
+                               _ (assert (and (seq? ns-form)
+                                              (#{'ns} (first ns-form)))
+                                         (str "First form of namespace '" ns "' must be "
+                                              "an 'ns' form."))]
+                           (eval ns-form)))]
                  (loop []
                    (let [form (reader/read read-opts pbr)]
                      (when-not (identical? form eof)
                        (check-top-level form nil {:env (assoc env :ns (ns-name *ns*))})
                        (recur))))))))))))
 
-(defn check-ns1-pre-eval
-  "Type checks an entire namespace, but evaluates entire file
-  in advance, and does not interleave evaluation with type checking.
-  
-  Assumes first form is the `ns` form, and the rest of the file is evaluated
-  in the namespace `(the-ns ns)`."
-  ([ns] (check-ns1-pre-eval ns (taj/empty-env)))
-  ([ns env]
-     ; pre-evaluate entire file
-     (require ns :reload)
-     ; type-check file without evaluation
-     (env/ensure (jana2/global-env)
-       (let [^java.net.URL res (jtau/ns-url ns)]
-         (assert res (str "Can't find " ns " in classpath"))
-         (let [filename (str res)
-               path     (.getPath res)]
-           (binding [*ns*   (the-ns ns) ; fudging here, assuming we can read the entire
-                                        ; file in `ns` namespace, even the ns form.
-                     *file* filename]
-             (with-open [rdr (io/reader res)]
-               (let [pbr (readers/indexing-push-back-reader
-                           (java.io.PushbackReader. rdr) 1 filename)
-                     eof (Object.)
-                     read-opts {:eof eof :features #{:clj}}
-                     read-opts (if (.endsWith filename "cljc")
-                                 (assoc read-opts :read-cond :allow)
-                                 read-opts)
-                     ; read and discard `ns` form
-                     ns-form (reader/read read-opts pbr)
-                     _ (assert (and (seq? ns-form)
-                                    (#{'ns} (first ns-form)))
-                               (str "First form of namespace '" ns "' must be "
-                                    "an 'ns' form."))]
-                 (loop []
-                   (let [form (reader/read read-opts pbr)]
-                     (when-not (identical? form eof)
-                       (check-top-level form nil
-                                        {:env (assoc env :ns (ns-name *ns*))
-                                         ; treat as non top-level form, so it is not
-                                         ; implicitly evaluated when type-checking unwinds
-                                         :unanalyzed-fn ana2/unanalyzed})
-                       (recur))))))))))))
-
 
 (t/ann check-ns-and-deps [t/Sym -> nil])
 (defn check-ns-and-deps
   "Type check a namespace and its dependencies."
-  ([nsym] (check-ns-and-deps nsym nil))
-  ([nsym opts]
+  ([nsym]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
    (let []
@@ -254,10 +220,7 @@
              (let [start (. System (nanoTime))
                    _ (println "Start checking" nsym)
                    _ (flush)
-                   _ (let [check-ns1-fn (case (some-> vs/*check-config* deref :type-check-eval)
-                                          :interleave check-ns1
-                                          :pre-eval check-ns1-pre-eval)]
-                       (check-ns1-fn nsym))
+                   _ (check-ns1 nsym)
                    _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
                    _ (flush)
                    ]
@@ -306,16 +269,19 @@
             ;(clojure.pprint/pprint (emit-form/emit-form cexpr))
             cexpr))))))
 
-(defn check-top-level 
+(defn check-top-level
   ([form expected] (check-top-level form expected {}))
-  ([form expected {:keys [env unanalyzed-fn]
-                   :or {unanalyzed-fn ana2/unanalyzed-top-level}
+  ([form expected {:keys [env]
                    :as opts}]
   ;(prn "check-top-level" form)
   ;(prn "*ns*" *ns*)
   (with-bindings (dissoc (ana-clj/thread-bindings) #'*ns*) ; *ns* is managed by higher-level ops like check-ns1
     (env/ensure (jana2/global-env)
-      (let [res (-> form
+      (let [unanalyzed-fn (case (some-> vs/*check-config* deref :type-check-eval)
+                            :interleave ana2/unanalyzed-top-level
+                            :pre-eval (do (eval form)
+                                          ana2/unanalyzed))
+            res (-> form
                     (unanalyzed-fn (or env (taj/empty-env)))
                     (check-expr expected))]
         res)))))
