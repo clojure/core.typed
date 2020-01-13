@@ -941,7 +941,16 @@
                              expected)))))
 
 (defn typing-rule-opts [expr]
-  (second (:form (nth (:statements expr) 2))))
+  {:post [(map? %)]}
+  (let [opts (:form (nth (:statements expr) 2))]
+    (prn "typing-rule-opts" opts)
+    opts
+    #_
+    (if (seq? opts)
+      ; (quote {..})
+      (second opts)
+      ; {..}
+      opts)))
 
 (defn typing-rule-expr [expr]
   (:ret expr))
@@ -1989,7 +1998,10 @@
 
 (defmethod internal-special-form ::t/tc-ignore
   [expr expected]
-  (tc-ignore/check-tc-ignore check-expr expr expected))
+  (if (#{:simulate} (some-> vs/*check-config* deref :type-check-eval))
+    (binding [vs/*current-expr* expr]
+      (invoke-typing-rule (coerce/kw->symbol (u/internal-dispatch-val expr)) expr expected))
+    (tc-ignore/check-tc-ignore check-expr expr expected)))
 
 (defmethod internal-special-form ::t/fn
   [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :keys [env] :as expr} expected]
@@ -1998,8 +2010,11 @@
     (special-fn/check-special-fn check-expr expr expected)))
 
 (defmethod internal-special-form ::t/ann-form
-  [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
-  (ann-form/check-ann-form check-expr expr expected))
+  [expr expected]
+  (if (#{:simulate} (some-> vs/*check-config* deref :type-check-eval))
+    (binding [vs/*current-expr* expr]
+      (invoke-typing-rule (coerce/kw->symbol (u/internal-dispatch-val expr)) expr expected))
+    (ann-form/check-ann-form check-expr expr expected)))
 
 (defmethod internal-special-form ::t/cast
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
