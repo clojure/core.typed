@@ -10,13 +10,15 @@
     [clojure.core.typed :as t]
     [clojure.tools.analyzer.jvm.utils :as ju]))
 
+(def tc-config
+  {:ns-meta {:core.typed {:experimental #{:custom-expansions}}}
+   :check-config {:type-check-eval :simulate}})
+
 (defmacro tc-e [frm & opts]
-  `(tu/tc-e ~frm ~@opts
-            :ns-meta {:core.typed {:experimental #{:custom-expansions}}}))
+  `(tu/tc-e ~frm ~@opts ~@(apply concat tc-config)))
 
 (defmacro tc-err [frm & opts]
-  `(tu/tc-err ~frm ~@opts
-              :ns-meta {:core.typed {:experimental #{:custom-expansions}}}))
+  `(tu/tc-err ~frm ~@opts ~@(apply concat tc-config)))
 
 (defmacro is-tc-e [& body]
   `(is (do (tc-e ~@body)
@@ -24,6 +26,38 @@
 
 (defmacro is-tc-err [& body]
   `(is (tc-err ~@body)))
+
+(defmacro chk-frm
+  "Like tc-e but doesn't type check ns form"
+  [frm & {:as opts}]
+  `(binding [*ns* *ns*
+             *file* *file*]
+     (ns ~(gensym)
+       ~@(some-> opts :ns-meta vector))
+     (t/check-form-info '~frm
+                        :check-config '~(:check-config tc-config)
+                        ~@(apply concat (dissoc opts :ns-meta)))))
+
+(deftest simulate-test
+  (is (-> (chk-frm 1)
+          :result
+          #{1}))
+  (is (-> (chk-frm [1])
+          :result
+          #{[1]}))
+  (is (-> (chk-frm (do 1))
+          :result
+          #{1}))
+  (is (-> (chk-frm (do (do 1)))
+          :result
+          #{1}))
+  (is (-> (chk-frm (do 1 2 [1]))
+          :result
+          #{[1]}))
+  (is (-> (chk-frm (do (defmacro a [b] b)
+                       (a 1)))
+          :result
+          #{1})))
 
 (deftest ns-test
   (is-tc-e (ns foo) nil)

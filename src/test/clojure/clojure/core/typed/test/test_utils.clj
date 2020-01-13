@@ -23,7 +23,7 @@
   #_(assert (empty? (set/difference (set (keys opt))
                                   #{:expected :ret}))))
 
-(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret requires ns-meta] :as opt}]
+(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret requires ns-meta check-config] :as opt}]
   (check-opt opt)
   (let [ns-form 
         `(ns ~(gensym 'clojure.core.typed.test.temp)
@@ -35,16 +35,19 @@
                          [clojure.core.typed.unsafe :as unsafe]
                          [clojure.core :as core]]
                      ~@requires))]
-    `(let [expected-ret# ~expected-ret]
+    `(let [expected-ret# ~expected-ret
+           check-config# ~check-config]
        (binding [*ns* *ns*
                  *file* *file*]
-         (let [{ex# :ex} (t/check-form-info '~ns-form)]
+         (let [{ex# :ex} (t/check-form-info '~ns-form
+                                            :check-config check-config#)]
            (assert (nil? ex#) ex#))
          (t/check-form-info 
            '~frm
            :expected-ret expected-ret#
            :expected '~syn
-           :type-provided? ~provided?)))))
+           :type-provided? ~provided?
+           :check-config check-config#)))))
 
 (defmacro tc-e 
   "Type check an an expression in namespace that :refer's
@@ -67,7 +70,9 @@
                   one that refers c.c.t). Cannot be provided in combination with the implicit
                   first option as a type, as above.
     :ret          Check the return TCResult of this expression against this ret. Evaluated
-                  in the current namespace."
+                  in the current namespace.
+    :ns-meta      Map to use as ns metadata.
+    :check-config Map specifying check-config."
   [frm & opts]
   (apply common-test/tc-e tc-common* frm opts))
 

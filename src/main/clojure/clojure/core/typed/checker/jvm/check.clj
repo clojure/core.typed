@@ -236,12 +236,26 @@
   (case (some-> vs/*check-config* deref :type-check-eval)
     :interleave (ana2/eval-top-level expr)
     :pre-eval expr
-    :simulate (let [fake-expr (update-in expr [:clojure.core.typed.analyzer/config ::real-expr] ana2/eval-top-level)
-                    real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
-                    _ (assert (:op real-expr))]
-                ; forward :result
-                (merge fake-expr
-                       (select-keys real-expr [:result])))))
+    :simulate (if-not (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
+                ; an inner form
+                (do
+                  (prn "eval-top-level inner form"
+                       (emit-form/emit-form expr))
+                  expr)
+                ; a top-level form
+                (let [fake-expr (update-in expr [:clojure.core.typed.analyzer/config ::real-expr] ana2/eval-top-level)
+                      real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
+                      _ (assert (:op real-expr)
+                                (pr-str (class real-expr)))]
+                  (cond
+                    ; forward :result from evaluation of real-expr
+                    (ana2/eval-top-level? real-expr)
+                    (merge fake-expr
+                           (select-keys real-expr [:result]))
+
+                    ; propagate result already attached to :ret of fake-expr
+                    :else (do (assert (#{:do} (:op fake-expr)))
+                              (ana2/propagate-result fake-expr)))))))
 
 (defn analyze-outer
   "Analyze the outermost AST node the equivalent of one macroexpansion,
@@ -249,21 +263,56 @@
   [expr]
   (case (some-> vs/*check-config* deref :type-check-eval)
     (:interleave :pre-eval) (ana2/analyze-outer expr)
-    :simulate (let [fake-expr (-> expr
-                                  ana2/analyze-outer
-                                  (#(binding [ana2/macroexpand-1 clojure.core/macroexpand-1]
-                                      (update-in % [:clojure.core.typed.analyzer/config ::real-expr] ana2/analyze-outer))))
-                    real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
-                    _ (when (ana2/eval-top-level? real-expr)
-                        (assert (ana2/eval-top-level? fake-expr)
-                                "Real and fake expansion must coincide: real is top-level, but fake is not")
-                        (when (#{:do} (:op fake-expr))
-                          (assert (= (:op fake-expr)
-                                     (:op real-expr))
-                                  (str "Real and fake expansion must coincide: real is top-level :do, but fake is top-level "
-                                       (or (:op fake-expr)
-                                           "(unknown AST node)")))))]
-                fake-expr)))
+    :simulate (case (:op expr)
+                :unanalyzed
+                (let [fake-expr (-> expr
+                                    ana2/analyze-outer
+                                    (#(binding [ana2/macroexpand-1 (impl/impl-case
+                                                                     :clojure jana2/macroexpand-1
+                                                                     :cljs (throw (Error. "TODO: macroexpand for cljs forms")))]
+                                        (update-in % [:clojure.core.typed.analyzer/config ::real-expr] ana2/analyze-outer))))
+                      real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
+                      fake-expr (case (:op fake-expr)
+                                  :do (do (assert (= (:op fake-expr)
+                                                     (:op real-expr)))
+                                          (-> fake-expr
+                                              (update :statements
+                                                      (fn [fake-statements]
+                                                        {:pre [(vector? fake-statements)]}
+                                                        (assert (every? :op fake-statements)
+                                                                fake-statements)
+                                                        (let [real-statements (:statements real-expr)]
+                                                          (assert (= (count real-statements)
+                                                                     (count fake-statements)))
+                                                          (mapv (fn [fake-statement real-statement]
+                                                                  {:pre [(:op fake-statement)
+                                                                         (:op real-statement)]} 
+                                                                  (assoc-in fake-statement [:clojure.core.typed.analyzer/config ::real-expr]
+                                                                            real-statement))
+                                                                fake-statements
+                                                                real-statements))))
+                                              (assoc-in [:ret :clojure.core.typed.analyzer/config ::real-expr]
+                                                        (:ret real-expr))))
+                                  fake-expr)
+                      _ (when (ana2/eval-top-level? real-expr)
+                          (assert (ana2/eval-top-level? fake-expr)
+                                  "Real and fake expansion must coincide: real is top-level, but fake is not")
+                          (when (#{:do} (:op fake-expr))
+                            (assert (= (:op fake-expr)
+                                       (:op real-expr))
+                                    (str "Real and fake expansion must coincide: real is top-level :do, but fake is top-level "
+                                         (or (:op fake-expr)
+                                             "(unknown AST node)")))
+                            (assert (= (count (:children fake-expr))
+                                       (count (:children real-expr)))
+                                    (str "Real and fake expansion must coincide: real is :do with "
+                                         (count (:children real-expr))
+                                         " children, but fake is top-level with"
+                                         (count (:children fake-expr))
+                                         " children."))))]
+                  (prn "fake-op" (:op fake-expr))
+                  fake-expr)
+                expr)))
 
 (defn unanalyzed-top-level
   "Return an AST node for top-level form in env, while respecting
@@ -288,6 +337,15 @@
    :post [(r/TCResult? (u/expr-type %))]}
   ;(prn "check-expr" op)
   ;(clojure.pprint/pprint (emit-form/emit-form expr))
+  #_
+  (when (#{:simulate} (some-> vs/*check-config* deref :type-check-eval))
+    (prn (mapv (juxt :op #(some-> % emit-form/emit-form))
+               [expr
+                (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])]))
+    (assert (:op (get-in expr [:clojure.core.typed.analyzer/config ::real-expr]))
+            (mapv :op
+                  [expr
+                   (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])])))
   (let [{:keys [op env] :as expr} (assoc-in expr [:env :ns] (ns-name *ns*))]
     (when vs/*trace-checker*
       (println "Checking line:" (:line env))
