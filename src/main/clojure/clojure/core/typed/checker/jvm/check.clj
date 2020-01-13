@@ -239,23 +239,34 @@
     :simulate (if-not (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
                 ; an inner form, like `a` in `[a]`
                 (do
-                  #_
                   (prn "eval-top-level inner form"
                        (emit-form/emit-form expr))
                   expr)
                 ; a top-level form, like `a` in top-level `(do a b c)`
-                (let [fake-expr (update-in expr [:clojure.core.typed.analyzer/config ::real-expr] ana2/eval-top-level)
-                      real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
-                      _ (assert (:op real-expr)
-                                (pr-str (class real-expr)))]
-                  (cond
-                    ; forward :result from evaluation of real-expr
-                    (ana2/eval-top-level? real-expr)
-                    (merge fake-expr
-                           (select-keys real-expr [:result]))
+                (cond
+                  (#{:do} (:op expr))
+                  (do (assert (contains? (:ret expr) :result))
+                      (prn "eval-top-level top-level do"
+                           (emit-form/emit-form expr))
+                      (merge expr
+                             (select-keys (:ret expr) [:result])))
 
-                    ; propagate result already attached fake-expr
-                    :else (ana2/propagate-result fake-expr))))))
+                  :else (let [real-expr (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
+                              real-expr (ana2/eval-top-level real-expr)]
+                          (prn "fake-expr" (emit-form/emit-form expr)
+                               (:op expr)
+                               (find expr :result))
+                          (prn "real-expr" (emit-form/emit-form real-expr)
+                               (find real-expr :result))
+                          (assert (contains? real-expr :result)
+                                  (str (:op real-expr)
+                                       " "
+                                       (ana2/eval-top-level? real-expr)
+                                       " "
+                                       (emit-form/emit-form real-expr)))
+                          (merge expr
+                                 (select-keys real-expr [:result])))
+                ))))
 
 (defn analyze-outer
   "Analyze the outermost AST node the equivalent of one macroexpansion,
@@ -943,14 +954,13 @@
 (defn typing-rule-opts [expr]
   {:post [(map? %)]}
   (let [opts (:form (nth (:statements expr) 2))]
-    (prn "typing-rule-opts" opts)
-    opts
-    #_
-    (if (seq? opts)
-      ; (quote {..})
-      (second opts)
-      ; {..}
-      opts)))
+    (assert (and (seq? opts)
+                 (= 2 (count opts))
+                 (#{'quote} (first opts)))
+            (str "Options of typing rule must be a quoted map literal, "
+                 "found: " (pr-str opts)))
+    ; (quote {...})
+    (second opts)))
 
 (defn typing-rule-expr [expr]
   (:ret expr))
@@ -1063,6 +1073,12 @@
                                                  (update opts :actual prs/parse-type)
                                                  opts)]
                                       (apply err/tc-delayed-error s (apply concat opts))))
+                   :expected-error (fn [s t opts]
+                                     (let [s (prs/parse-type s)
+                                           t (cu/map->TCResult t)
+                                           opts (-> opts
+                                                    (update :expected cu/map->TCResult))]
+                                       (apply cu/expected-error s t (apply concat opts))))
                    :internal-error (fn [s opts]
                                      ;; TODO args
                                      (let [opts (update opts :expected cu/maybe-map->TCResult)]

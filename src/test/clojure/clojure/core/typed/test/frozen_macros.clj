@@ -51,7 +51,7 @@
   (is (-> (chk-frm (do (inc 0)))
           :result
           #{1}))
-  (is (-> (chk-frm (do (do (inc 0))))
+  (is (-> (chk-frm (do 5 (do 6 (inc 0))))
           :result
           #{1}))
   (is (-> (chk-frm (do 1 2 [(inc 0)]))
@@ -64,6 +64,22 @@
   (is (-> (chk-frm (ns baz))
           :result
           nil?))
+  (is (-> (chk-frm (clojure.core.typed/ann-form 1 clojure.core.typed/Int))
+          :result
+          #{1}))
+  (is (-> (chk-frm (clojure.core.typed/ann-form (do 1) clojure.core.typed/Int))
+          :result
+          #{1}))
+  (is (-> (chk-frm (clojure.core.typed/ann-form [1] '[clojure.core.typed/Int]))
+          :result
+          #{[1]}))
+  (is (-> (chk-frm (clojure.core.typed/tc-ignore
+                     (do (defmacro a [b] b)
+                         (a (inc 0)))
+                     (do (defmacro c [b] b)
+                         (c (inc 0)))))
+          :result
+          #{1}))
   )
 
 (deftest ns-test
