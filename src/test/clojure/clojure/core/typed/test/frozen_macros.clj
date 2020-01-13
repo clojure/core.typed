@@ -72,13 +72,24 @@
 
 (deftest ann-form-test
   (is-tc-e (ann-form 1 Integer))
+  (is-tc-e (ann-form (do (defmacro a [b] b)
+                         (a (inc 0)))
+                     Long))
   ;; blames ann-form form
   ;; FIXME add types in msg
   (is-tc-err (ann-form 1 Integer) nil)
   (is-tc-err (ann-form 1 nil)))
 
 (deftest tc-ignore-test
+  (is-tc-e (tc-ignore))
   (is-tc-e (tc-ignore #(/ nil nil)))
+  (is-tc-e (tc-ignore #(/ nil nil) #(/ nil nil)))
+  (is-tc-e (tc-ignore (do (defmacro a [b] b)
+                          (a (inc 0)))))
+  (is-tc-e (tc-ignore (do (defmacro a [b] b)
+                          (a (inc 0)))
+                      (do (defmacro c [b] b)
+                          (c (inc 0)))))
   (is-tc-err (tc-ignore #(/ nil nil)) nil))
 
 (deftest typed-fn-test
