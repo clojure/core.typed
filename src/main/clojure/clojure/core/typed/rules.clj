@@ -8,7 +8,8 @@
 
 (ns clojure.core.typed.rules
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.internal :as internal]))
+            [clojure.core.typed.internal :as internal]
+            [clojure.core.typed.analyzer :as ana2]))
 
 (t/defalias TCType t/Any)
 (t/defalias MsgFnOpts (t/HMap))
@@ -246,11 +247,17 @@
   {:pre [(map? opts)]}
   #_
   (prn "tc-ignore-typing-rule" opts)
-  (assoc expr
-         ::expr-type (maybe-check-expected
-                       {:type `t/Any}
-                       (update-expected-with-check-expected-opts
-                         expected (:outer-check-expected opts)))))
+  (let [expr (-> expr
+                 ana2/run-passes
+                 ; ensure the main checking loop doesn't reevaluate this tc-ignore,
+                 ; since run-passes has already if this is top-level.
+                 ana2/unmark-eval-top-level)]
+
+    (assoc expr
+           ::expr-type (maybe-check-expected
+                         {:type `t/Any}
+                         (update-expected-with-check-expected-opts
+                           expected (:outer-check-expected opts))))))
 
 (defmethod typing-rule `t/tc-ignore [& args] (apply tc-ignore-typing-rule args))
 (defmethod typing-rule 'clojure.core.typed.macros/tc-ignore [& args] (apply tc-ignore-typing-rule args))
