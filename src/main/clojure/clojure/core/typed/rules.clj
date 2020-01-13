@@ -223,6 +223,7 @@
 (defn ann-form-typing-rule 
   [{:keys [expr opts expected check subtype? expected-error]}]
   {:pre [(map? opts)]}
+  #_
   (prn "ann-form-typing-rule" opts expected (class expected))
   (let [_ (assert (contains? opts :type))
         {ty :type, :keys [inner-check-expected outer-check-expected]} opts
@@ -243,6 +244,7 @@
 (defn tc-ignore-typing-rule 
   [{:keys [expr opts expected maybe-check-expected]}]
   {:pre [(map? opts)]}
+  #_
   (prn "tc-ignore-typing-rule" opts)
   (assoc expr
          ::expr-type (maybe-check-expected
