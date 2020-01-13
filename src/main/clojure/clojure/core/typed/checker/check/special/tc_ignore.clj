@@ -14,7 +14,8 @@
             [clojure.core.typed.analyzer :as ana2]
             [clojure.core.typed.checker.type-rep :as r]))
 
-(defn check-tc-ignore [check expr expected]
+(defn check-tc-ignore [check {:keys [statements] :as expr} expected]
+  {:pre [(#{3} (count statements))]}
   (binding [vs/*current-expr* expr]
     (let [expr (-> expr
                    ana2/run-passes
@@ -25,5 +26,5 @@
              ::t/tc-ignore true
              u/expr-type (below/maybe-check-below
                            (r/ret r/-any)
+                           ;TODO use :form in 3rd statment to enhance expected error msg
                            expected)))))
-
