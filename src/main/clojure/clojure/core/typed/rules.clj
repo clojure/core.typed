@@ -229,6 +229,7 @@
         _ (assert (map? inner-check-expected) inner-check-expected)
         _ (assert (map? outer-check-expected) outer-check-expected)
         _ (when expected
+            ;; FIXME use check-below!!
             (when-not (subtype? ty (:type expected))
               (expected-error ty expected
                               {:expected (update-expected-with-check-expected-opts

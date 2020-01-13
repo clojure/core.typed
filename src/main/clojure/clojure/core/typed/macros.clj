@@ -207,7 +207,7 @@
   [& body]
   `(do ~spec/special-form
        ~(core-kw :tc-ignore)
-       {:form '~&form}
+       {}
        (do ~@(or body [nil]))))
 
 (defmacro when-let-fail 
