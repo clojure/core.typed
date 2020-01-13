@@ -239,6 +239,7 @@
     :simulate (if-not (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
                 ; an inner form, like `a` in `[a]`
                 (do
+                  #_
                   (prn "eval-top-level inner form"
                        (emit-form/emit-form expr))
                   expr)
@@ -246,6 +247,7 @@
                 (cond
                   (#{:do} (:op expr))
                   (do (assert (contains? (:ret expr) :result))
+                      #_
                       (prn "eval-top-level top-level do"
                            (emit-form/emit-form expr))
                       (merge expr
@@ -253,9 +255,11 @@
 
                   :else (let [real-expr (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
                               real-expr (ana2/eval-top-level real-expr)]
+                          #_
                           (prn "fake-expr" (emit-form/emit-form expr)
                                (:op expr)
                                (find expr :result))
+                          #_
                           (prn "real-expr" (emit-form/emit-form real-expr)
                                (find real-expr :result))
                           (assert (contains? real-expr :result)

@@ -6,7 +6,7 @@
   {:mvn/version "0.7.0"},
   org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"},
   org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
-                                      :sha "5b5e7635df5a6e4567ff04d5431dbb8a646c5917"},
+                                      :sha "467ca65e82f663b020985129dc196ac805ad80f6"},
   org.clojure/math.combinatorics
   {:mvn/version "0.1.4", :exclusions [org.clojure/clojure]},
   org.clojure/tools.reader {:mvn/version "1.1.1"},
