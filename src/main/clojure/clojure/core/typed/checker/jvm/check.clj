@@ -1084,9 +1084,13 @@
                                      (let [opts (update opts :expected cu/maybe-map->TCResult)]
                                        (apply err/int-error s (apply concat opts))))}
 
-        ; throw away checked expr
-        {out-expr-type ::rules/expr-type} (rules/typing-rule rule-args)]
-    (assoc expr u/expr-type (cu/map->TCResult out-expr-type))))
+        {out-expr-type ::rules/expr-type :as cexpr} (rules/typing-rule rule-args)
+        out-tcresult (cu/map->TCResult out-expr-type)]
+    (-> expr
+        (assoc u/expr-type out-tcresult)
+        (assoc :ret (-> cexpr
+                        (dissoc ::rules/expr-type)
+                        (assoc u/expr-type out-tcresult))))))
 
 ;=
 (defmethod -invoke-special 'clojure.core/= 

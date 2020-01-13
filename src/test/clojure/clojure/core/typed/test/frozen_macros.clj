@@ -70,6 +70,12 @@
   (is (-> (chk-frm (clojure.core.typed/ann-form (do 1) clojure.core.typed/Int))
           :result
           #{1}))
+  (is (-> (chk-frm (clojure.core.typed/ann-form (do (do 1)) clojure.core.typed/Int))
+          :result
+          #{1}))
+  (is (-> (chk-frm (clojure.core.typed/ann-form (let* [] (do 1)) clojure.core.typed/Int))
+          :result
+          #{1}))
   (is (-> (chk-frm (clojure.core.typed/ann-form [1] '[clojure.core.typed/Int]))
           :result
           #{[1]}))
