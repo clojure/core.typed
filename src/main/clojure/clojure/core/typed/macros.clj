@@ -207,7 +207,8 @@
   [& body]
   `(do ~spec/special-form
        ~(core-kw :tc-ignore)
-       ~@(or body [nil])))
+       {:form '~&form}
+       (do ~@(or body [nil]))))
 
 (defmacro when-let-fail 
   "Like when-let, but fails if the binding yields a false value."

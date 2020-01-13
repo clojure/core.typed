@@ -155,6 +155,23 @@
           :blame-form ~form}))))
 
 
+(defmacro check-if-empty-body
+  "If e is a non-empty do form, this check it with the given options.
+
+  Options:
+  - :msg-fn (not quoted)             eval and use this function for error message
+  - :blame-form (not quoted)         use this form as a target for blame in type errors
+  - :original-body (not quoted)      original list of body members
+  "
+  [e opts]
+  {:pre [(map? opts)]}
+  `(do ~spc/special-form
+       ::check-if-empty-body
+       ~(into {} (map (fn [[k v]]
+                        [k `(quote ~v)]))
+              opts)
+       ~e))
+
 (defmethod -expand-macro 'clojure.core/let
   [[_ bindings-form & body-forms :as form] _]
   (let [gs (gensym "b")]
@@ -175,18 +192,21 @@
             :original-body ~body-forms}))
       (partition 2 (rseq bindings-form)))))
 
-(defmacro check-if-empty-body [e opts]
-  {:pre [(map? opts)]}
-  `(do ~spc/special-form
-       ::check-if-empty-body
-       '~opts
-       ~e))
-
-(defmacro check-expected [e opts]
+(defmacro check-expected
+  "Enhance checking of e with extra information.
+  
+  Options:
+  - :default-expected (not quoted)   if no expected type is present, use this one
+  - :msg-fn (not quoted)             eval and use this function for error message
+  - :blame-form (not quoted)         use this form as a target for blame in type errors
+  "
+  [e opts]
   {:pre [(map? opts)]}
   `(do ~spc/special-form
        ::check-expected
-       '~opts
+       ~(into {} (map (fn [[k v]]
+                        [k `(quote ~v)]))
+              opts)
        ~e))
 
 (defmethod -expand-macro 'clojure.core/when
@@ -578,30 +598,29 @@
 
 (defn expand-ann-form [form _]
   (let [[_ frm ty] form]
-    `(check-expected
-       (do ~spc/special-form
-           ::t/ann-form
-           ;FIXME move quote to outside of map
-           {:type '~ty}
-           (check-expected
-             ~frm
-             {:blame-form ~frm}))
-       {:msg-fn (fn [_#]
-                  ;; TODO insert actual types in this message
-                  "The annotated type for this 'ann-form' expression did not agree with the expected type from the surrounding context.")
-        :blame-form ~form})))
+    ; coincide with top-level `do` macroexpansion of the actual `ann-form` macro
+    `(do ~spc/special-form
+         ::t/ann-form
+         {:type '~ty
+          :inner-check-expected '{:blame-form ~frm}
+          :outer-check-expected '{:msg-fn (fn [_#]
+                                            ;; TODO insert actual types in this message
+                                            (str "The annotated type for this 'ann-form' expression did not agree "
+                                                 "with the expected type from the surrounding context."))
+                                  :blame-form ~form}}
+         ~frm)))
 
 (defmethod -expand-macro `t/ann-form [& args] (apply expand-ann-form args))
 (defmethod -expand-macro 'clojure.core.typed.macros/ann-form [& args] (apply expand-ann-form args))
 
 (defn expand-tc-ignore [[_ & body :as form] _]
-  `(check-expected
-     (do ~spc/special-form
-         ::t/tc-ignore
-         ~@(or body [nil]))
-     {:msg-fn (fn [_#]
-                "The surrounding context of this 'tc-ignore' expression expects a more specific type than Any.")
-      :blame-form ~form}))
+  `(do ~spc/special-form
+       ::t/tc-ignore
+       {:form '~form
+        :outer-check-expected '{:msg-fn (fn [_#]
+                                          "The surrounding context of this 'tc-ignore' expression expects a more specific type than Any.")
+                                :blame-form ~form}}
+       (do ~@(or body [nil]))))
 
 (defmethod -expand-macro `t/tc-ignore [& args] (apply expand-tc-ignore args))
 (defmethod -expand-macro 'clojure.core.typed.macros/tc-ignore [& args] (apply expand-tc-ignore args))

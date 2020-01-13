@@ -179,14 +179,19 @@
                     (when (not errored?)
                       {:type x}))))))
 
+(defn update-expected-with-check-expected-opts
+  [expected opts]
+  (assert (map? opts) (pr-str (class opts)))
+  (when-let [expected (or expected (:default-expected opts))]
+    (update expected :opts 
+            ;; earlier messages override later ones
+            #(merge
+               (select-keys opts [:blame-form :msg-fn])
+               %))))
+
 (defmethod typing-rule 'clojure.core.typed.expand/check-expected
   [{:keys [expr opts expected check]}]
-  (check expr (when-let [expected (or expected (:default-expected opts))]
-                (update expected :opts 
-                        ;; earlier messages override later ones
-                        #(merge
-                           (select-keys opts [:blame-form :msg-fn])
-                           %)))))
+  (check expr (update-expected-with-check-expected-opts expected opts)))
 
 (defmethod typing-rule 'clojure.core.typed.expand/check-if-empty-body
   [{:keys [expr opts expected check]}]
@@ -214,32 +219,32 @@
                   (select-keys opts [:blame-form :msg-fn])
                   %))))
 
-#_
+;; FIXME use check-below!!
 (defn ann-form-typing-rule 
   [{:keys [expr opts expected check subtype? expected-error]}]
-  ;; FIXME use check-below
-  (assert nil "TYPING_RULE ann-form-typing-rule")
+  {:pre [(map? opts)]}
+  (prn "ann-form-typing-rule" opts)
   (let [ty (:type opts)
-        ;; FIXME I don't think this `form` is initialized and/or used properly here, revisit!!
-        form (:form expr)
         _ (when expected
             (when-not (subtype? ty (:type expected))
               (expected-error ty (:type expected)
-                              {:expected (update expected :opts
-                                                 ;; prefer earlier blame-form
-                                                 #(merge {:blame-form form}
-                                                         %))})))]
-    (check expr (merge expected {:type ty}))))
-#_#_
+                              {:expected (update-expected-with-check-expected-opts
+                                           expected (:inner-check-expected opts))})))]
+    (check expr (update-expected-with-check-expected-opts
+                  (merge expected {:type ty}) (:outer-check-expected opts)))))
+
 (defmethod typing-rule `t/ann-form [& args] (apply ann-form-typing-rule args))
 (defmethod typing-rule 'clojure.core.typed.macros/ann-form [& args] (apply ann-form-typing-rule args))
 
 (defn tc-ignore-typing-rule 
-  [{:keys [expr expected maybe-check-expected]}]
+  [{:keys [expr opts expected maybe-check-expected]}]
+  {:pre [(map? opts)]}
+  (prn "tc-ignore-typing-rule" opts)
   (assoc expr
          ::expr-type (maybe-check-expected
                        {:type `t/Any}
-                       expected)))
+                       (update-expected-with-check-expected-opts
+                         expected (:outer-check-expected opts)))))
 
 (defmethod typing-rule `t/tc-ignore [& args] (apply tc-ignore-typing-rule args))
 (defmethod typing-rule 'clojure.core.typed.macros/tc-ignore [& args] (apply tc-ignore-typing-rule args))
