@@ -126,6 +126,35 @@
 (defmacro check-let-destructure [{:keys [expression]}] expression)
 (defmacro check-let-destructure-no-op [_] nil)
 
+(defmethod -expand-macro 'clojure.core/ns
+  [[_ name & references :as form] _]
+  (let [process-reference
+        (fn [[kname & args]]
+          `(~(symbol "clojure.core" (clojure.core/name kname))
+             ~@(map #(list 'quote %) args)))
+        docstring  (when (string? (first references)) (first references))
+        references (if docstring (next references) references)
+        name (if docstring
+               (vary-meta name assoc :doc docstring)
+               name)
+        metadata   (when (map? (first references)) (first references))
+        references (if metadata (next references) references)
+        name (if metadata
+               (vary-meta name merge metadata)
+               name)
+        name-metadata (meta name)]
+    `(do
+       nil ;in-ns call
+       ~@(when name-metadata
+           `(nil)) ;reset-meta call
+       nil ;with-loading-context call
+       (check-expected
+         nil
+         {:msg-fn (fn [_#]
+                    "This 'ns' expression returns nil, which does not agree with the expected type.")
+          :blame-form ~form}))))
+
+
 (defmethod -expand-macro 'clojure.core/let
   [[_ bindings-form & body-forms :as form] _]
   (let [gs (gensym "b")]
@@ -429,13 +458,6 @@
 
 (defmethod -expand-macro `t/fn [& args] (apply expand-typed-fn-macro args))
 (defmethod -expand-macro 'clojure.core.typed.macros/fn [& args] (apply expand-typed-fn-macro args))
-
-(defmethod -expand-macro 'clojure.core/ns [form _]
-  `(check-expected
-     nil
-     {:msg-fn (fn [_#]
-                "This 'ns' expression returns nil, which does not agree with the expected type.")
-      :blame-form ~form}))
 
 (comment
 (assoc-in 'a [:a] 1)
