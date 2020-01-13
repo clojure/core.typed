@@ -45,19 +45,26 @@
   (is (-> (chk-frm [1])
           :result
           #{[1]}))
-  (is (-> (chk-frm (do 1))
+  (is (-> (chk-frm [(do nil (inc 0))])
+          :result
+          #{[1]}))
+  (is (-> (chk-frm (do (inc 0)))
           :result
           #{1}))
-  (is (-> (chk-frm (do (do 1)))
+  (is (-> (chk-frm (do (do (inc 0))))
           :result
           #{1}))
-  (is (-> (chk-frm (do 1 2 [1]))
+  (is (-> (chk-frm (do 1 2 [(inc 0)]))
           :result
           #{[1]}))
   (is (-> (chk-frm (do (defmacro a [b] b)
-                       (a 1)))
+                       (a (inc 0))))
           :result
-          #{1})))
+          #{1}))
+  (is (-> (chk-frm (ns baz))
+          :result
+          nil?))
+  )
 
 (deftest ns-test
   (is-tc-e (ns foo) nil)
