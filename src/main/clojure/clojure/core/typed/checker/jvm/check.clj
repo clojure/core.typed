@@ -962,8 +962,7 @@
     ; (quote {...})
     (second opts)))
 
-(defn typing-rule-expr [expr]
-  (:ret expr))
+(def typing-rule-expr-kw :ret)
 
 (defn invoke-typing-rule
   [vsym {:keys [env] :as expr} expected]
@@ -1038,7 +1037,7 @@
                                   (f))))
         rule-args {:vsym vsym
                    :opts (typing-rule-opts expr)
-                   :expr (typing-rule-expr expr)
+                   :expr (typing-rule-expr-kw expr)
                    :locals (:locals env)
                    :expected (some-> expected cu/TCResult->map)
                    ;:uniquify-local prs/uniquify-local
@@ -1088,9 +1087,9 @@
         out-tcresult (cu/map->TCResult out-expr-type)]
     (-> expr
         (assoc u/expr-type out-tcresult)
-        (assoc :ret (-> cexpr
-                        (dissoc ::rules/expr-type)
-                        (assoc u/expr-type out-tcresult))))))
+        (assoc typing-rule-expr-kw (-> cexpr
+                                       (dissoc ::rules/expr-type)
+                                       (assoc u/expr-type out-tcresult))))))
 
 ;=
 (defmethod -invoke-special 'clojure.core/= 
