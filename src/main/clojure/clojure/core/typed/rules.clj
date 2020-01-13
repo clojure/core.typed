@@ -67,7 +67,7 @@
            ;; compacts a type so it is suitable to use in an error message
            :abbreviate-type [TCType :-> TCType]
            ;;TODO document
-           :expected-error [TCType TCType ErrorOpts :-> t/Any]
+           :expected-error [TCType ExprType ErrorOpts :-> t/Any]
            :delayed-error [t/Str ErrorOpts :-> t/Any]
            :internal-error [t/Str ErrorOpts :-> t/Any]
            }))
@@ -223,15 +223,18 @@
 (defn ann-form-typing-rule 
   [{:keys [expr opts expected check subtype? expected-error]}]
   {:pre [(map? opts)]}
-  (prn "ann-form-typing-rule" opts)
-  (let [ty (:type opts)
+  (prn "ann-form-typing-rule" opts expected (class expected))
+  (let [_ (assert (contains? opts :type))
+        {ty :type, :keys [inner-check-expected outer-check-expected]} opts
+        _ (assert (map? inner-check-expected) inner-check-expected)
+        _ (assert (map? outer-check-expected) outer-check-expected)
         _ (when expected
             (when-not (subtype? ty (:type expected))
-              (expected-error ty (:type expected)
+              (expected-error ty expected
                               {:expected (update-expected-with-check-expected-opts
-                                           expected (:inner-check-expected opts))})))]
+                                           expected outer-check-expected)})))]
     (check expr (update-expected-with-check-expected-opts
-                  (merge expected {:type ty}) (:outer-check-expected opts)))))
+                  (merge expected {:type ty}) inner-check-expected))))
 
 (defmethod typing-rule `t/ann-form [& args] (apply ann-form-typing-rule args))
 (defmethod typing-rule 'clojure.core.typed.macros/ann-form [& args] (apply ann-form-typing-rule args))

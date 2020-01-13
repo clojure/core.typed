@@ -167,9 +167,7 @@
   {:pre [(map? opts)]}
   `(do ~spc/special-form
        ::check-if-empty-body
-       ~(into {} (map (fn [[k v]]
-                        [k `(quote ~v)]))
-              opts)
+       '~opts
        ~e))
 
 (defmethod -expand-macro 'clojure.core/let
@@ -204,9 +202,7 @@
   {:pre [(map? opts)]}
   `(do ~spc/special-form
        ::check-expected
-       ~(into {} (map (fn [[k v]]
-                        [k `(quote ~v)]))
-              opts)
+       '~opts
        ~e))
 
 (defmethod -expand-macro 'clojure.core/when
@@ -601,9 +597,9 @@
     ; coincide with top-level `do` macroexpansion of the actual `ann-form` macro
     `(do ~spc/special-form
          ::t/ann-form
-         {:type '~ty
-          :inner-check-expected '{:blame-form ~frm}
-          :outer-check-expected '{:msg-fn (fn [_#]
+         '{:type ~ty
+           :inner-check-expected {:blame-form ~frm}
+           :outer-check-expected {:msg-fn (fn [_#]
                                             ;; TODO insert actual types in this message
                                             (str "The annotated type for this 'ann-form' expression did not agree "
                                                  "with the expected type from the surrounding context."))
@@ -616,8 +612,8 @@
 (defn expand-tc-ignore [[_ & body :as form] _]
   `(do ~spc/special-form
        ::t/tc-ignore
-       {:form '~form
-        :outer-check-expected '{:msg-fn (fn [_#]
+       '{:form ~form
+         :outer-check-expected {:msg-fn (fn [_#]
                                           "The surrounding context of this 'tc-ignore' expression expects a more specific type than Any.")
                                 :blame-form ~form}}
        (do ~@(or body [nil]))))
