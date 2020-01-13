@@ -79,6 +79,17 @@
   (is (-> (chk-frm (clojure.core.typed/ann-form [1] '[clojure.core.typed/Int]))
           :result
           #{[1]}))
+  (is (-> (chk-frm (clojure.core.typed/tc-ignore))
+          :result
+          nil?))
+  (is (-> (chk-frm (clojure.core.typed/tc-ignore 1))
+          :result
+          #{1}))
+  (is (-> (chk-frm (clojure.core.typed/tc-ignore
+                     (do 1)
+                     (do 2)))
+          :result
+          #{2}))
   (is (-> (chk-frm (clojure.core.typed/tc-ignore
                      (do (defmacro a [b] b)
                          (a (inc 0)))
