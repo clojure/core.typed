@@ -134,6 +134,7 @@
   (is-tc-err (fn ([] :- Number))))
 
 (deftest when-test
+  (is-tc-e (when 1 (inc 2)))
   (is-tc-e (fn [a :- (U nil Number)]
              (when a (inc a))))
   (is-tc-e (fn [a :- (U nil Number)]
