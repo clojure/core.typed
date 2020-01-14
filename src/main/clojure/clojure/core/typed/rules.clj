@@ -114,7 +114,7 @@
 (defmethod typing-rule 'clojure.core.typed.expand/solve
   [{:keys [expr opts expected check solve delayed-error form maybe-check-expected]}]
   (let [{:keys [query msg-fn blame-form]} opts
-        {::keys [expr-type] :as m} (check expr)
+        {::keys [expr-type] :as cexpr} (check expr)
         res (solve expr-type query)]
     (when-not res
       (let [form (if (contains? opts :blame-form)
@@ -123,7 +123,7 @@
         ;; msg-fn should provide message
         (delayed-error nil (merge {:form form :actual (:type expr-type)}
                                   (select-keys opts [:msg-fn :blame-form])))))
-    (assoc m
+    (assoc cexpr
            ::expr-type (maybe-check-expected
                          (or res {:type `t/TCError})
                          expected))))
@@ -183,7 +183,13 @@
 (defn update-expected-with-check-expected-opts
   [expected opts]
   (assert (map? opts) (pr-str (class opts)))
-  (when-let [expected (or expected (:default-expected opts))]
+  (let [expected (or expected
+                     (:default-expected opts)
+                     {:type `^::t/infer t/Any
+                      :filters {:then 'no-filter
+                                :else 'no-filter}
+                      :flow 'no-filter
+                      :object 'no-object})]
     (update expected :opts 
             ;; earlier messages override later ones
             #(merge

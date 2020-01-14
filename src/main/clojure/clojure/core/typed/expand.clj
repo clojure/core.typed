@@ -15,6 +15,8 @@
             [clojure.pprint :as pp]
             [clojure.core.typed.internal :as internal]))
 
+(set! *warn-on-reflection* true)
+
 ;; TODO need a way to specify a custom expansion for the Gilardi scenario
 ;;      that's actually evaluated (ie. used instead of :original-form in eval-ast).
 ;; This would be used only in analyze+eval.
@@ -156,6 +158,27 @@
                       "This 'ns' expression returns nil, which does not agree with the expected type.")
             :blame-form ~form})))))
 
+;copied from clojure.core
+(defn- get-super-and-interfaces [bases]
+  (if (. ^Class (first bases) (isInterface))
+    [Object bases]
+    [(first bases) (next bases)]))
+
+(defmethod -expand-macro 'clojure.core/proxy
+  [[_ class-and-interfaces args & fs :as form] _]
+  (let [gargs (repeatedly (count args) gensym )
+        bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
+                   class-and-interfaces)
+        [super interfaces] (get-super-and-interfaces bases)
+        ^Class pc-effect (apply get-proxy-class bases)
+        pname (proxy-name super interfaces)
+        super (.getSuperclass pc-effect)]
+    ;remember the class to prevent it from disappearing before use
+    (intern *ns* (symbol pname) pc-effect)
+    `(let* []
+       (t/ann-form (new ~(symbol pname) ~@args)
+                   (t/I ~@(map (comp symbol #(.getName ^Class %)) bases)))
+       )))
 
 (defmacro check-if-empty-body
   "If e is a non-empty do form, this check it with the given options.
@@ -694,7 +717,12 @@
        ;; FIXME can we push the expected type into `f`?
        (check-expected
          (solve
-           (~f ~@gsyms)
+           ((check-expected
+              ~f
+              {:msg-fn (fn [_#]
+                         "Cannot invoke this higher-order function to 'map'")
+               :blame-form ~f})
+            ~@gsyms)
            {:query (t/All [a#] [a# :-> (t/Seq a#)])})
          {:msg-fn (fn [_#]
                     "The return type of this 'map' expression does not agree with the expected type.")
@@ -702,10 +730,12 @@
 
 (defn inline-map-colls [[_ f & colls :as form] {:keys [internal-error splice-seqable-form] :as opts}]
   {:pre [(seq colls)]}
+  #_
   (prn "inline-map-colls")
   (let [splices (mapv splice-seqable-form colls)]
     (if (some nil? splices)
       (do
+        #_
         (prn "fall through splices" splices)
         (map-colls-fallthrough form opts))
       (let [smallest-max-count (apply min (map (fn [e]
@@ -716,7 +746,7 @@
                                               splices))
             ordered? (:ordered (first splices))
             max-realized-count (max smallest-max-count largest-min-count)
-            _ (prn "max-realized-count" max-realized-count)
+            ;_ (prn "max-realized-count" max-realized-count)
             csyms (repeatedly (count colls) gensym)]
         (if (and (not-any? nil? splices)
                  ordered?
@@ -724,12 +754,18 @@
                  (< (count colls) 3))
           (if (pos? max-realized-count)
             `(let* [~@(mapcat vector csyms colls)]
-               (cons (~f ~@(map (fn [csym] `(first ~csym)) csyms))
+               (cons ((check-expected
+                        ~f
+                        {:msg-fn (fn [_#]
+                                   "Cannot invoke this higher-order function to 'map'")
+                         :blame-form ~f})
+                      ~@(map (fn [csym] `(first ~csym)) csyms))
                      (map ~f ~@(map (fn [csym] `(rest ~csym)) csyms))))
             `(sequence nil))
           (map-colls-fallthrough form opts))))))
 
-(defmethod -expand-inline 'clojure.core/map [[_ f & colls :as form] {:keys [internal-error] :as opts}]
+(defmethod -expand-inline 'clojure.core/map
+  [[_ f & colls :as form] {:keys [internal-error] :as opts}]
   (when-not (<= 2 (count form))
     (internal-error (str "Must provide 1 or more arguments to clojure.core/map, found " (dec (count form))
                          ": " form)))
@@ -858,10 +894,12 @@
  (clojure.pprint/pprint (-expand-macro '(-> identity (map [1 2 3]) vec) {:vsym `->}))
  )
 
-(defmethod -expand-macro 'clojure.core/-> [[_ x & forms :as all-form] _]
+(defmethod -expand-macro 'clojure.core/->
+  [[_ x & forms :as all-form] _]
   (loop [x x, forms forms, blame-form x]
     (if forms
       (let [form (first forms)
+            nforms (next forms)
             insert-in (fn [x]
                         (if (seq? form)
                           (with-meta `(~(first form) ~x ~@(next form)) (meta form))
@@ -872,12 +910,15 @@
                         ~threaded
                         {:msg-fn (fn [_#]
                                    (str "A threaded form with -> yielded a type error: "
-                                        ~(pr-str (list '-> '... form '...))))
+                                        ~(pr-str (list* '-> '... form
+                                                        (when nforms
+                                                          ['...])))))
                          :blame-form ~blame-form})]
-        (recur threaded (next forms) blame-form))
+        (recur threaded nforms blame-form))
       `(let* [] ~x))))
 
-(defmethod -expand-inline 'clojure.core/comp [[_ & fs :as all-form] _]
+(defmethod -expand-inline 'clojure.core/comp
+  [[_ & fs :as all-form] _]
   (let [fs (vec fs)
         args (gensym 'args)]
     `(fn* [& ~args]
@@ -885,7 +926,7 @@
                   (list g res))
                 `(apply ~(if (seq fs) (peek fs) `identity) ~args)
                 (when (seq fs)
-                  (pop fs))))))
+                  (rseq (pop fs)))))))
 
 
 ;; Notes:
@@ -897,18 +938,15 @@
          (comp (filter identity)
                (map inc))
          [1 nil 2 nil 3])
-   (into #{}
-         (fn [a]
-           (map inc)
-         (comp (filter identity)
-               (map inc))
-         [1 nil 2 nil 3])
-   )
+   (-expand-inline '(comp) {:vsym 'clojure.core/comp})
+   (-expand-inline '(comp inc dec) {:vsym 'clojure.core/comp})
+   (-expand-inline '(comp (fn [x] x) inc dec identity) {:vsym 'clojure.core/comp})
    )
 
 
 (comment
   (update-in m [:a :b] f x y z)
+  ;=>
   (assoc-in m [:a :b]
             (fake-application
               (f (get-in [:a :b]) x y z)
@@ -918,6 +956,13 @@
                                            (str "The implicit first argument of this 'update-in' expression does not"
                                                 " match the first argument of the function."))}}}))
 
-  (assoc-in
-  )
+  (-> a b c)
+  ;=>
+  (c (b a))
+
+  (-> m
+      b
+      (update :a inc))
+  ;=>
+  (update (b m) :a inc)
 )
