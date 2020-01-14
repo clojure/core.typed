@@ -9,10 +9,12 @@
                                                     :exclusions [org.clojure/clojure]}}}
            :nREPL
            {:extra-deps
-            {nrepl/nrepl {:mvn/version "0.4.5"}
-             cider/piggieback {:mvn/version "0.3.8"}}
+            {nrepl/nrepl {:mvn/version "0.6.0"}
+             cider/cider-nrepl {:mvn/version "0.22.4"}},
             :main-opts ["-m" "nrepl.cmdline"
-                        "--interactive"]}
+                        "--interactive"
+                        "--middleware" "[\"cider.nrepl/cider-middleware\"]"
+                        ]}
 
            :codox
            {:extra-deps {codox {:mvn/version "0.10.5"}}
