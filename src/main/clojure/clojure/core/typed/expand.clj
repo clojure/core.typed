@@ -148,11 +148,13 @@
        ~@(when name-metadata
            `(nil)) ;reset-meta call
        nil ;with-loading-context call
-       (check-expected
-         nil
-         {:msg-fn (fn [_#]
-                    "This 'ns' expression returns nil, which does not agree with the expected type.")
-          :blame-form ~form}))))
+       ; a top-level form
+       (let* []
+         (check-expected
+           nil
+           {:msg-fn (fn [_#]
+                      "This 'ns' expression returns nil, which does not agree with the expected type.")
+            :blame-form ~form})))))
 
 
 (defmacro check-if-empty-body
