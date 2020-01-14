@@ -284,6 +284,9 @@
   (is-tc-e (assoc-in {:a []} [:a 0] 1) '{:a '[Num]}))
 
 (deftest for-test
+  (is (-> (chk-frm (clojure.core/for [a [1 2]] a))
+          :result
+          #{'(1 2)}))
   (is-tc-e #(clojure.core/for [a [1 2]] a))
   (is-tc-e #(clojure.core/for [a [1 2]] a) [-> (Seqable Number)])
   (is-tc-e #(clojure.core/for [a [1 2]] a) [-> (ASeq Number)])
@@ -306,6 +309,9 @@
 )
 
 (deftest get-in-test
+  (is (-> (chk-frm (get-in {:a {:b 1}} [:a :b]))
+          :result
+          #{1}))
   (is-tc-e (get-in {:a {:b 1}} [:a :b])
            Num)
   ; improved error
@@ -324,7 +330,7 @@
   (is-tc-e (let [m {:a {:b {:c 3}}}]
              (update-in m [:a] update-in [:b] update-in [:c] str))
            '{:a '{:b '{:c Str}}})
-  ;; error is the second 'update-in' call
+  ;; error is the eventual call to `inc` on nil
   ;; FIXME garbled error
   (is-tc-err (let [m {:a {:b 1}}]
                (update-in m [:a] update-in [:b] update-in [:c] inc)))
@@ -339,6 +345,23 @@
   (is-tc-err (update-in {:a []} [:a :b] identity))
   (is-tc-err (let [m {:a []}]
                (update-in m [:a :b] identity))))
+
+(deftest ->-test
+  (is-tc-e (-> identity
+               (map [1 2 3])))
+  (is-tc-err (-> identity
+                 (map [1 2 3]))
+             (t/Seq t/Bool))
+  ; FIXME big error
+  (is-tc-err (-> identity
+                 (map [1 2 3])
+                 (map [1 2 3]))
+             (t/Seq t/Bool))
+  ; FIXME line number
+  (is-tc-err (-> identity
+                 (map [1 2 3])
+                 vec)
+             (t/Seq t/Bool)))
 
 (comment
 (deftest map-test
@@ -511,22 +534,6 @@
             (fn [d]
               (inc d)))))
 
-(deftest ->-test
-  (is-tc-e (-> identity
-               (map [1 2 3])))
-  (is-tc-err (-> identity
-                 (map [1 2 3]))
-             (t/Seq t/Bool))
-  ; FIXME big error
-  (is-tc-err (-> identity
-                 (map [1 2 3])
-                 (map [1 2 3]))
-             (t/Seq t/Bool))
-  ; FIXME line number
-  (is-tc-err (-> identity
-                 (map [1 2 3])
-                 vec)
-             (t/Seq t/Bool)))
 
 (deftest beta-reduce-test
   (is-tc-e ((fn* [a] a) :a) ':a)
