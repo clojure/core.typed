@@ -875,7 +875,7 @@
                                         ~(pr-str (list '-> '... form '...))))
                          :blame-form ~blame-form})]
         (recur threaded (next forms) blame-form))
-      x)))
+      `(let* [] ~x))))
 
 (defmethod -expand-inline 'clojure.core/comp [[_ & fs :as all-form] _]
   (let [fs (vec fs)
