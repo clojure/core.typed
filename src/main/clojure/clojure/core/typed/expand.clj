@@ -449,30 +449,34 @@
         reassembled-fn-type (if-let [forall (:forall poly)]
                               `(t/All ~forall ~reassembled-fn-type)
                               reassembled-fn-type)]
-    `(t/ann-form
-       (fn ~@(concat
-               (when name
-                 [name])
-               (for [{:keys [original-method body pvec ann]} parsed-methods]
-                 (let [conds (when (and (next body) (map? (first body)))
-                               (first body))
-                       body (if conds
-                              (next body)
-                              body)]
-                   (list* pvec
-                          (concat
-                            (when conds
-                              [conds])
-                            [`(ignore-expected-if ~(boolean (-> ann :rng :default))
-                                ~(if (seq body)
-                                   `(do ~@body)
-                                   `(check-if-empty-body
-                                      (do ~@body)
-                                      {:msg-fn (fn [_#]
-                                                 "This 't/fn' method returns nil, which does not agree with the expected type.")
-                                       :blame-form ~original-method
-                                       :original-body ~body})))]))))))
-      ~reassembled-fn-type)))
+    `(do nil ;spc/special-form
+         nil ;::t/fn
+         nil ;{..}
+         (let* []
+           (t/ann-form
+             (fn ~@(concat
+                     (when name
+                       [name])
+                     (for [{:keys [original-method body pvec ann]} parsed-methods]
+                       (let [conds (when (and (next body) (map? (first body)))
+                                     (first body))
+                             body (if conds
+                                    (next body)
+                                    body)]
+                         (list* pvec
+                                (concat
+                                  (when conds
+                                    [conds])
+                                  [`(ignore-expected-if ~(boolean (-> ann :rng :default))
+                                                        ~(if (seq body)
+                                                           `(do ~@body)
+                                                           `(check-if-empty-body
+                                                              (do ~@body)
+                                                              {:msg-fn (fn [_#]
+                                                                         "This 't/fn' method returns nil, which does not agree with the expected type.")
+                                                               :blame-form ~original-method
+                                                               :original-body ~body})))]))))))
+             ~reassembled-fn-type)))))
 
 (defmethod -expand-macro `t/fn [& args] (apply expand-typed-fn-macro args))
 (defmethod -expand-macro 'clojure.core.typed.macros/fn [& args] (apply expand-typed-fn-macro args))
