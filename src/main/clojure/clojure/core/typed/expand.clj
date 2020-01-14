@@ -563,11 +563,12 @@
                          ": " form)))
   (let [[_ _ path] form
         _ (assert (and (vector? path) (seq path)) "core.typed only supports non-empty vector paths with assoc-in")]
-    `(check-expected
-       ~(inline-assoc-in form)
-       {:msg-fn (fn [_#]
-                  "The return type of this 'assoc-in' expression does not agree with the expected type.")
-        :blame-form ~form})))
+    `(let* []
+       (check-expected
+         ~(inline-assoc-in form)
+         {:msg-fn (fn [_#]
+                    "The return type of this 'assoc-in' expression does not agree with the expected type.")
+          :blame-form ~form}))))
 
 (defmethod -expand-inline 'clojure.core/get-in [form {:keys [internal-error]}]
   (when-not (#{3 4} (count form))
@@ -575,11 +576,12 @@
                          ": " form)))
   (let [[_ _ path] form
         _ (assert (and (vector? path) (seq path)) "core.typed only supports non-empty vector paths with get-in")]
-    `(check-expected
-       ~(inline-get-in form)
-       {:msg-fn (fn [_#]
-                  "The return type of this 'get-in' expression does not agree with the expected type.")
-        :blame-form ~form})))
+    `(let* []
+       (check-expected
+         ~(inline-get-in form)
+         {:msg-fn (fn [_#]
+                    "The return type of this 'get-in' expression does not agree with the expected type.")
+          :blame-form ~form}))))
 
 (defn inline-update-in
   ([[_ m ks f & args :as form]] (inline-update-in form m ks f args))
@@ -592,11 +594,12 @@
                          ": " form)))
   (let [[_ _ path] form
         _ (assert (and (vector? path) (seq path)) "core.typed only supports non-empty vector paths with 'update-in'")]
-    `(check-expected
-       ~(inline-update-in form)
-       {:msg-fn (fn [_#]
-                  "The return type of this 'update-in' expression does not agree with the expected type.")
-        :blame-form ~form})))
+    `(let* []
+       (check-expected
+         ~(inline-update-in form)
+         {:msg-fn (fn [_#]
+                    "The return type of this 'update-in' expression does not agree with the expected type.")
+          :blame-form ~form}))))
 
 (defn expand-ann-form [form _]
   (let [[_ frm ty] form]
