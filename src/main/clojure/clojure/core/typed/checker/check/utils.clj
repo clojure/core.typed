@@ -30,7 +30,8 @@
             [clojure.core.typed.checker.filter-rep :as fl]
             [clojure.core.typed.checker.filter-ops :as fo]
             [clojure.core.typed.checker.jvm.subtype :as sub]
-            [clojure.core.typed.ast-utils :as ast-u])
+            [clojure.core.typed.ast-utils :as ast-u]
+            [clojure.set :as set])
   (:import (clojure.lang MultiFn)))
 
 ;(t/ann expr-ns [Any -> t/Sym])
@@ -551,6 +552,12 @@
 (defn map->TCResult [expected]
   {:pre [(not (r/TCResult? expected))
          (map? expected)
+         (empty?
+           (set/difference (set (keys expected))
+                           #{:type :filters :object :flow :opts}))
+         (empty?
+           (set/difference (set (keys (:filters expected)))
+                           #{:then :else}))
          ;; Should at least contain a :type entry (I think?)
          (contains? expected :type)]
    :post [(r/TCResult? %)]}

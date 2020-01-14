@@ -1030,7 +1030,7 @@
         n)))
 
 (defn parse-Any [sym]
-  (if (-> sym :meta ::t/infer)
+  (if (-> sym meta ::t/infer)
     r/-infer-any
     r/-any))
 

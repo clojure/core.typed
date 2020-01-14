@@ -350,12 +350,20 @@
   (is-tc-e (-> identity
                (map [1 2 3])))
   (is-tc-err (-> identity
+                 (map [1 2 3])
+                 (ann-form (t/Seq t/Bool))))
+  (is-tc-err (-> identity
+                 (map [1 2 3])
+                 (ann-form (t/Seq t/Bool))
+                 (map [2 3 4])))
+  (is-tc-err (-> identity
                  (map [1 2 3]))
              (t/Seq t/Bool))
   ; FIXME big error
   (is-tc-err (-> identity
                  (map [1 2 3])
-                 (map [1 2 3]))
+                 (map [4 5 6])
+                 (map [7 8 9]))
              (t/Seq t/Bool))
   ; FIXME line number
   (is-tc-err (-> identity
@@ -363,8 +371,49 @@
                  vec)
              (t/Seq t/Bool)))
 
+(deftest proxy-test
+  (is-tc-e
+    (proxy [Object] []
+      (toString [] "a")))
+  ;TODO actually check methods
+  #_
+  (is-tc-err
+    (proxy [Object] []
+      (toString [] 1)))
+  (is-tc-e
+    (proxy [Object] []
+      (toString [] "a"))
+    Object)
+  (is (tc-e
+        (proxy [Object] [])))
+  ;TODO
+  #_
+  (is (tc-e
+        (proxy [Object clojure.lang.ISeq] [])))
+  (is-tc-e
+    (proxy [Object] [])
+    Object)
+  (is-tc-err
+    (proxy [Object] []
+      (toString [] "a"))
+    nil)
+  )
+
+(comment
+  (class
+    (proxy [clojure.lang.ASeq clojure.lang.ISeq] []
+      (seq [] nil)
+      (toString [] "a")))
+  (class
+    (proxy [clojure.lang.ISeq] []
+      (seq [] nil)
+      (first [] 1)
+      (toString [] "a")))
+  )
+
 (comment
 (deftest map-test
+  (is-tc-e (map '(1 2 3) [1 2 3]))
   (is-tc-e (map identity [1 2 3]))
   (is-tc-e (map identity (map identity [1 2 3])))
   (is-tc-e (map + [1 2 3] [2 3 4]))

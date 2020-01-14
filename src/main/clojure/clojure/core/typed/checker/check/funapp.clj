@@ -440,8 +440,12 @@
             inferred-rng
             (app-err/polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))
 
-        (err/tc-delayed-error (str
-                              "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
-                            :return (or expected (r/ret (c/Un)))))))))
+        (let [opts (:opts fexpr-ret-type)]
+          #_
+          (prn ":invoke opts" opts)
+          #_
+          (prn "infer-any?" fexpr-ret-type (r/infer-any? (r/ret-t fexpr-ret-type)))
+          (err/tc-delayed-error (str "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
+                                :return (or expected (r/ret (c/Un))))))))))
 
 (ind-u/add-indirection ind/check-funapp check-funapp)

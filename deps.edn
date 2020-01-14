@@ -6,7 +6,7 @@
   {:mvn/version "0.7.0"},
   org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"},
   org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
-                                      :sha "4870e234c6ea263ff89dbde2405f2434ce304b58"},
+                                      :sha "3f8f82d663f6b42162826bd5f8d522d34dfe2362"},
   org.clojure/math.combinatorics
   {:mvn/version "0.1.4", :exclusions [org.clojure/clojure]},
   org.clojure/tools.reader {:mvn/version "1.1.1"},
@@ -22,7 +22,12 @@
    {nrepl/nrepl {:mvn/version "0.6.0"}
     cider/cider-nrepl {:mvn/version "0.22.4"}},
    :main-opts ["-m" "nrepl.cmdline" "--interactive"
-               "--middleware" "[\"cider.nrepl/cider-middleware\"]"
+               #_"
+               Note:
+                 introducing other middleware makes vim-fireplace choose
+                 fipp for pprint, which doesn't play well with the delicately
+                 defined classes in type-rep."
+               "--middleware" "[cider.nrepl/wrap-complete]"
                ]},
   :test
   {:extra-paths ["src/test/clojure" "src/test/resources"],
