@@ -1,16 +1,18 @@
 {:paths ["src/main/clojure"],
  :deps
  {org.clojure/clojure {:mvn/version "1.9.0"},
-  org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.1"},
-  org.typedclojure/core.typed.lib.clojure
-  {:mvn/version "0.7.0"},
+  org.clojure/core.typed.analyzer.jvm {:local/root "../module-analyzer.jvm"
+                                       :deps/manifest :deps}
+  org.lojure/core.typed.lib.clojure {:local/root "../module-lib.clojure"
+                                     :deps/manifest :deps},
   org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"},
-  org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
-                                      :sha "859cb09c2054060c89fef6b46185f18e14cc1134"},
+  org.clojure/core.typed.runtime.jvm {:local/root "../module-runtime.jvm"
+                                      :deps/manifest :deps},
   org.clojure/math.combinatorics
   {:mvn/version "0.1.4", :exclusions [org.clojure/clojure]},
   org.clojure/tools.reader {:mvn/version "1.1.1"},
-  org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.0"},
+  org.clojure/core.typed.lang.jvm {:local/root "../module-lang.jvm"
+                                   :deps/manifest :deps},
   org.clojure/core.cache {:mvn/version "0.8.2"}},
  :mvn/repos
  {"sonatype-oss-public"

@@ -1,6 +1,7 @@
 {:paths ["src/main/clojure"]
  :deps {org.clojure/clojure {:mvn/version "1.9.0"}
-        org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.1"}}
+        org.clojure/core.typed.runtime.jvm {:local/root "../module-runtime.jvm"
+                                            :deps/manifest :deps}}
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {:nREPL
            {:extra-paths ["script"]
