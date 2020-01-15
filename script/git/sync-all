@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+function sync_master() {
+  NAME=`basename $1`
+  cd $NAME
+  echo $NAME
+  ./script/sync-master.sh
+  cd ..
+}
+
+export -f sync_master
+cat projects | parallel sync_master {}
