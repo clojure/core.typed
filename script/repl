@@ -1,4 +1,0 @@
-#!/bin/sh
-
-cd module-check
-./script/repl

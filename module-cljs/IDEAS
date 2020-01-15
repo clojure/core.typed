@@ -1,6 +1,0 @@
-1. Generate TS annotations using https://github.com/fable-compiler/ts2fable
-2. Generate Google Closure annotations using https://github.com/jleyba/js-dossier
-
-Converting TS->Goog
-- https://github.com/honzabrecka/ts-to-goog
-- https://github.com/angular/tsickle
