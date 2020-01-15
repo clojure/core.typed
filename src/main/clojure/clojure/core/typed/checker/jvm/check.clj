@@ -355,24 +355,11 @@
    :post [(r/TCResult? (u/expr-type %))]}
   ;(prn "check-expr" op)
   ;(clojure.pprint/pprint (emit-form/emit-form expr))
-  #_
-  (when (#{:simulate} (some-> vs/*check-config* deref :type-check-eval))
-    (prn (mapv (juxt :op #(some-> % emit-form/emit-form))
-               [expr
-                (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])]))
-    #_
-    (assert (:op (get-in expr [:clojure.core.typed.analyzer/config ::real-expr]))
-            (mapv :op
-                  [expr
-                   (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])])))
   (let [{:keys [op env] :as expr} (assoc-in expr [:env :ns] (ns-name *ns*))]
     (when vs/*trace-checker*
       (println "Checking line:" (:line env))
       (flush))
     (cond
-      ;(u/expr-type expr) (do
-      ;                     ;(prn "skipping already analyzed form")
-      ;                     expr)
       (= :unanalyzed op) (let [cexpr (-> expr
                                          analyze-outer
                                          (check-expr expected))]
