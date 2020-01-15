@@ -76,6 +76,26 @@
 (t/ann typing-rule [RuleOpts -> '{:op t/Kw, ::expr-type ExprType}])
 (defmulti typing-rule (fn [{:keys [vsym]}] vsym))
 
+(defmulti macro-rule (fn [_ _ {:keys [vsym]}] vsym))
+
+;copied from clojure.core
+(defn- get-super-and-interfaces [bases]
+  (if (. ^Class (first bases) (isInterface))
+    [Object bases]
+    [(first bases) (next bases)]))
+
+(defmethod macro-rule 'clojure.core/proxy
+  [[_ class-and-interfaces args & fs :as form] expected _]
+  (let [bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
+                   class-and-interfaces)
+        [super interfaces] (get-super-and-interfaces bases)
+        ^Class pc-effect (apply get-proxy-class bases)
+        pname (proxy-name super interfaces)
+        super (.getSuperclass pc-effect)
+        t `(t/I ~@(map (comp symbol #(.getName ^Class %)) bases))]
+    {:form `(^::t/untyped proxy [] ~args ~@fs)
+     ::expr-type {:type t}}))
+
 #_
 (defmethod typing-rule 'clojure.core.typed.expand/gather-for-return-type
   [{[_ ret] :form, :keys [expected check solve]}]
@@ -183,13 +203,14 @@
 (defn update-expected-with-check-expected-opts
   [expected opts]
   (assert (map? opts) (pr-str (class opts)))
-  (let [expected (or expected
-                     (:default-expected opts)
-                     {:type `^::t/infer t/Any
-                      :filters {:then 'no-filter
-                                :else 'no-filter}
-                      :flow 'no-filter
-                      :object 'no-object})]
+  (when-let [expected (or expected
+                          (:default-expected opts)
+                          #_
+                          {:type `^::t/infer t/Any
+                           :filters {:then 'no-filter
+                                     :else 'no-filter}
+                           :flow 'no-filter
+                           :object 'no-object})]
     (update expected :opts 
             ;; earlier messages override later ones
             #(merge

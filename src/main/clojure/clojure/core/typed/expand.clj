@@ -158,28 +158,6 @@
                       "This 'ns' expression returns nil, which does not agree with the expected type.")
             :blame-form ~form})))))
 
-;copied from clojure.core
-(defn- get-super-and-interfaces [bases]
-  (if (. ^Class (first bases) (isInterface))
-    [Object bases]
-    [(first bases) (next bases)]))
-
-(defmethod -expand-macro 'clojure.core/proxy
-  [[_ class-and-interfaces args & fs :as form] _]
-  (let [gargs (repeatedly (count args) gensym )
-        bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
-                   class-and-interfaces)
-        [super interfaces] (get-super-and-interfaces bases)
-        ^Class pc-effect (apply get-proxy-class bases)
-        pname (proxy-name super interfaces)
-        super (.getSuperclass pc-effect)]
-    ;remember the class to prevent it from disappearing before use
-    (intern *ns* (symbol pname) pc-effect)
-    `(let* []
-       (t/ann-form (new ~(symbol pname) ~@args)
-                   (t/I ~@(map (comp symbol #(.getName ^Class %)) bases)))
-       )))
-
 (defmacro check-if-empty-body
   "If e is a non-empty do form, this check it with the given options.
 
