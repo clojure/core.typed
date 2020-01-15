@@ -1,0 +1,22 @@
+{:paths ["src/main/clojure"]
+ :deps {org.clojure/tools.analyzer.jvm {:mvn/version "0.7.0"}}
+ :mvn/repos
+ {"sonatype-oss-public"
+  {:url "https://oss.sonatype.org/content/groups/public/"}},
+ :aliases {:nREPL
+           {:extra-deps
+            {nrepl/nrepl {:mvn/version "0.4.5"}
+             cider/piggieback {:mvn/version "0.3.8"}}
+            :main-opts ["-m" "nrepl.cmdline"
+                        "--interactive"]}
+           :test
+           {:extra-deps {org.clojure/clojurescript {:git/url "https://github.com/clojure/clojurescript.git"
+                                                    :sha "f97d766defd02f7d43abd37e3e9b04790a521b1e"}}
+            :extra-paths ["src/test/clojure"]}
+           :runner
+           {:extra-deps {com.cognitect/test-runner
+                         {:git/url "https://github.com/cognitect-labs/test-runner"
+                          :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
+            :main-opts ["-m" "cognitect.test-runner"
+                        "-r" ".*"
+                        "-d" "src/test/clojure"]}}}
