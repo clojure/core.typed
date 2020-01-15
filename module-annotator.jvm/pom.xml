@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed.annotator.jvm</artifactId>
-  <version>0.7.1-SNAPSHOT</version>
+  <version>0.7.2-SNAPSHOT</version>
   <description>Runtime type inference algorithm for core.typed and clojure.spec.</description>
   <name>core.typed.annotator.jvm</name>
 
@@ -17,8 +17,8 @@
 
   <parent>
     <groupId>org.clojure</groupId>
-    <artifactId>pom.contrib</artifactId>
-    <version>0.3.0</version>
+    <artifactId>core.typed-pom</artifactId>
+    <version>0.7.2-SNAPSHOT</version>
   </parent>
 
   <repositories>
@@ -61,12 +61,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.7.1-SNAPSHOT</version>
+      <version>0.7.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.jvm</artifactId>
-      <version>0.7.1</version>
+      <version>0.7.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

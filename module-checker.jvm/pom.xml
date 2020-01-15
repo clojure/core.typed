@@ -17,8 +17,8 @@
 
   <parent>
     <groupId>org.clojure</groupId>
-    <artifactId>pom.contrib</artifactId>
-    <version>0.3.0</version>
+    <artifactId>core.typed-pom</artifactId>
+    <version>0.7.2-SNAPSHOT</version>
   </parent>
 
   <repositories>
@@ -62,12 +62,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.jvm</artifactId>
-      <version>0.7.1</version>
+      <version>0.7.2-SNAPSHOT</version>
     </dependency>
     <dependency>
-      <groupId>org.typedclojure</groupId>
+      <groupId>org.clojure</groupId>
       <artifactId>core.typed.lib.clojure</artifactId>
-      <version>0.7.0</version>
+      <version>0.7.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -96,9 +96,9 @@
       <version>1.1.1</version>
     </dependency>
     <dependency>
-      <groupId>org.typedclojure</groupId>
+      <groupId>org.clojure</groupId>
       <artifactId>core.typed.lang.jvm</artifactId>
-      <version>0.7.0</version>
+      <version>0.7.2-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
