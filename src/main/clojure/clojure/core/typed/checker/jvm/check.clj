@@ -360,6 +360,11 @@
       (println "Checking line:" (:line env))
       (flush))
     (cond
+      ;; TODO: replace this consequent with typing rule handlers
+      ;; as in `clojure.core.typed.analyzer.jvm.gilardi-test/check-expr`
+      ;; and use standard macroexpand-1. We have access to the expected type
+      ;; here, so we can do turnstile-style typing rules where we return
+      ;; an "untyped" expansion (ie., (lambda ..) input, (lambda- ..) output).
       (= :unanalyzed op) (let [cexpr (-> expr
                                          analyze-outer
                                          (check-expr expected))]
