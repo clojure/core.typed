@@ -13,6 +13,6 @@ jobs:
           java-version: 1.11
       - uses: DeLaGuardo/setup-clojure@2.0
         with:
-          tools.deps: latest
+          tools-deps: latest
       - name: Run tests
         run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version "1.10.0"}}}'
