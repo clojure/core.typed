@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Returns the subprojects in `projects` that the specified project depends on.
+
+set -e
+
+PROJECT=$1
+
+if [ -z $1 ]; then
+  echo "Must specify project"
+  exit 1
+fi
+
+cd $PROJECT
+TREE=`./script/repl -Stree`
+cd ..
+
+while read line
+do
+  # allow grep to return an error
+  ISUPSTREAM=`echo "$TREE" | grep "$line "` || true
+  if [[ $ISUPSTREAM ]]; then
+    # don't surround by "" so indentation is stripped
+    echo $ISUPSTREAM
+  fi
+done < projects

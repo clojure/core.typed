@@ -1,0 +1,15 @@
+version: 2
+
+jobs:
+  build:
+    working_directory: ~/core.typed.checker.jvm
+    docker:
+      - image: circleci/openjdk:8-jdk
+    steps:
+      - checkout
+      - run:
+          command: |
+            curl -O https://download.clojure.org/install/linux-install.sh
+            chmod +x linux-install.sh
+            sudo ./linux-install.sh
+      - run: ./script/test

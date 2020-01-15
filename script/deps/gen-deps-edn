@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -e
+
+COMMON=common/deps.edn
+OVERRIDES=""
+
+while read line
+do
+  COORD=$line
+  NAME=`basename ${COORD}`
+  OVERRIDES+="\n$COORD {:local/root \"../$NAME\" :deps/manifest :deps}"
+done < projects
+
+echo "{:aliases {:local-deps {:override-deps {$OVERRIDES}}}}" > $COMMON

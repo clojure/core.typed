@@ -14,7 +14,6 @@ target
 /.project
 /.settings
 /bin
-.gitignore
 .nrepl-port
 .repl
 .\#*
@@ -28,4 +27,3 @@ nashorn_*
 .cpcache
 .rebel_readline_history
 junit-output.xml
-.cpcache

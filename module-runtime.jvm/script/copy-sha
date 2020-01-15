@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# no trailing new line
+git rev-parse HEAD | tr -d '\n'  | pbcopy
