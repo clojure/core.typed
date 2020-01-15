@@ -1,0 +1,32 @@
+{:paths ["src/main/clojure"]
+ :deps {org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.1-SNAPSHOT"}
+        org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.1"}
+        org.clojure/tools.reader {:mvn/version "1.1.1"}
+        org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
+        org.clojure/math.combinatorics {:mvn/version "0.1.4"
+                                        :exclusions [org.clojure/clojure]}
+        org.clojure/tools.analyzer.jvm {:mvn/version "0.7.0"}
+        ;; can't vendor this as it includes Java sources that need to be compiled.
+        ;; perhaps we can make it optional in the future.
+        potemkin {:mvn/version "0.4.5"}}
+ :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
+ :aliases {:test
+           {:extra-paths ["src/test/clojure"]
+            :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"
+                                                 :scope "test"}
+                         com.gfredericks/test.chuck {:mvn/version "0.2.6"
+                                                     :scope "test"}}}
+           :script {:extra-paths ["script"]}
+           :nREPL
+           {:extra-deps
+            {nrepl/nrepl {:mvn/version "0.4.5"}
+             cider/piggieback {:mvn/version "0.3.8"}}
+            :main-opts ["-m" "nrepl.cmdline"
+                        "--interactive"]}
+           :runner
+           {:extra-deps {com.cognitect/test-runner
+                         {:git/url "https://github.com/cognitect-labs/test-runner"
+                          :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
+            :main-opts ["-m" "cognitect.test-runner"
+                        "-d" "src/test/clojure"
+                        "-r" ".*"]}}}
