@@ -1,0 +1,51 @@
+{:paths ["src/main/clojure"],
+ :deps
+ {org.clojure/clojure {:mvn/version "1.9.0"},
+  org.clojure/core.typed.analyzer.jvm {:mvn/version "0.7.1"},
+  org.typedclojure/core.typed.lib.clojure
+  {:mvn/version "0.7.0"},
+  org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"},
+  org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed.runtime.jvm.git"
+                                      :sha "859cb09c2054060c89fef6b46185f18e14cc1134"},
+  org.clojure/math.combinatorics
+  {:mvn/version "0.1.4", :exclusions [org.clojure/clojure]},
+  org.clojure/tools.reader {:mvn/version "1.1.1"},
+  org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.0"},
+  org.clojure/core.cache {:mvn/version "0.8.2"}},
+ :mvn/repos
+ {"sonatype-oss-public"
+  {:url "https://oss.sonatype.org/content/groups/public/"}},
+ :aliases
+ {:script {:extra-paths ["script"]},
+  :nREPL
+  {:extra-deps
+   {nrepl/nrepl {:mvn/version "0.6.0"}
+    cider/cider-nrepl {:mvn/version "0.22.4"}},
+   :main-opts ["-m" "nrepl.cmdline" "--interactive"
+               #_"
+               Note:
+                 introducing other middleware makes vim-fireplace choose
+                 fipp for pprint, which doesn't play well with the delicately
+                 defined classes in type-rep."
+               "--middleware" "[cider.nrepl/wrap-complete]"
+               ]},
+  :test
+  {:extra-paths ["src/test/clojure" "src/test/resources"],
+   :extra-deps
+   {org.clojure/tools.nrepl
+    {:mvn/version "0.2.6", :exclusions [org.clojure/clojure]},
+    org.clojure/core.async
+    {:mvn/version "0.3.465",
+     :exclusions [org.clojure/tools.analyzer.jvm]}}},
+  :runner
+  {:extra-deps
+   {org.typedclojure/test-runner
+    {:git/url "https://github.com/typedclojure/test-runner",
+     :sha "2d7af465ac90b2d083753daf251bdb4a09ae97cd"}},
+   :main-opts
+   ["-m"
+    "cognitect.test-runner"
+    "-d"
+    "src/test/clojure/clojure/core/typed/test"
+    "-r"
+    ".*"]}}}
