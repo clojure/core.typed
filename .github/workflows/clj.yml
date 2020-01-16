@@ -5,40 +5,19 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        jdk: ['1.8', '1.11', '1.13']
+        submodule: ['annotator.jvm', 'analyzer.jvm', 'checker.jvm', 'lib.clojure', 'lang.jvm', 'runtime.jvm']
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 1.11
+      - name: Set up JDK ${{ matrix.jdk }}
         uses: actions/setup-java@v1
         with:
-          java-version: 1.11
+          java-version: ${{ matrix.jdk }}
       - uses: DeLaGuardo/setup-clojure@2.0
         with:
           tools-deps: latest
-      - name: Run annotator.jvm tests
+      - name: Run ${{ matrix.submodule }} tests
         run: ./script/test
-        working-directory: module-annotator.jvm
-        #- run: mvn --version
-        #- run: mvn test
-        #- run: mvn install -DskipTests=true
-        #- run:
-        #    command: |
-        #      git clone https://github.com/frenchy64/runtime-type-inference-lein.git ~/runtime-type-inference-lein
-        #- run:
-        #    command: |
-        #      cd ~/runtime-type-inference-lein
-        #      ./infer-types.sh
-      - name: Run analyzer.jvm tests
-        run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version "1.10.0"}}}'
-        working-directory: module-analyzer.jvm
-      - name: Run checker.jvm tests
-        run: ./script/test
-        working-directory: module-checker.jvm
-      - name: Run runtime.jvm tests
-        run: ./script/test
-        working-directory: module-runtime.jvm
-      - name: Run lib.clojure tests
-        run: ./script/test
-        working-directory: module-lib.clojure
-      - name: Run lang.jvm tests
-        run: ./script/test
-        working-directory: module-lang.jvm
+        working-directory: module-${{ submodule }}

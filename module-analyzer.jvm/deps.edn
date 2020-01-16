@@ -1,5 +1,6 @@
 {:paths ["src/main/clojure"]
- :deps {org.clojure/tools.analyzer.jvm {:mvn/version "0.7.0"}}
+ :deps {org.clojure/clojure {:mvn/version "1.10.1"}
+        org.clojure/tools.analyzer.jvm {:mvn/version "0.7.0"}}
  :mvn/repos
  {"sonatype-oss-public"
   {:url "https://oss.sonatype.org/content/groups/public/"}},
