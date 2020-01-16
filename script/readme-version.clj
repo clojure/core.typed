@@ -21,7 +21,7 @@
         new-readme-file-lines
         (map #(str/replace % version-string new-version-string)
              original-readme-file-lines)]
-    (spit readme-file (str (str/join "\n" new-readme-file-lines) "\n")))
+    (spit readme-file (str (str/join "\n" new-readme-file-lines) "\n"))))
 
 (mapv update-readme-file (rest *command-line-args*))
 (apply println (str "Updated to version: " new-version-string ":")
