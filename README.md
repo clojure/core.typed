@@ -4,9 +4,9 @@
 
 Optional typing in Clojure, as a library.
 
-## Modules
+## Usage Overview
 
-core.typed is separated into modules. You'll want the type checker at development
+core.typed is separated into modules. You'll want the full type checker at development
 time, and the runtime dependencies in production.
 
 In Clojure CLI's `deps.edn`, this will look something like this:
