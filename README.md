@@ -9,10 +9,38 @@ Optional typing in Clojure, as a library.
 core.typed is separated into modules. You'll want the type checker at development
 time, and the runtime dependencies in production.
 
+In Clojure CLI's `deps.edn`, this will look something like this:
+
+```clojure
+{:deps {org.clojure/core.typed.runtime.jvm {:mvn/version "0.7.2"}}
+ :aliases {:dev {:extra-deps {org.clojure/core.typed.checker.jvm {:mvn/version "0.7.2"}}}}}
+```
+
+You can then start a dev repl with `clj -A:dev`.
+
+In Leiningen's `project.clj`, something like this:
+
+```clojure
+(defproject a-project "0.0.1-SNAPSHOT"
+  :dependencies [[org.clojure/core.typed.runtime.jvm "0.7.2"]]
+  :profiles {:dev {:dependencies [[org.clojure/core.typed.checker.jvm "0.7.2"]]}})
+```
+
+Then, `lein repl` will automatically activate the `:dev` profile. Verify the type
+checker is not included in uberjars with `lein with-profile uberjar deps :tree`.
+
+## Releases and Dependency Information
+
+Latest stable release is 0.7.2.
+
+See modules for specific version coordinates:
+
 * [core.typed.checker.jvm](module-checker.jvm/README.md): The type checker
 * [core.typed.runtime.jvm](module-runtime.jvm/README.md): Runtime dependencies
 * [core.typed.annotator.jvm](module-annotator.jvm/README.md): Automatic annotator
 * [core.typed.analyzer.jvm](module-analyzer.jvm/README.md): Analyzer
+* [core.typed.lib.clojure](module-lib.clojure/README.md): Base type annotations
+* [core.typed.lang.jvm](module-lang.jvm/README.md): Extensible languages
 
 ## Compatibility
 
