@@ -20,5 +20,5 @@ jobs:
         with:
           tools-deps: latest
       - name: Run ${{ matrix.submodule }} tests
-        run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version \"${{ matrix.clojure }}\"}}}'
+        run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version "${{ matrix.clojure }}"}}}'
         working-directory: module-${{ matrix.submodule }}
