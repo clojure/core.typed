@@ -22,8 +22,8 @@ Latest stable release is 0.7.2.
 
 ```clj
   org.clojure/core.typed.checker.jvm {:git/url "https://github.com/clojure/core.typed"
-                                     :deps/root "module-checker.jvm"
-                                     :tag "core.typed-pom-0.7.2"}
+                                      :deps/root "module-checker.jvm"
+                                      :tag "core.typed-pom-0.7.2"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
