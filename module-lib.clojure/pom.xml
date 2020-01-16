@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed.lib.clojure</artifactId>
   <description>Type annotations and macros for the base Clojure distribution.</description>
-  <version>0.7.2-SNAPSHOT</version>
+  <version>0.7.3-SNAPSHOT</version>
   <name>core.typed.lib.clojure</name>
 
   <licenses>
@@ -48,7 +48,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.7.2-SNAPSHOT</version>
+      <version>0.7.3-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>
