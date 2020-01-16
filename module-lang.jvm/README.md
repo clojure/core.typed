@@ -6,18 +6,18 @@ Extensible languages in Clojure, a la Racket's #lang.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.7.0.
+Latest stable release is 0.7.2.
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) dependency information:
 
 ```clj
-  org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.0"}
+  org.typedclojure/core.typed.lang.jvm {:mvn/version "0.7.2"}
  ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.typedclojure/core.typed.lang.jvm "0.7.0"]
+[org.typedclojure/core.typed.lang.jvm "0.7.2"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -26,7 +26,7 @@ Latest stable release is 0.7.0.
 <dependency>
   <groupId>org.typedclojure</groupId>
   <artifactId>core.typed.jvm</artifactId>
-  <version>0.7.0</version>
+  <version>0.7.2</version>
 </dependency>
 ```
 

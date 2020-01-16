@@ -6,20 +6,20 @@ Type checker for Typed Clojure, for JVM Clojure.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.7.1.
+Latest stable release is 0.7.2.
 
 * [All Released Versions](https://search.maven.org/search?q=g:org.clojure%20AND%20a:core.typed.checker.jvm)
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) dependency information:
 
 ```clj
-  org.clojure/core.typed.checker.jvm {:mvn/version "0.7.1"}
+  org.clojure/core.typed.checker.jvm {:mvn/version "0.7.2"}
  ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure/core.typed.checker.jvm "0.7.1"]
+[org.clojure/core.typed.checker.jvm "0.7.2"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -28,7 +28,7 @@ Latest stable release is 0.7.1.
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed.checker.jvm</artifactId>
-  <version>0.7.1</version>
+  <version>0.7.2</version>
 </dependency>
 ```
 

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+VERSION=$1
+
+if [ -z "$VERSION" ]
+  then
+    echo "No new version supplied"
+    echo "usage: ./script/readme-version <NEW-VERSION>"
+    exit 1
+fi
+
+./script/readme-version.clj "$VERSION" module-analyzer.jvm/README.md module-annotator.jvm/README.md module-checker.jvm/README.md module-lang.jvm/README.md module-lib.clojure/README.md module-runtime.jvm/README.md
