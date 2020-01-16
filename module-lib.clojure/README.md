@@ -8,11 +8,21 @@ Type annotations and macros for the base Clojure distribution.
 
 Latest stable release is 0.7.2.
 
-[deps.edn](https://clojure.org/reference/deps_and_cli) dependency information:
+[deps.edn](https://clojure.org/reference/deps_and_cli) JAR dependency information:
 
 ```clj
   org.typedclojure/core.typed.lib.clojure {:mvn/version "0.7.2"}
  ```
+
+[deps.edn](https://clojure.org/reference/deps_and_cli) Git dependency information:
+
+- Note: use `clj -Sresolve` to resolve the `:tag` to a `:sha`
+
+```clj
+  org.clojure/core.typed.lib.clojure {:git/url "https://github.com/clojure/core.typed"
+                                      :deps/root "module-lib.clojure"
+                                      :tag "core.typed-pom-0.7.2"}
+```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
