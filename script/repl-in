@@ -2,7 +2,7 @@
 
 set -e
 
-PROJECT=$1
+PROJECT="${1}"
 # all but first
 ARGS="${@:2}"
 
