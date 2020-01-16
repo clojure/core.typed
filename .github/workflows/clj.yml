@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        clojure: ['1.10.1', '1.11.0-master-SNAPSHOT']
         jdk: ['1.8', '1.11', '1.13']
         submodule: ['annotator.jvm', 'analyzer.jvm', 'checker.jvm', 'lib.clojure', 'lang.jvm', 'runtime.jvm']
     steps:
@@ -19,5 +20,5 @@ jobs:
         with:
           tools-deps: latest
       - name: Run ${{ matrix.submodule }} tests
-        run: ./script/test
+        run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version \"${{ matrix.clojure }}\"}}}'
         working-directory: module-${{ matrix.submodule }}
