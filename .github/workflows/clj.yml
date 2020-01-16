@@ -20,4 +20,4 @@ jobs:
           tools-deps: latest
       - name: Run ${{ matrix.submodule }} tests
         run: ./script/test
-        working-directory: module-${{ submodule }}
+        working-directory: module-${{ matrix.submodule }}
