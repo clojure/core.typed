@@ -1,3 +1,10 @@
+# Upgrading from 0.7.x to monorepo
+
+On 15th January 2020, core.typed moved back to a monorepo.
+All Maven coordinates are unchanged, however any tools.deps
+Git dependencies will need to be updated to the corresponding
+subdirectory under the monorepo.
+
 # Upgrading from 0.6.x to split repository
 
 ## Update packages
