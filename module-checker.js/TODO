@@ -1,0 +1,93 @@
+* Next
+ 
+[ ] add JS primitives
+  [x] cljs.core.typed/JSUndefined
+    * 'undefined' in TypeScript
+    * idea 1: nil expands to (U nil Undefined) internally, but always elide Undefined
+      when pretty-printing a union that includes both nil and Undefined.
+      * This to avoids: 
+        Expected: nil, Given: nil
+        since 
+        Expected: (U Undefined nil), Given: nil
+      * Problem: lots of special casing for Nil? in the type checker
+      * support nil?/undefined?/some? predicates
+      * recognize undefined as a false value
+      * (= x nil) ;=> (is x (U nil Undefined))
+    * idea 2: New type JSNull
+      (U JSNull JSUndefined) <: nil
+      nil <!: JSNull
+      nil <!: JSUndefined
+      * JSNull reserved mostly for interop
+      * JSNull pprints to nil
+        (inc nil)
+        ; Error:
+        ; Expected: Number
+        ; Given: nil
+      * nil :- JSNull
+        (ann f [JSNull -> Any])
+        (f nil)
+      * structural equality on `nil` should be enhanced
+        (let [x :- JSNull nil
+              y :- nil nil
+              z :- JSUndefined ...]
+          (= x y z))
+        ; true ; tt | ff
+    [x] support undefined? predicates
+      * unit tests for 'if'
+  [*] cljs.core.typed/JSNumber
+    * 'number' in TypeScript
+    * (ann number? (Pred JSNumber))
+  [*] cljs.core.typed/JSBoolean
+    * 'boolean' in TypeScript
+  [*] cljs.core.typed/JSString
+    * 'string' in TypeScript
+  [*] cljs.core.typed/JSSymbol
+    * 'symbol' in TypeScript
+[*] add cljs.core.typed/JSObject
+  * any non-primitive type
+  * 'object' in TypeScript
+    * https://blog.mariusschulz.com/2017/02/24/typescript-2-2-the-object-type
+  * 'Object' in Google Closure (or 'Object<?,?>' maybe?)
+    * https://github.com/google/closure-compiler/wiki/A-word-about-the-type-Object
+[*] rename int => cljs.core.typed/JSInteger
+  * for `integer?`
+[ ] create JSObj type
+  * analogous to HMap
+  * Use undefined to signal optional
+  * (JSObj {:a (t/U Node t/JSUndefined)
+            :b})
+[ ] implement ann-js
+[ ] implement ann-jsclass
+[ ] implement ann-jsinterface
+[ ] implement ann-jsalias
+[ ] support js/undefined top-level builtin classes
+  * eg. js/String, js/Symbol, js/Function
+  * Note. js/Object is 'Object' in TypeScript
+  * Note. js/Function is 'Function' in Google Closure
+  * Note. js/Array is 'Array' in Google Closure
+  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects
+  * https://funcool.github.io/clojurescript-unraveled/
+[ ] add common Regex annotation for #""
+[ ] remove cljs.core.typed/IPersistentMap etc.
+[ ] remove ArrayCLJS
+  * replace with js/Array
+[ ] remove FunctionCLJS
+  * replace with js/Function
+[ ] fix cct.subtype/resolve-JS-reference function
+[ ] remove letfn> etc.
+  * replace with non-> versions
+* rename primitives to lower case (or namespaced in `js`?)
+  * JSboolean, JSsymbol, JSstring, JSnull, JSundefined
+  * js/boolean, js/symbol, js/string, js/null, js/undefined
+* handle special Closure types
+  * possibly prefix with `js`?
+  * js/IObject, js/IArrayLike, js/IThenable
+
+# Later
+
+* add heterogeneous object type
+  * optional entries
+* delete Array stuff for CLJ/CLJS
+* revise default js-nominal mappings
+* pprint JSUndefined and JSNull to `nil` when appropriate
+* `boolean?` tests for primitive boolean
