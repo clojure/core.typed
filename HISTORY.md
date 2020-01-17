@@ -89,17 +89,17 @@ git subtree add -P module-lang.jvm https://github.com/typedclojure/core.typed.la
 git subtree add -P module-lib.clojure https://github.com/typedclojure/core.typed.lib.clojure.git b090c2f3d94714e8d248aad0b3e1b2305dd58eb1
 ```
 
-This introduced 7 additional new "first commits", totalling 9. You can see them all with this command:
+This should have introduced 6 additional new orphan "first commits".
+Unfortunately, I performed a dry-run of this script in a fresh repository,
+and *then* merged that repository into the main repo
+which introduced a [7th](https://github.com/clojure/core.typed/commit/f95bdf27)
+"first commit".
+
+You can see them all (9 at this point!) with this command:
 
 ```
 git rev-list --max-parents=0 master | xargs git log
 ```
-
-I think this should have "only" introduced 6 new "first commits", but 
-due to a mistake in the merging process, a [7th](https://github.com/clojure/core.typed/commit/f95bdf27)
-was introduced that just contains the above merged script. I believe I did a dry
-run of the merging process in a fresh repository, and it somehow made its was into
-the official repo.
 
 So there are 9 "first commits" in core.typed:
 - 1 for the original `frenchy64/typed` repository (d1edc56c)
