@@ -164,8 +164,19 @@ All 9 "first commits" are visualized below.
 * d1edc56c Some sketches with syntax (frenchy64/typed-clojure first commit)
 ```
 
-## Merge back core.typed.checker.js
+### Merge core.typed.checker.js into monorepo (January 2020)
 
 ```
 git subtree add -P module-checker.js https://github.com/clojure/core.typed.checker.js.git cf4cd218ba1b721fb1105129849ae1c74dc30ebc
+```
+
+```
+...
+*   497087b8 (frenchy64/merge-cljs-checker) Add 'module-checker.js/' from commit 'cf4cd218ba1b721fb1105129849ae1c74dc30ebc'
+|\
+| * cf4cd218 readme
+| ...
+| * b03896d1 Move Clojurescript typechecker into own mvn module
+* e6659d6a history
+...
 ```
