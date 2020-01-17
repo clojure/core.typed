@@ -106,7 +106,7 @@ the first commit for my fresh repository above.
 You can see all orphaned commits (9 at this point!) with this command:
 
 ```
-git rev-list --max-parents=0 master | xargs git log
+git rev-list --max-parents=0 9a47983d2b51befde6d200d874c0f238c5226d4f | xargs git log
 ```
 
 So there are 9 "first commits" in core.typed:
@@ -162,4 +162,10 @@ All 9 "first commits" are visualized below.
 * 2d95c459 Further along CLJS compiler (frenchy64/typed-clojure)
 | ...
 * d1edc56c Some sketches with syntax (frenchy64/typed-clojure first commit)
+```
+
+## Merge back core.typed.checker.js
+
+```
+git subtree add -P module-checker.js https://github.com/clojure/core.typed.checker.js.git cf4cd218ba1b721fb1105129849ae1c74dc30ebc
 ```
