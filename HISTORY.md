@@ -102,7 +102,56 @@ run of the merging process in a fresh repository, and it somehow made its was in
 the official repo.
 
 So there are 9 "first commits" in core.typed:
-- 1 for the original `frenchy64/typed` repository
-- 1 for the move to `clojure/core.typed` repository (seemed avoidable)
-- 6 for adding back the histories of each split repository
-- 1 mistake carried over from a dry-run of the previous operation
+- 1 for the original `frenchy64/typed` repository (d1edc56c)
+- 1 for the move to `clojure/core.typed` repository (c7e5b19d)
+- 6 for adding back the histories of each split repository (5fd81305, 5f97f21f, e012296a, 0e44e951, eb0691b0, 216a3e84)
+- 1 for a mistake carried over from merging a dry-run of the previous operation (f95bdf27)
+
+All 9 "first commits" are visualized below.
+
+```
+...
+*   f533b942 Merge remote-tracking branch 'monorepo/master' into monorepo
+|\  
+| * d02b533a skip mvn tests
+| ...
+| *   277faedb Add 'module-lib.clojure/' from commit 'b090c2f3d94714e8d248aad0b3e1b2305dd58eb1'
+| |\  
+| | * b090c2f3 move to github actions
+| | ...
+| | * 5fd81305 init
+| *   e299b1d7 Add 'module-lang.jvm/' from commit 'da7a11930fbbc237376cd14550231c90cab05146'
+| |\  
+| | * da7a1193 move to github actions
+| | ...
+| | * 5f97f21f initial commit
+| *   e5c4dc9a Add 'module-runtime.jvm/' from commit 'c0a07a2dd2d1d67196f38b517c47905531179842'
+| |\  
+| | * c0a07a2d move to github actions
+| | ...
+| | * e012296a CTYP-145: now also producing a zero-dependency "core.typed.rt" artifact that contains only annotation machinery, suitable for use in libraries
+| *   0c8b10c9 Add 'module-checker.jvm/' from commit '33f3e269a1de640543a6c64fc33fa6faaf071e7a'
+| |\  
+| | * 33f3e269 download latest clj in circleci
+| | ...
+| | * 0e44e951 core.typed depends on core.typed.rt
+| *   7cd0fbfa Add 'module-annotator.jvm/' from commit '25d2d433c983b16445f8da9d9cc80789e9673bdf'
+| |\  
+| | * 25d2d433 move to github actions
+| | ...
+| | * eb0691b0 create module-infer and module-analyzer-jvm maven submodules
+| *   7ed25546 Add 'module-analyzer.jvm/' from commit '31892d2a3e1083d0cd495c39e4704eacf14e0d96'
+| |\  
+| | * 31892d2a move to github actions
+| | ...
+| | * 216a3e84 create module-infer and module-analyzer-jvm maven submodules
+| * f95bdf27 cloning file
+* 241a703d prepare for monorepo merge
+...
+*   1c9a99ac Merge branch 'master' of github.com:clojure/core.typed (clojure/core.typed)
+|\  
+| * c7e5b19d First commit. (clojure/core.typed first commit)
+* 2d95c459 Further along CLJS compiler (frenchy64/typed-clojure)
+| ...
+* d1edc56c Some sketches with syntax (frenchy64/typed-clojure first commit)
+```
