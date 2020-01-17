@@ -74,7 +74,10 @@ core.typed was merged back into a single repository, continuing on from
 the original `clojure/core.typed` master branch from commit
 [241a703d](https://github.com/clojure/core.typed/commit/241a703d).
 
-This script was used to perform the merge the 6 individual repos at this commit:
+To perform the merge, I created a fresh repository with a single
+commit [f95bdf27](https://github.com/clojure/core.typed/commit/f95bdf27).
+
+Then, in the fresh repository, I ran the following script to merge the 6 individual repos:
 
 ```
 #!/bin/bash
@@ -89,13 +92,18 @@ git subtree add -P module-lang.jvm https://github.com/typedclojure/core.typed.la
 git subtree add -P module-lib.clojure https://github.com/typedclojure/core.typed.lib.clojure.git b090c2f3d94714e8d248aad0b3e1b2305dd58eb1
 ```
 
-This should have introduced 6 additional new orphan "first commits".
-Unfortunately, I performed a dry-run of this script in a fresh repository,
-and *then* merged that repository into the main repo
-which introduced a [7th](https://github.com/clojure/core.typed/commit/f95bdf27)
-"first commit".
+Then, I merged this fresh repository with
+[241a703d](https://github.com/clojure/core.typed/commit/241a703d).
+I actually intended to run the script directly on
+[241a703d](https://github.com/clojure/core.typed/commit/241a703d),
+and the extra merge was a mistake.
 
-You can see them all (9 at this point!) with this command:
+I intended this to have introduced 6 additional new orphan "first commits".
+Unfortunately, it 
+introduced a [7th](https://github.com/clojure/core.typed/commit/f95bdf27),
+the first commit for my fresh repository above.
+
+You can see all orphaned commits (9 at this point!) with this command:
 
 ```
 git rev-list --max-parents=0 master | xargs git log
