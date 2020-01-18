@@ -47,7 +47,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.tc-equiv :as equiv]
-            [clojure.core.typed.utils :as u :refer [expr-type]]
+            [clojure.core.typed.checker.utils :as u :refer [expr-type]]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.parse-unparse :as prs]
