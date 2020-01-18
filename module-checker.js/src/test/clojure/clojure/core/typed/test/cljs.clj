@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.cljs
   (:require [clojure.core.typed.test.cljs-utils :refer :all]
             [clojure.test :refer :all]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.subtype :as sub]
             [cljs.core.typed :as t]
             [clojure.core.typed.util-cljs :as ucljs]

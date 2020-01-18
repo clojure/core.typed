@@ -43,7 +43,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
+            [clojure.core.typed.checker.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.tc-equiv :as equiv]
