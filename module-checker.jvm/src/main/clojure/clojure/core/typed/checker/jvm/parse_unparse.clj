@@ -1143,9 +1143,7 @@
                            m))]
               (binding [vs/*current-env* (or menv vs/*current-env*)]
                 (err/int-error (str "Cannot resolve type: " (pr-str sym)
-                                    "\nHint: Is " (pr-str sym) " in scope?"
-                                    "\nHint: Has " (pr-str sym) "'s annotation been"
-                                    " found via check-ns, cf or typed-deps?")
+                                    "\nHint: Is " (pr-str sym) " in scope?")
                                {:use-current-env true}))))))
 
 (defmethod parse-type-symbol :default

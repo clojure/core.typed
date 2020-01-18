@@ -8,13 +8,13 @@
 
 (ns ^:skip-wiki clojure.core.typed.jsnominal-env
   (:refer-clojure :exclude [get-method])
-  (:require [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]
+  (:require [clojure.core.typed.checker.type-rep :as r]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.env :as env])
-  (:import (clojure.core.typed.type_rep Scope)))
+  (:import (clojure.core.typed.checker.type_rep Scope)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; JSNominal

@@ -12,7 +12,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.jvm.mm-env :as mmenv]))
 
-(def ^:private reset-cljs-envs! (delay (impl/dynaload 'clojure.core.typed.checker.jvm.base-env-cljs/reset-cljs-envs!)))
+(def ^:private reset-cljs-envs! (delay (impl/dynaload 'clojure.core.typed.base-env-cljs/reset-cljs-envs!)))
 
 (defn reset-envs!
   "Reset all environments for all implementations. Cannot be called

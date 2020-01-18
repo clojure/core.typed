@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>core.typed.cljs</artifactId>
+  <artifactId>core.typed.checker.js</artifactId>
   <description>An optional type system for ClojureScript — full system for annotating and type-checking.</description>
-  <name>core.typed.cljs</name>
+  <name>core.typed.checker.js</name>
 
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.5.4-SNAPSHOT</version>
+    <version>0.7.3-SNAPSHOT</version>
   </parent>
 
   <build>
@@ -95,8 +95,8 @@
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.typed</artifactId>
-      <version>0.5.4-SNAPSHOT</version>
+      <artifactId>core.typed.checker.jvm</artifactId>
+      <version>0.7.3-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
