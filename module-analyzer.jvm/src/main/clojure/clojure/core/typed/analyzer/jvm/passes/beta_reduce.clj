@@ -7,14 +7,13 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.analyzer.jvm.passes.beta-reduce
-  (:require [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
-            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
-            [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-            [clojure.core.typed.analyzer.jvm.passes.emit-form :refer [emit-form]]
+  (:require [clojure.core.typed.analyzer.common :as ana]
             [clojure.core.typed.analyzer.common.ast :as ast]
-            [clojure.pprint :as pprint]
-            [clojure.core.typed.analyzer.common :as ana]
-            [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify]))
+            [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify]
+            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
+            [clojure.core.typed.analyzer.jvm.passes.annotate-tag :as annotate-tag]
+            [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]))
 
 (def beta-limit 500)
 
@@ -105,7 +104,7 @@
   "
   [{:keys [op env] :as ast}]
   {:post [((some-fn nil? vector?) %)]}
-  ;(prn "splice-seqable-expr" op (emit-form ast))
+  ;(prn "splice-seqable-expr" op (emit-form/emit-form ast))
   (case op
     :unanalyzed (splice-seqable-expr (-> (ana/analyze-outer ast)
                                          ana/run-passes))
@@ -279,9 +278,9 @@
         (when (and spliced (seq fixed))
           (let [;; move as many fixed arguments out of the collection argument as possible
                 form (if (contains? spliced :rest-form)
-                       (cons (emit-form ufn)
-                             (concat (map emit-form (concat single-args fixed)) [rest-form]))
-                       (map emit-form (concat single-args fixed)))]
+                       (cons (emit-form/emit-form ufn)
+                             (concat (map emit-form/emit-form (concat single-args fixed)) [rest-form]))
+                       (map emit-form/emit-form (concat single-args fixed)))]
             (when before-reduce (before-reduce))
             (ana/run-passes (ana/analyze-form form env))))))))
 
@@ -314,9 +313,9 @@
                 (visit-tail-pos
                   the-fn 
                   (fn [tail-ast]
-                    (let [fn-form (emit-form tail-ast)
+                    (let [fn-form (emit-form/emit-form tail-ast)
                           form (with-meta
-                                 (list* fn-form (map emit-form args))
+                                 (list* fn-form (map emit-form/emit-form args))
                                  (meta fn-form))
                           ;_ (prn "form" form)
                           env (:env tail-ast)

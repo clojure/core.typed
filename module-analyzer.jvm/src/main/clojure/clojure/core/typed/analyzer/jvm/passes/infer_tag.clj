@@ -10,14 +10,14 @@
 ; - changed :pass-info for `infer-tag`
 ; - use analyzer.env
 (ns clojure.core.typed.analyzer.jvm.passes.infer-tag
-  (:require [clojure.tools.analyzer.utils :refer [arglist-for-arity]]
-            [clojure.tools.analyzer.jvm.utils :as u]
-            [clojure.core.typed.analyzer.common.env :as env]
-            [clojure.set :as set]
-            [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-            [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
+  (:require [clojure.core.typed.analyzer.common.env :as env]
+            [clojure.core.typed.analyzer.common.utils :as cu]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
-            [clojure.core.typed.analyzer.jvm.passes.fix-case-test :as fix-case-test]))
+            [clojure.core.typed.analyzer.jvm.passes.annotate-tag :as annotate-tag]
+            [clojure.core.typed.analyzer.jvm.passes.fix-case-test :as fix-case-test]
+            [clojure.core.typed.analyzer.jvm.utils :as ju]
+            [clojure.set :as set]
+            [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]))
 
 (defmulti -infer-tag :op)
 (defmethod -infer-tag :default [ast] ast)
@@ -108,7 +108,7 @@
              (assoc ast :tag tag)))))
 
 (defn =-arglists? [a1 a2]
-  (let [tag (fn [x] (-> x meta :tag u/maybe-class))]
+  (let [tag (fn [x] (-> x meta :tag ju/maybe-class))]
     (and (= a1 a2)
          (every? true? (mapv (fn [a1 a2]
                        (and (= (tag a1) (tag a2))
@@ -199,7 +199,7 @@
               Object
               tag)]
     (merge (if (not= tag body-tag)
-             (assoc-in ast [:body :tag] (u/maybe-class tag))
+             (assoc-in ast [:body :tag] (ju/maybe-class tag))
              ast)
            (when tag
              {:tag   tag
@@ -224,7 +224,7 @@
   [{:keys [fn args] :as ast}]
   (if (:arglists fn)
     (let [argc (count args)
-          arglist (arglist-for-arity fn argc)
+          arglist (cu/arglist-for-arity fn argc)
           tag (or (:tag (meta arglist))
                   (:return-tag fn)
                   (and (= :var (:op fn))
