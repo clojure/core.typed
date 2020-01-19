@@ -12,11 +12,9 @@
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.passes.source-info :as source-info]
-            [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer.jvm :as jana2]
+            [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.pprint :as pprint]
             [clojure.core.typed.analyzer.common :as ana]
-            [clojure.tools.analyzer.utils :as u]
             [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify]))
 
 (def beta-limit 500)
