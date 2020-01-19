@@ -9,12 +9,9 @@
 ;; adapted from tools.analyzer.jvm
 (ns clojure.core.typed.analyzer.jvm
   (:refer-clojure :exclude [macroexpand-1])
-  (:require [clojure.tools.analyzer.utils :as u]
-            [clojure.tools.analyzer.jvm.utils :as ju]
-            [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]
+  (:require [clojure.core.typed.analyzer.common.utils :as u]
+            [clojure.core.typed.analyzer.jvm.utils :as ju]
             [clojure.core.typed.analyzer.common.env :as env]
-            [clojure.tools.analyzer :as ta]
-            [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.analyzer.common.passes :as passes]
@@ -42,7 +39,7 @@
   (let [sym-ns (namespace form)]
     (if-let [target (and sym-ns
                          (not (resolve-ns (symbol sym-ns) env))
-                         (jana2-utils/maybe-class-literal sym-ns))]          ;; Class/field
+                         (ju/maybe-class-literal sym-ns))]          ;; Class/field
       (with-meta (list '. target (symbol (str "-" (name form)))) ;; transform to (. Class -field)
                  (meta form))
       form)))
@@ -55,7 +52,7 @@
             opns   (namespace op)]
         (if-let [target (and opns
                              (not (resolve-ns (symbol opns) env))
-                             (jana2-utils/maybe-class-literal opns))] ; (class/field ..)
+                             (ju/maybe-class-literal opns))] ; (class/field ..)
 
           (let [op (symbol opname)]
             (with-meta (list '. target (if (zero? (count expr))
@@ -66,7 +63,7 @@
           (cond
             (.startsWith opname ".")     ; (.foo bar ..)
             (let [[target & args] expr
-                  target (if-let [target (jana2-utils/maybe-class-literal target)]
+                  target (if-let [target (ju/maybe-class-literal target)]
                            (with-meta (list 'do target)
                                       {:tag 'java.lang.Class})
                            target)
@@ -561,8 +558,8 @@
                                        [mform (seq raw-forms)]
                                        (recur mform (conj raw-forms
                                                           (if-let [[op & r] (and (seq? form) form)]
-                                                            (if (or (jana2-utils/macro? op  env)
-                                                                    (jana2-utils/inline? op r env))
+                                                            (if (or (ju/macro? op  env)
+                                                                    (ju/inline? op r env))
                                                               (vary-meta form assoc ::ana/resolved-op (ana/resolve-sym op env))
                                                               form)
                                                             form)))))))]

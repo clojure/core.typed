@@ -9,8 +9,8 @@
 ; copied from tools.analyzer.jvm
 ; - replace calls to `maybe-class-literal`
 (ns clojure.core.typed.analyzer.jvm.passes.analyze-host-expr
-  (:require [clojure.tools.analyzer :as ana]
-            [clojure.tools.analyzer.utils :refer [ctx source-info merge']]
+  (:require [clojure.core.typed.analyzer.common :as ana]
+            [clojure.core.typed.analyzer.common.utils :refer [ctx source-info merge']]
             [clojure.tools.analyzer.jvm.utils :as taj-utils]
             [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]))
 
