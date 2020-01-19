@@ -20,7 +20,7 @@
             [clojure.core.typed.check.const :as const]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
-            [clojure.core.typed.check.funapp :as funapp]
+            [clojure.core.typed.checker.check.funapp :as funapp]
             [clojure.core.typed.check.if :as if]
             [clojure.core.typed.check.let :as let]
             [clojure.core.typed.check.letfn :as letfn]
