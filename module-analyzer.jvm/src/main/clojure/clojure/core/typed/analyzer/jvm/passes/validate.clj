@@ -242,8 +242,8 @@
                                 :ast      (ast/prewalk ast cleanup/cleanup)}
                                (cu/source-info env))))))))
 
-;;redefine passes mainly to move dependency on `uniquify-locals`
-;; to `uniquify2/uniquify-locals`
+;;important that this pass depends our `uniquify-locals`
+;; (clojure.core.typed.analyzer.common.passes.uniquify), not the taj pass
 ;; - remove validate-recur
 ;; - replace infer-tag
 ;; - replace analyze-host-expr
