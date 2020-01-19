@@ -11,7 +11,6 @@
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
-            [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.pprint :as pprint]
             [clojure.core.typed.analyzer.common :as ana]

@@ -16,8 +16,8 @@
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.analyzer.common.passes :as passes]
             [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
-            [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
-            [clojure.tools.analyzer.passes.source-info :as source-info]
+            [clojure.core.typed.analyzer.common.passes.elide-meta :as elide-meta]
+            [clojure.core.typed.analyzer.common.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
             [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
@@ -79,10 +79,18 @@
             :else form)))
       form)))
 
+;copied from clojure.tools.analyzer.jvm
+(defn empty-env
+  "Returns an empty env map"
+  []
+  {:context    :ctx/expr
+   :locals     {}
+   :ns         (ns-name *ns*)})
+
 (defn macroexpand-1
   "If form represents a macro form or an inlineable function, returns its expansion,
    else returns form."
-  ([form] (macroexpand-1 form (taj/empty-env)))
+  ([form] (macroexpand-1 form (empty-env)))
   ([form env]
        (cond
 
@@ -447,7 +455,7 @@
 
    E.g.
    (analyze form env {:bindings  {#'ana/macroexpand-1 my-mexpand-1}})"
-  ([form] (analyze form (taj/empty-env) {}))
+  ([form] (analyze form (empty-env) {}))
   ([form env] (analyze form env {}))
   ([form env opts]
      (with-bindings (merge {Compiler/LOADER     (RT/makeClassLoader)
@@ -526,7 +534,7 @@
    Unrolls `do` forms to handle the Gilardi scenario.
 
    Useful when analyzing whole files/namespaces."
-  ([form] (analyze+eval form (taj/empty-env) {}))
+  ([form] (analyze+eval form (empty-env) {}))
   ([form env] (analyze+eval form env {}))
   ([form env {:keys [additional-gilardi-condition
                      eval-fn

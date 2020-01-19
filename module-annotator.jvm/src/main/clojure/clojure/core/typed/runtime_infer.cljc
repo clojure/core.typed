@@ -130,7 +130,6 @@
                       [clojure.core.typed.ast-utils :as ast]
                       [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
                       [clojure.core.typed.analyzer.jvm :as jana2]
-                      [clojure.tools.analyzer.jvm :as taj]
                       [clojure.core.typed.annotator.insert :as insert
                        :refer [replace-generated-annotations]]
                       [clojure.core.typed.coerce-utils :as coerce]])))
@@ -2902,10 +2901,10 @@
 (defn instrument-top-level-form
   [form]
   (impl/with-clojure-impl
-    (jana2/analyze+eval form (taj/empty-env) {:eval-fn (fn [ast opts]
-                                                         (-> ast
-                                                             runtime-infer-expr
-                                                             (jana2/eval-ast opts)))})))
+    (jana2/analyze+eval form (jana2/empty-env) {:eval-fn (fn [ast opts]
+                                                           (-> ast
+                                                               runtime-infer-expr
+                                                               (jana2/eval-ast opts)))})))
 )
 
 ;; TESTS

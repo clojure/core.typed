@@ -4,10 +4,7 @@
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.common :as ana2]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-
-            ))
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]))
 
 (declare check-expr)
 
@@ -65,7 +62,7 @@
 (defn check-top-level
   ([form expected] (check-top-level form expected {}))
   ([form expected {:keys [env] :as opts}]
-   (let [env (or env (taj/empty-env))]
+   (let [env (or env (jana2/empty-env))]
      (with-bindings (jana2/default-thread-bindings env)
        (env/ensure (jana2/global-env)
          (-> form
