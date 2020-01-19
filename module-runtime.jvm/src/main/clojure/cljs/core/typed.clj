@@ -293,7 +293,7 @@
   [& args]
   `(typed-deps* '~args))
 
-(let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.checker.js.check-form-cljs/check-form-cljs))]
+(let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.checker.check-form-cljs/check-form-cljs))]
   (defn cf* 
     "Check a single form with an optional expected type.
     Intended to be called from Clojure. For evaluation at the Clojurescript
@@ -302,7 +302,7 @@
     (load-if-needed)
     (@check-form-cljs form expected expected-provided?)))
 
-(let [chkfi (delay (impl/dynaload 'clojure.core.typed.checker.js.check-form-cljs/check-form-info))]
+(let [chkfi (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-info))]
   (defn check-form-info 
     [form & opts]
     (load-if-needed)
@@ -313,7 +313,7 @@
   ([form] `(cf* '~form nil nil))
   ([form expected] `(cf* '~form '~expected true)))
 
-(let [chkni (delay (impl/dynaload 'clojure.core.typed.checker.js.check-ns-cljs/check-ns-info))]
+(let [chkni (delay (impl/dynaload 'clojure.core.typed.check-ns-cljs/check-ns-info))]
   (defn check-ns-info
     "Check a Clojurescript namespace, or the current namespace.
     Intended to be called from Clojure. For evaluation at the Clojurescript
@@ -325,7 +325,7 @@
      (load-if-needed)
      (@chkni ns-or-syms opt))))
 
-(let [chkns (delay (impl/dynaload 'clojure.core.typed.checker.js.check-ns-cljs/check-ns))]
+(let [chkns (delay (impl/dynaload 'clojure.core.typed.check-ns-cljs/check-ns))]
   (defn check-ns*
     "Check a Clojurescript namespace, or the current namespace.
     Intended to be called from Clojure. For evaluation at the Clojurescript
