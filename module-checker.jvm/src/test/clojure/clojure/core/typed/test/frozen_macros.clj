@@ -2,13 +2,11 @@
   (:require 
     ; this loads the type system, must go first
     [clojure.core.typed.test.test-utils :as tu]
-    [clojure.test :refer :all]
-    [clojure.core.typed.analyzer.jvm :as ana]
-    [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
-    [clojure.core.typed.analyzer.jvm.passes.emit-form :refer [emit-form]]
-    [clojure.tools.analyzer.jvm :as taj]
     [clojure.core.typed :as t]
-    [clojure.tools.analyzer.jvm.utils :as ju]))
+    [clojure.core.typed.analyzer.jvm :as ana]
+    [clojure.core.typed.analyzer.jvm.passes.emit-form :refer [emit-form]]
+    [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
+    [clojure.test :refer :all]))
 
 (def tc-config
   {:ns-meta {:core.typed {:experimental #{:custom-expansions}}}

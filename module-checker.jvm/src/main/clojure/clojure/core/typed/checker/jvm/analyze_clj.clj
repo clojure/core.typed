@@ -12,10 +12,16 @@
             [clojure.core.typed :as T]
             [clojure.core.typed :as t]
             [clojure.core.typed.analyzer.common :as ana2]
+            [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.core.typed.analyzer.common.env :as env]
-            [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.common.passes :as passes]
+            [clojure.core.typed.analyzer.common.utils :as ta-utils]
+            [clojure.core.typed.analyzer.jvm :as jana2]
+            [clojure.core.typed.analyzer.jvm :as taj]
             [clojure.core.typed.analyzer.jvm.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
+            [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
+            [clojure.core.typed.analyzer.jvm.utils :as taj-utils]
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
@@ -24,15 +30,9 @@
             [clojure.core.typed.rules :as rules]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.reflect :as reflect]
             [clojure.pprint :as pp]
-            [clojure.string :as str]
-            [clojure.tools.analyzer.ast :as ast]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.jvm.utils :as taj-utils]
-            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
-            [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.tools.analyzer.utils :as ta-utils]))
+            [clojure.reflect :as reflect]
+            [clojure.string :as str]))
 
 ; Updated for Clojure 1.8
 ;  https://github.com/clojure/clojure/commit/7f79ac9ee85fe305e4d9cbb76badf3a8bad24ea0

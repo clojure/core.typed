@@ -8,11 +8,11 @@
 
 (ns clojure.core.typed.checker.jvm.file-mapping
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.checker.utils :as u]
+            [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.core.typed.checker.check.utils :as cu]
-            [clojure.tools.analyzer.ast :as ast-ops]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.checker.jvm.parse-unparse :as prs]))
+            [clojure.core.typed.checker.utils :as u]))
 
 ; (Vec '{:ftype Type :fn-expr Expr})
 (def ^:private ^:dynamic *fn-stack* [])
@@ -57,7 +57,7 @@
                   (when-let [k (mapping-key ast)]
                     {k v})))))
       (apply merge 
-             (concat (map ast->info-map (ast-ops/children ast))
+             (concat (map ast->info-map (ast/children ast))
                      (let [{:keys [line column end-line end-column]} (-> ast :form meta)
                            this-file (-> ast :env :file)
                            _ (assert (string? this-file))

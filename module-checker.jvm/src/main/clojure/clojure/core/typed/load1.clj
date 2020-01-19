@@ -9,19 +9,18 @@
 (ns ^:skip-wiki clojure.core.typed.load1
   "Implementation of clojure.core.typed.load."
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.errors :as err]
-            [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
             [clojure.core.typed.analyzer.common.env :as env]
-            [clojure.core.typed.current-impl :as impl]
-            [clojure.tools.reader.reader-types :as readers]
-            [clojure.tools.reader :as reader]
-            [clojure.java.io :as io]
-            [clojure.core.typed.checker.jvm.check-form-clj :as chk-frm-clj]
+            [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.checker.check-form-common :as chk-frm]
+            [clojure.core.typed.checker.jvm.check-form-clj :as chk-frm-clj]
+            [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.lang.jvm :as lang]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.core.typed.analyzer.jvm :as ana2]
-            [clojure.core.typed.util-vars :as vs])
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.java.io :as io]
+            [clojure.tools.reader :as reader]
+            [clojure.tools.reader.reader-types :as readers])
   (:import java.net.URL))
 
 ;; based on clojure.tools.analyzer.jvm/analyze-ns
@@ -30,14 +29,14 @@
 ;;      [String ToolsAnalyzerEnv ToolsReaderOpts -> nil])
 (defn load-typed-file
   "Loads a whole typed namespace, returns nil. Assumes the file is typed."
-  ([filename] (load-typed-file filename (taj/empty-env) {}))
+  ([filename] (load-typed-file filename (jana2/empty-env) {}))
   ([filename env] (load-typed-file filename env {}))
   ([filename env opts]
    {:pre [(string? filename)]
     :post [(nil? %)]}
    ;(prn "load-typed-file" filename)
     (t/load-if-needed)
-    (env/ensure (ana2/global-env)
+    (env/ensure (jana2/global-env)
      (let [should-runtime-infer? vs/*prepare-infer-ns*
            instrument-infer-config vs/*instrument-infer-config*
            _ (when should-runtime-infer?

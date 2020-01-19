@@ -7,22 +7,21 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.checker.check-ns-common
-  (:require [clojure.core.typed :as t]
-            [clojure.core.typed.checker.reset-env :as reset-env]
-            [clojure.core.typed.checker.jvm.reset-caches :as reset-caches]
-            [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.checker.utils :as u]
+  (:require [clojure.core.cache :as cache]
+            [clojure.core.typed :as t]
             [clojure.core.typed.checker.jvm.check :as chk-clj]
             [clojure.core.typed.checker.jvm.file-mapping :as file-map]
-            [clojure.core.typed.checker.var-env :as var-env]
-            [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.checker.jvm.reset-caches :as reset-caches]
             [clojure.core.typed.checker.lex-env :as lex-env]
-            [clojure.core.typed.errors :as err]
-            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.ns-deps-utils :as ns-deps-u]
-            [clojure.java.io :as io]
-            [clojure.core.cache :as cache]
-            [clojure.tools.analyzer.jvm.utils :as jvm-u])
+            [clojure.core.typed.checker.reset-env :as reset-env]
+            [clojure.core.typed.checker.utils :as u]
+            [clojure.core.typed.checker.var-env :as var-env]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.errors :as err]
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.java.io :as io])
   (:import (clojure.lang ExceptionInfo)))
 
 (def ^:private ns->relpath (delay (impl/dynaload 'cljs.util/ns->relpath)))

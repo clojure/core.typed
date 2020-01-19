@@ -13,6 +13,8 @@
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.jvm.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
+            [clojure.core.typed.analyzer.jvm.utils :as jtau]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.check.apply :as apply]
@@ -110,11 +112,6 @@
             [clojure.pprint :as pprint]
             [clojure.repl :as repl]
             [clojure.set :as cljset]
-            [clojure.tools.analyzer.ast :as ast]
-            [clojure.tools.analyzer.jvm :as taj]
-            [clojure.tools.analyzer.jvm.utils :as jtau]
-            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
-            [clojure.tools.analyzer.utils :as tau]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as readers])
   (:import (clojure.lang IPersistentMap Var Seqable)))
@@ -156,7 +153,7 @@
 
 (defn check-ns1
   "Type checks an entire namespace."
-  ([ns] (check-ns1 ns (taj/empty-env)))
+  ([ns] (check-ns1 ns (jana2/empty-env)))
   ([ns env]
      (env/ensure (jana2/global-env)
        (let [^java.net.URL res (jtau/ns-url ns)]
@@ -399,7 +396,7 @@
                 (:interleave :simulate) nil
                 :pre-eval (eval form))
             res (-> form
-                    (unanalyzed-top-level (or env (taj/empty-env)))
+                    (unanalyzed-top-level (or env (jana2/empty-env)))
                     (check-expr expected))]
         res)))))
 
@@ -2414,7 +2411,7 @@
   ;TODO check fields match, handle extra fields in records
   (binding [vs/*current-env* env]
     (let [compiled-class (:class-name expr)
-          ;; taj/validate turns :class-name into a class.
+          ;; jana2/validate turns :class-name into a class.
           ;; might not be run at this point.
           compiled-class (if (symbol? compiled-class)
                            (coerce/symbol->Class compiled-class)
