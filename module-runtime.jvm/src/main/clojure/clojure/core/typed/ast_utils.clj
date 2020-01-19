@@ -17,7 +17,7 @@
 
 ;AnalysisExpr -> Form
 ;(ann emit-form-fn [Any -> Any])
-(let [emit-form-clj (delay (impl/dynaload 'clojure.tools.analyzer.passes.jvm.emit-form/emit-form))
+(let [emit-form-clj (delay (impl/dynaload 'clojure.core.typed.analyzer.jvm.passes.emit-form/emit-form))
       emit-form-cljs (delay (impl/dynaload 'clojure.core.typed.util-cljs/emit-form))]
   (defn emit-form-fn [expr]
     (impl/impl-case

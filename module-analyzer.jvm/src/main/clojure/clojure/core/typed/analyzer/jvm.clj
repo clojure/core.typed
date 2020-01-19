@@ -13,6 +13,7 @@
             [clojure.core.typed.analyzer.common :as ana]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.common.passes :as passes]
+            [clojure.core.typed.analyzer.common.passes.constant-lifter :as constant-lift]
             [clojure.core.typed.analyzer.common.passes.elide-meta :as elide-meta]
             [clojure.core.typed.analyzer.common.passes.source-info :as source-info]
             [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]
@@ -21,8 +22,7 @@
             [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
             [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
             [clojure.core.typed.analyzer.jvm.utils :as ju]
-            [clojure.core.typed.analyzer.common.passes.constant-lifter :as constant-lift]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
             [clojure.core.typed.analyzer.common.utils :as u])
   (:import (clojure.lang RT Var IObj)))
 

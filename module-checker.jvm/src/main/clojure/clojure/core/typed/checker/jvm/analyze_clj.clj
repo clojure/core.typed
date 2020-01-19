@@ -30,7 +30,7 @@
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.jvm.utils :as taj-utils]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
             [clojure.tools.analyzer.utils :as ta-utils]))
 

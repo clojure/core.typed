@@ -1,6 +1,6 @@
 (ns clojure.core.typed.analyzer.jvm-test
   (:require [clojure.test :refer :all]
-            [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.ast :as ast]

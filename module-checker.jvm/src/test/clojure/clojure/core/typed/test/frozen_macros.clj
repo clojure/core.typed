@@ -5,7 +5,7 @@
     [clojure.test :refer :all]
     [clojure.core.typed.analyzer.jvm :as ana]
     [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
-    [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
+    [clojure.core.typed.analyzer.jvm.passes.emit-form :refer [emit-form]]
     [clojure.tools.analyzer.jvm :as taj]
     [clojure.core.typed :as t]
     [clojure.tools.analyzer.jvm.utils :as ju]))

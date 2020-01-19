@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
-            [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :refer [emit-form]]
             [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.pprint :as pprint]
             [clojure.core.typed.analyzer.common :as ana]

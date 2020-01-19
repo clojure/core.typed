@@ -128,7 +128,7 @@
                       [clojure.tools.reader.reader-types :as rdrt]
                       [clojure.java.io :as io]
                       [clojure.core.typed.ast-utils :as ast]
-                      [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+                      [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
                       [clojure.core.typed.analyzer.jvm :as jana2]
                       [clojure.core.typed.annotator.insert :as insert
                        :refer [replace-generated-annotations]]

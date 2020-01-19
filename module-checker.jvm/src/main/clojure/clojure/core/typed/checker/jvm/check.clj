@@ -113,7 +113,7 @@
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.jvm.utils :as jtau]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
             [clojure.tools.analyzer.utils :as tau]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as readers])

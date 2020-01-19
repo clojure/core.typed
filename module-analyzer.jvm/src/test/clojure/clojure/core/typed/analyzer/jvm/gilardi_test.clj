@@ -4,7 +4,7 @@
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.common :as ana2]
             [clojure.tools.analyzer.ast :as ast]
-            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]))
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]))
 
 (declare check-expr)
 

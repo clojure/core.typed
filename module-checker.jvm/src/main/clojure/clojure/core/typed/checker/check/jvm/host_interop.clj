@@ -28,7 +28,7 @@
   [x]
   (instance? clojure.lang.IObj x))
 
-;; from clojure.tools.analyzer.passes.jvm.emit-form
+;; from clojure.core.typed.analyzer.jvm.passes.emit-form
 (defn- class->sym [class]
   (if (symbol? class)
     class
