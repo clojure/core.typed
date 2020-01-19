@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;; adapted from tools.analyzer
-(ns clojure.core.typed.analyzer.passes
+(ns clojure.core.typed.analyzer.common.passes
   (:require [clojure.core.typed.analyzer.common :as ana]
             [clojure.tools.analyzer.passes :as passes]
             [clojure.tools.analyzer.utils :as u]))

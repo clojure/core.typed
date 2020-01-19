@@ -14,7 +14,7 @@
             [clojure.tools.analyzer.utils :refer [ctx -source-info dissoc-env mmerge update-vals] :as u]
             [clojure.tools.analyzer.ast :refer [prewalk postwalk]]
             [clojure.tools.analyzer.env :as env]
-            [clojure.core.typed.analyzer.passes :as passes]
+            [clojure.core.typed.analyzer.common.passes :as passes]
             [clojure.tools.analyzer.passes.source-info :refer [source-info]]
             [clojure.tools.analyzer.passes.elide-meta :refer [elide-meta elides]]
             [clojure.core.typed.analyzer.passes.uniquify :as uniquify2]

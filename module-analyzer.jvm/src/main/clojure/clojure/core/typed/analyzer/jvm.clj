@@ -17,7 +17,7 @@
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.core.typed.analyzer.passes :as passes]
+            [clojure.core.typed.analyzer.common.passes :as passes]
             [clojure.core.typed.analyzer.passes.jvm.infer-tag :as infer-tag]
             [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
             [clojure.tools.analyzer.passes.source-info :as source-info]
