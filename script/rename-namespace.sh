@@ -15,4 +15,12 @@ if [ -z $NEW_NAMESPACE ]; then
   exit 1
 fi
 
-git grep -l $OLD_NAMESPACE | xargs sed -i '' "s/$OLD_NAMESPACE/$NEW_NAMESPACE/g"
+# 1. namespaced keywords/symbols
+# 2. ending in space
+# 3. ending in newline (https://stackoverflow.com/a/12324899)
+git grep -l $OLD_NAMESPACE \
+  | xargs sed -i '' "s/$OLD_NAMESPACE\//$NEW_NAMESPACE\//g" \
+  | xargs sed -i '' "s/$OLD_NAMESPACE /$NEW_NAMESPACE /g" \
+  | xargs sed -i '' "s/$OLD_NAMESPACE
+/$NEW_NAMESPACE
+/g"
