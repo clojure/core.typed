@@ -1,3 +1,8 @@
+# 0.8.0 - SNAPSHOT
+
+- Renamed clojure.core.typed.analyzer => clojure.core.typed.analyzer.common
+  - also applies to namespaced keywords
+
 # 0.7.1 - 16 April 2019
 
 - Correct initialize pass :state via `unanalyzed`

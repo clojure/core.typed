@@ -236,7 +236,7 @@
   (case (some-> vs/*check-config* deref :type-check-eval)
     :interleave (ana2/eval-top-level expr)
     :pre-eval expr
-    :simulate (if-not (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
+    :simulate (if-not (get-in expr [::ana2/config ::real-expr])
                 ; an inner form, like `a` in `[a]`
                 (do
                   #_
@@ -253,7 +253,7 @@
                       (merge expr
                              (select-keys (:ret expr) [:result])))
 
-                  :else (let [real-expr (get-in expr [:clojure.core.typed.analyzer/config ::real-expr])
+                  :else (let [real-expr (get-in expr [::ana2/config ::real-expr])
                               real-expr (ana2/eval-top-level real-expr)]
                           #_
                           (prn "fake-expr" (emit-form/emit-form expr)
@@ -285,8 +285,8 @@
                                     (#(binding [ana2/macroexpand-1 (impl/impl-case
                                                                      :clojure jana2/macroexpand-1
                                                                      :cljs (throw (Error. "TODO: macroexpand for cljs forms")))]
-                                        (update-in % [:clojure.core.typed.analyzer/config ::real-expr] ana2/analyze-outer))))
-                      real-expr (get-in fake-expr [:clojure.core.typed.analyzer/config ::real-expr])
+                                        (update-in % [::ana2/config ::real-expr] ana2/analyze-outer))))
+                      real-expr (get-in fake-expr [::ana2/config ::real-expr])
                       ; keep real and fake subexpressions in sync while real is top-level
                       fake-expr (if (and (ana2/top-level? real-expr)
                                          (#{:do} (:op real-expr)))
@@ -306,11 +306,11 @@
                                                       (mapv (fn [fake-statement real-statement]
                                                               {:pre [(:op fake-statement)
                                                                      (:op real-statement)]} 
-                                                              (assoc-in fake-statement [:clojure.core.typed.analyzer/config ::real-expr]
+                                                              (assoc-in fake-statement [::ana2/config ::real-expr]
                                                                         real-statement))
                                                             fake-statements
                                                             real-statements))))
-                                          (assoc-in [:ret :clojure.core.typed.analyzer/config ::real-expr]
+                                          (assoc-in [:ret ::ana2/config ::real-expr]
                                                     (:ret real-expr))))
                                   fake-expr)
                       _ (when (ana2/top-level? real-expr)
@@ -339,7 +339,7 @@
   (case (some-> vs/*check-config* deref :type-check-eval)
     (:interleave :pre-eval) (ana2/unanalyzed-top-level form env)
     :simulate (let [expr (ana2/unanalyzed-top-level form env)]
-                (assoc-in expr [:clojure.core.typed.analyzer/config ::real-expr] expr))))
+                (assoc-in expr [::ana2/config ::real-expr] expr))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
