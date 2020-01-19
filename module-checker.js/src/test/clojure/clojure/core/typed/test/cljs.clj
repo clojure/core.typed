@@ -9,9 +9,9 @@
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
 
-            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
+            [clojure.core.typed.checker.base-env-common :refer [delay-and-cache-env]
              :as common]
-            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.checker.var-env :as var-env]
             [clojure.core.typed.test.cljs-core :as core-test]
             [clojure.core.typed.analyzer-api-intercept :as fake-ana-api]))
 

@@ -1125,6 +1125,10 @@ clojure.core/nfirst
 (All [x]
      [(t/Option (Seqable (t/Option (Seqable x)))) -> (t/Option (t/NonEmptyASeq x))])
 
+clojure.core/group-by
+(All [x y]
+     [[x -> y] (U nil (Seqable x)) -> (t/Map y (t/Vec x))])
+
 clojure.core/fnext
 (All [x]
      [(t/Option (Seqable (t/Option (Seqable x)))) -> (t/Option x)])
