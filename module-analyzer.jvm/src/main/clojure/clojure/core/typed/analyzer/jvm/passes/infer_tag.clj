@@ -13,11 +13,11 @@
   (:require [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.common.utils :as cu]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
+            [clojure.core.typed.analyzer.jvm.passes.annotate-host-info :as annotate-host-info]
             [clojure.core.typed.analyzer.jvm.passes.annotate-tag :as annotate-tag]
             [clojure.core.typed.analyzer.jvm.passes.fix-case-test :as fix-case-test]
             [clojure.core.typed.analyzer.jvm.utils :as ju]
-            [clojure.set :as set]
-            [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]))
+            [clojure.set :as set]))
 
 (defmulti -infer-tag :op)
 (defmethod -infer-tag :default [ast] ast)

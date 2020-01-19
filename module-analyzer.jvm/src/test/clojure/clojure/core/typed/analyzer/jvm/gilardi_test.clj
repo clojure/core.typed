@@ -1,10 +1,10 @@
 (ns clojure.core.typed.analyzer.jvm.gilardi-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.core.typed.analyzer.common :as ana2]
+            [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
-            [clojure.core.typed.analyzer.common :as ana2]
-            [clojure.tools.analyzer.ast :as ast]
-            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]))
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
+            [clojure.test :refer :all]))
 
 (declare check-expr)
 
