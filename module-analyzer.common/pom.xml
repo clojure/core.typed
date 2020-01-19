@@ -47,10 +47,5 @@
       <artifactId>clojure</artifactId>
       <version>1.9.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>tools.analyzer</artifactId>
-      <version>0.7.0</version>
-    </dependency>
   </dependencies>
 </project>
