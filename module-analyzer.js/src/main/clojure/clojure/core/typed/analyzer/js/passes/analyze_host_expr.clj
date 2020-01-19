@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;copied from tools.analyzer.js
-(ns clojure.core.typed.analyzer.passes.js.analyze-host-expr
+(ns clojure.core.typed.analyzer.js.passes.analyze-host-expr
   (:require [clojure.tools.analyzer.env :as env]
             [clojure.tools.analyzer.utils :refer [resolve-ns resolve-sym]]))
 

@@ -12,7 +12,7 @@
             [clojure.tools.analyzer.utils :refer [arglist-for-arity]]
             [clojure.core.typed.analyzer.common.passes.add-binding-atom :refer [add-binding-atom]]
             [clojure.core.typed.analyzer.passes.js.annotate-tag :refer [annotate-tag]]
-            [clojure.core.typed.analyzer.passes.js.analyze-host-expr :refer [analyze-host-expr]]))
+            [clojure.core.typed.analyzer.js.passes.analyze-host-expr :refer [analyze-host-expr]]))
 
 (defmulti -infer-tag :op)
 (defmethod -infer-tag :default [ast] ast)
