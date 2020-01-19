@@ -11,11 +11,10 @@
 (ns clojure.core.typed.analyzer.jvm.passes.analyze-host-expr
   (:require [clojure.core.typed.analyzer.common :as ana]
             [clojure.core.typed.analyzer.common.utils :refer [ctx source-info merge']]
-            [clojure.tools.analyzer.jvm.utils :as taj-utils]
-            [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]))
+            [clojure.core.typed.analyzer.jvm.utils :as u]))
 
 (defn maybe-static-field [[_ class sym]]
-  (when-let [{:keys [flags type name]} (taj-utils/static-field class sym)]
+  (when-let [{:keys [flags type name]} (u/static-field class sym)]
     {:op          :static-field
      :assignable? (not (:final flags))
      :class       class
@@ -24,7 +23,7 @@
      :tag         type}))
 
 (defn maybe-static-method [[_ class sym]]
-  (when-let [{:keys [name return-type]} (taj-utils/static-method class sym)]
+  (when-let [{:keys [name return-type]} (u/static-method class sym)]
     {:op      :static-call
      :tag     return-type
      :o-tag   return-type
@@ -32,7 +31,7 @@
      :method  name}))
 
 (defn maybe-instance-method [target-expr class sym]
-  (when-let [{:keys [return-type]} (taj-utils/instance-method class sym)]
+  (when-let [{:keys [return-type]} (u/instance-method class sym)]
     {:op       :instance-call
      :tag      return-type
      :o-tag    return-type
@@ -42,7 +41,7 @@
      :children [:instance]}))
 
 (defn maybe-instance-field [target-expr class sym]
-  (when-let [{:keys [flags name type]} (taj-utils/instance-field class sym)]
+  (when-let [{:keys [flags name type]} (u/instance-field class sym)]
     {:op          :instance-field
      :assignable? (not (:final flags))
      :class       class
@@ -65,7 +64,7 @@
        :static   {:class    class
                   :children [:args]}
        :instance {:instance target-expr
-                  :class    (taj-utils/maybe-class (:tag target-expr))
+                  :class    (u/maybe-class (:tag target-expr))
                   :children [:instance :args]}))))
 
 (defn analyze-host-field
@@ -154,7 +153,7 @@
   (case op
     (:host-interop :host-call :host-field)
     (let [target (if-let [the-class (and (= :local (:op target))
-                                         (jana2-utils/maybe-class-literal (:form target)))]
+                                         (u/maybe-class-literal (:form target)))]
                    (merge target
                           (assoc (ana/analyze-const the-class env :class)
                             :tag   Class
@@ -183,12 +182,12 @@
     :var
     (if-let [the-class (and (not (namespace form))
                             (pos? (.indexOf (str form) "."))
-                            (jana2-utils/maybe-class-literal form))]
+                            (u/maybe-class-literal form))]
       (assoc (ana/analyze-const the-class env :class) :form form)
       ast)
 
     :maybe-class
-    (if-let [the-class (jana2-utils/maybe-class-literal class)]
+    (if-let [the-class (u/maybe-class-literal class)]
       (assoc (ana/analyze-const the-class env :class) :form form)
       ast)
 
