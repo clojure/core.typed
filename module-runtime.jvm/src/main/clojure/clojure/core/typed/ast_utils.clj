@@ -29,7 +29,7 @@
          (#{:const} (:op (:expr expr)))]}
   (-> expr :expr :val))
 
-(let [constant-lift (delay (impl/dynaload 'clojure.tools.analyzer.passes.jvm.constant-lifter/constant-lift))]
+(let [constant-lift (delay (impl/dynaload 'clojure.core.typed.analyzer.common.passes.jvm.constant-lifter/constant-lift))]
   (defn map-expr-at [expr key]
     (impl/impl-case
       :clojure (case (:op expr)

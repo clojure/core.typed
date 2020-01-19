@@ -21,7 +21,7 @@
             [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
             [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
             [clojure.core.typed.analyzer.jvm.utils :as ju]
-            [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
+            [clojure.core.typed.analyzer.common.passes.constant-lifter :as constant-lift]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.analyzer.common.utils :as u])
   (:import (clojure.lang RT Var IObj)))
