@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ; copied from tools.analyzer
-(ns clojure.core.typed.analyzer.env
+(ns clojure.core.typed.analyzer.common.env
   (:refer-clojure :exclude [ensure]))
 
 (def ^:dynamic *env*

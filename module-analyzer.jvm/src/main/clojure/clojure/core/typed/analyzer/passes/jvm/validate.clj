@@ -14,7 +14,7 @@
 ; - remove clojure.tools.analyzer.passes.jvm.validate-recur
 (ns clojure.core.typed.analyzer.passes.jvm.validate
   (:require [clojure.tools.analyzer.ast :refer [prewalk]]
-            [clojure.core.typed.analyzer.env :as env]
+            [clojure.core.typed.analyzer.common.env :as env]
             [clojure.tools.analyzer.passes.cleanup :refer [cleanup]]
             [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.core.typed.analyzer.passes.jvm.infer-tag :as infer-tag]

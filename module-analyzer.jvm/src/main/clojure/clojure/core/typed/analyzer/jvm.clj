@@ -12,7 +12,7 @@
   (:require [clojure.tools.analyzer.utils :as u]
             [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.core.typed.analyzer.jvm.utils :as jana2-utils]
-            [clojure.core.typed.analyzer.env :as env]
+            [clojure.core.typed.analyzer.common.env :as env]
             [clojure.tools.analyzer :as ta]
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]

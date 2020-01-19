@@ -12,7 +12,7 @@
 (ns clojure.core.typed.analyzer.passes.jvm.infer-tag
   (:require [clojure.tools.analyzer.utils :refer [arglist-for-arity]]
             [clojure.tools.analyzer.jvm.utils :as u]
-            [clojure.core.typed.analyzer.env :as env]
+            [clojure.core.typed.analyzer.common.env :as env]
             [clojure.set :as set]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
             [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]

@@ -10,7 +10,7 @@
   {:skip-wiki true}
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.analyzer.common :as ana2]
-            [clojure.core.typed.analyzer.env :as env]
+            [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.ast-utils :as ast-u]
