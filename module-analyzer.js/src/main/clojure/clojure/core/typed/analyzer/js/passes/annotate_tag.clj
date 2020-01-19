@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;copied from tools.analyzer.js
-(ns clojure.core.typed.analyzer.passes.js.annotate-tag)
+(ns clojure.core.typed.analyzer.js.passes.annotate-tag)
 
 (defmulti -annotate-tag :op)
 
