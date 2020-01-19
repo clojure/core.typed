@@ -8,7 +8,7 @@
 
 ;copied from tools.analyzer.js
 ; - use ana2/resolve-{sym,ns}
-(ns clojure.core.typed.analyzer.passes.js.validate
+(ns clojure.core.typed.analyzer.js.passes.validate
   (:require [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.core.typed.analyzer.common.passes.cleanup :as cleanup]

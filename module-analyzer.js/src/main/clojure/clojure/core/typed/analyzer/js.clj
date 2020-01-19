@@ -19,7 +19,7 @@
             [clojure.core.typed.analyzer.common.passes.elide-meta :refer [elide-meta elides]]
             [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]
             [clojure.core.typed.analyzer.passes.js.infer-tag :refer [infer-tag]]
-            [clojure.core.typed.analyzer.passes.js.validate :refer [validate]]
+            [clojure.core.typed.analyzer.js.passes.validate :refer [validate]]
             [clojure.core.typed.analyzer.js.utils
              :refer [desugar-ns-specs validate-ns-specs ns-resource ns->relpath res-path]]
             [cljs.env :as cljs-env]
