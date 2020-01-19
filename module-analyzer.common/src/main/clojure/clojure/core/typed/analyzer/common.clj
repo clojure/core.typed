@@ -9,8 +9,8 @@
 ;; adapted from tools.analyzer
 (ns clojure.core.typed.analyzer.common
   (:refer-clojure :exclude [macroexpand-1 var?])
-  (:require [clojure.tools.analyzer.ast :as ast]
-            [clojure.tools.analyzer.utils :as u])
+  (:require [clojure.core.typed.analyzer.common.ast :as ast]
+            [clojure.core.typed.analyzer.common.utils :as u])
   (:import (clojure.lang Symbol IPersistentVector IPersistentMap IPersistentSet ISeq IType IRecord)))
 
 (def ^{:dynamic  true

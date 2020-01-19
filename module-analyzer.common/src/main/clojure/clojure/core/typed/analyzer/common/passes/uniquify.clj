@@ -7,8 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.analyzer.common.passes.uniquify
-  (:require [clojure.tools.analyzer.ast :refer [update-children children]]
-            [clojure.tools.analyzer.utils :refer [update-vals]]
+  (:require [clojure.core.typed.analyzer.common.ast :refer [update-children children]]
+            [clojure.core.typed.analyzer.common.utils :refer [update-vals]]
             [clojure.core.typed.analyzer.common.env :as env]))
 
 (def ^:dynamic *locals-counter*) ;; global counter, map sym -> count

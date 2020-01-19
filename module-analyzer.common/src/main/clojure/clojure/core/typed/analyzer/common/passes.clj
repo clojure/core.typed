@@ -9,8 +9,8 @@
 ;; adapted from tools.analyzer
 (ns clojure.core.typed.analyzer.common.passes
   (:require [clojure.core.typed.analyzer.common :as ana]
-            [clojure.tools.analyzer.passes :as passes]
-            [clojure.tools.analyzer.utils :as u]))
+            [clojure.core.typed.analyzer.common.utils :as u]
+            [clojure.tools.analyzer.passes :as passes]))
 
 (defn compile-passes [pre-passes post-passes info]
   (let [with-state (filter (comp :state info) (concat pre-passes post-passes))
