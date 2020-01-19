@@ -221,7 +221,22 @@
               (str (ns-name (.ns v))))
             (str (.sym v)))))
 
-; copied from tools.analyzer.jvm
+;copied from clojure.tools.analyzer.jvm
+(defn qualify-arglists [arglists]
+  (vary-meta arglists merge
+             (when-let [t (:tag (meta arglists))]
+               {:tag (if (or (string? t)
+                             (ju/specials (str t))
+                             (ju/special-arrays (str t)))
+                       t
+                       (if-let [c (ju/maybe-class t)]
+                         (let [new-t (-> c .getName symbol)]
+                           (if (= new-t t)
+                             t
+                             (with-meta new-t {::qualified? true})))
+                         t))})))
+
+; copied from clojure.tools.analyzer.jvm
 ; - remove usage of *env*
 (defn create-var
   "Creates a Var for sym and returns it.
@@ -233,7 +248,7 @@
       v
       (let [meta (dissoc (meta sym) :inline :inline-arities :macro)
             meta (if-let [arglists (:arglists meta)]
-                   (assoc meta :arglists (taj/qualify-arglists arglists))
+                   (assoc meta :arglists (qualify-arglists arglists))
                    meta)]
        (intern ns (with-meta sym meta))))))
 
