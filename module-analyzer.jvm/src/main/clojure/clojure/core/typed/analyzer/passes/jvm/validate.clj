@@ -18,7 +18,7 @@
             [clojure.tools.analyzer.passes.cleanup :refer [cleanup]]
             [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.core.typed.analyzer.passes.jvm.infer-tag :as infer-tag]
-            [clojure.core.typed.analyzer :refer [resolve-sym resolve-ns]]
+            [clojure.core.typed.analyzer.common :refer [resolve-sym resolve-ns]]
             [clojure.tools.analyzer.utils :refer [arglist-for-arity source-info merge']]
             [clojure.tools.analyzer.jvm.utils :as u :refer [tag-match? try-best-match]])
   (:import (clojure.lang IFn)))

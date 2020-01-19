@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.core.typed.checker.check.recur-utils :as recur-u]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.checker.utils :as u]))
 
 ; corresponds to a c.c.t/loop macro.

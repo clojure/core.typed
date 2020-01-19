@@ -14,7 +14,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.lex-env :as lex]
-            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.checker.check.let :as let]
             [clojure.core.typed.checker.type-rep :as r]))
 

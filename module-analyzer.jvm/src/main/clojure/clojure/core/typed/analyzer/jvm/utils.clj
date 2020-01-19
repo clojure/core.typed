@@ -9,7 +9,7 @@
 (ns clojure.core.typed.analyzer.jvm.utils
   (:require [clojure.tools.analyzer.jvm.utils :as ju]
             [clojure.tools.analyzer.utils :as u]
-            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.common :as ana2]
             [clojure.tools.analyzer.env :as env1]))
 
 ;; ensure `taj-utils/maybe-class-literal` does not use ta-env/*env*,

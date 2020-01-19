@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.core.typed.analyzer.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
-            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.common :as ana2]
             [clojure.tools.analyzer.ast :as ast]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]

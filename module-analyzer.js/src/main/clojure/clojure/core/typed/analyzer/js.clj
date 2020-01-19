@@ -10,7 +10,7 @@
 (ns clojure.core.typed.analyzer.js
   "Analyzer for clojurescript code, extends tools.analyzer with JS specific passes/forms"
   (:refer-clojure :exclude [macroexpand-1 var? ns-resolve])
-  (:require [clojure.core.typed.analyzer :as ana]
+  (:require [clojure.core.typed.analyzer.common :as ana]
             [clojure.tools.analyzer.utils :refer [ctx -source-info dissoc-env mmerge update-vals] :as u]
             [clojure.tools.analyzer.ast :refer [prewalk postwalk]]
             [clojure.tools.analyzer.env :as env]

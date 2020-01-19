@@ -9,7 +9,7 @@
 (ns clojure.core.typed.rules
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.internal :as internal]
-            [clojure.core.typed.analyzer :as ana2]))
+            [clojure.core.typed.analyzer.common :as ana2]))
 
 (t/defalias TCType t/Any)
 (t/defalias MsgFnOpts (t/HMap))

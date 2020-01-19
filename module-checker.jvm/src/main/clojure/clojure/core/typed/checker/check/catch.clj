@@ -12,7 +12,7 @@
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.lex-env :as lex]
-            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.ast-utils :as ast-u]))
 
 (defn check-catch [check {handler :body :keys [local] :as expr} expected]

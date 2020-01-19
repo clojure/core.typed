@@ -16,7 +16,7 @@
             [clojure.tools.analyzer.ast :as ast]
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.pprint :as pprint]
-            [clojure.core.typed.analyzer :as ana]
+            [clojure.core.typed.analyzer.common :as ana]
             [clojure.tools.analyzer.utils :as u]
             [clojure.core.typed.analyzer.passes.uniquify :as uniquify]))
 

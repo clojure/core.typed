@@ -8,7 +8,7 @@
             [com.gfredericks.test.chuck.generators :as gen']
             [clojure.test.check.generators :as gen]
             [clojure.core.typed :as t]
-            [clojure.core.typed.analyzer :as ana2]
+            [clojure.core.typed.analyzer.common :as ana2]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.runtime-infer :refer :all :as infer]

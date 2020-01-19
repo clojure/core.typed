@@ -8,7 +8,7 @@
 
 ;; adapted from tools.analyzer
 (ns clojure.core.typed.analyzer.passes
-  (:require [clojure.core.typed.analyzer :as ana]
+  (:require [clojure.core.typed.analyzer.common :as ana]
             [clojure.tools.analyzer.passes :as passes]
             [clojure.tools.analyzer.utils :as u]))
 
