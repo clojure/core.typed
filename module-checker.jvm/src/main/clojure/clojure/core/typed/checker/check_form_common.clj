@@ -20,7 +20,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.repl :as repl]
             [clojure.core.typed.analyzer.common :as ana]
-            [clojure.core.typed.analyzer.passes.jvm.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer.jvm.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
 
@@ -155,7 +155,7 @@
                        (do (when-let [state (-> ast
                                                 :env
                                                 ::ana/state
-                                                (get #'clojure.core.typed.analyzer.passes.jvm.beta-reduce/push-invoke))]
+                                                (get #'clojure.core.typed.analyzer.jvm.passes.beta-reduce/push-invoke))]
                              (when (::beta-reduce/reached-beta-limit @state)
                                (err/int-error
                                  (str "Exceeded the limit of symbolic beta reductions in a single form "

@@ -6,8 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.analyzer.passes.jvm.classify-invoke
-  (:require [clojure.core.typed.analyzer.passes.jvm.validate :as validate]
+(ns clojure.core.typed.analyzer.jvm.passes.classify-invoke
+  (:require [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
             [clojure.tools.analyzer.passes.jvm.classify-invoke :as classify-invoke]))
 
 ;;redefine passes mainly to move dependency on `uniquify-locals`

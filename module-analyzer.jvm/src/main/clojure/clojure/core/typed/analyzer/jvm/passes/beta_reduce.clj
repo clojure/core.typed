@@ -6,9 +6,9 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.analyzer.passes.jvm.beta-reduce
-  (:require [clojure.core.typed.analyzer.passes.jvm.classify-invoke :as classify-invoke]
-            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
+(ns clojure.core.typed.analyzer.jvm.passes.beta-reduce
+  (:require [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
             [clojure.tools.analyzer.passes.jvm.emit-form :refer [emit-form]]
             [clojure.tools.analyzer.passes.source-info :as source-info]

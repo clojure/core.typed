@@ -9,15 +9,15 @@
 ; copied from tools.analyzer.jvm
 ; - changed :pass-info for `validate`
 ; - use ana2/resolve-{sym,ns} instead of u/resolve-{sym,ns}
-; - use clojure.core.typed.analyzer.passes.jvm.infer-tag
-; - use clojure.core.typed.analyzer.passes.jvm.analyze-host-expr
+; - use clojure.core.typed.analyzer.jvm.passes.infer-tag
+; - use clojure.core.typed.analyzer.jvm.passes.analyze-host-expr
 ; - remove clojure.tools.analyzer.passes.jvm.validate-recur
-(ns clojure.core.typed.analyzer.passes.jvm.validate
+(ns clojure.core.typed.analyzer.jvm.passes.validate
   (:require [clojure.tools.analyzer.ast :refer [prewalk]]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.tools.analyzer.passes.cleanup :refer [cleanup]]
-            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
-            [clojure.core.typed.analyzer.passes.jvm.infer-tag :as infer-tag]
+            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
+            [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
             [clojure.core.typed.analyzer.common :refer [resolve-sym resolve-ns]]
             [clojure.tools.analyzer.utils :refer [arglist-for-arity source-info merge']]
             [clojure.tools.analyzer.jvm.utils :as u :refer [tag-match? try-best-match]])

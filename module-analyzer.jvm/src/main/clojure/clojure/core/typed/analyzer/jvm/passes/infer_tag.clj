@@ -9,15 +9,15 @@
 ;copied from tools.analyzer.jvm
 ; - changed :pass-info for `infer-tag`
 ; - use analyzer.env
-(ns clojure.core.typed.analyzer.passes.jvm.infer-tag
+(ns clojure.core.typed.analyzer.jvm.passes.infer-tag
   (:require [clojure.tools.analyzer.utils :refer [arglist-for-arity]]
             [clojure.tools.analyzer.jvm.utils :as u]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.set :as set]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
             [clojure.tools.analyzer.passes.jvm.annotate-host-info :as annotate-host-info]
-            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
-            [clojure.core.typed.analyzer.passes.jvm.fix-case-test :as fix-case-test]))
+            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
+            [clojure.core.typed.analyzer.jvm.passes.fix-case-test :as fix-case-test]))
 
 (defmulti -infer-tag :op)
 (defmethod -infer-tag :default [ast] ast)

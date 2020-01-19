@@ -18,14 +18,14 @@
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.analyzer.common.passes :as passes]
-            [clojure.core.typed.analyzer.passes.jvm.infer-tag :as infer-tag]
+            [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
             [clojure.tools.analyzer.passes.elide-meta :as elide-meta]
             [clojure.tools.analyzer.passes.source-info :as source-info]
             [clojure.tools.analyzer.passes.jvm.constant-lifter :as constant-lift]
-            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
-            [clojure.core.typed.analyzer.passes.jvm.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
+            [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]
-            [clojure.core.typed.analyzer.passes.jvm.validate :as validate]
+            [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
             [clojure.core.typed.analyzer.common :as ana]
             [clojure.core.memoize :as memo])
   (:import (clojure.lang RT Var IObj)))

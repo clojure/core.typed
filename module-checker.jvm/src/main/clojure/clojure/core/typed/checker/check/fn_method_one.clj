@@ -32,7 +32,7 @@
             [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.checker.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.analyzer.common :as ana]
-            [clojure.core.typed.analyzer.passes.jvm.beta-reduce :as beta-reduce]))
+            [clojure.core.typed.analyzer.jvm.passes.beta-reduce :as beta-reduce]))
 
 ;check method is under a particular Function, and return inferred Function
 ; if ignore-rng is true, otherwise return expression with original expected type.

@@ -15,7 +15,7 @@
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
             [clojure.core.typed.analyzer.common.passes :as passes]
-            [clojure.core.typed.analyzer.passes.jvm.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer.jvm.passes.beta-reduce :as beta-reduce]
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]

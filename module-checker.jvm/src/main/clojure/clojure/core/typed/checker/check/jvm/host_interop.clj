@@ -10,7 +10,7 @@
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.check.utils :as cu]
             [clojure.tools.analyzer.passes.jvm.validate :as validate]
-            [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as ana-host]
+            [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as ana-host]
             [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
