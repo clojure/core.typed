@@ -19,6 +19,8 @@
   {:impl impl/clojurescript 
    :unparse-ns (ucljs/cljs-ns)
    :ast-for-form ana-cljs/ast-for-form
+   ;; TODO
+   :analyze-bindings-fn #(hash-map)
    :check-expr chk-cljs/check-expr})
 
 (defn check-form-info
@@ -32,7 +34,7 @@
   "Check a single form with an optional expected type.
   Intended to be called from Clojure. For evaluation at the Clojurescript
   REPL see cf."
-  [form expected expected-provided?]
+  [form expected expected-provided? opt]
   (ucljs/with-cljs-typed-env
     (comp/with-core-cljs
       nil

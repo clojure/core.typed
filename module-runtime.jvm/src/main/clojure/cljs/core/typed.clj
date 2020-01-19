@@ -293,20 +293,30 @@
   [& args]
   `(typed-deps* '~args))
 
-(let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.checker.check-form-cljs/check-form-cljs))]
+(core/defn default-check-config []
+  {:check-ns-dep :recheck
+   :unannotated-def :infer
+   :unannotated-var :error
+   :unannotated-multi :error
+   :type-check-eval :interleave
+   #_#_:unannotated-arg :any})
+
+(let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-cljs))]
   (defn cf* 
     "Check a single form with an optional expected type.
     Intended to be called from Clojure. For evaluation at the Clojurescript
     REPL see cf."
-    [form expected expected-provided?]
+    [form expected expected-provided? & {:as opt}]
     (load-if-needed)
-    (@check-form-cljs form expected expected-provided?)))
+    (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
+      (@check-form-cljs form expected expected-provided? opt))))
 
 (let [chkfi (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-info))]
   (defn check-form-info 
-    [form & opts]
+    [form & {:as opt}]
     (load-if-needed)
-    (apply @chkfi form opts)))
+    (core/let [opt (update opt :check-config #(merge (default-check-config) %))]
+      (apply @chkfi form (apply concat opt)))))
 
 (defmacro cf
   "Check a single form with an optional expected type."

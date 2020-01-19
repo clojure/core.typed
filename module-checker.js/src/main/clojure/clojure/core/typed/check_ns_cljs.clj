@@ -11,7 +11,7 @@
             [clojure.core.typed.current-impl :as impl]
             [cljs.env :as env]
             [clojure.core.typed.util-cljs :as ucljs]
-            [clojure.core.typed.check-ns-common :as chk-ns]))
+            [clojure.core.typed.checker.check-ns-common :as chk-ns]))
 
 (defn check-ns-info
   [ns-or-syms opt]

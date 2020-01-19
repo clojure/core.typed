@@ -101,7 +101,8 @@
    form & {:keys [expected-ret expected type-provided? file-mapping
                   checked-ast no-eval bindings-atom beta-limit
                   check-config]}]
-  {:pre [((some-fn nil? con/atom?) bindings-atom)
+  {:pre [analyze-bindings-fn
+         ((some-fn nil? con/atom?) bindings-atom)
          ((some-fn nil? symbol?) unparse-ns)
          (map? check-config)]}
   (assert (not (and expected-ret type-provided?)))
@@ -224,10 +225,11 @@
               {:file-mapping @file-mapping-atom})))))))
 
 (defn check-form*
-  [{:keys [impl unparse-ns] :as config} form expected type-provided?]
-  (let [{:keys [ex delayed-errors ret]} (check-form-info config form
-                                                      :expected expected 
-                                                      :type-provided? type-provided?)]
+  [{:keys [impl unparse-ns] :as config} form expected type-provided? & [opt]]
+  (let [{:keys [ex delayed-errors ret]} (apply check-form-info config form
+                                               :expected expected 
+                                               :type-provided? type-provided?
+                                               (apply concat opt))]
     (if-let [errors (seq delayed-errors)]
       (err/print-errors! errors)
       (if ex
