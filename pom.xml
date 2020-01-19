@@ -23,6 +23,7 @@
 
   <modules>
     <module>module-analyzer.common</module>
+    <module>module-analyzer.js</module>
     <module>module-analyzer.jvm</module>
     <module>module-annotator.jvm</module>
     <module>module-checker.jvm</module>
