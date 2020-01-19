@@ -12,7 +12,7 @@
             [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
-            [clojure.core.typed.analyzer.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.analyzer.passes.jvm.beta-reduce :as beta-reduce]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.checker.check-below :as below]
             [clojure.core.typed.checker.check.apply :as apply]

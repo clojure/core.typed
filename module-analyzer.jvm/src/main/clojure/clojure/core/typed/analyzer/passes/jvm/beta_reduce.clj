@@ -6,8 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-;; should be a JVM pass since it calls `run-passes`
-(ns clojure.core.typed.analyzer.passes.beta-reduce
+(ns clojure.core.typed.analyzer.passes.jvm.beta-reduce
   (:require [clojure.core.typed.analyzer.passes.jvm.classify-invoke :as classify-invoke]
             [clojure.core.typed.analyzer.passes.jvm.analyze-host-expr :as analyze-host-expr]
             [clojure.tools.analyzer.passes.jvm.annotate-tag :as annotate-tag]
