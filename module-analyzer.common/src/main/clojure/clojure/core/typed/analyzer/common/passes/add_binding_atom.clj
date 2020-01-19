@@ -6,9 +6,9 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.analyzer.passes.add-binding-atom
+(ns clojure.core.typed.analyzer.common.passes.add-binding-atom
   (:require [clojure.tools.analyzer.passes.add-binding-atom :as add-binding-atom]
-            [clojure.core.typed.analyzer.passes.uniquify :as uniquify2]))
+            [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]))
 
 ;;redefine passes mainly to move dependency on `uniquify-locals`
 ;; to `uniquify2/uniquify-locals`

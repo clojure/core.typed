@@ -17,7 +17,7 @@
             [clojure.core.typed.analyzer.common.passes :as passes]
             [clojure.tools.analyzer.passes.source-info :refer [source-info]]
             [clojure.tools.analyzer.passes.elide-meta :refer [elide-meta elides]]
-            [clojure.core.typed.analyzer.passes.uniquify :as uniquify2]
+            [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]
             [clojure.core.typed.analyzer.passes.js.infer-tag :refer [infer-tag]]
             [clojure.core.typed.analyzer.passes.js.validate :refer [validate]]
             [clojure.core.typed.analyzer.js.utils

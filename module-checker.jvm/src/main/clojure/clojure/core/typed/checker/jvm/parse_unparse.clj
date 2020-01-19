@@ -240,7 +240,7 @@
 (declare resolve-type-clj)
 
 (defn uniquify-local [sym]
-  (get-in vs/*current-expr* [:env :clojure.core.typed.analyzer.passes.uniquify/locals-frame-val sym]))
+  (get-in vs/*current-expr* [:env :clojure.core.typed.analyzer.common.passes.uniquify/locals-frame-val sym]))
 
 (defmethod parse-type-list 'clojure.core.typed/TypeOf [[_ sym :as t]]
   (impl/assert-clojure)

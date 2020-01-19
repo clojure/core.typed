@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.core.typed.analyzer.passes.uniquify
+(ns clojure.core.typed.analyzer.common.passes.uniquify
   (:require [clojure.tools.analyzer.ast :refer [update-children children]]
             [clojure.tools.analyzer.utils :refer [update-vals]]
             [clojure.core.typed.analyzer.common.env :as env]))

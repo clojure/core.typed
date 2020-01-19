@@ -18,7 +18,7 @@
             [clojure.pprint :as pprint]
             [clojure.core.typed.analyzer.common :as ana]
             [clojure.tools.analyzer.utils :as u]
-            [clojure.core.typed.analyzer.passes.uniquify :as uniquify]))
+            [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify]))
 
 (def beta-limit 500)
 
