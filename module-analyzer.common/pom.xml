@@ -2,9 +2,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.clojure</groupId>
-  <artifactId>core.typed.analyzer.jvm</artifactId>
-  <description>A variant of tools.analyzer.jvm.</description>
-  <name>core.typed.analyzer.jvm</name>
+  <artifactId>core.typed.analyzer.common</artifactId>
+  <description>A variant of tools.analyzer.</description>
+  <name>core.typed.analyzer.common</name>
   <version>0.7.3-SNAPSHOT</version>
 
   <licenses>
@@ -49,12 +49,7 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.typed.analyzer.common</artifactId>
-      <version>0.7.3-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>tools.analyzer.jvm</artifactId>
+      <artifactId>tools.analyzer</artifactId>
       <version>0.7.0</version>
     </dependency>
   </dependencies>
