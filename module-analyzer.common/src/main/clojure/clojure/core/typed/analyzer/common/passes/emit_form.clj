@@ -8,7 +8,7 @@
 
 ;copied from clojure.tools.analyzer.passes.emit-form
 (ns clojure.core.typed.analyzer.common.passes.emit-form
-  (:require [clojure.tools.analyzer.passes.uniquify :refer [uniquify-locals]]))
+  (:require [clojure.core.typed.analyzer.common.passes.uniquify :refer [uniquify-locals]]))
 
 (defmulti -emit-form (fn [{:keys [op]} _] op))
 
