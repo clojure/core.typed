@@ -11,7 +11,7 @@
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.jsnominal-env :as jsnom]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.errors :as err]))
 

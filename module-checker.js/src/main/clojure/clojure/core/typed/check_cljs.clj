@@ -50,7 +50,7 @@
             [clojure.core.typed.checker.utils :as u :refer [expr-type]]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]

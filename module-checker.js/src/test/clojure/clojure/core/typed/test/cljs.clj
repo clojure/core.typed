@@ -7,7 +7,7 @@
             [clojure.core.typed.util-cljs :as ucljs]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.checker.type-ctors :as c]
-            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.checker.jvm.parse-unparse :as prs]
 
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
              :as common]
