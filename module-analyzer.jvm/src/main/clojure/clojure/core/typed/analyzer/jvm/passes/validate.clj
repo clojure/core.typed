@@ -16,11 +16,11 @@
   (:require [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.core.typed.analyzer.common.env :as env]
+            [clojure.core.typed.analyzer.common.passes.cleanup :as cleanup]
             [clojure.core.typed.analyzer.common.utils :as cu]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
             [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
-            [clojure.core.typed.analyzer.jvm.utils :as ju]
-            [clojure.tools.analyzer.passes.cleanup :refer [cleanup]])
+            [clojure.core.typed.analyzer.jvm.utils :as ju])
   (:import (clojure.lang IFn)))
 
 (defmulti -validate :op)
@@ -55,7 +55,7 @@
   [{:keys [target form env] :as ast}]
   (when (not (:assignable? target))
     (throw (ex-info "Cannot set! non-assignable target"
-                    (merge {:target (ast/prewalk target cleanup)
+                    (merge {:target (ast/prewalk target cleanup/cleanup)
                             :form   form}
                            (cu/source-info env)))))
   ast)
@@ -86,7 +86,7 @@
               ast)
             (throw (ex-info (str "no ctor found for ctor of class: " class " and given signature")
                             (merge {:class class
-                                    :args  (mapv (fn [a] (ast/prewalk a cleanup)) args)}
+                                    :args  (mapv (fn [a] (ast/prewalk a cleanup/cleanup)) args)}
                                    (cu/source-info (:env ast)))))))))))
 
 (defn validate-call [{:keys [class instance method args tag env op] :as ast}]
@@ -125,7 +125,7 @@
             (throw (ex-info (str "No matching method: " method " for class: " class " and given signature")
                             (merge {:method method
                                     :class  class
-                                    :args   (mapv (fn [a] (ast/prewalk a cleanup)) args)}
+                                    :args   (mapv (fn [a] (ast/prewalk a cleanup/cleanup)) args)}
                                    (cu/source-info env)))))))
       (if instance?
         (assoc (dissoc ast :class) :tag Object :o-tag Object)
@@ -180,7 +180,7 @@
   (when-not (var? (:var ast))
     (throw (ex-info (str "Cannot def " (:name ast) " as it refers to the class "
                          (.getName ^Class (:var ast)))
-                    (merge {:ast      (ast/prewalk ast cleanup)}
+                    (merge {:ast      (ast/prewalk ast cleanup/cleanup)}
                            (cu/source-info (:env ast))))))
   (merge
    ast
@@ -192,7 +192,7 @@
        (if-let [handle (-> (env/deref-env) :passes-opts :validate/wrong-tag-handler)]
          (handle :name/tag ast)
          (throw (ex-info (str "Wrong tag: " (eval tag) " in def: " (:name ast))
-                         (merge {:ast      (ast/prewalk ast cleanup)}
+                         (merge {:ast      (ast/prewalk ast cleanup/cleanup)}
                                 (cu/source-info (:env ast))))))))))
 
 (defmethod -validate :invoke
@@ -239,7 +239,7 @@
         (handle t ast)
         (throw (ex-info (str "Class not found: " tag)
                         (merge {:class    tag
-                                :ast      (ast/prewalk ast cleanup)}
+                                :ast      (ast/prewalk ast cleanup/cleanup)}
                                (cu/source-info env))))))))
 
 ;;redefine passes mainly to move dependency on `uniquify-locals`

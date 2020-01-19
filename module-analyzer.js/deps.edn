@@ -1,5 +1,6 @@
 {:paths ["src/main/clojure"]
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}
+        org.clojure/tools.analyzer {:mvn/version "0.7.0"}
         org.clojure/clojurescript {:mvn/version "1.10.597"}
         org.clojure/core.typed.analyzer.common {:local/root "../module-analyzer.common"
                                                 :deps/manifest :deps}}

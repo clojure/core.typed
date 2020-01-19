@@ -7,11 +7,13 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 ;copied from tools.analyzer.js
+; - use ana2/resolve-{sym,ns}
 (ns clojure.core.typed.analyzer.passes.js.validate
-  (:require [clojure.tools.analyzer.ast :refer [prewalk]]
-            [clojure.tools.analyzer.passes.cleanup :refer [cleanup]]
+  (:require [clojure.core.typed.analyzer.common :as ana2]
+            [clojure.core.typed.analyzer.common.ast :as ast]
+            [clojure.core.typed.analyzer.common.passes.cleanup :as cleanup]
             [clojure.core.typed.analyzer.passes.js.infer-tag :refer [infer-tag]]
-            [clojure.tools.analyzer.utils :refer [source-info resolve-sym resolve-ns]]))
+            [clojure.core.typed.analyzer.common.utils :as cu]))
 
 (defmulti -validate :op)
 (defmethod -validate :default [ast] ast)
@@ -20,41 +22,41 @@
   (when-not (:analyzer/allow-undefined (meta form))
     (throw (ex-info (str "Cannot resolve: " class)
                     (merge {:sym class
-                            :ast (prewalk ast cleanup)}
-                           (source-info env))))) )
+                            :ast (ast/prewalk ast cleanup/cleanup)}
+                           (cu/source-info env))))) )
 
 (defmethod -validate :maybe-host-form [{:keys [form env] :as ast}]
   (when-not (:analyzer/allow-undefined (meta form))
     (throw (ex-info (str "Cannot resolve: " form)
                     (merge {:sym form
-                            :ast (prewalk ast cleanup)}
-                           (source-info env))))) )
+                            :ast (ast/prewalk ast cleanup/cleanup)}
+                           (cu/source-info env))))) )
 
 (defn validate-tag [t {:keys [env] :as ast}]
   (let [tag (ast t)]
     (if (symbol? tag)
-      (if-let [var (resolve-sym tag env)]
+      (if-let [var (ana2/resolve-sym tag env)]
         (symbol (str (:ns var)) (str (:name var)))
         #_(if (or (= :type (:op var))
                 (:protocol (meta var)))
           (symbol (str (:ns var)) (str (:name var)))
           (throw (ex-info (str "Not type/protocol var used as a tag: " tag)
                           (merge {:var var
-                                  :ast (prewalk ast cleanup)}
-                                 (source-info env)))))
+                                  :ast (ast/prewalk ast cleanup/cleanup)}
+                                 (cu/source-info env)))))
         tag
         #_(if (or ('#{boolean string number clj-nil any function object array} tag)
                 (and (namespace tag)
-                     (not (resolve-ns (symbol (namespace tag)) env))))
+                     (not (ana2/resolve-ns (symbol (namespace tag)) env))))
           tag
           (throw (ex-info (str "Cannot resolve: " tag)
                           (merge {:sym tag
-                                  :ast (prewalk ast cleanup)}
-                                 (source-info env))))))
+                                  :ast (ast/prewalk ast cleanup/cleanup)}
+                                 (cu/source-info env))))))
       (throw (ex-info (str "Invalid tag: " tag)
                       (merge {:tag tag
-                              :ast (prewalk ast cleanup)}
-                             (source-info env)))))))
+                              :ast (ast/prewalk ast cleanup/cleanup)}
+                             (cu/source-info env)))))))
 
 (defn validate
   "Validate tags and symbols.
