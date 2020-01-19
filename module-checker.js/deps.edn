@@ -29,8 +29,9 @@
            :test
            {:extra-paths ["src/test/clojure"
                           "src/test/cljs"
-                          "../module-check/src/test/clojure"
-                          "../module-check/src/test/cljs"]
+                          ; for clojure.core.typed.test.common-utils
+                          "../module-checker.jvm/src/test/clojure"
+                          "../module-checker.jvm/src/test/cljs"]
             :extra-deps {org.clojure/tools.nrepl {:mvn/version "0.2.6"
                                                   :exclusions [org.clojure/clojure]}
                          org.clojure/core.async {:mvn/version "0.3.465"

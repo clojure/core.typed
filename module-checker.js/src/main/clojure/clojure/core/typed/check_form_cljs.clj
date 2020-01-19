@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns clojure.core.typed.check-form-cljs
-  (:require [clojure.core.typed.check-form-common :as chk-form]
+  (:require [clojure.core.typed.checker.check-form-common :as chk-form] ;;TODO use check-form-common2
             [clojure.core.typed.analyze-cljs :as ana-cljs]
             [clojure.core.typed.check-cljs :as chk-cljs]
             [clojure.core.typed.util-cljs :as ucljs]
