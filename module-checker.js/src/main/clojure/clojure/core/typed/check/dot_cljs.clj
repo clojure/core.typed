@@ -9,7 +9,7 @@
 (ns clojure.core.typed.check.dot-cljs
   (:require [clojure.core.typed.checker.type-rep :as r]
             [clojure.core.typed.checker.utils :as u]
-            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check.funapp :as funapp]

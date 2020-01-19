@@ -12,7 +12,7 @@
 
 (require '[clojure.test :refer :all :as test]
          '[cljs.core.typed :as t]
-         '[clojure.core.typed.type-ctors :as c]
+         '[clojure.core.typed.checker.type-ctors :as c]
          '[clojure.core.typed.checker.type-rep :as r]
          '[clojure.core.typed.current-impl :as impl]
          '[clojure.core.typed.parse-unparse :as prs]
