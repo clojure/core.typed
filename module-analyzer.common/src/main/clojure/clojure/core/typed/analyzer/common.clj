@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-;; adapted from tools.analyzer
+;; adapted from clojure.tools.analyzer
 (ns clojure.core.typed.analyzer.common
   (:refer-clojure :exclude [macroexpand-1 var?])
   (:require [clojure.core.typed.analyzer.common.ast :as ast]
@@ -79,12 +79,7 @@
 (declare eval-top-level)
 
 (defn run-passes
-  "Function that will be invoked on the AST tree immediately after it has been constructed,
-   by default runs the passes declared in #'default-passes, should be rebound if a different
-   set of passes is required (via analyze2/run-passes).
-
-   Use #'clojure.tools.analyzer.passes/schedule to get a function from a set of passes that
-   run-passes can be bound to."
+  "Function that will be invoked on the AST tree immediately after it has been constructed."
   [ast]
   {:pre [(map? scheduled-passes)]}
   (ast/walk ast
