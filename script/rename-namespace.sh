@@ -18,7 +18,6 @@ fi
 # 1. namespaced keywords/symbols
 # 2. ending in space
 # 3. ending in newline
-git grep -l $OLD_NAMESPACE \
-  | xargs sed -i '' "s/${OLD_NAMESPACE}\//${NEW_NAMESPACE}\//g" \
-  | xargs sed -i '' "s/${OLD_NAMESPACE} /${NEW_NAMESPACE} /g" \
-  | xargs sed -i '' "s/${OLD_NAMESPACE}\$/${NEW_NAMESPACE}/g"
+git grep -l $OLD_NAMESPACE | xargs sed -i '' "s/${OLD_NAMESPACE}\//${NEW_NAMESPACE}\//g"
+git grep -l $OLD_NAMESPACE | xargs sed -i '' "s/${OLD_NAMESPACE} /${NEW_NAMESPACE} /g"
+git grep -l $OLD_NAMESPACE | xargs sed -i '' "s/${OLD_NAMESPACE}\$/${NEW_NAMESPACE}/g"
