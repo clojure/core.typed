@@ -2,7 +2,7 @@
   (:require [clojure.core.typed.test.cljs-utils :refer :all]
             [clojure.test :refer :all]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.checker.jvm.subtype :as sub]
             [cljs.core.typed :as t]
             [clojure.core.typed.util-cljs :as ucljs]
             [clojure.core.typed.current-impl :as impl]
