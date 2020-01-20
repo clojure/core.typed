@@ -1,3 +1,9 @@
+# 0.8.0 - SNAPSHOT
+
+- move `{clojure,cljs}.core.typed.async` to `clojure.core.typed.lib.{clojure,cljs}.core.async`
+  in `core.typed.lib.core.async` submodule
+- remove dependency on tools.analyzer
+
 # 0.7.1 - 16 April 2019
 
 - split out #lang machinery to `org.typedclojure/core.typed.lang.jvm`

@@ -9,7 +9,7 @@ jobs:
       matrix:
         clojure: ['1.10.1'] # '1.11.0-master-SNAPSHOT'
         jdk: ['1.8', '1.13'] # '1.11'
-        submodule: ['analyzer.common', 'analyzer.js', 'analyzer.jvm', 'annotator.jvm', 'checker.jvm', 'lib.clojure', 'lib.core.async', 'lang.jvm', 'runtime.jvm']
+        submodule: ['analyzer.common', 'analyzer.js', 'analyzer.jvm', 'annotator.jvm', 'checker.jvm', 'lib.clojure', 'lib.core.async', 'lang.jvm', 'runtime.jvm'] # 'checker.js'
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.jdk }}
