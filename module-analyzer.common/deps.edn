@@ -12,7 +12,15 @@
            :test
            {:extra-deps {org.clojure/clojurescript {:git/url "https://github.com/clojure/clojurescript.git"
                                                     :sha "f97d766defd02f7d43abd37e3e9b04790a521b1e"}}
-            :extra-paths ["src/test/clojure"]}
+            :extra-paths ["src/test/clojure"
+                          "src/test/cljs"]}
+
+           :runner-cljs {:extra-deps {olical/cljs-test-runner {:mvn/version "3.7.0"}}
+                         :main-opts ["-m" "cljs-test-runner.main"
+                                     "-d" "src/test/clojure"
+                                     "--out" "target/cljs-test-runner-out"]
+                         }
+
            :runner
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"

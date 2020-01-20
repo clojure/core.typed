@@ -78,19 +78,13 @@
   [x]
   (instance? IReference x))
 
-(defmacro compile-if
-  [exp then & else]
-  (if (try (eval exp)
-           (catch Exception _ false))
-    `(do ~then)
-    `(do ~@else)))
-
 (defn regex?
   "Returns true if x is a regex"
   [x]
-  (instance? (compile-if (Class/forName "java.util.regex.Pattern")
-               java.util.regex.Pattern
-               System.Text.RegularExpressions.Regex)
+  (instance? #?(:clj java.util.regex.Pattern
+                :cljr System.Text.RegularExpressions.Regex
+                :cljs js/RegExp
+                :default (throw (ex-info "No impl for regex?")))
              x))
 
 (defn boolean?
