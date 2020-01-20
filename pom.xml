@@ -29,6 +29,7 @@
     <module>module-checker.jvm</module>
     <module>module-lang.jvm</module>
     <module>module-lib.clojure</module>
+    <module>module-lib.core.async</module>
     <module>module-runtime.jvm</module>
   </modules>
 
