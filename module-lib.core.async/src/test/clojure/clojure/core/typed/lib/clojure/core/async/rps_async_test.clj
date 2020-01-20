@@ -1,8 +1,8 @@
 ; Adapted from: http://tech.puredanger.com/2013/07/10/rps-core-async/
-(ns clojure.core.typed.test.rps-async
+(ns clojure.core.typed.lib.clojure.core.async.rps-async-test
   (:require [clojure.core.typed :as t]
             [clojure.core.async :as a]
-            [clojure.core.typed.async :as ta]))
+            [clojure.core.typed.lib.clojure.core.async :as ta]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types

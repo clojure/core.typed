@@ -8,9 +8,6 @@
 (deftest typed-clojure-loaded
   (is (nil? (require 'clojure.core.typed))))
 
-(deftest async-ns
-  (is (io/resource "clojure/core/typed/async.clj")))
-
 (deftest checking-ops
   (is (err/tc-error-thrown?
         (t/load-if-needed)))

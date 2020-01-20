@@ -1,9 +1,8 @@
-(ns clojure.core.typed.test.async
+(ns clojure.core.typed.lib.clojure.core.async-test
   (:require 
     [clojure.core.typed.test.test-utils :refer :all]
     [clojure.test :refer :all]
-    [clojure.core.typed :as t]
-    [clojure.core.async :as a]))
+    [clojure.core.typed :as t]))
 
 ; wrap all these tests in thunks to prevent side effects
 
@@ -14,7 +13,7 @@
        (prn (a/<!! (go :- Str (a/<! c))))
        (a/close! c))
     :requires [[clojure.core.async :as a]
-               [clojure.core.typed.async :refer [go chan]]])
+               [clojure.core.typed.lib.clojure.core.async :refer [go chan]]])
   (is-tc-e 
     #(let [c1 (chan :- t/Str)
            c2 (chan :- t/Str)]
@@ -24,11 +23,11 @@
        (a/>!! c1 "hi")
        (a/>!! c2 "there"))
     :requires [[clojure.core.async :as a]
-               [clojure.core.typed.async :as ta :refer [go chan]]])
+               [clojure.core.typed.lib.clojure.core.async :as ta :refer [go chan]]])
   (is-tc-e 
     #(a/alts!! [(a/chan) (a/chan)] :priority true)
     :requires [[clojure.core.async :as a]
-               [clojure.core.typed.async]])
+               [clojure.core.typed.lib.clojure.core.async]])
   (is-tc-e
     (do
       (ann lift-chan (All [x y] [[x -> y] -> [(Chan x) -> (Chan y)]]))
@@ -49,7 +48,10 @@
       (def upcase (lift-chan upper-case))
       (upcase (chan :- Str)))
     :requires [[clojure.core.async :as a :refer [<! >!]]
-               [clojure.core.typed.async :refer [chan go Chan]]]))
+               [clojure.core.typed.lib.clojure.core.async :refer [chan go Chan]]]))
+
+(deftest rps-async-test
+  (is (t/check-ns 'clojure.core.typed.lib.clojure.core.async.rps-async-test)))
 
 ;(let [c1 (chan)
 ;      c2 (chan :- t/Str)]

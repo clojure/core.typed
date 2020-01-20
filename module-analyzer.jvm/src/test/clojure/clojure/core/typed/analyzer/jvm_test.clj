@@ -68,14 +68,6 @@
                       a)))))
   )
 
-#_
-(deftest async-test
-  (is (-> (ast (do (ns asdfasdf
-                     (:require [clojure.core.async :as a]
-                               [clojure.core.typed.async :refer [go chan]]))
-                   #(go)))
-          :result)))
-
 (deftest deftype-test
   (is (some?
         (binding [*ns* *ns*]

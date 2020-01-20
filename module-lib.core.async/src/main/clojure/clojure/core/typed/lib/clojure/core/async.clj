@@ -21,7 +21,7 @@
     buffer
       use buffer (similar for other buffer constructors)
     "}
-  clojure.core.typed.async
+  clojure.core.typed.lib.clojure.core.async
   (:require [clojure.core.typed :refer [ann ann-datatype defalias inst ann-protocol]
              :as t]
             [clojure.core.async :as async]

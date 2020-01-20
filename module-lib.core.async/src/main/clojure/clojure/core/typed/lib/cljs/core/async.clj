@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^:no-doc cljs.core.typed.async
+(ns ^:no-doc clojure.core.typed.lib.cljs.core.async
   (:require [cljs.core.async.impl.ioc-macros :as ioc]
             [cljs.core.typed :as t]))
 

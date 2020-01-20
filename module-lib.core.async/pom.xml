@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>core.typed.lib.clojure</artifactId>
-  <description>Type annotations and macros for the base Clojure distribution.</description>
+  <artifactId>core.typed.lib.core.async</artifactId>
+  <description>Type annotations and macros for core.async.</description>
   <version>0.7.3-SNAPSHOT</version>
-  <name>core.typed.lib.clojure</name>
+  <name>core.typed.lib.core.async</name>
 
   <licenses>
     <license>
@@ -19,10 +19,6 @@
     <artifactId>pom.contrib</artifactId>
     <version>0.3.0</version>
   </parent>
-
-  <properties>
-    <clojure.version>1.9.0</clojure.version>
-  </properties>
 
   <build>
     <plugins>
@@ -45,6 +41,18 @@
   </build>
 
   <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.9.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>core.async</artifactId>
+      <version>0.3.465</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
