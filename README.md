@@ -38,8 +38,11 @@ See modules for specific version coordinates:
 * [core.typed.checker.jvm](module-checker.jvm/README.md): The type checker
 * [core.typed.runtime.jvm](module-runtime.jvm/README.md): Runtime dependencies
 * [core.typed.annotator.jvm](module-annotator.jvm/README.md): Automatic annotator
-* [core.typed.analyzer.jvm](module-analyzer.jvm/README.md): Analyzer
+* [core.typed.analyzer.common](module-analyzer.common/README.md): Implementation-agnostic base for Clojure analyzers
+* [core.typed.analyzer.js](module-analyzer.js/README.md): Analyzer for JS Clojure
+* [core.typed.analyzer.jvm](module-analyzer.jvm/README.md): Analyzer for JVM Clojure
 * [core.typed.lib.clojure](module-lib.clojure/README.md): Base type annotations
+* [core.typed.lib.core.async](module-lib.core.async/README.md): Annotations for core.async
 * [core.typed.lang.jvm](module-lang.jvm/README.md): Extensible languages
 
 ## Compatibility
