@@ -3,9 +3,7 @@
          "src/main/cljs"]
  :aliases {:test
            {:extra-paths ["src/test/clojure"]
-            :extra-deps {org.clojure/core.async {:mvn/version "0.3.465"
-                                                 :exclusions [org.clojure/clojure]}
-                         org.clojure/clojurescript {:mvn/version "0.0-2311"
+            :extra-deps {org.clojure/clojurescript {:mvn/version "0.0-2311"
                                                     :exclusions [org.clojure/clojure]}}}
            :nREPL
            {:extra-deps
