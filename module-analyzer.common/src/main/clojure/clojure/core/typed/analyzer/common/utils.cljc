@@ -8,9 +8,10 @@
 
 ;copied from clojure.tools.analyzer.utils
 (ns clojure.core.typed.analyzer.common.utils
-  (:refer-clojure :exclude [record? boolean?])
-  (:import (clojure.lang IRecord IType IObj
-                         IReference Var)))
+  #?(:cljs (:require [cljs.analyzer :as cljs-ana]))
+  #?@(:cljs []
+      ; cljs+cljr
+      :default [(:import (clojure.lang IType IObj Var))]))
 
 (defn into!
   "Like into, but for transients"
@@ -58,25 +59,21 @@
   [m f]
   (reduce-kv (fn [m k v] (assoc m (f k) (f v))) {} (or m {})))
 
-(defn record?
-  "Returns true if x is a record"
-  [x]
-  (instance? IRecord x))
-
-(defn type?
-  "Returns true if x is a type"
-  [x]
-  (instance? IType x))
+(do
+  #?@(:cljs []
+      ; clj + cljr
+      :default
+      [(defn type?
+         "Returns true if x is a type"
+         [x]
+         (instance? IType x))]))
 
 (defn obj?
   "Returns true if x implements IObj"
   [x]
-  (instance? IObj x))
-
-(defn reference?
-  "Returns true if x implements IReference"
-  [x]
-  (instance? IReference x))
+  #?(:cljs (implements? IWithMeta x)
+     ; clj + cljr
+     :default (instance? IObj x)))
 
 (defn regex?
   "Returns true if x is a regex"
@@ -86,11 +83,6 @@
                 :cljs js/RegExp
                 :default (throw (ex-info "No impl for regex?")))
              x))
-
-(defn boolean?
-  "Returns true if x is a boolean"
-  [x]
-  (or (true? x) (false? x)))
 
 (defn classify
   "Returns a keyword describing the form type"
@@ -102,7 +94,9 @@
    (symbol? form)  :symbol
    (string? form)  :string
    (number? form)  :number
-   (type? form)    :type
+   #?@(:cljs []
+       ; clj+cljr
+       :default [(type? form) :type])
    (record? form)  :record
    (map? form)     :map
    (vector? form)  :vector
@@ -110,7 +104,9 @@
    (seq? form)     :seq
    (char? form)    :char
    (regex? form)   :regex
-   (class? form)   :class
+   #?@(:cljs []
+       ; clj+cljr
+       :default [(class? form) :class])
    (var? form)     :var
    :else           :unknown))
 
@@ -137,8 +133,10 @@
   ([var] (dynamic? var nil))
   ([var m]
      (or (:dynamic (or m (meta var)))
-         (when (var? var) ;; workaround needed since Clojure doesn't always propagate :dynamic
-           (.isDynamic ^Var var)))))
+         #?@(:cljs []
+             :default
+             [(when (var? var) ;; workaround needed since Clojure doesn't always propagate :dynamic
+                (.isDynamic ^Var var))]))))
 
 (defn protocol-node?
   "Returns true if the var maps to a protocol function"
@@ -197,8 +195,10 @@
   [x env]
   (merge' (source-info env)
           (source-info (meta x))
-          (when-let [file (and (not= *file* "NO_SOURCE_FILE")
-                               *file*)]
+          (when-let [file (let [file #?(:cljs cljs-ana/*cljs-file*
+                                        :default *file*)]
+                            (and (not= file "NO_SOURCE_FILE")
+                                 file))]
             {:file file})))
 
 (defn const-val

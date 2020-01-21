@@ -11,7 +11,7 @@
   (:refer-clojure :exclude [macroexpand-1 var?])
   (:require [clojure.core.typed.analyzer.common.ast :as ast]
             [clojure.core.typed.analyzer.common.utils :as u])
-  (:import (clojure.lang Symbol IPersistentVector IPersistentMap IPersistentSet ISeq IType IRecord)))
+  #?(:clj (:import (clojure.lang IType))))
 
 (def ^{:dynamic  true
        :arglists '([form env])
@@ -98,21 +98,20 @@
          analyze-seq
          analyze-const)
 
-#?(:clj
-   (defn analyze-form
-     "Like analyze, but does not mark the form with :top-level true"
-     [form env]
-     (cond
-       (symbol? form) (analyze-symbol form env)
-       (instance? IType form) (analyze-const form env :type)
-       (record? form) (analyze-const form env :record)
-       (seq? form) (if-let [form (seq form)]
-                     (analyze-seq form env)
-                     (analyze-const form env))
-       (map? form) (analyze-map form env)
-       (vector? form) (analyze-vector form env)
-       (set? form) (analyze-set form env)
-       :else (analyze-const form env))))
+(defn analyze-form
+  "Like analyze, but does not mark the form with :top-level true"
+  [form env]
+  (cond
+    (symbol? form) (analyze-symbol form env)
+    #?@(:clj [(instance? IType form) (analyze-const form env :type)])
+    (record? form) (analyze-const form env :record)
+    (seq? form) (if-let [form (seq form)]
+                  (analyze-seq form env)
+                  (analyze-const form env))
+    (map? form) (analyze-map form env)
+    (vector? form) (analyze-vector form env)
+    (set? form) (analyze-set form env)
+    :else (analyze-const form env)))
 
 (defn analyze
   "Given a top-level form to analyze and an environment, a map containing:
@@ -231,11 +230,6 @@
   "Takes an env map and returns a function that analyzes a form in that env"
   [env]
   (fn [form] (unanalyzed form env)))
-
-(def ^{:dynamic  true
-       :arglists '([[op & args] env])
-       :doc      "Function that dispatches on op, should default to -parse"}
-  parse)
 
 ;; this node wraps non-quoted collections literals with metadata attached
 ;; to them, the metadata will be evaluated at run-time, not treated like a constant
@@ -518,7 +512,7 @@
              (cond
               (not (vector? bindings))
               (str op " requires a vector for its bindings, had: "
-                   (class bindings))
+                   (#?(:cljs type :default class) bindings))
 
               (not (even? (count bindings)))
               (str op " requires an even number of forms in binding vector, had: "
@@ -646,7 +640,7 @@
                            (u/-source-info params env)))))
   (when (not-every? valid-binding-symbol? params)
     (throw (ex-info (str "Params must be valid binding symbols, had: "
-                         (mapv class params))
+                         (mapv #?(:cljs type :default class) params))
                     (merge {:params params
                             :form   form}
                            (u/-source-info form env)
@@ -753,11 +747,11 @@
 (defn parse-def
   [[_ sym & expr :as form] {:keys [ns] :as env}]
   (when (not (symbol? sym))
-    (throw (ex-info (str "First argument to def must be a symbol, had: " (class sym))
+    (throw (ex-info (str "First argument to def must be a symbol, had: " (#?(:cljs type :default class) sym))
                     (merge {:form form}
                            (u/-source-info form env)))))
   (when (and (namespace sym)
-             (not= *ns* (the-ns (symbol (namespace sym)))))
+             (not= *ns* (find-ns (symbol (namespace sym)))))
     (throw (ex-info "Cannot def namespace qualified symbol"
                     (merge {:form form
                             :sym sym}
@@ -822,7 +816,7 @@
         call? (and (not field?) (seq? m-or-f))]
 
     (when (and call? (not (symbol? (first m-or-f))))
-      (throw (ex-info (str "Method name must be a symbol, had: " (class (first m-or-f)))
+      (throw (ex-info (str "Method name must be a symbol, had: " (#?(:cljs type :default class) (first m-or-f)))
                       (merge {:form   form
                               :method m-or-f}
                              (u/-source-info form env)))))
