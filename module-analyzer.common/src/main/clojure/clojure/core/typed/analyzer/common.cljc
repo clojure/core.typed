@@ -91,8 +91,6 @@
      catch throw finally def .
      let* letfn* loop* recur fn*})
 
-(defmulti -analyze-form (fn [form _] (class form)))
-
 (declare analyze-symbol
          analyze-vector
          analyze-map
@@ -100,53 +98,21 @@
          analyze-seq
          analyze-const)
 
-(def analyze-form
-  "Like analyze, but does not mark the form with :top-level true"
-  -analyze-form)
-
-(defmethod -analyze-form Symbol
-  [form env]
-  (analyze-symbol form env))
-
-(defmethod -analyze-form IPersistentVector
-  [form env]
-  (analyze-vector form env))
-
-(defmethod -analyze-form IPersistentMap
-  [form env]
-  (analyze-map form env))
-
-(defmethod -analyze-form IPersistentSet
-  [form env]
-  (analyze-set form env))
-
-(defmethod -analyze-form ISeq
-  [form env]
-  (if-let [form (seq form)]
-    (analyze-seq form env)
-    (analyze-const form env)))
-
-(defmethod -analyze-form IType
-  [form env]
-  (analyze-const form env :type))
-
-(prefer-method -analyze-form IType IPersistentMap)
-(prefer-method -analyze-form IType IPersistentVector)
-(prefer-method -analyze-form IType IPersistentSet)
-(prefer-method -analyze-form IType ISeq)
-
-(defmethod -analyze-form IRecord
-  [form env]
-  (analyze-const form env :record))
-
-(prefer-method -analyze-form IRecord IPersistentMap)
-(prefer-method -analyze-form IRecord IPersistentVector)
-(prefer-method -analyze-form IRecord IPersistentSet)
-(prefer-method -analyze-form IRecord ISeq)
-
-(defmethod -analyze-form :default
-  [form env]
-  (analyze-const form env))
+#?(:clj
+   (defn analyze-form
+     "Like analyze, but does not mark the form with :top-level true"
+     [form env]
+     (cond
+       (symbol? form) (analyze-symbol form env)
+       (instance? IType form) (analyze-const form env :type)
+       (record? form) (analyze-const form env :record)
+       (seq? form) (if-let [form (seq form)]
+                     (analyze-seq form env)
+                     (analyze-const form env))
+       (map? form) (analyze-map form env)
+       (vector? form) (analyze-vector form env)
+       (set? form) (analyze-set form env)
+       :else (analyze-const form env))))
 
 (defn analyze
   "Given a top-level form to analyze and an environment, a map containing:
