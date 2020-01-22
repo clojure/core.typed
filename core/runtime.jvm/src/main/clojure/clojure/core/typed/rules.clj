@@ -156,7 +156,7 @@
         ]
     (-> `(def ~sym ~(emit-form cinit))
         (ana2/unanalyzed (:env expr))
-        (ana2/copy-top-level expr)
+        (ana2/inherit-top-level expr)
         (assoc ::untyped true
                ::expr-type (maybe-check-below
                              {:type `t/Var2
@@ -174,9 +174,42 @@
         _ (assert (-> out-body first #{'do}))]
     (-> `(locking ~(emit-form cx) ~@(rest out-body))
         (ana2/unanalyzed (:env expr))
-        (ana2/copy-top-level expr)
-        (assoc ::untyped true
-               ::expr-type ))))
+        (ana2/inherit-top-level expr)
+        (merge {::untyped true}
+               (select-keys cbody [::expr-type])))))
+
+(defmacro ..
+  "form => fieldName-symbol or (instanceMethodName-symbol args*)
+
+  Expands into a member access (.) of the first member on the first
+  argument, followed by the next member on the result, etc. For
+  instance:
+
+  (.. System (getProperties) (get \"os.name\"))
+
+  expands to:
+
+  (. (. System (getProperties)) (get \"os.name\"))
+
+  but is easier to write, read, and understand."
+  {:added "1.0"}
+  ([x form] `(. ~x ~form))
+  ([x form & more] `(.. (. ~x ~form) ~@more)))
+
+(defmethod macro-rule 'clojure.core/..
+  [{[_ x & forms] :form
+    :keys [check-form check-expr expr emit-form
+           expected maybe-check-below]}]
+  (assert (seq forms))
+  (let [cx (check-form x)
+        ;FIXME complete this thought
+        cforms (loop [ctarget cx
+                      forms forms]
+                 (if forms
+                   (recur (next forms))
+                   ))]
+    ))
+
 
 #_
 (defmethod typing-rule 'clojure.core.typed.expand/gather-for-return-type
