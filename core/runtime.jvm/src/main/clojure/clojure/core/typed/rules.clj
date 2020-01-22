@@ -85,16 +85,21 @@
     [(first bases) (next bases)]))
 
 (defmethod macro-rule 'clojure.core/proxy
-  [[_ class-and-interfaces args & fs :as form] expected _]
+  [{[_ class-and-interfaces args & fs :as form] :form,
+    :keys [expected maybe-check-below emit-form]}]
   (let [bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
                    class-and-interfaces)
         [super interfaces] (get-super-and-interfaces bases)
-        ^Class pc-effect (apply get-proxy-class bases)
-        pname (proxy-name super interfaces)
-        super (.getSuperclass pc-effect)
+        cargs (mapv check args)
         t `(t/I ~@(map (comp symbol #(.getName ^Class %)) bases))]
-    {:form `(^::t/untyped proxy [] ~args ~@fs)
-     ::expr-type {:type t}}))
+    {:form `^::t/untyped (proxy
+                           ~class-and-interfaces
+                           ~(mapv emit-form args)
+                           ~@fs)
+     ::expr-type (maybe-check-below
+                   {:type t
+                    :filters {:else 'ff}}
+                   expected)}))
 
 #_
 (defmethod typing-rule 'clojure.core.typed.expand/gather-for-return-type
