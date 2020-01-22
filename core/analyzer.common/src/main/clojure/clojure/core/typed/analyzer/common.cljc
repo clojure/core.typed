@@ -170,6 +170,11 @@
   [form env]
   (mark-top-level (unanalyzed form env)))
 
+(defn copy-top-level [new-expr old-expr]
+  (cond-> target-expr
+    (top-level? source-expr) mark-top-level
+    (eval-top-level? source-expr) mark-eval-top-level))
+
 (defn propagate-top-level
   "Propagate :top-level down :do nodes. Attach ::ana2/eval-gilardi? to
   root nodes that should be evaluated."
