@@ -86,16 +86,16 @@
 
 (defmethod macro-rule 'clojure.core/proxy
   [{[_ class-and-interfaces args & fs :as form] :form,
-    :keys [expected maybe-check-below emit-form]}]
+    :keys [expected maybe-check-below emit-form check]}]
   (let [bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
                    class-and-interfaces)
         [super interfaces] (get-super-and-interfaces bases)
         cargs (mapv check args)
         t `(t/I ~@(map (comp symbol #(.getName ^Class %)) bases))]
-    {:form `^::t/untyped (proxy
-                           ~class-and-interfaces
-                           ~(mapv emit-form args)
-                           ~@fs)
+    {:form `^::t/trust (proxy
+                         ~class-and-interfaces
+                         ~(mapv emit-form args)
+                         ~@fs)
      ::expr-type (maybe-check-below
                    {:type t
                     :filters {:else 'ff}}
