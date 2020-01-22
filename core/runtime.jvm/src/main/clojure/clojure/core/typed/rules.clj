@@ -178,24 +178,6 @@
         (merge {::untyped true}
                (select-keys cbody [::expr-type])))))
 
-(defmacro ..
-  "form => fieldName-symbol or (instanceMethodName-symbol args*)
-
-  Expands into a member access (.) of the first member on the first
-  argument, followed by the next member on the result, etc. For
-  instance:
-
-  (.. System (getProperties) (get \"os.name\"))
-
-  expands to:
-
-  (. (. System (getProperties)) (get \"os.name\"))
-
-  but is easier to write, read, and understand."
-  {:added "1.0"}
-  ([x form] `(. ~x ~form))
-  ([x form & more] `(.. (. ~x ~form) ~@more)))
-
 (defmethod macro-rule 'clojure.core/..
   [{[_ x & forms] :form
     :keys [check-form check-expr expr emit-form
@@ -203,6 +185,7 @@
   (assert (seq forms))
   (let [cx (check-form x)
         ;FIXME complete this thought
+        #_#_
         cforms (loop [ctarget cx
                       forms forms]
                  (if forms
