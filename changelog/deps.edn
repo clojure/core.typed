@@ -1,0 +1,10 @@
+{:deps {org.clojure/clojure {:mvn/version "1.10.1"}}
+ :aliases {:nREPL
+           {:extra-paths []
+            :extra-deps
+            {nrepl/nrepl {:mvn/version "0.6.0"}
+             cider/cider-nrepl {:mvn/version "0.22.4"}},
+            :main-opts ["-m" "nrepl.cmdline"
+                        "--interactive"
+                        "--middleware" "[cider.nrepl/wrap-complete]"
+                        ]}}}
