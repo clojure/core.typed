@@ -1,4 +1,5 @@
-[[{:version "0.8.0-SNAPSHOT"}
+[[{:version "0.8.0"
+   :snapshot true}
   [:checker.jvm
    "move `{clojure,cljs}.core.typed.async` to `clojure.core.typed.lib.{clojure,cljs}.core.async` in `core.typed.lib.core.async` submodule"
    "remove dependency on tools.analyzer"]
