@@ -90,6 +90,8 @@
   (let [bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
                    class-and-interfaces)
         [super interfaces] (get-super-and-interfaces bases)
+        ;TODO get Typed Clojure type of super's ctor with arity (count args)
+        ; then check against args
         cargs (mapv check args)
         t `(t/I ~@(map (comp symbol #(.getName ^Class %)) bases))]
     {:form `^::t/trust (proxy
