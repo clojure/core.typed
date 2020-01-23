@@ -5,7 +5,7 @@
                                             :deps/manifest :deps}
         org.clojure/core.typed.runtime.jvm {:local/root "../runtime.jvm"
                                             :deps/manifest :deps}
-        org.clojure/clojurescript {:mvn/version "1.10.373"}}
+        org.clojure/clojurescript {:mvn/version "1.10.597"}}
  :aliases {:nREPL
            {:extra-paths ["script"]
             :extra-deps
