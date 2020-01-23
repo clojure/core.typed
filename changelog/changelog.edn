@@ -13,6 +13,4 @@
    "merge back into monorepo from https://github.com/clojure/core.typed.checker.js"]
   #_[:changelog/all
      ]]
- ["0.7.2"
-  [:changelog/all
-   ]]]
+ ]

@@ -49,12 +49,10 @@
        java.io.BufferedReader.
        line-seq
        (mapcat (fn [^String s]
-                 (let [version (some (fn [prefix]
-                                       (when (.startsWith s prefix)
-                                         (subs s (count prefix))))
-                                     ; order matters here since one is a prefix of the other
-                                     ["core.typed-pom-" "core.typed-"])]
-                   (assert (string? version) (str "unknown tag:" s))
+                 (when-let [version (some (fn [prefix]
+                                            (when (.startsWith s prefix)
+                                              (subs s (count prefix))))
+                                          ["core.typed-pom-"])]
                    [version s])))
        (apply hash-map)))
 
