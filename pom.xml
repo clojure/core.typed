@@ -22,16 +22,18 @@
   </parent>
 
   <modules>
-    <module>module-analyzer.common</module>
-    <module>module-analyzer.js</module>
-    <module>module-analyzer.jvm</module>
-    <module>module-annotator.jvm</module>
-    <module>module-checker.jvm</module>
-    <!--<module>module-checker.js</module>-->
-    <module>module-lang.jvm</module>
-    <module>module-lib.clojure</module>
-    <module>module-lib.core.async</module>
-    <module>module-runtime.jvm</module>
+    <module>core/analyzer.common</module>
+    <module>core/analyzer.js</module>
+    <module>core/analyzer.jvm</module>
+    <!--<module>core/checker.js</module>-->
+    <module>core/checker.jvm</module>
+    <module>core/runtime.jvm</module>
+
+    <module>lib/clojure</module>
+    <module>lib/core.async</module>
+
+    <module>util/annotator.jvm</module>
+    <module>util/lang.jvm</module>
   </modules>
 
   <dependencies>

@@ -1,6 +1,5 @@
 target
 *jar
-/lib/
 /classes/
 .lein*
 *.swp

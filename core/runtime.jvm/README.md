@@ -22,7 +22,7 @@ Latest stable release is 0.7.2.
 
 ```clj
   org.clojure/core.typed.runtime.jvm {:git/url "https://github.com/clojure/core.typed"
-                                      :deps/root "module-runtime.jvm"
+                                      :deps/root "core/runtime.jvm"
                                       :tag "core.typed-pom-0.7.2"}
 ```
 

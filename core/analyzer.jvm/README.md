@@ -22,7 +22,7 @@ Latest stable release is 0.7.2.
 
 ```clj
   org.clojure/core.typed.analyzer.jvm {:git/url "https://github.com/clojure/core.typed"
-                                       :deps/root "module-analyzer.jvm"
+                                       :deps/root "core/analyzer.jvm"
                                        :tag "core.typed-pom-0.7.2"}
 ```
 

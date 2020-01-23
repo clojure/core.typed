@@ -11,5 +11,5 @@ if [ -z $1 ]; then
   exit 1
 fi
 
-cd module-$PROJECT
+cd $PROJECT
 ./script/repl "$ARGS"

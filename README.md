@@ -35,15 +35,24 @@ Latest stable release is 0.7.2.
 
 See modules for specific version coordinates:
 
-* [core.typed.checker.jvm](module-checker.jvm/README.md): The type checker
-* [core.typed.runtime.jvm](module-runtime.jvm/README.md): Runtime dependencies
-* [core.typed.annotator.jvm](module-annotator.jvm/README.md): Automatic annotator
-* [core.typed.analyzer.common](module-analyzer.common/README.md): Implementation-agnostic base for Clojure analyzers
-* [core.typed.analyzer.js](module-analyzer.js/README.md): Analyzer for JS Clojure
-* [core.typed.analyzer.jvm](module-analyzer.jvm/README.md): Analyzer for JVM Clojure
-* [core.typed.lib.clojure](module-lib.clojure/README.md): Base type annotations
-* [core.typed.lib.core.async](module-lib.core.async/README.md): Annotations for core.async
-* [core.typed.lang.jvm](module-lang.jvm/README.md): Extensible languages
+### Core type system
+
+* [checker.jvm](core/checker.jvm/README.md): The JVM type checker
+* [runtime.jvm](core/runtime.jvm/README.md): JVM Runtime dependencies
+* [analyzer.jvm](core/analyzer.jvm/README.md): Analyzer for JVM Clojure
+* [analyzer.js](core/analyzer.js/README.md): Analyzer for JS Clojure (unreleased)
+* [checker.js](core/checker.js/README.md): The JS type checker (unreleased)
+* [analyzer.common](core/analyzer.common/README.md): Implementation-agnostic base for Clojure analyzers
+
+### Library Annotations
+
+* [lib.clojure](lib/clojure/README.md): Base type annotations
+* [lib.core.async](lib/core.async/README.md): Annotations for core.async
+
+### Utility libraries
+
+* [annotator.jvm](util/annotator.jvm/README.md): Automatic annotator
+* [lang.jvm](util/lang.jvm/README.md): Extensible languages
 
 ## Compatibility
 

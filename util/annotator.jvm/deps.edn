@@ -1,7 +1,7 @@
 {:paths ["src/main/clojure"]
- :deps {org.clojure/core.typed.runtime.jvm {:local/root "../module-runtime.jvm"
+ :deps {org.clojure/core.typed.runtime.jvm {:local/root "../../core/runtime.jvm"
                                             :deps/manifest :deps}
-        org.clojure/core.typed.analyzer.jvm {:local/root "../module-analyzer.jvm"
+        org.clojure/core.typed.analyzer.jvm {:local/root "../../core/analyzer.jvm"
                                              :deps/manifest :deps}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}

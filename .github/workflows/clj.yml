@@ -7,9 +7,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        clojure: ['1.10.1'] # '1.11.0-master-SNAPSHOT'
-        jdk: ['1.8', '1.13'] # '1.11'
-        submodule: ['analyzer.common', 'analyzer.js', 'analyzer.jvm', 'annotator.jvm', 'checker.jvm', 'lib.clojure', 'lib.core.async', 'lang.jvm', 'runtime.jvm'] # 'checker.js'
+        clojure: 
+          - 1.10.1
+          #- 1.11.0-master-SNAPSHOT
+        jdk: 
+          - 1.8
+          #- 1.11
+          - 1.13
+        submodule:
+          - core/analyzer.common
+          - core/analyzer.js
+          - core/analyzer.jvm
+          #- core/checker.js
+          - core/checker.jvm
+          - core/runtime.jvm
+          - util/annotator.jvm
+          - util/lang.jvm
+          - lib/clojure
+          - lib/core.async
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.jdk }}
@@ -21,4 +36,4 @@ jobs:
           tools-deps: latest
       - name: Run ${{ matrix.submodule }} tests
         run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version "${{ matrix.clojure }}"}}}'
-        working-directory: module-${{ matrix.submodule }}
+        working-directory: ${{ matrix.submodule }}

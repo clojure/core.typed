@@ -1,19 +1,19 @@
-# core.typed.analyzer.common
+# core.typed.analyzer.js
 
 <a href='https://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
 
-A common base for Clojure analyzers, tuned for consumption by an optional type checker.
+Analyzer for JS Clojure, tuned for consumption by an optional type checker.
 
 ## Releases and Dependency Information
 
 Latest stable release is 0.7.2.
 
-* [All Released Versions](https://search.maven.org/search?q=g:org.clojure%20AND%20a:core.typed.analyzer.common)
+* [All Released Versions](https://search.maven.org/search?q=g:org.clojure%20AND%20a:core.typed.analyzer.js)
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) JAR dependency information:
 
 ```clj
-  org.clojure/core.typed.analyzer.common {:mvn/version "0.7.2"}
+  org.clojure/core.typed.analyzer.js {:mvn/version "0.7.2"}
 ```
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) Git dependency information:
@@ -21,15 +21,15 @@ Latest stable release is 0.7.2.
 - Note: use `clj -Sresolve` to resolve the `:tag` to a `:sha`
 
 ```clj
-  org.clojure/core.typed.analyzer.common {:git/url "https://github.com/clojure/core.typed"
-                                          :deps/root "module-analyzer.common"
-                                          :tag "core.typed-pom-0.7.2"}
+  org.clojure/core.typed.analyzer.js {:git/url "https://github.com/clojure/core.typed"
+                                      :deps/root "core/analyzer.js"
+                                      :tag "core.typed-pom-0.7.2"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure/core.typed.analyzer.common "0.7.2"]
+[org.clojure/core.typed.analyzer.js "0.7.2"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -37,14 +37,14 @@ Latest stable release is 0.7.2.
 ```XML
 <dependency>
   <groupId>org.clojure</groupId>
-  <artifactId>core.typed.analyzer.common</artifactId>
+  <artifactId>core.typed.analyzer.js</artifactId>
   <version>0.7.2</version>
 </dependency>
 ```
 
 ## Differences from tools.analyzer
 
-core.typed.analyzer.common is a heavily modified variant of tools.analyzer.
+core.typed.analyzer.js is a heavily modified variant of tools.analyzer.
 If you're familiar with the latter, here's what this library does differently.
 
 - Adds an `:unanalyzed` AST node that just holds a `:form` and `:env`.
@@ -55,8 +55,7 @@ If you're familiar with the latter, here's what this library does differently.
 - `resolve-{sym,ns}` are now dynamic variables that are implemented for each platform.
 - `run-passes` only supports a single pass
 - `uniquify-locals` is a default pass that is compatible with `:unanalyzed` nodes
-- Gilardi scenario can be (carefully) managed (see `clojure.core.typed.analyzer.jvm.gilardi-test` in JVM implementation
-  for a type system example)
+- Gilardi scenario can be (carefully) managed (see `clojure.core.typed.analyzer.jvm.gilardi-test` in JVM implementation for a type system example)
 
 ## License
 
