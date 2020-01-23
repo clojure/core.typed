@@ -22,12 +22,8 @@
 ## checker.js
 
 - merge back into monorepo from https://github.com/clojure/core.typed.checker.js
-
-## all
-
 # 0.7.2
 
 Released: 2020-01-15
 
-## all
-
+No changes

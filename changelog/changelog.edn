@@ -11,8 +11,8 @@
    "extract from checker.js"]
   [:checker.js
    "merge back into monorepo from https://github.com/clojure/core.typed.checker.js"]
-  [:all
-   ]]
+  #_[:changelog/all
+     ]]
  ["0.7.2"
-  [:all
+  [:changelog/all
    ]]]
