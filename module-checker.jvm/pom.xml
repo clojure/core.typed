@@ -5,7 +5,7 @@
   <artifactId>core.typed.checker.jvm</artifactId>
   <description>An optional type system for Clojure — full system for annotating and type-checking.</description>
   <name>core.typed.checker.jvm</name>
-  <version>0.8.0-alpha1</version>
+  <version>0.8.0-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -18,7 +18,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.8.0-alpha1</version>
+    <version>0.8.0-SNAPSHOT</version>
   </parent>
 
   <repositories>
@@ -62,12 +62,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.jvm</artifactId>
-      <version>0.8.0-alpha1</version>
+      <version>0.8.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.lib.clojure</artifactId>
-      <version>0.8.0-alpha1</version>
+      <version>0.8.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -77,7 +77,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.8.0-alpha1</version>
+      <version>0.8.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -98,7 +98,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.lang.jvm</artifactId>
-      <version>0.8.0-alpha1</version>
+      <version>0.8.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
