@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed.runtime.jvm</artifactId>
   <description>An optional type system for Clojure — zero-dependency artifact for annotations only.</description>
-  <version>0.7.3-SNAPSHOT</version>
+  <version>0.8.0-alpha1</version>
   <name>core.typed.runtime.jvm</name>
 
   <licenses>
@@ -43,4 +43,8 @@
       </plugin>
     </plugins>
   </build>
+
+  <scm>
+    <tag>core.typed-pom-0.8.0-alpha1</tag>
+  </scm>
 </project>

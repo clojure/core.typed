@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed.lib.core.async</artifactId>
   <description>Type annotations and macros for core.async.</description>
-  <version>0.7.3-SNAPSHOT</version>
+  <version>0.8.0-alpha1</version>
   <name>core.typed.lib.core.async</name>
 
   <licenses>
@@ -56,8 +56,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.runtime.jvm</artifactId>
-      <version>0.7.3-SNAPSHOT</version>
+      <version>0.8.0-alpha1</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
+
+  <scm>
+    <tag>core.typed-pom-0.8.0-alpha1</tag>
+  </scm>
 </project>

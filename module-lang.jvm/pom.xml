@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed.lang.jvm</artifactId>
   <description>Extensible languages in Clojure, a la Racket's #lang.</description>
-  <version>0.7.3-SNAPSHOT</version>
+  <version>0.8.0-alpha1</version>
   <name>core.typed.lang.jvm</name>
 
   <licenses>
@@ -51,4 +51,8 @@
       <version>0.3.0-alpha4</version>
     </dependency>
   </dependencies>
+
+  <scm>
+    <tag>core.typed-pom-0.8.0-alpha1</tag>
+  </scm>
 </project>

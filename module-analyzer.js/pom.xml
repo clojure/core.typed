@@ -5,7 +5,7 @@
   <artifactId>core.typed.analyzer.js</artifactId>
   <description>A variant of tools.analyzer.js.</description>
   <name>core.typed.analyzer.js</name>
-  <version>0.7.3-SNAPSHOT</version>
+  <version>0.8.0-alpha1</version>
 
   <licenses>
     <license>
@@ -18,7 +18,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>core.typed-pom</artifactId>
-    <version>0.7.3-SNAPSHOT</version>
+    <version>0.8.0-alpha1</version>
   </parent>
 
   <build>
@@ -50,7 +50,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.common</artifactId>
-      <version>0.7.3-SNAPSHOT</version>
+      <version>0.8.0-alpha1</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
