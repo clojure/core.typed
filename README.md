@@ -1,6 +1,6 @@
 # core.typed
 
-<a href='http://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
+<a href='http://typedclojure.org'><img src='docs/images/part-of-typed-clojure-project.png'></a>
 
 Optional typing in Clojure, as a library.
 

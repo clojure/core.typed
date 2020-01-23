@@ -2,5 +2,5 @@
 
 set -e
 
-cd changelog
+cd docs/changelog
 ./script/gen.sh
