@@ -8,7 +8,7 @@
              cider/piggieback {:mvn/version "0.3.8"}}
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
-           :test {:extra-deps {org.clojure/core.typed.runtime.jvm {:local/root "../../core/module-runtime.jvm"
+           :test {:extra-deps {org.clojure/core.typed.runtime.jvm {:local/root "../../core/runtime.jvm"
                                                                    :deps/manifest :deps}}
                   :extra-paths ["src/test/clojure"]}
            :runner
