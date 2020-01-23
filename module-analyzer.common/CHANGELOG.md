@@ -4,8 +4,3 @@
 - Renamed clojure.core.typed.analyzer => clojure.core.typed.analyzer.common
   - Note: also applies to namespaced keywords
 
-# 0.7.2
-
-Released: 2020-01-15
-
-No changes

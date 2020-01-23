@@ -1,5 +1,7 @@
 {:deps {org.clojure/clojure {:mvn/version "1.10.1"}}
- :aliases {:nREPL
+ :aliases {:gen-changelog
+           {:main-opts ["-m" "gen-changelog"]}
+           :nREPL
            {:extra-paths []
             :extra-deps
             {nrepl/nrepl {:mvn/version "0.6.0"}

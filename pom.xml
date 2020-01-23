@@ -27,6 +27,7 @@
     <module>module-analyzer.jvm</module>
     <module>module-annotator.jvm</module>
     <module>module-checker.jvm</module>
+    <!--<module>module-checker.js</module>-->
     <module>module-lang.jvm</module>
     <module>module-lib.clojure</module>
     <module>module-lib.core.async</module>

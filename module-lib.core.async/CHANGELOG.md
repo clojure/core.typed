@@ -3,8 +3,3 @@
 
 - initial release - extracted core.async annotations from `checker.jvm`
 
-# 0.7.2
-
-Released: 2020-01-15
-
-No changes
