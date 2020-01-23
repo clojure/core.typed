@@ -16,8 +16,9 @@
 
   <parent>
     <groupId>org.clojure</groupId>
-    <artifactId>pom.contrib</artifactId>
-    <version>0.3.0</version>
+    <artifactId>core.typed-pom</artifactId>
+    <version>0.8.0-SNAPSHOT</version>
+    <relativePath>../..</relativePath>
   </parent>
 
   <properties>
