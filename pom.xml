@@ -25,7 +25,7 @@
     <module>core/analyzer.common</module>
     <module>core/analyzer.js</module>
     <module>core/analyzer.jvm</module>
-    <!--<module>core/checker.js</module>-->
+    <module>core/checker.js</module>
     <module>core/checker.jvm</module>
     <module>core/runtime.jvm</module>
 
