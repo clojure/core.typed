@@ -1,0 +1,9 @@
+{:analyzer.common "core/analyzer.common"
+ :analyzer.jvm "core/analyzer.jvm"
+ :analyzer.js "core/analyzer.js"
+ :checker.jvm "core/checker.jvm"
+ :checker.js "core/checker.js"
+ :annotator.jvm "util/annotator.jvm"
+ :lang.jvm "util/lang.jvm"
+ :lib.clojure "lib/clojure"
+ :lib.core.async "lib/core.async"}
