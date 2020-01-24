@@ -76,122 +76,122 @@
 (t/ann typing-rule [RuleOpts -> '{:op t/Kw, ::expr-type ExprType}])
 (defmulti typing-rule (fn [{:keys [vsym]}] vsym))
 
-(defmulti macro-rule (fn [_ _ {:keys [vsym]}] vsym))
-
-;copied from clojure.core
-(defn- get-super-and-interfaces [bases]
-  (if (. ^Class (first bases) (isInterface))
-    [Object bases]
-    [(first bases) (next bases)]))
-
-(defmethod macro-rule 'clojure.core/proxy
-  [{[_ class-and-interfaces args & fs :as form] :form,
-    :keys [expected maybe-check-below emit-form check]}]
-  (let [bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
-                   class-and-interfaces)
-        [super interfaces] (get-super-and-interfaces bases)
-        ;TODO get Typed Clojure type of super's ctor with arity (count args)
-        ; then check against args
-        cargs (mapv check args)]
-    ;TODO also need to pass along :top-level/:eval-top-level info
-    {:form `^::t/untyped (proxy
-                           ~class-and-interfaces
-                           ~(mapv emit-form args)
-                           ~@fs)
-     ::expr-type (maybe-check-below
-                   {:type `(t/I ~@(map (comp symbol #(.getName ^Class %)) bases))
-                    :filters {:else 'ff}}
-                   expected)}))
-
-(defmethod macro-rule 'clojure.core/defn
-  [{[_ name & fdecl :as form] :form
-    :keys [check-form expr emit-form maybe-check-below
-           expected]}]
-  ;; Note: Cannot delegate this check to def because of the call to (with-meta name ..)
-  (if (instance? clojure.lang.Symbol name)
-    nil
-    (throw (IllegalArgumentException. "First argument to defn must be a symbol")))
-  (let [m (if (string? (first fdecl))
-            {:doc (first fdecl)}
-            {})
-        fdecl (if (string? (first fdecl))
-                (next fdecl)
-                fdecl)
-        m (if (map? (first fdecl))
-            (conj m (first fdecl))
-            m)
-        fdecl (if (map? (first fdecl))
-                (next fdecl)
-                fdecl)
-        fdecl (if (vector? (first fdecl))
-                (list fdecl)
-                fdecl)
-        m (if (map? (last fdecl))
-            (conj m (last fdecl))
-            m)
-        fdecl (if (map? (last fdecl))
-                (butlast fdecl)
-                fdecl)
-        m (conj {:arglists (list 'quote (@#'clojure.core/sigs fdecl))} m)
-        m (let [inline (:inline m)
-                ifn (first inline)
-                iname (second inline)]
-            ;; same as: (if (and (= 'fn ifn) (not (symbol? iname))) ...)
-            (if (if (clojure.lang.Util/equiv 'fn ifn)
-                  (if (instance? clojure.lang.Symbol iname) false true))
-              ;; inserts the same fn name to the inline fn if it does not have one
-              (assoc m :inline (cons ifn (cons (clojure.lang.Symbol/intern (.concat (.getName ^clojure.lang.Symbol name) "__inliner"))
-                                               (next inline))))
-              m))
-        m (conj (if (meta name) (meta name) {}) m)
-        ;end normal defn macro
-        
-        ;begin type checking
-        sym (with-meta name m)
-        ; intern var so defn body can be analyzed
-        v (ana2/create-var sym (:env expr))
-        cinit (check-form (with-meta `(fn ~@fdecl) {:rettag (:tag m)})
-                          ;TODO expected type
-                          )
-        ]
-    (-> `(def ~sym ~(emit-form cinit))
-        (ana2/unanalyzed (:env expr))
-        (ana2/inherit-top-level expr)
-        (assoc ::untyped true
-               ::expr-type (maybe-check-below
-                             {:type `t/Var2
-                              :filters {:else 'ff}}
-                             expected)))))
-
-(defmethod macro-rule 'clojure.core/locking
-  [{[_ x & body :as form] :form
-    :keys [check-form expr emit-form
-           expected maybe-check-below]}]
-  (let [cx (check-form x)
-        ;TODO blame form, handle empty (do) error message
-        cbody (check-form `(do ~@body) expected)
-        out-body (emit-form cbody)
-        _ (assert (-> out-body first #{'do}))]
-    (-> `(locking ~(emit-form cx) ~@(rest out-body))
-        (ana2/unanalyzed (:env expr))
-        (ana2/inherit-top-level expr)
-        (merge {::untyped true}
-               (select-keys cbody [::expr-type])))))
-
-(defmethod macro-rule 'clojure.core/..
-  [{[_ x & forms] :form
-    :keys [check-form check-expr expr emit-form
-           expected maybe-check-below]}]
-  (assert (seq forms))
-  (let [cx (check-form x)
-        ;FIXME complete this thought
-        #_#_
-        cforms (loop [ctarget cx
-                      forms forms]
-                 (if forms
-                   (recur (next forms))
-                   ))]
-    ))
+;(defmulti macro-rule (fn [_ _ {:keys [vsym]}] vsym))
+;
+;;copied from clojure.core
+;(defn- get-super-and-interfaces [bases]
+;  (if (. ^Class (first bases) (isInterface))
+;    [Object bases]
+;    [(first bases) (next bases)]))
+;
+;(defmethod macro-rule 'clojure.core/proxy
+;  [{[_ class-and-interfaces args & fs :as form] :form,
+;    :keys [expected maybe-check-below emit-form check]}]
+;  (let [bases (map #(or (resolve %) (throw (Exception. (str "Can't resolve: " %)))) 
+;                   class-and-interfaces)
+;        [super interfaces] (get-super-and-interfaces bases)
+;        ;TODO get Typed Clojure type of super's ctor with arity (count args)
+;        ; then check against args
+;        cargs (mapv check args)]
+;    ;TODO also need to pass along :top-level/:eval-top-level info
+;    {:form `^::t/untyped (proxy
+;                           ~class-and-interfaces
+;                           ~(mapv emit-form args)
+;                           ~@fs)
+;     ::expr-type (maybe-check-below
+;                   {:type `(t/I ~@(map (comp symbol #(.getName ^Class %)) bases))
+;                    :filters {:else 'ff}}
+;                   expected)}))
+;
+;(defmethod macro-rule 'clojure.core/defn
+;  [{[_ name & fdecl :as form] :form
+;    :keys [check-form expr emit-form maybe-check-below
+;           expected]}]
+;  ;; Note: Cannot delegate this check to def because of the call to (with-meta name ..)
+;  (if (instance? clojure.lang.Symbol name)
+;    nil
+;    (throw (IllegalArgumentException. "First argument to defn must be a symbol")))
+;  (let [m (if (string? (first fdecl))
+;            {:doc (first fdecl)}
+;            {})
+;        fdecl (if (string? (first fdecl))
+;                (next fdecl)
+;                fdecl)
+;        m (if (map? (first fdecl))
+;            (conj m (first fdecl))
+;            m)
+;        fdecl (if (map? (first fdecl))
+;                (next fdecl)
+;                fdecl)
+;        fdecl (if (vector? (first fdecl))
+;                (list fdecl)
+;                fdecl)
+;        m (if (map? (last fdecl))
+;            (conj m (last fdecl))
+;            m)
+;        fdecl (if (map? (last fdecl))
+;                (butlast fdecl)
+;                fdecl)
+;        m (conj {:arglists (list 'quote (@#'clojure.core/sigs fdecl))} m)
+;        m (let [inline (:inline m)
+;                ifn (first inline)
+;                iname (second inline)]
+;            ;; same as: (if (and (= 'fn ifn) (not (symbol? iname))) ...)
+;            (if (if (clojure.lang.Util/equiv 'fn ifn)
+;                  (if (instance? clojure.lang.Symbol iname) false true))
+;              ;; inserts the same fn name to the inline fn if it does not have one
+;              (assoc m :inline (cons ifn (cons (clojure.lang.Symbol/intern (.concat (.getName ^clojure.lang.Symbol name) "__inliner"))
+;                                               (next inline))))
+;              m))
+;        m (conj (if (meta name) (meta name) {}) m)
+;        ;end normal defn macro
+;        
+;        ;begin type checking
+;        sym (with-meta name m)
+;        ; intern var so defn body can be analyzed
+;        v (ana2/create-var sym (:env expr))
+;        cinit (check-form (with-meta `(fn ~@fdecl) {:rettag (:tag m)})
+;                          ;TODO expected type
+;                          )
+;        ]
+;    (-> `(def ~sym ~(emit-form cinit))
+;        (ana2/unanalyzed (:env expr))
+;        (ana2/inherit-top-level expr)
+;        (assoc ::untyped true
+;               ::expr-type (maybe-check-below
+;                             {:type `t/Var2
+;                              :filters {:else 'ff}}
+;                             expected)))))
+;
+;(defmethod macro-rule 'clojure.core/locking
+;  [{[_ x & body :as form] :form
+;    :keys [check-form expr emit-form
+;           expected maybe-check-below]}]
+;  (let [cx (check-form x)
+;        ;TODO blame form, handle empty (do) error message
+;        cbody (check-form `(do ~@body) expected)
+;        out-body (emit-form cbody)
+;        _ (assert (-> out-body first #{'do}))]
+;    (-> `(locking ~(emit-form cx) ~@(rest out-body))
+;        (ana2/unanalyzed (:env expr))
+;        (ana2/inherit-top-level expr)
+;        (merge {::untyped true}
+;               (select-keys cbody [::expr-type])))))
+;
+;(defmethod macro-rule 'clojure.core/..
+;  [{[_ x & forms] :form
+;    :keys [check-form check-expr expr emit-form
+;           expected maybe-check-below]}]
+;  (assert (seq forms))
+;  (let [cx (check-form x)
+;        ;FIXME complete this thought
+;        #_#_
+;        cforms (loop [ctarget cx
+;                      forms forms]
+;                 (if forms
+;                   (recur (next forms))
+;                   ))]
+;    ))
 
 
 #_
