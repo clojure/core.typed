@@ -2316,4 +2316,4 @@ for checking namespaces, cf for checking individual forms."}
 ; Initialize environments
 ;====================================================
 
-(register-ann-ns 'clojure.core.typed.lib.clojure)
+(register-ann-ns 'clojure.core.typed.ann.clojure)

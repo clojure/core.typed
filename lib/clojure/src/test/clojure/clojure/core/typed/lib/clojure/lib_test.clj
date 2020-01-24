@@ -1,5 +1,5 @@
-(ns clojure.core.typed.lib.clojure.lib-test
-  (:require [clojure.core.typed.lib.clojure]
+(ns clojure.core.typed.ann.clojure.ann-test
+  (:require [clojure.core.typed.ann.clojure]
             [clojure.test :refer :all]))
 
 (deftest load-test

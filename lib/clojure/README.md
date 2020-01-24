@@ -11,7 +11,7 @@ Latest stable release is 0.7.2.
 [deps.edn](https://clojure.org/reference/deps_and_cli) JAR dependency information:
 
 ```clj
-  org.typedclojure/core.typed.lib.clojure {:mvn/version "0.7.2"}
+  org.clojure/core.typed.lib.clojure {:mvn/version "0.7.2"}
  ```
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) Git dependency information:
@@ -27,14 +27,14 @@ Latest stable release is 0.7.2.
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.typedclojure/core.typed.lib.clojure "0.7.2"]
+[org.clojure/core.typed.lib.clojure "0.7.2"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
 
 ```XML
 <dependency>
-  <groupId>org.typedclojure</groupId>
+  <groupId>org.clojure</groupId>
   <artifactId>core.typed.lib.clojure</artifactId>
   <version>0.7.2</version>
 </dependency>
