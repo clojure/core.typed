@@ -4,6 +4,8 @@
    "remove dependency on tools.analyzer"]
   [:lib.core.async
    "initial release - extracted core.async annotations from `checker.jvm`"]
+  [:lib.clojure
+   "rename namespace: clojure.core.typed.lib.clojure => clojure.core.typed.ann.clojure"]
   [:analyzer.common
    ["Renamed clojure.core.typed.analyzer => clojure.core.typed.analyzer.common"
     ["Note: also applies to namespaced keywords"]]]
