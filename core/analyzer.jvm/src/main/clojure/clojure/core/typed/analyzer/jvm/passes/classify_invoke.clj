@@ -8,9 +8,13 @@
 
 ;copied from clojure.tools.analyzer.passes.jvm.classify-invoke
 (ns clojure.core.typed.analyzer.jvm.passes.classify-invoke
-  (:require [clojure.core.typed.analyzer.common.utils :as cu]
+  (:require [clojure.core.typed.analyzer.common :as common]
+            [clojure.core.typed.analyzer.common.utils :as cu]
             [clojure.core.typed.analyzer.jvm.utils :as ju]
             [clojure.core.typed.analyzer.jvm.passes.validate :as validate]))
+
+(create-ns 'clojure.core.typed.analyzer.jvm)
+(alias 'jvm 'clojure.core.typed.analyzer.jvm)
 
 ;;important that this pass depends our `uniquify-locals`
 ;; (clojure.core.typed.analyzer.common.passes.uniquify), not the taj pass
@@ -44,6 +48,7 @@
                   (= 1 argc))
            (merge (dissoc ast :fn :args)
                   {:op       :keyword-invoke
+                   ::common/op ::common/keyword-invoke
                    :target   (first args)
                    :keyword  the-fn
                    :children [:keyword :target]})
@@ -58,6 +63,7 @@
             (= :class (:type (first args))))
        (merge (dissoc ast :fn :args)
               {:op       :instance?
+               ::common/op ::jvm/keyword-invoke
                :class    (:val (first args))
                :target   (second args)
                :form     form
@@ -70,6 +76,7 @@
        (if (>= argc 1)
          (merge (dissoc ast :fn)
                 {:op          :protocol-invoke
+                 ::common/op  ::common/protocol-invoke
                  :protocol-fn the-fn
                  :target      (first args)
                  :args        (vec (rest args))
@@ -86,6 +93,7 @@
          (if-let [prim-interface (ju/prim-interface (mapv #(if (nil? %) Object %) tags))]
            (merge ast
                   {:op             :prim-invoke
+                   ::common/op     ::jvm/protocol-invoke
                    :prim-interface prim-interface
                    :args           (mapv (fn [arg tag] (assoc arg :tag tag)) args arg-tags)
                    :o-tag          ret-tag

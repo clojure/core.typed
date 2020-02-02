@@ -1,4 +1,4 @@
-;;   Copyright (c) Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
+;;   Copyright (c) Nicola Mometto, Rich Hickey & contributors.
 ;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
 ;;   which can be found in the file epl-v10.html at the root of this distribution.
@@ -11,20 +11,21 @@
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.core.memoize :as memo]
             [clojure.core.typed.analyzer.common :as ana]
+            [clojure.core.typed.analyzer.common :as common]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.common.passes :as passes]
             [clojure.core.typed.analyzer.common.passes.constant-lifter :as constant-lift]
             [clojure.core.typed.analyzer.common.passes.elide-meta :as elide-meta]
             [clojure.core.typed.analyzer.common.passes.source-info :as source-info]
             [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]
+            [clojure.core.typed.analyzer.common.utils :as u]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as analyze-host-expr]
             [clojure.core.typed.analyzer.jvm.passes.classify-invoke :as classify-invoke]
+            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
             [clojure.core.typed.analyzer.jvm.passes.infer-tag :as infer-tag]
             [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
-            [clojure.core.typed.analyzer.jvm.utils :as ju]
-            [clojure.core.typed.analyzer.jvm.passes.emit-form :as emit-form]
-            [clojure.core.typed.analyzer.common.utils :as u])
-  (:import (clojure.lang RT Var IObj)))
+            [clojure.core.typed.analyzer.jvm.utils :as ju])
+  (:import [clojure.lang IObj RT Var]))
 
 (def specials
   "Set of the special forms for clojure in the JVM"
@@ -262,6 +263,7 @@
                     (merge {:form form}
                            (u/-source-info form env)))))
   {:op       :monitor-enter
+   ::common/op ::monitor-enter
    :env      env
    :form     form
    :target   (ana/unanalyzed target (u/ctx env :ctx/expr))
@@ -274,6 +276,7 @@
                     (merge {:form form}
                            (u/-source-info form env)))))
   {:op       :monitor-exit
+   ::common/op ::monitor-exit
    :env      env
    :form     form
    :target   (ana/unanalyzed target (u/ctx env :ctx/expr))
@@ -286,6 +289,7 @@
                     (merge {:form form}
                            (u/-source-info form env)))))
   {:op    :import
+   ::common/op ::import
    :env   env
    :form  form
    :class class})
@@ -310,6 +314,7 @@
                      :env   env
                      :form  this
                      :op    :binding
+                     ::common/op ::common/binding
                      :o-tag (:this env)
                      :tag   (:this env)
                      :local :this}
@@ -317,6 +322,7 @@
         method-expr (ana/analyze-fn-method meth env)]
     (assoc (dissoc method-expr :variadic?)
       :op       :method
+      ::common/op ::common/method
       :form     form
       :this     this-expr
       :name     (symbol (name method))
@@ -350,6 +356,7 @@
 
     (ana/wrapping-meta
      {:op         :reify
+      ::common/op ::reify
       :env        env
       :form       form
       :class-name class-name
@@ -376,7 +383,8 @@
                                             (and (:volatile-mutable m)
                                                  :volatile-mutable)))
                              :local   :field
-                             :op      :binding})
+                             :op      :binding
+                             ::common/op ::common/binding})
                           fields)
         menv (assoc env
                :context :ctx/expr
@@ -389,6 +397,7 @@
     (-deftype name class-name fields interfaces)
 
     {:op         :deftype
+     ::common/op ::deftype
      :env        env
      :form       form
      :name       name
@@ -407,12 +416,14 @@
                                 (let [test-expr (ana/analyze-const test e)
                                       then-expr (ana/unanalyzed then env)]
                                   [(conj te {:op       :case-test
+                                             ::common/op ::case-test
                                              :form     test
                                              :env      e
                                              :hash     min-hash
                                              :test     test-expr
                                              :children [:test]})
                                    (conj th {:op       :case-then
+                                             ::common/op ::case-then
                                              :form     then
                                              :env      env
                                              :hash     min-hash
@@ -421,6 +432,7 @@
                               [[] []] case-map)
         default-expr (ana/unanalyzed default env)]
     {:op          :case
+     ::common/op  ::case
      :form        form
      :env         env
      :test        (assoc test-expr :case-test true)

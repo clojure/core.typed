@@ -209,3 +209,21 @@ Java and .NET applications. Take a look at YourKit's leading software products:
 Copyright © Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
 
 Licensed under the EPL (see the file epl-v10.html).
+
+### tools.analyzer
+
+Copyright © Nicola Mometto, Rich Hickey & contributors.
+
+Licensed under the EPL (see the file epl-v10.html).
+
+### tools.analyzer.jvm
+
+Copyright © Nicola Mometto, Rich Hickey & contributors.
+
+Licensed under the EPL (see the file epl-v10.html).
+
+### tools.analyzer.js
+
+Copyright © Nicola Mometto, Rich Hickey & contributors.
+
+Licensed under the EPL (see the file epl-v10.html).

@@ -1,4 +1,4 @@
-;;   Copyright (c) Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
+;;   Copyright (c) Nicola Mometto, Rich Hickey & contributors.
 ;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
 ;;   which can be found in the file epl-v10.html at the root of this distribution.
@@ -10,12 +10,17 @@
 ; - replace calls to `maybe-class-literal`
 (ns clojure.core.typed.analyzer.jvm.passes.analyze-host-expr
   (:require [clojure.core.typed.analyzer.common :as ana]
+            [clojure.core.typed.analyzer.common :as common]
             [clojure.core.typed.analyzer.common.utils :refer [ctx source-info merge']]
             [clojure.core.typed.analyzer.jvm.utils :as u]))
+
+(create-ns 'clojure.core.typed.analyzer.jvm)
+(alias 'jvm 'clojure.core.typed.analyzer.jvm)
 
 (defn maybe-static-field [[_ class sym]]
   (when-let [{:keys [flags type name]} (u/static-field class sym)]
     {:op          :static-field
+     ::common/op  ::jvm/static-field
      :assignable? (not (:final flags))
      :class       class
      :field       name
@@ -25,6 +30,7 @@
 (defn maybe-static-method [[_ class sym]]
   (when-let [{:keys [name return-type]} (u/static-method class sym)]
     {:op      :static-call
+     ::common/op  ::jvm/static-call
      :tag     return-type
      :o-tag   return-type
      :class   class
@@ -33,6 +39,7 @@
 (defn maybe-instance-method [target-expr class sym]
   (when-let [{:keys [return-type]} (u/instance-method class sym)]
     {:op       :instance-call
+     ::common/op  ::jvm/instance-call
      :tag      return-type
      :o-tag    return-type
      :instance target-expr
@@ -43,6 +50,7 @@
 (defn maybe-instance-field [target-expr class sym]
   (when-let [{:keys [flags name type]} (u/instance-field class sym)]
     {:op          :instance-field
+     ::common/op  ::jvm/instance-field
      :assignable? (not (:final flags))
      :class       class
      :instance    target-expr
@@ -53,11 +61,12 @@
 
 (defn analyze-host-call
   [target-type method args target-expr class env]
-  (let [op (case target-type
-             :static   :static-call
-             :instance :instance-call)]
+  (let [[op common-op] (case target-type
+                         :static   [:static-call ::jvm/static-call]
+                         :instance [:instance-call ::jvm/instance-call])]
     (merge
      {:op     op
+      ::common/op common-op
       :method method
       :args   args}
      (case target-type
@@ -79,6 +88,7 @@
                                          (source-info env)))))
       :instance (or (maybe-instance-field target-expr class field)
                     {:op          :host-interop
+                     ::common/op  ::jvm/host-interop
                      :target      (dissoc target-expr :tag :validated?)
                      :m-or-f      field
                      :assignable? true
@@ -90,6 +100,7 @@
                                               :field    field}
                                              (source-info env)))))))
     {:op          :host-interop
+     ::common/op  ::jvm/host-interop
      :target      target-expr
      :m-or-f      field
      :assignable? true
@@ -108,6 +119,7 @@
 
      (not (or class target-class))
      {:op          :host-interop
+      ::common/op  ::jvm/host-interop
       :target      target-expr
       :m-or-f      m-or-f
       :assignable? true
@@ -128,6 +140,7 @@
 
      target-class
      {:op          :host-interop
+      ::common/op  ::jvm/host-interop
       :target      (dissoc target-expr :tag :validated?)
       :m-or-f      m-or-f
       :assignable? true

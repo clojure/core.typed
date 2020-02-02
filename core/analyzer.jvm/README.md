@@ -62,3 +62,9 @@ If you're familiar with the latter, here's what this library does differently.
 Copyright © Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
 
 Licensed under the EPL (see the file epl-v10.html).
+
+### tools.analyzer.jvm
+
+Copyright © Nicola Mometto, Rich Hickey & contributors.
+
+Licensed under the EPL (see the file epl-v10.html).

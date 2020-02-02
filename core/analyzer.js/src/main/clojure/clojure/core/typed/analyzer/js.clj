@@ -1,4 +1,4 @@
-;;   Copyright (c) Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
+;;   Copyright (c) Nicola Mometto, Rich Hickey & contributors.
 ;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
 ;;   which can be found in the file epl-v10.html at the root of this distribution.
@@ -11,13 +11,14 @@
   "Analyzer for clojurescript code, extends tools.analyzer with JS specific passes/forms"
   (:refer-clojure :exclude [macroexpand-1 var? ns-resolve])
   (:require [clojure.core.typed.analyzer.common :as ana]
-            [clojure.tools.analyzer.utils :refer [ctx -source-info dissoc-env mmerge update-vals] :as u]
-            [clojure.tools.analyzer.ast :refer [prewalk postwalk]]
-            [clojure.tools.analyzer.env :as env]
+            [clojure.core.typed.analyzer.common :as common]
+            [clojure.core.typed.analyzer.common.ast :refer [prewalk postwalk]]
+            [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.common.passes :as passes]
             [clojure.core.typed.analyzer.common.passes.source-info :refer [source-info]]
             [clojure.core.typed.analyzer.common.passes.elide-meta :refer [elide-meta elides]]
             [clojure.core.typed.analyzer.common.passes.uniquify :as uniquify2]
+            [clojure.core.typed.analyzer.common.utils :refer [ctx -source-info dissoc-env mmerge update-vals] :as u]
             [clojure.core.typed.analyzer.js.passes.infer-tag :refer [infer-tag]]
             [clojure.core.typed.analyzer.js.passes.validate :refer [validate]]
             [clojure.core.typed.analyzer.js.utils
@@ -151,6 +152,7 @@
   "Creates a var map for sym and returns it."
   [sym {:keys [ns]}]
   (with-meta {:op   :var
+              ::common/op ::var
               :name sym
               :ns   ns}
     (meta sym)))
@@ -176,8 +178,9 @@
                        :js-namespace true})
                (swap! env/*env* update-in [:namespaces ns :mappings] merge
                       (reduce (fn [m k] (assoc m k {:op   :js-var
-                                                   :name k
-                                                   :ns   ns}))
+                                                    ::common/op ::js-var
+                                                    :name k
+                                                    :ns   ns}))
                               {} refer)))
           (analyze-ns ns)))))
 
@@ -192,8 +195,9 @@
   [{:keys [import require require-macros refer-clojure]} ns-name env]
   (let [imports (reduce-kv (fn [m prefix suffixes]
                              (merge m (into {} (mapv (fn [s] [s {:op   :js-var
-                                                                :ns   prefix
-                                                                :name s}]) suffixes)))) {} import)
+                                                                 ::common/op ::js-var
+                                                                 :ns   prefix
+                                                                 :name s}]) suffixes)))) {} import)
         require-aliases (reduce (fn [m [ns {:keys [as]}]]
                                   (if as
                                     (assoc m as ns)
@@ -290,12 +294,14 @@
                              :name    name
                              :mutable (:mutable (meta name))
                              :local   :field
-                             :op      :binding})
+                             :op      :binding
+                             ::common/op ::common/binding})
                           fields)
         protocols (-> name meta :protocols)
 
         _ (swap! env/*env* assoc-in [:namespaces ns :mappings name]
                  {:op        :var
+                  ::common/op ::common/var
                   :type      true
                   :name      name
                   :ns        ns
@@ -307,6 +313,7 @@
                     (assoc env :locals (zipmap fields (map dissoc-env fields-expr))))]
 
     {:op        op
+     ::common/op (keyword "clojure.core.typed.analyzer.js" (name op))
      :env       env
      :form      form
      :name      name
@@ -332,6 +339,7 @@
         exprs (mapv #(ana/unanalyzed % (ctx env :ctx/expr)) args)]
     (merge
      {:op       :js
+      ::common/op ::js
       :env      env
       :form     form
       :segs     segs}
@@ -347,16 +355,19 @@
         test-expr (ana/unanalyzed test expr-env)
         nodes (mapv (fn [tests then]
                       {:op       :case-node
+                       ::common/op  ::case-node
                        ;; no :form, this is a synthetic grouping node
                        :env      env
                        :tests    (mapv (fn [test]
                                          {:op       :case-test
+                                          ::common/op ::case-test
                                           :form     test
                                           :env      expr-env
                                           :test     (ana/unanalyzed test expr-env)
                                           :children [:test]})
                                        tests)
                        :then     {:op       :case-then
+                                  ::common/op ::case-then
                                   :form     test
                                   :env      env
                                   :then     (ana/unanalyzed then env)
@@ -369,6 +380,7 @@
                (mapcat :tests nodes))
             "case* tests must be numbers or strings")
     {:op       :case
+     ::common/op ::case
      :form     form
      :env      env
      :test     (assoc test-expr :case-test true)
@@ -396,6 +408,7 @@
     (set! *cljs-ns* name)
     (merge
      {:op      :ns
+      ::common/op ::ns
       :env     env
       :form    form
       :name    name
@@ -423,12 +436,14 @@
     (if (map? val)
       ;; keys should always be symbols/kewords, do we really need to analyze them?
       {:op       :js-object
+       ::common/op ::js-object
        :env      env
        :keys     (mapv (ana/unanalyzed-in-env items-env) (keys val))
        :vals     (mapv (ana/unanalyzed-in-env items-env) (vals val))
        :form     form
        :children [:keys :vals]}
       {:op       :js-array
+       ::common/op ::js-array
        :env      env
        :items    (mapv (ana/unanalyzed-in-env items-env) val)
        :form     form

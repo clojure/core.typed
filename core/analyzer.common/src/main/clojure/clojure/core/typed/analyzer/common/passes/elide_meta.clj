@@ -8,7 +8,8 @@
 
 ;copied from clojure.tools.analyzer.passes.elide-meta
 (ns clojure.core.typed.analyzer.common.passes.elide-meta
-  (:require [clojure.core.typed.analyzer.common.passes.source-info :refer [source-info]]))
+  (:require [clojure.core.typed.analyzer.common :as common]
+            [clojure.core.typed.analyzer.common.passes.source-info :refer [source-info]]))
 
 (def ^:dynamic elides
   "A map of op keywords to predicate IFns.
@@ -65,6 +66,7 @@
           (assoc ast :meta (replace-meta meta new-meta)))
         (merge (dissoc ast :meta :expr)
                {:op         :do
+                ::common/op ::common/do
                 :body?      true
                 :ret        expr
                 :statements []

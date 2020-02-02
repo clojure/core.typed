@@ -8,7 +8,8 @@
 
 ;copied from clojure.tools.analyzer.passes.constant-lifter
 (ns clojure.core.typed.analyzer.common.passes.constant-lifter
-  (:require [clojure.core.typed.analyzer.common.utils :refer [const-val]]))
+  (:require [clojure.core.typed.analyzer.common :as common]
+            [clojure.core.typed.analyzer.common.utils :refer [const-val]]))
 
 (defmulti constant-lift
   "If the node represents a collection with no metadata, and every item of that
@@ -22,6 +23,7 @@
            (empty? (meta form)))
     (merge (dissoc ast :items :children)
            {:op       :const
+            ::common/op ::common/const
             :val      (mapv const-val items)
             :type     :vector
             :literal? true})
@@ -40,6 +42,7 @@
               (apply array-map (mapcat identity c)))]
       (merge (dissoc ast :keys :vals :children)
              {:op       :const
+              ::common/op ::common/const
               :val      c
               :type     :map
               :literal? true}))
@@ -51,6 +54,7 @@
            (empty? (meta form)))
     (merge (dissoc ast :items :children)
            {:op       :const
+            ::common/op ::common/const
             :val      (into (empty form) (mapv const-val items))
             :type     :set
             :literal? true})
