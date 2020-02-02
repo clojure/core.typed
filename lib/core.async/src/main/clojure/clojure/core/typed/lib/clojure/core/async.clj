@@ -9,8 +9,7 @@
 (ns 
   ^{:doc 
     "This namespace contains annotations and helper macros for type
-    checking core.async code. Ensure clojure.core.async is require'd
-    before performing type checking.
+    checking core.async code.
     
     go
       use go
@@ -80,53 +79,53 @@
   Port2
   "A port that can write type w and read type r"
   (t/TFn [[w :variance :contravariant]
-        [r :variance :covariant]]
-    (t/I (impl/WritePort w)
-       (impl/ReadPort r))))
+          [r :variance :covariant]]
+         (t/I (impl/WritePort w)
+              (impl/ReadPort r))))
 
 (defalias 
   ^{:forms '[(Port t)]}
   Port
   "A port that can read and write type x"
   (t/TFn [[x :variance :invariant]]
-    (Port2 x x)))
+         (Port2 x x)))
 
 (defalias 
   ^{:forms '[(Chan2 t t)]}
   Chan2
   "A core.async channel that can take type w and put type r"
   (t/TFn [[w :variance :contravariant]
-        [r :variance :covariant]]
-    (t/I (Port2 w r)
-       impl/Channel)))
+          [r :variance :covariant]]
+         (t/I (Port2 w r)
+              impl/Channel)))
 
 (defalias 
   ^{:forms '[(Chan t)]}
   Chan
   "A core.async channel"
   (t/TFn [[x :variance :invariant]]
-    (Chan2 x x)))
+         (Chan2 x x)))
 
 (defalias 
   ^{:forms '[(ReadOnlyChan t)]}
   ReadOnlyChan
   "A core.async channel that statically disallows writes."
   (t/TFn [[r :variance :covariant]]
-    (Chan2 t/Nothing r)))
+         (Chan2 t/Nothing r)))
 
 (defalias 
   ^{:forms '[(ReadOnlyPort t)]}
   ReadOnlyPort
   "A read-only port that can read type x"
   (t/TFn [[t :variance :covariant]]
-    (Port2 t/Nothing t)))
+         (Port2 t/Nothing t)))
 
 (defalias 
   ^{:forms '[(WriteOnlyPort t)]}
   WriteOnlyPort
   "A write-only port that can write type p"
   (t/TFn [[p :variance :contravariant]]
-    (Port2 p t/Nothing)))
+         (Port2 p t/Nothing)))
 
 (defalias
   ^{:forms '[TimeoutChan]}
@@ -139,32 +138,32 @@
   Buffer2
   "A buffer of that can write type w and read type t."
   (t/TFn [[w :variance :contravariant]
-        [r :variance :covariant]]
-    (t/I (impl/Buffer w r)
-         clojure.lang.Counted)))
+          [r :variance :covariant]]
+         (t/I (impl/Buffer w r)
+              clojure.lang.Counted)))
 
 (defalias 
   ^{:forms '[(Buffer t)]}
   Buffer
   "A buffer of type x."
   (t/TFn [[x :variance :invariant]]
-    (Buffer2 x x)))
+         (Buffer2 x x)))
 
 (defalias 
   ^{:forms '[(UnblockingBuffer2 t t)]}
   UnblockingBuffer2
   "An unblocking buffer that can write type w and read type t."
   (t/TFn [[w :variance :contravariant]
-        [r :variance :covariant]]
-    (t/I (Buffer2 w r)
-         impl/UnblockingBuffer)))
+          [r :variance :covariant]]
+         (t/I (Buffer2 w r)
+              impl/UnblockingBuffer)))
 
 (defalias 
   ^{:forms '[(UnblockingBuffer t)]}
   UnblockingBuffer
   "An unblocking buffer of type x."
   (t/TFn [[x :variance :invariant]]
-    (UnblockingBuffer2 x x)))
+         (UnblockingBuffer2 x x)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Var annotations
@@ -426,37 +425,3 @@
     (if t?
       `((inst async/dropping-buffer ~t ~t) ~@args)
       `(async/dropping-buffer ~@args))))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Deprecated
-
-(defmacro chan>
-  "DEPRECATED: use chan"
-  [t & args]
-  (prn "DEPRECATED: chan>, use chan")
-  `((inst async/chan ~t) ~@args))
-
-(defmacro buffer>
-  "DEPRECATED: use buffer"
-  [t & args]
-  (prn "DEPRECATED: buffer>, use buffer")
-  `((inst async/buffer ~t) ~@args))
-
-(defmacro sliding-buffer>
-  "DEPRECATED: use sliding-buffer"
-  [t & args]
-  (prn "DEPRECATED: sliding-buffer>, use sliding-buffer")
-  `((inst async/sliding-buffer ~t) ~@args))
-
-(defmacro dropping-buffer>
-  "DEPRECATED: use dropping-buffer"
-  [t & args]
-  (prn "DEPRECATED: dropping-buffer>, use dropping-buffer")
-  `((inst async/dropping-buffer ~t) ~@args))
-
-(defmacro go>
-  "DEPRECATED: use go"
-  [& body]
-  (prn "DEPRECATED: go>, use go")
-  `(go ~@body))

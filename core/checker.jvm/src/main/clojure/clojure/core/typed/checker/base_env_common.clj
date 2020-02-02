@@ -213,7 +213,7 @@
                              [(Option (Seqable Any)) -> Boolean])
     clojure.core/coll? (Pred (Coll Any))
                                         ;clojure.core/set? (Pred (Set Any))
-    ;clojure.core/associative? (Pred (clojure.lang.Associative Any Any))
+    ;clojure.core/associative? (Pred (clojure.lang.Associative Any Any Any))
     ;clojure.core/sequential? (Pred clojure.lang.Sequential)
                                         ;clojure.core/sorted? (Pred Sorted)
     clojure.core/map? (Pred (Map Any Any))
@@ -226,7 +226,7 @@
     clojure.core/integer? (Pred AnyInteger)
     clojure.core/contains? [(Option (Seqable Any)) Any -> Boolean]
     clojure.core/find (All [x y]
-                           [(U nil (Associative x y)) Any -> (U nil (HVec [x y]))])
+                           [(U nil (Associative Any x y)) Any -> (U nil (HVec [x y]))])
     clojure.core/distinct? [Any Any * -> Boolean]
     clojure.core/compare [Any Any -> Number]
     clojure.core/sort (All [x]
@@ -248,7 +248,7 @@
           [[a c -> (U (Reduced a) a)] a (Option (Seqable c)) -> a]))
     clojure.core/reduce-kv
     (All [a c k v]
-         [[a k v -> (U (Reduced a) a)] a (Option (Associative k v)) -> a])
+         [[a k v -> (U (Reduced a) a)] a (Option (Associative Any k v)) -> a])
     clojure.core/< [Number Number * -> Boolean]
     clojure.core/<= [Number Number * -> Boolean]
     clojure.core/> [Number Number * -> Boolean]
@@ -492,7 +492,7 @@
     (IFn [Any (U nil (Seqable Any)) -> Any]
          [Any (U nil (Seqable Any)) Any -> Any])
     clojure.core/assoc-in
-    [(U nil (Associative Any Any)) (Seqable Any) Any -> Any]
+    [(U nil (Associative Any Any Any)) (Seqable Any) Any -> Any]
     clojure.core/vec (All [x] [(Option (Seqable x)) -> (AVec x)])
     clojure.core/vector (All [r b ...]
                              (IFn [b ... b -> '[b ... b]]

@@ -12,15 +12,10 @@
   (:require [clojure.set :as set]
             [clojure.core.typed.env :as env]
             [clojure.core.typed.contract-utils :as con]
-            [clojure.core.typed.util-vars :as vs]))
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.runtime.jvm.configs :as configs]))
 
-(defn register! []
-  (let [[old _] (swap-vals! vs/registered-ann-ns assoc :register? true :namespaces #{})]
-    (when (not (:register? old))
-      (run! (fn [s]
-              (println (str "Registering type annotation namespace " s))
-              (require s))
-            (:namespaces old)))))
+(def register! configs/register-config-anns)
 
 (def current-var-annotations-kw ::current-var-annotations)
 (def current-nocheck-var?-kw ::current-nocheck-var?)

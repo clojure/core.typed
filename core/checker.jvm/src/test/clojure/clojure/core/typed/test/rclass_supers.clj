@@ -33,7 +33,7 @@
                        (RClass-of APersistentSet [num]) (Un -nil num)
                        (RClass-of PersistentTreeSet [num]) (Un -nil num)
                        (RClass-of PersistentHashSet [num]) (Un -nil num)
-                       (RClass-of Associative [num num]) -any
+                       (RClass-of Associative [num num num]) -any
                        (RClass-of IPersistentStack [num]) (Un -nil num)
                        (RClass-of String) (Un -nil (RClass-of Character))
                        (RClass-of CharSequence) (Un -nil (RClass-of Character))

@@ -689,7 +689,7 @@ clojure.core/some? [Any -> Boolean :filters {:then (! nil 0)
 
 clojure.core/cast (All [x] [Class x -> x])
 
-clojure.core/associative? (Pred (clojure.lang.Associative Any Any))
+clojure.core/associative? (Pred (clojure.lang.Associative Any Any Any))
 clojure.core/coll? (Pred (t/Coll Any))
       ;TODO should these be parameterised?
 clojure.core/sequential? (Pred t/Sequential)
@@ -1067,7 +1067,7 @@ clojure.core/reduce
 
 clojure.core/reduce-kv
     (All [a c k v]
-      [[a k v -> (U (Reduced a) a)] a (t/Option (Associative k v)) -> a])
+      [[a k v -> (U (Reduced a) a)] a (t/Option (Associative Any k v)) -> a])
 
 clojure.core/reduced (All [x] [x -> (Reduced x)])
 clojure.core/reduced? (Pred (Reduced Any))
@@ -1222,7 +1222,7 @@ clojure.core/sequence
               [(t/Transducer a b) (Seqable a) :-> (Seqable b)]))
 clojure.core/find
      (All [x y]
-          [(U nil (clojure.lang.Associative x y)) Any -> (U nil (HVec [x y]))])
+          [(U nil (clojure.lang.Associative Any x y)) Any -> (U nil (HVec [x y]))])
 
 ; same as clojure.lang.RT/get
 clojure.core/get
@@ -1246,7 +1246,7 @@ clojure.core/get-in
         [Any (U nil (Seqable Any)) Any -> Any])
 
 clojure.core/assoc-in
-    [(U nil (Associative Any Any)) (Seqable Any) Any -> Any]
+    [(U nil (Associative Any Any Any)) (Seqable Any) Any -> Any]
 
 ;FIXME maps after the first can always be nil
 clojure.core/merge 

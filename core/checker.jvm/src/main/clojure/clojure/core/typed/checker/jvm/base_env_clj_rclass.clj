@@ -110,12 +110,13 @@ PersistentTreeSet [[[a :variance :covariant]]
                     :unchecked-ancestors
                     #{[Any -> (U a nil)]}]
 
-Associative [[[a :variance :covariant]
-              [b :variance :covariant]]
+Associative [[[m :variance :covariant]
+              [k :variance :covariant]
+              [v :variance :covariant]]
              :replace
-             {IPersistentCollection (IPersistentCollection Any)
-              Seqable (Seqable Any)
-              ILookup (ILookup a b)}]
+             {IPersistentCollection (IPersistentCollection m)
+              Seqable (Seqable m)
+              ILookup (ILookup k v)}]
 
 ;ITransientCollection [[[w :variance :contravariant]
 ;                       [r :variance :covariant]]]
@@ -177,7 +178,7 @@ IPersistentVector [[[a :variance :covariant]]
                     Reversible (Reversible a)
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
-                    Associative (Associative Number a)
+                    Associative (Associative a Number a)
                     Indexed (Indexed a)}
                    :unchecked-ancestors
                    #{[Number -> a]}] ;; not a real ancestor, but very useful
@@ -194,7 +195,7 @@ APersistentVector [[[a :variance :covariant]]
                     Reversible (Reversible a)
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
-                    Associative (Associative Number a)
+                    Associative (Associative a Number a)
                     Indexed (Indexed a)}
                    :unchecked-ancestors
                    #{[Number -> a]}]
@@ -212,7 +213,7 @@ PersistentVector [[[a :variance :covariant]]
                    Reversible (Reversible a)
                    IPersistentStack (IPersistentStack a)
                    ILookup (ILookup Number a)
-                   Associative (Associative Number a)
+                   Associative (Associative a Number a)
                    Indexed (Indexed a)
                    #_IEditableCollection #_(IEditableCollection (ITransientVector a))}
                   :unchecked-ancestors
@@ -237,7 +238,7 @@ clojure.lang.AMapEntry
             Reversible (Reversible (U a b))
             IPersistentStack (IPersistentStack (U a b))
             ILookup (ILookup Number (U a b))
-            Associative (Associative Number (U a b))
+            Associative (Associative (U a b) Number (U a b))
             Indexed (Indexed (U a b))
             APersistentVector (APersistentVector (U a b))}
            :unchecked-ancestors
@@ -260,7 +261,7 @@ clojure.lang.MapEntry
             Reversible (Reversible (U a b))
             IPersistentStack (IPersistentStack (U a b))
             ILookup (ILookup Number (U a b))
-            Associative (Associative Number (U a b))
+            Associative (Associative (U a b) Number (U a b))
             Indexed (Indexed (U a b))
             APersistentVector (APersistentVector (U a b))}
            :unchecked-ancestors
@@ -274,7 +275,7 @@ IPersistentMap [[[a :variance :covariant]
                  Iterable (Iterable (AMapEntry a b))
                  Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
-                 Associative (Associative a b)}]
+                 Associative (Associative (AMapEntry a b) a b)}]
 
 clojure.lang.ASeq [[[a :variance :covariant]]
       :replace
@@ -294,7 +295,7 @@ APersistentMap [[[a :variance :covariant]
                  IPersistentMap (IPersistentMap a b)
                  Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
-                 Associative (Associative a b)}
+                 Associative (Associative (AMapEntry a b) a b)}
                 :unchecked-ancestors
                 #{(All [d]
                           (IFn [Any -> (U nil b)]
@@ -310,7 +311,7 @@ PersistentTreeMap [[[a :variance :covariant]
                     APersistentMap (APersistentMap a b)
                     Seqable (Seqable (AMapEntry a b))
                     ILookup (ILookup a b)
-                    Associative (Associative a b)
+                    Associative (Associative (AMapEntry a b) a b)
                     Reversible (Reversible (AMapEntry a b))
                     #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}
                    :unchecked-ancestors
@@ -327,7 +328,7 @@ PersistentHashMap [[[a :variance :covariant]
                     APersistentMap (APersistentMap a b)
                     Seqable (Seqable (AMapEntry a b))
                     ILookup (ILookup a b)
-                    Associative (Associative a b)
+                    Associative (Associative (AMapEntry a b) a b)
                     #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}
                    :unchecked-ancestors
                    #{(All [d]
