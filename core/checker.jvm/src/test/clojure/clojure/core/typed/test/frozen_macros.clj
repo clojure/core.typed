@@ -9,8 +9,7 @@
     [clojure.test :refer :all]))
 
 (def tc-config
-  {:ns-meta {:core.typed {:experimental #{:custom-expansions}}}
-   :check-config {:type-check-eval :simulate}})
+  {:ns-meta {:core.typed {:experimental #{:custom-expansions}}}})
 
 (defmacro tc-e [frm & opts]
   `(tu/tc-e ~frm ~@opts ~@(apply concat tc-config)))
@@ -36,6 +35,7 @@
                         :check-config '~(:check-config tc-config)
                         ~@(apply concat (dissoc opts :ns-meta)))))
 
+(comment
 (deftest simulate-test
   (is (-> (chk-frm 1)
           :result
@@ -807,5 +807,6 @@
   [#'clojure.core.typed.test.frozen-macros/let-test 1221.219269]
   [#'clojure.core.typed.test.frozen-macros/update-in-inline-test 1641.337323])
 
+)
 )
 )

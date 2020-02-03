@@ -21,7 +21,7 @@
            :script {:extra-paths ["script"]}
            :nREPL
            {:extra-deps
-            {nrepl/nrepl {:mvn/version "0.4.5"}
+            {nrepl/nrepl {:mvn/version "0.6.0"}
              cider/piggieback {:mvn/version "0.3.8"}}
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}

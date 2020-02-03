@@ -21,8 +21,11 @@
             [clojure.repl :as repl]
             [clojure.core.typed.analyzer.common :as ana]
             [clojure.core.typed.analyzer.jvm.passes.beta-reduce :as beta-reduce]
+            [clojure.core.typed.runtime.jvm.configs :as configs]
             [clojure.core.typed.checker.jvm.parse-unparse :as prs])
   (:import (clojure.lang ExceptionInfo)))
+
+(def *register-anns (delay (configs/register-config-anns)))
 
 ;; (check-form-info config-map form & kw-args)
 ;; 
@@ -99,6 +102,7 @@
          (map? check-config)]}
   (assert (not (and expected-ret type-provided?)))
   (do
+    @*register-anns
     (reset-caches/reset-caches)
     (binding [vs/*already-checked* (atom #{})
               vs/*delayed-errors* (err/-init-delayed-errors)

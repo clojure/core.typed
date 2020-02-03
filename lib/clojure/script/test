@@ -1,3 +1,5 @@
 #!/bin/sh
 
+set -xe
+
 clojure -A:test:runner "$@"

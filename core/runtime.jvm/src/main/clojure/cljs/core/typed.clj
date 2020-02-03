@@ -298,7 +298,6 @@
    :unannotated-def :infer
    :unannotated-var :error
    :unannotated-multi :error
-   :type-check-eval :interleave
    #_#_:unannotated-arg :any})
 
 (let [check-form-cljs (delay (impl/dynaload 'clojure.core.typed.check-form-cljs/check-form-cljs))]

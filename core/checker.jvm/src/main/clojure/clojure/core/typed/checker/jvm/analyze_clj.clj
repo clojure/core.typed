@@ -140,20 +140,16 @@
 (T/ann ^:no-check typed-macro-lookup [T/Any T/Any :-> T/Any])
 (defn typed-macro-lookup [var env]
   {:post [(ifn? %)]}
-  (let [simulate? (#{:simulate} (some-> vs/*check-config* deref :type-check-eval))]
-    (or (when (or vs/*custom-expansions* simulate?)
-          (let [vsym (coerce/var->symbol var)]
-            (when (expand/custom-expansion? vsym)
-              (fn [form locals & _args_]
-                (expand/expand-macro form 
-                                     (merge (custom-expansion-opts env)
-                                            {:vsym vsym
-                                             :locals locals}))))))
-        ; :simulate requires top-level forms in custom expansions coincide with
-        ; actual corresponding macros in ways that *typed-macros* doesn't
-        (when-not simulate?
-          (get *typed-macros* var))
-        var)))
+  (or (when vs/*custom-expansions*
+        (let [vsym (coerce/var->symbol var)]
+          (when (expand/custom-expansion? vsym)
+            (fn [form locals & _args_]
+              (expand/expand-macro form 
+                                   (merge (custom-expansion-opts env)
+                                          {:vsym vsym
+                                           :locals locals}))))))
+      (get *typed-macros* var)
+      var))
 
 ;; copied from tools.analyzer.jvm to insert `*typed-macros*`
 (T/ann ^:no-check macroexpand-1 

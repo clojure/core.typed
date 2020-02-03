@@ -22,14 +22,8 @@
                         ;_ (prn "found form" form)
                         ;_ (prn "*ns*" (ns-name *ns*))
                         _ (when *intermediate-forms*
-                            (swap! *intermediate-forms* conj form))
-                        sym (when (and (seq? form)
-                                       (seq form)
-                                       (symbol? (first form))
-                                       (not (contains? jana2/specials (first form))))
-                              (-> (ana2/resolve-sym (first form) (:env expr))
-                                  ana2/var->sym))]
-                    (case sym
+                            (swap! *intermediate-forms* conj form))]
+                    (case (jana2/resolve-op-sym form env)
                       clojure.core.typed.analyzer.jvm.gilardi-test/my-body
                       (let [arg-forms (rest form)
                             ; Note: if top-level, must check args in evaluation order
@@ -48,9 +42,10 @@
                                                     (swap! update (second form) (fnil inc 0)))
                                             (recur (ana2/analyze-outer expr) expected))
                       clojure.core/ns
-                      (let [cexpr expr]
-                        (-> (ana2/run-passes cexpr)
-                            ))
+                      (let [;_ (prn "old ns:" *ns*)
+                            expr (ana2/run-passes expr)]
+                        ;(prn "new ns:" *ns*)
+                        expr)
                       #_:else
                       (recur (ana2/analyze-outer expr) expected)))
       (-> expr
@@ -81,6 +76,8 @@
 
 (defn chk [& args]
   (apply check-top-level-fresh-ns args))
+
+(def this-ns *ns*)
 
 ;; example macros for typing rules
 
@@ -117,6 +114,8 @@
   (is (= 2 (:result
              (chk `(do (ns ~(gensym 'foo))
                        (require '~'[clojure.core :as core])
+                       (assert (.startsWith (str (ns-name *ns*)) "foo")
+                               *ns*)
                        ;(prn (ns-aliases *ns*))
                        ;(println "foo ADSF")
                        ;(prn (ns-name *ns*) (ns-aliases *ns*))
@@ -258,4 +257,9 @@
 
   ; var is interned under let*
   (is (= 1 (:result (chk '(let* [] (def a 1) a) nil))))
+  ; locals shadowing (eval in current namespace)
+  (is (binding [*ns* this-ns]
+        (= {:result 1} (select-keys (check-top-level `(let [~'my-body (constantly 1)] (~'my-body)) nil) [:result]))))
+  (is (binding [*ns* this-ns]
+        (= {:result nil} (select-keys (check-top-level `(let [my-body# (constantly 1)] (~'my-body)) nil) [:result]))))
   )

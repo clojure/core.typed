@@ -256,6 +256,22 @@
 (defn global-env []
   (atom {}))
 
+(defn resolve-op-sym
+  "Alpha - subject to change
+  
+  In environment env, if form is an invocation of
+  a global var, return the fully qualified symbol of that var."
+  [form env]
+  (when (seq? form)
+    (let [op (first form)]
+      (when (and (symbol? op)
+                 ; TODO make specials dynamic and move this to common ns
+                 (not (specials op))
+                 (not (get (:locals env) op)))
+        ;TODO call these dynamic vars in common ns
+        (-> (resolve-sym op env)
+            var->sym)))))
+
 (defn parse-monitor-enter
   [[_ target :as form] env]
   (when-not (= 2 (count form))

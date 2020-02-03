@@ -45,3 +45,8 @@
   (run! (fn [{:keys [ann]}]
           (run! require ann))
         @*configs))
+
+(defn register-config-exts []
+  (run! (fn [{:keys [ext]}]
+          (run! require ext))
+        @*configs))
