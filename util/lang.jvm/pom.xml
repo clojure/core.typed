@@ -21,10 +21,6 @@
     <relativePath>../..</relativePath>
   </parent>
 
-  <properties>
-    <clojure.version>1.9.0</clojure.version>
-  </properties>
-
   <build>
     <plugins>
       <plugin>
@@ -48,8 +44,11 @@
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
-      <version>0.3.0-alpha4</version>
     </dependency>
   </dependencies>
 </project>

@@ -97,12 +97,10 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.checker.jvm</artifactId>
-      <version>0.8.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>1.10.597</version>
     </dependency>
   </dependencies>
 </project>

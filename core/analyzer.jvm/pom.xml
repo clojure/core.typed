@@ -42,25 +42,18 @@
     </plugins>
   </build>
 
-  <properties>
-    <clojure.version>1.9.0</clojure.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.typed.analyzer.common</artifactId>
-      <version>0.8.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.memoize</artifactId>
-      <version>0.8.2</version>
     </dependency>
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm</artifactId>
-      <version>5.2</version>
     </dependency>
   </dependencies>
 </project>
