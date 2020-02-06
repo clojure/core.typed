@@ -21,6 +21,11 @@
     <version>0.3.0</version>
   </parent>
 
+  <properties>
+    <clojure.warnOnReflection>true</clojure.warnOnReflection>
+    <clojure.version>1.10.1</clojure.version>
+  </properties>
+
   <modules>
     <module>all</module>
 
@@ -149,6 +154,11 @@
         <groupId>org.clojure</groupId>
         <artifactId>core.async</artifactId>
         <version>0.3.465</version>
+      </dependency>
+      <dependency>
+        <groupId>org.clojure</groupId>
+        <artifactId>tools.nrepl</artifactId>
+        <version>0.2.13</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

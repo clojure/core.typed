@@ -7,7 +7,8 @@
             [clojure.core.typed.load :as load]
             [clojure.core.typed.test.common-utils :as common-test]))
 
-(t/load-if-needed)
+(when-not *compile-files*
+  (t/load-if-needed))
 
 (require '[clojure.core.typed.checker.utils :as u]
          '[clojure.core.typed.errors :as err]

@@ -38,11 +38,21 @@
       <plugin>
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
+        <version>1.8.4</version>
+        <extensions>true</extensions>
+        <configuration>
+          <cleanAOTNamespaces>true</cleanAOTNamespaces>
+          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+          <warnOnReflection>${clojure.warnOnReflection}</warnOnReflection>
+          <namespaces>
+            <namespace>clojure.core.typed.*</namespace>
+          </namespaces>
+        <temporaryOutputDirectory>false</temporaryOutputDirectory>
+        </configuration>
         <executions>
           <execution>
             <id>clojure-compile</id>
-            <phase>none</phase>
+            <phase>compile</phase>
           </execution>
           <execution>
             <id>clojure-test</id>
@@ -51,7 +61,6 @@
         </executions>
       </plugin>
     </plugins>
-    <sourceDirectory>src/main/clojure</sourceDirectory>
   </build>
 
   <dependencies>
@@ -90,6 +99,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.cache</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>tools.nrepl</artifactId>
+      <version>0.2.13</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 </project>
