@@ -43,7 +43,6 @@
     <module>util/lang.jvm</module>
   </modules>
 
-  <!--
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -162,7 +161,7 @@
         <version>0.2.13</version>
       </dependency>
     </dependencies>
-  </dependencyManagement>-->
+  </dependencyManagement>
 
   <developers>
     <developer>
