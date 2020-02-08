@@ -27,7 +27,7 @@
   </properties>
 
   <modules>
-    <module>all</module>
+    <!--<module>all</module>-->
 
     <module>core/analyzer.common</module>
     <module>core/analyzer.js</module>
