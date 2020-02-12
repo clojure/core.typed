@@ -15,16 +15,16 @@ jobs:
           #- 1.11
           - 1.13
         submodule:
-          - core/analyzer.common
-          - core/analyzer.js
-          - core/analyzer.jvm
-          #- core/checker.js
-          - core/checker.jvm
-          - core/runtime.jvm
-          - util/annotator.jvm
-          - util/lang.jvm
-          - lib/clojure
-          - lib/core.async
+          - core.typed/analyzer.common
+          - core.typed/analyzer.js
+          - core.typed/analyzer.jvm
+          #- core.typed/checker.js
+          - core.typed/checker.jvm
+          - core.typed/runtime.jvm
+          - core.typed/annotator.jvm
+          - core.typed/lang.jvm
+          - core.typed/lib.clojure
+          - core.typed/lib.core.async
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v1
