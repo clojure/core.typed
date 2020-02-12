@@ -10,6 +10,7 @@
   (:require [clojure.core.typed.analyzer.common :as ana2]
             [clojure.core.typed.analyzer.jvm.passes.analyze-host-expr :as ana-host]
             [clojure.core.typed.analyzer.jvm.passes.validate :as validate]
+            [clojure.core.typed.checker.check.jvm.field :as field]
             [clojure.core.typed.checker.check.jvm.method :as method]
             [clojure.core.typed.checker.check.jvm.type-hints :as type-hints]
             [clojure.core.typed.checker.check.utils :as cu]
@@ -56,75 +57,71 @@
                       f))))
       expr)))
 
-;FIXME some spaghetti logic/shadowing in this code, maybe do explicit `case`
-; on the various :host-* forms. Remember, some use :target, others :instance.
 (defn check-host-interop
-  [check-expr {original-op :op :as expr} expected & {:keys [no-check]}]
-  {:post [(-> % u/expr-type r/TCResult?)]}
-  (let [check-expr (if no-check
-                     (fn [ast & _] #_(ana2/run-passes ast) ast)
-                     check-expr)
-        ;_ (prn (->> expr target :env :locals
-        ;            (map (fn [[k v]]
-        ;                   [k (select-keys v [:op :tag :form])]))))
-        ;_ (prn "old keys" original-op (vec (keys expr)))
-        {ctarget :target cargs :args :keys [m-or-f] :as expr}
-        (-> expr
-            (update :target check-expr)
-            (update :args #(mapv check-expr %))
-            ana2/run-post-passes)
-        ;_ (prn "new op" (:op expr) (vec (keys expr)))
-        give-up (fn []
-                  (do
-                    (err/tc-delayed-error (str "Unresolved host interop: " (or m-or-f (:method expr))
-                                               (type-hints/suggest-type-hints 
-                                                 (or m-or-f (:method expr))
-                                                 (-> ctarget u/expr-type r/ret-t) 
-                                                 [])
-                                               "\n\nHint: use *warn-on-reflection* to identify reflective calls"))
-                    (assoc expr 
-                           u/expr-type (cu/error-ret expected))))]
-    ;; try to rewrite, otherwise error on reflection
-    (cond
-      (not= original-op (:op expr)) (check-expr expr expected)
-
-      (cu/should-rewrite?)
-      (let [ctarget (add-type-hints ctarget)
-            cargs (mapv add-type-hints cargs)
-            nexpr (assoc expr 
-                         :target ctarget
-                         :args cargs)
-            ;_ (prn "host interop" (-> nexpr :target ((juxt :o-tag :tag))))
-            rewrite (try-resolve-reflection nexpr)]
-        (case (:op rewrite)
-          (:static-call :instance-call)
-          (if no-check
-            rewrite
-            (let [e (method/check-invoke-method check-expr rewrite expected
-                                                :ctarget ctarget
-                                                :cargs cargs)]
-              e))
-          ;; TODO field cases
-          (give-up)))
-      :else (give-up))))
+  [check-expr expr expected]
+  {:pre [(#{:host-interop :host-call :host-field} (:op expr))
+         (#{:unanalyzed} (:op (:target expr)))
+         (every? (comp #{:unanalyzed} :op) (:args expr))]
+   :post [(-> % u/expr-type r/TCResult?)]}
+  (let [expr (-> expr
+                 (update :target check-expr)
+                 (update :args #(mapv check-expr %))
+                 ana2/run-post-passes)
+        expr (cond-> expr
+               (and (#{:host-interop} (:op expr))
+                    (cu/should-rewrite?))
+               (-> (update :target add-type-hints)
+                   (update :args #(mapv add-type-hints %))
+                   try-resolve-reflection))]
+    (case (:op expr)
+      (:instance-call :static-call) (method/check-invoke-method expr expected)
+      :static-field (field/check-static-field expr expected)
+      :instance-field (field/check-instance-field expr expected)
+      (:host-interop :host-field :host-call)
+      (let [m-or-f-kw (case (:op expr)
+                        :host-interop :m-or-f
+                        :host-field :field
+                        :host-call :method)]
+        (err/tc-delayed-error
+          (str "Unresolved host interop: " (m-or-f-kw expr)
+               (type-hints/suggest-type-hints 
+                 (m-or-f-kw expr)
+                 (-> expr :target u/expr-type r/ret-t) 
+                 (map (comp r/ret-t u/expr-type) (:args expr)))
+               "\n\nHint: use *warn-on-reflection* to identify reflective calls")
+          :return (assoc expr 
+                         u/expr-type (cu/error-ret expected)))))))
 
 (defn check-host-call
   [check-expr -host-call-special expr expected]
-  (let [; should this be a type check instead? -host-call-special basically uses
-        ; :target's :tag information to help check :args
-        expr (update expr :target ana2/run-passes)
-        maybe-checked-expr (-host-call-special expr expected)]
-    (if (= :default maybe-checked-expr)
-      (check-host-interop check-expr expr expected)
-      (let [expr maybe-checked-expr]
-        ;(assert (:post-done (:target expr)))
-        ;(assert (every? :post-done (:args expr)))
-        (check-host-interop check-expr maybe-checked-expr expected :no-check true)))))
+  {:pre [(#{:host-call} (-> expr :op))
+         (#{:unanalyzed} (-> expr :target :op))
+         (every? (comp #{:unanalyzed} :op) (:args expr))]
+   :post [(-> % u/expr-type r/TCResult?)
+          (#{:static-call :instance-call} (:op %))]}
+  (or (when-some [expr (-host-call-special expr expected)]
+        (let [expr (-> expr
+                       ana2/run-post-passes
+                       (merge (select-keys expr [u/expr-type])))]
+          (case (:op expr)
+            (:static-call :instance-call) expr
+            :host-call
+            (err/tc-delayed-error
+              (str "Unresolved method call: " (:method expr)
+                   (type-hints/suggest-type-hints
+                     (:method expr)
+                     (-> expr :target u/expr-type r/ret-t) 
+                     (->> expr :args (map (comp r/ret-t u/expr-type))))
+                   "\n\nHint: use *warn-on-reflection* to identify reflective calls")
+              :return expr))))
+      (check-host-interop check-expr expr expected)))
 
 (defn check-maybe-host-form
   [check-expr expr expected]
+  {:pre [(#{:maybe-host-form} (:op expr))]
+   :post [(-> % u/expr-type r/TCResult?)]}
   (let [expr (ana2/run-pre-passes expr)]
-    (if (= :maybe-host-form (:op expr))
+    (if (#{:maybe-host-form} (:op expr))
       (err/tc-delayed-error (str "Unresolved host interop: " (:form expr)
                                  "\n\nHint: use *warn-on-reflection* to identify reflective calls")
                             :return (assoc expr u/expr-type r/-error))

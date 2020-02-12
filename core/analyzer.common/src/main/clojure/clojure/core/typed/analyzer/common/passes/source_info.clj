@@ -8,17 +8,16 @@
 
 ;copied from clojure.tools.analyzer.passes.source-info
 (ns clojure.core.typed.analyzer.common.passes.source-info
-  (:require [clojure.core.typed.analyzer.common.utils :refer [-source-info merge']]
-            [clojure.core.typed.analyzer.common.ast :refer [update-children]]))
+  (:require [clojure.core.typed.analyzer.common.utils :refer [-source-info merge']]))
 
 (defn -merge-source-info [source-info]
   (fn [ast]
     (update-in ast [:env] merge' source-info)))
 
 (defn source-info
-  "Adds (when avaliable) :line, :column, :end-line, :end-column and :file info to the AST :env"
+  "Adds (when available) :line, :column, :end-line, :end-column and :file info to the AST :env"
   {:pass-info {:walk :pre :depends #{}}}
   [ast]
   (let [source-info (-source-info (:form ast) (:env ast))
         merge-source-info (-merge-source-info source-info)]
-    (update-children (merge-source-info ast) merge-source-info)))
+    (merge-source-info ast)))

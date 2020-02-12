@@ -41,6 +41,7 @@
 
     :else
     (let [exprs (conj (vec (:statements expr)) (:ret expr))
+          _ (assert (every? (comp #{:unanalyzed} :op) exprs))
           nexprs (count exprs)
           reachable-atom (atom true)
           [env cexprs]
@@ -52,10 +53,10 @@
                      }
                     (cond
                       (not @reachable-atom) [env (assoc-in cexprs [n u/expr-type]
-                                                      (r/ret (r/Bottom)
-                                                             (fo/-unreachable-filter)
-                                                             orep/-empty
-                                                             (r/-flow fl/-bot)))]
+                                                           (r/ret (r/Bottom)
+                                                                  (fo/-unreachable-filter)
+                                                                  orep/-empty
+                                                                  (r/-flow fl/-bot)))]
                       :else
                       (let [expr (get cexprs n)
                             _ (assert (map? expr))

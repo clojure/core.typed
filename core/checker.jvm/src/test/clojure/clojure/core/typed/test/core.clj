@@ -272,7 +272,7 @@
 (deftest equiv-test
   ; 1 arity :else filter is always bot
   (is-clj (= (tc-t (= 1))
-             (ret (Un -true -false) (-FS -top -bot) -empty)))
+             (ret -true (-FS -top -bot) -empty)))
   (is-clj (= (tc-t (= 1 1))
              (tc-t (= 1 1 1 1 1 1 1 1 1 1))
              (ret (Un -true -false) (-FS -top -top) -empty)))
@@ -2040,7 +2040,17 @@
   (is (= (eret (= "a" (clojure.core.typed/ann-form 1 clojure.core.typed/Any)))
          (ret (Un -false -true))))
   (is (= (eret (= "a" (clojure.core.typed/ann-form 1 clojure.core.typed/Any)))
-         (ret (Un -false -true)))))
+         (ret (Un -false -true))))
+  ; needs value objects
+  ;(is-tc-e (clojure.lang.Util/equiv :a :a)
+  ;         (Val true))
+  (is-tc-err (do (import 'clojure.lang.Util)
+                 (let [Util 1] (Util/equiv "a" "a")))
+             (Val true))
+  (is-tc-err (do (import 'clojure.lang.Util)
+                 (let [Util 1] (. Util equiv "a" "a")))
+             (Val true))
+  )
 
 (deftest invoke-merge-test
   
@@ -2506,9 +2516,8 @@
             -> (HVec [(U nil Class) (U nil Class)]
                      :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
 
-; just a sanity check so keyword arguments don't accidentally break
-(deftest check-ns-kw-args-test
-  (is (check-ns 'clojure.core.typed.test.interop :collect-only true)))
+(deftest interop-test
+  (is (check-ns 'clojure.core.typed.test.interop)))
 
 ;(sub? (clojure.core.typed/All [x] (TFn [[a :variance :covariant]] clojure.core.typed/Any))
 ;      (Rec [m] (TFn [[a :variance :covariant]] m)))

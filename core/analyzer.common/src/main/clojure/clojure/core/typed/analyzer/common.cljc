@@ -51,7 +51,8 @@
   resolve-sym)
 
 (def ^{:dynamic  true
-       :doc      "Resolves the ns mapped by the given sym in the global env"}
+       :doc      "Resolves the ns mapped by the given sym in the global env.
+                 If sym is shadowed by a local in env, returns nil."}
   resolve-ns)
 
 (def ^{:dynamic  true
@@ -132,14 +133,15 @@
   [form env]
   (let [init-ast (:init-ast scheduled-passes)
         _ (assert init-ast "scheduled-passes must bind :init-ast")]
-    (init-ast
+    (->
       {:op :unanalyzed
        ::op ::unanalyzed
        :form form
-       :env env
+       :env (u/merge' env (u/-source-info form env))
        ;; ::config will be inherited by whatever node
        ;; this :unanalyzed node becomes when analyzed
-       ::config {}})))
+       ::config {}}
+      init-ast)))
 
 (defn mark-top-level
   [ast]

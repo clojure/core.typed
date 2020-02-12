@@ -122,8 +122,7 @@
                                           uvs/*current-expr*)
                                   {:form form})
                                 {:env (env-for-error
-                                        (merge (or (when uvs/*current-expr*
-                                                     (:env uvs/*current-expr*))
+                                        (merge (or (:env uvs/*current-expr*)
                                                    *current-env*)
                                                (when (contains? (:opts expected) :blame-form)
                                                  (meta (-> expected :opts :blame-form)))))}))]

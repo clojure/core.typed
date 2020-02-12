@@ -19,7 +19,7 @@
   {:pre [(r/Type? t)]
    :post [((some-fn nil? r/Type?) %)]}
   (or (when (r/Value? t)
-        (when ((some-fn number? symbol? keyword? nil? true? false? class?) (:val t))
+        (when ((some-fn string? number? symbol? keyword? nil? true? false? class?) (:val t))
           t))
       (impl/impl-case
         :clojure nil
@@ -97,6 +97,9 @@
         ;_ (prn "else" else-filter)
         ]
     (below/maybe-check-below
-      (r/ret (c/Un r/-false r/-true)
+      (r/ret (apply c/Un (concat (when (not= then-filter fl/-bot)
+                                   [r/-true])
+                                 (when (not= else-filter fl/-bot)
+                                   [r/-false])))
              (fo/-FS then-filter else-filter))
       expected)))

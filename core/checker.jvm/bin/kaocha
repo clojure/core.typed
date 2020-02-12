@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -x
+
+#TODO figure out how to pass extra args to `clojure`
+clojure -A:test:kaocha -m kaocha.runner "$@"

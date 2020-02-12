@@ -11,7 +11,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.analyzer.common.env :as env]
             [clojure.core.typed.analyzer.jvm :as jana2]
-            [clojure.core.typed.checker.check-form-common :as chk-frm]
+            [clojure.core.typed.checker.check-form-common2 :as chk-frm]
             [clojure.core.typed.checker.jvm.check-form-clj :as chk-frm-clj]
             [clojure.core.typed.checker.ns-deps-utils :as ns-utils]
             [clojure.core.typed.current-impl :as impl]
@@ -65,7 +65,7 @@
                  opts (if (.endsWith ^String filename "cljc")
                         (assoc opts :read-cond :allow)
                         opts)
-                 config (assoc (chk-frm-clj/config-map)
+                 config (assoc (chk-frm-clj/config-map2)
                                :env env
                                :should-runtime-infer? should-runtime-infer?
                                :instrument-infer-config instrument-infer-config)]

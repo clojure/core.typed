@@ -108,60 +108,61 @@
                            (last names))]
               (str "Polymorphic Variables:\n\t"
                    (str/join "\n\t" 
-                                        (map (partial apply pr-str)
-                                             (map (fn [{:keys [lower-bound upper-bound] :as bnd} nme]
-                                                    {:pre [(r/Bounds? bnd)
-                                                           (symbol? nme)]}
-                                                    (cond
-                                                      (= nme dotted) [nme '...]
-                                                      :else (concat [nme]
-                                                                    (when-not (= r/-nothing lower-bound)
-                                                                      [:> (prs/unparse-type lower-bound)])
-                                                                    (when-not (= r/-any upper-bound)
-                                                                      [:< (prs/unparse-type upper-bound)]))))
-                                                  bnds (map (comp r/F-original-name r/make-F) names)))))))
+                             (map (partial apply pr-str)
+                                  (map (fn [{:keys [lower-bound upper-bound] :as bnd} nme]
+                                         {:pre [(r/Bounds? bnd)
+                                                (symbol? nme)]}
+                                         (cond
+                                           (= nme dotted) [nme '...]
+                                           :else (concat [nme]
+                                                         (when-not (= r/-nothing lower-bound)
+                                                           [:> (prs/unparse-type lower-bound)])
+                                                         (when-not (= r/-any upper-bound)
+                                                           [:< (prs/unparse-type upper-bound)]))))
+                                       bnds (map (comp r/F-original-name r/make-F) names)))))))
           "\n\nDomains:\n\t" 
           (str/join "\n\t" 
-                               (map (partial apply pr-str) 
-                                    (map (fn [{:keys [dom rest drest kws prest pdot]}]
-                                           (concat (map prs/unparse-type dom)
-                                                   (when rest
-                                                     [(prs/unparse-type rest) '*])
-                                                   (when-let [{:keys [pre-type name]} drest]
-                                                     [(prs/unparse-type pre-type)
-                                                      '...
-                                                      (-> name r/make-F r/F-original-name)])
-                                                   (letfn [(readable-kw-map [m]
-                                                             (into {} (for [[k v] m]
-                                                                        (do (assert (r/Value? k))
-                                                                            [(:val k) (prs/unparse-type v)]))))]
-                                                     (when-let [{:keys [mandatory optional]} kws]
-                                                       (concat ['&]
-                                                               (when (seq mandatory)
-                                                                 [:mandatory (readable-kw-map mandatory)])
-                                                               (when (seq optional)
-                                                                 [:optional (readable-kw-map optional)]))))
-                                                   (when prest
-                                                     [(prs/unparse-type prest) '<*])
-                                                   (when-let [{:keys [pre-type name]} pdot]
-                                                     [(prs/unparse-type pre-type)
-                                                      '<...
-                                                      (-> name r/make-F r/F-original-name)])))
-                                         (:types fin))))
+                    (map (partial apply pr-str) 
+                         (map (fn [{:keys [dom rest drest kws prest pdot]}]
+                                (concat (map prs/unparse-type dom)
+                                        (when rest
+                                          [(prs/unparse-type rest) '*])
+                                        (when-let [{:keys [pre-type name]} drest]
+                                          [(prs/unparse-type pre-type)
+                                           '...
+                                           (-> name r/make-F r/F-original-name)])
+                                        (letfn [(readable-kw-map [m]
+                                                  (into {} (for [[k v] m]
+                                                             (do (assert (r/Value? k))
+                                                                 [(:val k) (prs/unparse-type v)]))))]
+                                          (when-let [{:keys [mandatory optional]} kws]
+                                            (concat ['&]
+                                                    (when (seq mandatory)
+                                                      [:mandatory (readable-kw-map mandatory)])
+                                                    (when (seq optional)
+                                                      [:optional (readable-kw-map optional)]))))
+                                        (when prest
+                                          [(prs/unparse-type prest) '<*])
+                                        (when-let [{:keys [pre-type name]} pdot]
+                                          [(prs/unparse-type pre-type)
+                                           '<...
+                                           (-> name r/make-F r/F-original-name)])))
+                              (:types fin))))
           "\n\n"
           "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type r/ret-t) arg-ret-types))
           "\n"
           "Ranges:\n\t"
           (str/join "\n\t" 
-                               (map (partial apply pr-str) (map (comp prs/unparse-result :rng) (:types fin))))
+                    (map (partial apply pr-str) (map (comp prs/unparse-result :rng) (:types fin))))
           "\n\n"
           (when expected (str "with expected type:\n\t" (pr-str (prs/unparse-type (r/ret-t expected))) "\n\n"))
-          #_#_"in: " (if fexpr
-                   (if (or static-method? instance-method?)
-                     (ast-u/emit-form-fn fexpr)
-                     (list* (ast-u/emit-form-fn fexpr)
-                            (map ast-u/emit-form-fn args)))
-                   "<NO FORM>"))
+          #_#_"in: "
+          (if fexpr
+            (if (or static-method? instance-method?)
+              (ast-u/emit-form-fn fexpr)
+              (list* (ast-u/emit-form-fn fexpr)
+                     (map ast-u/emit-form-fn args)))
+            "<NO FORM>"))
         :expected expected
         :return (or expected (r/ret r/Err))))))
 

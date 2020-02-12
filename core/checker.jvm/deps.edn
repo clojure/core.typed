@@ -31,6 +31,8 @@
    :extra-deps
    {org.clojure/tools.nrepl
     {:mvn/version "0.2.6", :exclusions [org.clojure/clojure]}}},
+  :kaocha
+  {:extra-deps {lambdaisland/kaocha {:mvn/version "0.0-590"}}}
   :runner
   {:extra-deps
    {org.typedclojure/test-runner

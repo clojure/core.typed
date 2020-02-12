@@ -36,7 +36,7 @@
     ; intersection type does not simplify it.
     (let [new-i (apply c/In (:types old-i))]
       (if (r/Intersection? new-i)
-        (apply c/In (map #(assoc-type-pairs % assoc-entry) (:types new-i)))
+        (apply c/In (keep #(assoc-type-pairs % assoc-entry) (:types new-i)))
         (assoc-type-pairs new-i assoc-entry))))
 
   ; use the upper bound if bounds below (Map t/Any t/Any)

@@ -7,16 +7,17 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^:skip-wiki clojure.core.typed.checker.check.nthnext
-  (:require [clojure.core.typed.checker.utils :as u]
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.checker.check-below :as below]
+            [clojure.core.typed.checker.check.utils :as cu]
+            [clojure.core.typed.checker.cs-gen :as cgen]
+            [clojure.core.typed.checker.filter-ops :as fo]
+            [clojure.core.typed.checker.indirect-ops :as ind]
+            [clojure.core.typed.checker.object-rep :as orep]
             [clojure.core.typed.checker.type-ctors :as c]
             [clojure.core.typed.checker.type-rep :as r]
-            [clojure.core.typed :as t]
-            [clojure.core.typed.checker.filter-ops :as fo]
-            [clojure.core.typed.checker.object-rep :as orep]
-            [clojure.core.typed.checker.indirect-ops :as ind]
-            [clojure.core.typed.checker.cs-gen :as cgen]
-            [clojure.core.typed.errors :as err]
-            [clojure.core.typed.checker.check.utils :as cu]))
+            [clojure.core.typed.checker.utils :as u]
+            [clojure.core.typed.errors :as err]))
 
 (defn drop-HSequential
   "Drop n elements from HSequential t."
@@ -106,100 +107,102 @@
    :post [((some-fn nil? r/Type?) %)]}
   (nthnext-type t 0))
 
-(defn check-specific-rest [check-fn {:keys [args] :as expr} expected & {:keys [cargs nrests target]}]
-  {:pre [(nat-int? nrests)
-         (vector? cargs)
-         (r/TCResult? (u/expr-type target))]}
-  (if-let [t (nthrest-type (-> target u/expr-type r/ret-t) nrests)]
-    (-> expr
-        (update-in [:fn] check-fn)
-        (assoc :args cargs
-               u/expr-type (r/ret t (fo/-true-filter))))
-    cu/not-special))
-
-(defn check-specific-next [check-fn {:keys [args] :as expr} expected & {:keys [cargs nnexts target]}]
-  {:pre [(nat-int? nnexts)
-         (vector? cargs)
-         (r/TCResult? (u/expr-type target))]}
-  (let [target-ret (-> target u/expr-type)]
-    (if-let [t (nthnext-type (r/ret-t target-ret) nnexts)]
+(defn check-specific-rest [check-fn nrests {:keys [args] :as expr} expected]
+  {:pre [(nat-int? nrests)]
+   :post [(or (nil? %)
+              (-> % u/expr-type r/TCResult?))]}
+  (let [{[ctarget] :args :as expr} (-> expr
+                                       (update :args #(mapv check-fn %))) ;FIXME possibly repeated type check
+        target-ret (u/expr-type ctarget)]
+    (when-let [t (nthrest-type (r/ret-t target-ret) nrests)]
       (-> expr
-          (update-in [:fn] check-fn)
-          (assoc
-            :args cargs
-            u/expr-type (r/ret t
-                               (if (ind/subtype? t (c/Un r/-nil (c/-name `t/Coll r/-any)))
-                                 (cond
-                                   ; persistent clojure.core/seq arities
-                                   (= nnexts 0) (cond
-                                                  ; first arity of `seq
-                                                  ;[(NonEmptyColl x) -> (NonEmptyASeq x) :filters {:then tt :else ff}]
-                                                  (ind/subtype? t (c/-name `t/NonEmptyColl r/-any)) (fo/-true-filter)
+          (update :fn check-fn)
+          (assoc u/expr-type (below/maybe-check-below
+                               (r/ret t (fo/-true-filter))
+                               expected))))))
 
-                                                  ; handle empty collection with no object
-                                                  (and (= orep/-empty (:o target-ret))
-                                                       (ind/subtype? t (c/Un r/-nil (c/-name `t/EmptyCount))))
-                                                  (fo/-false-filter)
+(defn check-specific-next [check-fn nnexts {:keys [args] :as expr} expected]
+  {:pre [(nat-int? nnexts)]
+   :post [(or (nil? %)
+              (-> % u/expr-type r/TCResult?))]}
+  (let [{[ctarget] :args :as expr} (-> expr
+                                       (update :args #(mapv check-fn %))) ;FIXME possibly repeated type check
+        target-ret (u/expr-type ctarget)]
+    (when-some [t (nthnext-type (r/ret-t target-ret) nnexts)]
+      (let [res (r/ret t
+                       (if (ind/subtype? t (c/Un r/-nil (c/-name `t/Coll r/-any)))
+                         (cond
+                           ; persistent clojure.core/seq arities
+                           (= nnexts 0) (cond
+                                          ; first arity of `seq
+                                          ;[(NonEmptyColl x) -> (NonEmptyASeq x) :filters {:then tt :else ff}]
+                                          (ind/subtype? t (c/-name `t/NonEmptyColl r/-any)) (fo/-true-filter)
 
-                                                  ; second arity of `seq
-                                                  ;[(Option (Coll x)) -> (Option (NonEmptyASeq x))
-                                                  ; :filters {:then (& (is NonEmptyCount 0)
-                                                  ;                    (! nil 0))
-                                                  ;           :else (| (is nil 0)
-                                                  ;                    (is EmptyCount 0))}]
-                                                  :else (fo/-FS (fo/-and (fo/-filter-at (c/-name `t/NonEmptyCount)
-                                                                                        (:o target-ret))
-                                                                         (fo/-not-filter-at r/-nil
-                                                                                            (:o target-ret)))
-                                                                (fo/-or (fo/-filter-at r/-nil
-                                                                                       (:o target-ret))
-                                                                        (fo/-filter-at (c/-name `t/EmptyCount)
-                                                                                       (:o target-ret)))))
-                                   ;; TODO generalize above special cases to all nnexts
-                                   (ind/subtype? t r/-nil) (fo/-false-filter)
-                                   (not (ind/subtype? r/-nil t)) (fo/-true-filter)
-                                   :else (fo/-simple-filter))
-                                 (fo/-simple-filter)))))
-      cu/not-special)))
+                                          ; handle empty collection with no object
+                                          (and (= orep/-empty (:o target-ret))
+                                               (ind/subtype? t (c/Un r/-nil (c/-name `t/EmptyCount))))
+                                          (fo/-false-filter)
 
-(defn check-nthnext [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
-  {:pre [(vector? cargs)]}
-  (if-not (#{2} (count cargs))
-    cu/not-special
-    (let [[ctarget cn :as cargs] cargs
-          num-t (-> cn u/expr-type r/ret-t)]
-      (if (and (r/Value? num-t)
-               (integer? (:val num-t)))
-        (check-specific-next
-          check-fn expr expected
-          :nnexts (:val num-t) 
-          :target ctarget
-          :cargs cargs)
-        cu/not-special))))
+                                          ; second arity of `seq
+                                          ;[(Option (Coll x)) -> (Option (NonEmptyASeq x))
+                                          ; :filters {:then (& (is NonEmptyCount 0)
+                                          ;                    (! nil 0))
+                                          ;           :else (| (is nil 0)
+                                          ;                    (is EmptyCount 0))}]
+                                          :else (fo/-FS (fo/-and (fo/-filter-at (c/-name `t/NonEmptyCount)
+                                                                                (:o target-ret))
+                                                                 (fo/-not-filter-at r/-nil
+                                                                                    (:o target-ret)))
+                                                        (fo/-or (fo/-filter-at r/-nil
+                                                                               (:o target-ret))
+                                                                (fo/-filter-at (c/-name `t/EmptyCount)
+                                                                               (:o target-ret)))))
+                           ;; TODO generalize above special cases to all nnexts
+                           (ind/subtype? t r/-nil) (fo/-false-filter)
+                           (not (ind/subtype? r/-nil t)) (fo/-true-filter)
+                           :else (fo/-simple-filter))
+                         (fo/-simple-filter)))]
+      (-> expr
+          (update :fn check-fn)
+          (assoc u/expr-type (below/maybe-check-below
+                               res
+                               expected)))))))
 
-(defn check-next [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
-  {:pre [(vector? cargs)]}
-  (if-not (#{1} (count args))
-    cu/not-special
-    (check-specific-next check-fn expr expected 
-                         :nnexts 1 
-                         :target (first cargs)
-                         :cargs cargs)))
+(defn check-nthnext [check-fn {[_ {maybe-int :form} :as args] :args :as expr} expected]
+  {:pre [(every? (comp #{:unanalyzed} :op) args)]
+   :post [(or (nil? %)
+              (-> % u/expr-type r/TCResult?))]}
+  (when (#{2} (count args))
+    (when (nat-int? maybe-int)
+      (check-specific-next check-fn maybe-int expr expected))))
 
-(defn check-seq [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
-  {:pre [(vector? cargs)]}
-  (if-not (#{1} (count args))
-    cu/not-special
-    (check-specific-next check-fn expr expected 
-                         :nnexts 0
-                         :target (first cargs)
-                         :cargs cargs)))
+(defn check-next [check-fn {:keys [args] :as expr} expected]
+  {:pre [(every? (comp #{:unanalyzed} :op) args)]
+   :post [(or (nil? %)
+              (-> % u/expr-type r/TCResult?))]}
+  (when (#{1} (count args))
+    (check-specific-next check-fn 1 expr expected)))
 
-(defn check-rest [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
-  {:pre [(vector? cargs)]}
-  (if-not (#{1} (count args))
-    cu/not-special
-    (check-specific-rest check-fn expr expected 
-                         :nrests 1 
-                         :target (first cargs)
-                         :cargs cargs)))
+(defn check-seq [check-fn {:keys [args] :as expr} expected]
+  {:pre [(every? (comp #{:unanalyzed} :op) args)]
+   :post [(or (nil? %)
+              (-> % u/expr-type r/TCResult?))]}
+  (when (#{1} (count args))
+    (let [[ccoll :as cargs] (mapv check-fn args)]
+      (cond
+        ; for `(apply hash-map (seq kws))` macroexpansion of keyword args
+        (r/KwArgsSeq? (r/ret-t (u/expr-type ccoll)))
+        (-> expr
+            (assoc :args cargs
+                   u/expr-type (below/maybe-check-below
+                                 (u/expr-type ccoll)
+                                 expected)))
+
+        :else (check-specific-next check-fn 0 expr expected)))))
+
+(defn check-rest [check-fn {:keys [args] :as expr} expected]
+  {:pre [(every? (comp #{:unanalyzed} :op) args)]
+   :post [(or (nil? %)
+              (-> % u/expr-type r/TCResult?))]}
+  (when (#{1} (count args))
+    (check-specific-rest check-fn 1 expr expected)))

@@ -202,7 +202,8 @@
 
 ;Any -> Any
 (defn resolve-sym
-  "Resolves the value mapped by the given sym in the global env"
+  "Resolves the value mapped by the given sym in the global env
+  If sym is shadowed by a local in env, returns nil."
   [sym {:keys [ns locals] :as env}]
   (when (symbol? sym)
     (ns-resolve ns locals sym)))

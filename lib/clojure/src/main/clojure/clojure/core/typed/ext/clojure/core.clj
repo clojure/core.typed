@@ -8,7 +8,7 @@
 
 (ns ^:skip-wiki clojure.core.typed.ext.clojure.core
   "Typing rules for base Clojure distribution."
-  (:require [clojure.core.typed.checker.jvm.check :refer [-custom-rule]]
+  (:require [clojure.core.typed.checker.jvm.check :refer [defuspecial]]
             [clojure.core.typed.checker.utils :as u]
             [clojure.core.typed :as t]
             [clojure.core.typed.checker.type-rep :as r]
@@ -18,16 +18,13 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.analyzer.common :as ana2]))
 
-(defmethod -custom-rule 'clojure.core/ns
+(defuspecial 'clojure.core/ns
   [expr expected]
-  {:post [(-> % u/expr-type r/TCResult?)]}
-  (-> expr
-      ana2/run-passes 
-      (assoc 
-        u/expr-type (below/maybe-check-below
-                      (r/ret r/-nil
-                             (fo/-FS fl/-bot fl/-top))
-                      expected))))
+  (assoc expr
+         u/expr-type (below/maybe-check-below
+                       (r/ret r/-nil
+                              (fo/-FS fl/-bot fl/-top))
+                       expected)))
 
 (comment
         (binding [*ns* *ns*]

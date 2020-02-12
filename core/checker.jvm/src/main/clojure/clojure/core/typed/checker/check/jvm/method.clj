@@ -21,9 +21,12 @@
             [clojure.core.typed.checker.jvm.method-override-env :as mth-override]))
 
 ;[MethodExpr Type Any -> Expr]
-(defn check-invoke-method [check-fn {c :class method-name :method :keys [args env] :as expr} expected
-                           & {:keys [ctarget cargs method-override]}]
-  {:pre [((some-fn nil? r/TCResult?) expected)
+(defn check-invoke-method [{method-name :method :keys [args env] :as expr} expected
+                           & {:keys [method-override] :as opt}]
+  {:pre [(#{:static-call :instance-call} (:op expr))
+         (not (:ctarget opt)) ;not supported
+         (not (:cargs opt))   ;not supported
+         ((some-fn nil? r/TCResult?) expected)
          ((some-fn nil? r/Type?) method-override)]
    :post [(-> % u/expr-type r/TCResult?)
           (vector? (:args %))]}
@@ -38,23 +41,18 @@
                         (when method
                           (cu/Method->Type method)))
           _ (assert ((some-fn nil? r/Type?) rfin-type))
-          ctarget (when inst?
-                    (assert (:instance expr))
-                    (or ctarget (check-fn (:instance expr))))
-          cargs (or cargs (mapv check-fn args))]
+          ctarget (:instance expr)]
       (if-not rfin-type
         (err/tc-delayed-error (str "Unresolved " (if inst? "instance" "static") 
                                  " method invocation " method-name "." 
                                  (type-hints/suggest-type-hints 
                                    method-name 
-                                   (when ctarget
-                                     (-> ctarget u/expr-type r/ret-t))
-                                   (map (comp r/ret-t u/expr-type) cargs))
+                                   (some-> ctarget u/expr-type r/ret-t)
+                                   (map (comp r/ret-t u/expr-type) args))
                                  "\n\nHint: use *warn-on-reflection* to identify reflective calls")
                             :form (ast-u/emit-form-fn expr)
                             :return (merge
                                       (assoc expr 
-                                             :args cargs
                                              u/expr-type (cu/error-ret expected))
                                       (when ctarget {:instance ctarget})))
         (let [_ (when inst?
@@ -66,20 +64,18 @@
                       (err/tc-delayed-error (str "Cannot call instance method " (cu/Method->symbol method)
                                                " on type " (pr-str (prs/unparse-type (r/ret-t (u/expr-type ctarget)))))
                                           :form (ast-u/emit-form-fn expr)))))
-              result-type (funapp/check-funapp expr args (r/ret rfin-type) (map u/expr-type cargs) expected)
+              result-type (funapp/check-funapp expr args (r/ret rfin-type) (map u/expr-type args) expected)
               _ (when expected
+                  ;;FIXME check filters and object
                   (when-not (sub/subtype? (r/ret-t result-type) (r/ret-t expected))
                     (err/tc-delayed-error (str "Return type of " (if inst? "instance" "static")
-                                             " method " (cu/Method->symbol method)
-                                             " is " (prs/unparse-type (r/ret-t result-type))
-                                             ", expected " (prs/unparse-type (r/ret-t expected)) "."
-                                             (when (sub/subtype? r/-nil (r/ret-t result-type))
-                                               (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
-                                                    "where `nil` is allowed in a Java method call. `method-type` "
-                                                    "prints the current type of a method.")))
-                                        :form (ast-u/emit-form-fn expr))))]
-          (merge
-            (assoc expr
-                   :args cargs
-                   u/expr-type result-type)
-            (when ctarget {:instance ctarget})))))))
+                                               " method " (cu/Method->symbol method)
+                                               " is " (prs/unparse-type (r/ret-t result-type))
+                                               ", expected " (prs/unparse-type (r/ret-t expected)) "."
+                                               (when (sub/subtype? r/-nil (r/ret-t result-type))
+                                                 (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
+                                                      "where `nil` is allowed in a Java method call. `method-type` "
+                                                      "prints the current type of a method.")))
+                                          :form (ast-u/emit-form-fn expr))))]
+          (assoc expr
+                 u/expr-type result-type))))))

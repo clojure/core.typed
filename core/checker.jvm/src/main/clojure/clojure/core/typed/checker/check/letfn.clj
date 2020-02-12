@@ -22,21 +22,22 @@
 (defn check-letfn [bindings body letfn-expr expected check]
   (let [;; must pass over bindings first to uniquify
         bindings (mapv ana2/run-pre-passes bindings)
-        body (update-in body [:statements 0] ana2/run-passes)
         inits-expected
         ;try and find annotations, and throw a delayed error if not found
         ;(this expression returns nil)
-        (when (and (#{:quote} (-> body :statements first :op))
-                   (#{:const} (-> body :statements first :expr :op))
-                   (vector? (-> body :statements first :expr :val)))
-          (if-not (= (count (-> body :statements first :expr :val))
-                     (count bindings))
-            (do (err/tc-delayed-error "letfn requires each binding be annotated")
-                nil)
-            (into {}
-                  (for [[nme type-syn] (mapv vector (map :name bindings) (-> body :statements first :expr :val))]
-                    [nme (binding [prs/*parse-type-in-ns* (cu/expr-ns letfn-expr)]
-                           (prs/parse-type type-syn))]))))]
+        (let [;throw away pass result so we can check body later
+              body (update-in body [:statements 0] ana2/run-passes)]
+          (when (and (#{:quote} (-> body :statements first :op))
+                     (#{:const} (-> body :statements first :expr :op))
+                     (vector? (-> body :statements first :expr :val)))
+            (if-not (= (count (-> body :statements first :expr :val))
+                       (count bindings))
+              (do (err/tc-delayed-error "letfn requires each binding be annotated")
+                  nil)
+              (into {}
+                    (for [[nme type-syn] (mapv vector (map :name bindings) (-> body :statements first :expr :val))]
+                      [nme (binding [prs/*parse-type-in-ns* (cu/expr-ns letfn-expr)]
+                             (prs/parse-type type-syn))])))))]
     (if-not inits-expected
       (err/tc-delayed-error (str "letfn requires annotation, see: "
                                (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.typed/letfn>")

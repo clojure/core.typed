@@ -20,10 +20,12 @@
 (extend-protocol PMaths
   nil
   (mult-by-two [this]
-    (t/ann-form this nil))
+    (t/ann-form this nil)
+    this)
   String
   (mult-by-two [this]
-    (t/ann-form this String)))
+    (t/ann-form this String)
+    this))
 
 (extend-protocol PMathsExtend
   SpecialNumber
