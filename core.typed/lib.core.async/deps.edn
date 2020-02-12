@@ -1,21 +1,20 @@
 {:paths ["src/main/clojure"]
- :deps {org.clojure/clojure {:mvn/version "1.10.1"}}
+ :deps {}
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {:nREPL
            {:extra-paths ["script"]
             :extra-deps
-            {nrepl/nrepl {:mvn/version "0.6.0"}
+            {nrepl/nrepl {:mvn/version "0.4.5"}
              cider/piggieback {:mvn/version "0.3.8"}}
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
-           :test {:extra-deps {org.clojure/core.typed.checker.jvm {:local/root "../../core/checker.jvm"
+           :test {:extra-deps {org.clojure/clojure {:mvn/version "1.9.0"}
+                               org.clojure/core.async {:mvn/version "0.3.465"}
+                               org.clojure/core.typed.runtime.jvm {:local/root "../runtime.jvm"
                                                                    :deps/manifest :deps}
-                               org.clojure/core.typed.runtime.jvm {:local/root "../../core/runtime.jvm"
+                               org.clojure/core.typed.checker.jvm {:local/root "../checker.jvm"
                                                                    :deps/manifest :deps}
-                               org.clojure/core.typed.analyzer.common {:local/root "../../core/analyzer.common"
-                                                                       :deps/manifest :deps}
-                               org.clojure/core.typed.analyzer.jvm {:local/root "../../core/analyzer.jvm"
-                                                                    :deps/manifest :deps}}
+                               }
                   :extra-paths ["src/test/clojure"]}
            :runner
            {:extra-deps
