@@ -1,4 +1,4 @@
-{:paths ["src/main/clojure"]
+{:paths ["src"]
  :deps {}
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {:nREPL
@@ -15,12 +15,12 @@
                                org.clojure.typed/checker.jvm {:local/root "../checker.jvm"
                                                               :deps/manifest :deps}
                                }
-                  :extra-paths ["src/test/clojure"]}
+                  :extra-paths ["test"]}
            :runner
            {:extra-deps
             {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                         :sha "028a6d41ac9ac5d5c405dfc38e4da6b4cc1255d5"}}
             :main-opts ["-m" "cognitect.test-runner"
-                        "-d" "src/test/clojure"
+                        "-d" "test"
                         "-r" ".*"
                         ]}}}
