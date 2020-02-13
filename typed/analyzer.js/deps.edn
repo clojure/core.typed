@@ -1,4 +1,4 @@
-{:paths ["src/main/clojure"]
+{:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}
         org.clojure/tools.analyzer {:mvn/version "0.7.0"}
         org.clojure/clojurescript {:mvn/version "1.10.597"}
@@ -14,11 +14,11 @@
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
            :test
-           {:extra-paths ["src/test/clojure"]}
+           {:extra-paths ["test"]}
            :runner
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"
                           :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
             :main-opts ["-m" "cognitect.test-runner"
                         "-r" ".*"
-                        "-d" "src/test/clojure"]}}}
+                        "-d" "test"]}}}
