@@ -1,5 +1,4 @@
-{:paths ["src/main/clojure"
-         "src/main/cljs"]
+{:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}
         org.clojure.typed/checker.jvm {:local/root "../checker.jvm"
                                        :deps/manifest :deps}
@@ -27,11 +26,10 @@
 
            :clj-1.10.0-beta5 {:override-deps {org.clojure/clojure {:mvn/version "1.10.0-beta5"}}}
            :test
-           {:extra-paths ["src/test/clojure"
-                          "src/test/cljs"
+           {:extra-paths ["test"
                           ; for clojure.core.typed.test.common-utils
-                          "../module-checker.jvm/src/test/clojure"
-                          "../module-checker.jvm/src/test/cljs"]
+                          "../checker.jvm/test"
+                          "../checker.jvm/test"]
             :extra-deps {org.clojure/tools.nrepl {:mvn/version "0.2.6"
                                                   :exclusions [org.clojure/clojure]}
                          org.clojure/core.async {:mvn/version "0.3.465"
@@ -45,7 +43,7 @@
                          {:git/url "https://github.com/typedclojure/test-runner"
                           :sha "2d7af465ac90b2d083753daf251bdb4a09ae97cd"}}
             :main-opts ["-m" "cognitect.test-runner"
-                        "-d" "src/test/clojure/clojure/core/typed/test"
+                        "-d" "test/clojure/core/typed/test"
                         "-r" ".*"
                         ;"-w" "clojure.test.junit/with-junit-output"
                         ;"-o" "junit-output.xml"
