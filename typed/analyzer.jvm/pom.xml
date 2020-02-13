@@ -21,26 +21,6 @@
     <relativePath>../..</relativePath>
   </parent>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>com.theoryinpractise</groupId>
-        <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
-        <executions>
-          <execution>
-            <id>clojure-compile</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>clojure-test</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
   <dependencies>
     <dependency>
       <groupId>org.clojure.typed</groupId>
