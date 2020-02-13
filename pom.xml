@@ -25,7 +25,43 @@
   <properties>
     <clojure.warnOnReflection>true</clojure.warnOnReflection>
     <clojure.version>1.10.1</clojure.version>
+    <clojure.source.dir>src</clojure.source.dir>
+    <clojure.testSource.dir>test</clojure.testSource.dir>
   </properties>
+
+  <build>
+    <sourceDirectory>java-src</sourceDirectory>
+    <scriptSourceDirectory>scripts-src</scriptSourceDirectory>
+    <testSourceDirectory>java-test</testSourceDirectory>
+    <resources>
+      <resource>
+        <directory>resources-src</directory>
+      </resource>
+    </resources>
+    <testResources>
+      <testResource>
+        <directory>resources-test</directory>
+      </testResource>
+    </testResources>
+    <plugins>
+      <plugin>
+        <groupId>com.theoryinpractise</groupId>
+        <artifactId>clojure-maven-plugin</artifactId>
+        <version>1.7.1</version>
+        <extensions>true</extensions>
+        <executions>
+          <execution>
+            <id>clojure-compile</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>clojure-test</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
   <modules>
     <module>typed/analyzer.common</module>
