@@ -21,37 +21,6 @@
     <relativePath>../..</relativePath>
   </parent>
 
-  <repositories>
-    <repository>
-      <id>sonatype-oss-public</id>
-      <url>https://oss.sonatype.org/content/groups/public/</url>
-    </repository>
-    <repository>
-      <id>clojars.org</id>
-      <url>https://clojars.org/repo</url>
-    </repository>
-  </repositories>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>com.theoryinpractise</groupId>
-        <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
-        <executions>
-          <execution>
-            <id>clojure-compile</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>clojure-test</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>

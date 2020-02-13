@@ -1,4 +1,4 @@
-{:paths ["src/main/clojure"]
+{:paths ["src"]
  :deps {org.clojure.typed/runtime.jvm {:local/root "../runtime.jvm"
                                        :deps/manifest :deps}
         org.clojure.typed/analyzer.jvm {:local/root "../analyzer.jvm"
@@ -13,7 +13,7 @@
         potemkin {:mvn/version "0.4.5"}}
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {:test
-           {:extra-paths ["src/test/clojure"]
+           {:extra-paths ["test"]
             :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"
                                                  :scope "test"}
                          com.gfredericks/test.chuck {:mvn/version "0.2.6"
@@ -30,5 +30,5 @@
                          {:git/url "https://github.com/cognitect-labs/test-runner"
                           :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
             :main-opts ["-m" "cognitect.test-runner"
-                        "-d" "src/test/clojure"
+                        "-d" "test"
                         "-r" ".*"]}}}
