@@ -8,14 +8,14 @@
              cider/piggieback {:mvn/version "0.3.8"}}
             :main-opts ["-m" "nrepl.cmdline"
                         "--interactive"]}
-           :test {:extra-deps {org.clojure/core.typed.checker.jvm {:local/root "../checker.jvm"
-                                                                   :deps/manifest :deps}
-                               org.clojure/core.typed.runtime.jvm {:local/root "../runtime.jvm"
-                                                                   :deps/manifest :deps}
-                               org.clojure/core.typed.analyzer.common {:local/root "../analyzer.common"
-                                                                       :deps/manifest :deps}
-                               org.clojure/core.typed.analyzer.jvm {:local/root "../analyzer.jvm"
-                                                                    :deps/manifest :deps}}
+           :test {:extra-deps {org.clojure.typed/checker.jvm {:local/root "../checker.jvm"
+                                                              :deps/manifest :deps}
+                               org.clojure.typed/runtime.jvm {:local/root "../runtime.jvm"
+                                                              :deps/manifest :deps}
+                               org.clojure.typed/analyzer.common {:local/root "../analyzer.common"
+                                                                  :deps/manifest :deps}
+                               org.clojure.typed/analyzer.jvm {:local/root "../analyzer.jvm"
+                                                               :deps/manifest :deps}}
                   :extra-paths ["src/test/clojure"]}
            :runner
            {:extra-deps

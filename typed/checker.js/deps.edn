@@ -1,10 +1,10 @@
 {:paths ["src/main/clojure"
          "src/main/cljs"]
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}
-        org.clojure/core.typed.checker.jvm {:local/root "../checker.jvm"
-                                            :deps/manifest :deps}
-        org.clojure/core.typed.runtime.jvm {:local/root "../runtime.jvm"
-                                            :deps/manifest :deps}
+        org.clojure.typed/checker.jvm {:local/root "../checker.jvm"
+                                       :deps/manifest :deps}
+        org.clojure.typed/runtime.jvm {:local/root "../runtime.jvm"
+                                       :deps/manifest :deps}
         org.clojure/clojurescript {:mvn/version "1.10.597"}}
  :aliases {:nREPL
            {:extra-paths ["script"]

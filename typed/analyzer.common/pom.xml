@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.clojure</groupId>
-  <artifactId>core.typed.analyzer.common</artifactId>
+  <artifactId>analyzer.common</artifactId>
   <description>A variant of tools.analyzer.</description>
-  <name>core.typed.analyzer.common</name>
+  <name>typed.analyzer.common</name>
   <version>0.8.0-SNAPSHOT</version>
 
   <licenses>
@@ -16,8 +15,8 @@
   </licenses>
 
   <parent>
-    <groupId>org.clojure</groupId>
-    <artifactId>core.typed-pom</artifactId>
+    <groupId>org.clojure.typed</groupId>
+    <artifactId>pom</artifactId>
     <version>0.8.0-SNAPSHOT</version>
     <relativePath>../..</relativePath>
   </parent>

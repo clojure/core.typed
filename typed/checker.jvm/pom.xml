@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.clojure</groupId>
-  <artifactId>core.typed.checker.jvm</artifactId>
+  <artifactId>checker.jvm</artifactId>
+  <name>typed.checker.jvm</name>
   <description>An optional type system for Clojure — full system for annotating and type-checking.</description>
-  <name>core.typed.checker.jvm</name>
   <version>0.8.0-SNAPSHOT</version>
 
   <licenses>
@@ -16,8 +15,8 @@
   </licenses>
 
   <parent>
-    <groupId>org.clojure</groupId>
-    <artifactId>core.typed-pom</artifactId>
+    <groupId>org.clojure.typed</groupId>
+    <artifactId>pom</artifactId>
     <version>0.8.0-SNAPSHOT</version>
     <relativePath>../..</relativePath>
   </parent>
@@ -69,20 +68,20 @@
       <artifactId>clojure</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.typed.analyzer.jvm</artifactId>
+      <groupId>org.clojure.typed</groupId>
+      <artifactId>analyzer.jvm</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.typed.lib.clojure</artifactId>
+      <groupId>org.clojure.typed</groupId>
+      <artifactId>lib.clojure</artifactId>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.typed.runtime.jvm</artifactId>
+      <groupId>org.clojure.typed</groupId>
+      <artifactId>runtime.jvm</artifactId>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -93,8 +92,8 @@
       <artifactId>tools.reader</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.typed.lang.jvm</artifactId>
+      <groupId>org.clojure.typed</groupId>
+      <artifactId>lang.jvm</artifactId>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

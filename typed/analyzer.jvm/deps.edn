@@ -2,8 +2,8 @@
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}
         org.clojure/core.memoize {:mvn/version "0.8.2"}
         org.ow2.asm/asm {:mvn/version "5.2"}
-        org.clojure/core.typed.analyzer.common {:local/root "../analyzer.common"
-                                                :deps/manifest :deps}}
+        org.clojure.typed/analyzer.common {:local/root "../analyzer.common"
+                                           :deps/manifest :deps}}
  :mvn/repos
  {"sonatype-oss-public"
   {:url "https://oss.sonatype.org/content/groups/public/"}},
