@@ -1,8 +1,7 @@
-{:deps {org.clojure/clojure {:mvn/version "1.9.0"}}
- :paths ["src/main/clojure"
-         "src/main/cljs"]
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.10.1"}}
  :aliases {:test
-           {:extra-paths ["src/test/clojure"]
+           {:extra-paths ["test"]
             :extra-deps {org.clojure/clojurescript {:mvn/version "0.0-2311"
                                                     :exclusions [org.clojure/clojure]}}}
            :nREPL
@@ -24,6 +23,6 @@
                          {:git/url "https://github.com/cognitect-labs/test-runner"
                           :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
             :main-opts ["-m" "cognitect.test-runner"
-                        "-d" "src/test/clojure"
+                        "-d" "test"
                         "-r" ".*"
                         ]}}}
