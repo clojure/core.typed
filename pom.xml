@@ -27,18 +27,18 @@
   </properties>
 
   <modules>
-    <module>core.typed/analyzer.common</module>
-    <module>core.typed/analyzer.js</module>
-    <module>core.typed/analyzer.jvm</module>
-    <module>core.typed/checker.js</module>
-    <module>core.typed/checker.jvm</module>
-    <module>core.typed/runtime.jvm</module>
+    <module>typed/analyzer.common</module>
+    <module>typed/analyzer.js</module>
+    <module>typed/analyzer.jvm</module>
+    <module>typed/checker.js</module>
+    <module>typed/checker.jvm</module>
+    <module>typed/runtime.jvm</module>
 
-    <module>core.typed/lib.clojure</module>
-    <module>core.typed/lib.core.async</module>
+    <module>typed/lib.clojure</module>
+    <module>typed/lib.core.async</module>
 
-    <module>core.typed/annotator.jvm</module>
-    <module>core.typed/lang.jvm</module>
+    <module>typed/annotator.jvm</module>
+    <module>typed/lang.jvm</module>
   </modules>
 
   <dependencyManagement>
