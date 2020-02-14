@@ -2,7 +2,13 @@
 
 <a href='http://typedclojure.org'><img src='doc/images/part-of-typed-clojure-project.png'></a>
 
+<p>
+  <a href='https://www.patreon.com/ambrosebs'><img src='doc/images/become_a_patron_button.png'></a>
+  <a href='https://opencollective.com/typedclojure'><img src='doc/images/donate-to-our-collective.png'></a>
+</p>
+
 Optional typing in Clojure, as a library.
+
 
 ## Usage Overview
 
