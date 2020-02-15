@@ -4,7 +4,7 @@
   <artifactId>lang.jvm</artifactId>
   <name>typed.lang.jvm</name>
   <description>Extensible languages in Clojure, a la Racket's #lang.</description>
-  <version>0.8.0-alpha5</version>
+  <version>0.8.0-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -17,7 +17,7 @@
   <parent>
     <groupId>org.clojure.typed</groupId>
     <artifactId>pom</artifactId>
-    <version>0.8.0-alpha5</version>
+    <version>0.8.0-SNAPSHOT</version>
     <relativePath>../..</relativePath>
   </parent>
 
