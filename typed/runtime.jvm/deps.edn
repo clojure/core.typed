@@ -2,8 +2,7 @@
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}}
  :aliases {:test
            {:extra-paths ["test"]
-            :extra-deps {org.clojure/clojurescript {:mvn/version "0.0-2311"
-                                                    :exclusions [org.clojure/clojure]}}}
+            :extra-deps {org.clojure/clojurescript {:mvn/version "1.10.597"}}}
            :nREPL
            {:extra-deps
             {nrepl/nrepl {:mvn/version "0.6.0"}

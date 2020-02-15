@@ -14,10 +14,8 @@
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {:test
            {:extra-paths ["test"]
-            :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"
-                                                 :scope "test"}
-                         com.gfredericks/test.chuck {:mvn/version "0.2.6"
-                                                     :scope "test"}}}
+            :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
+                         com.gfredericks/test.chuck {:mvn/version "0.2.6"}}}
            :script {:extra-paths ["script"]}
            :nREPL
            {:extra-deps

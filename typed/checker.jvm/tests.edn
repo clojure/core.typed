@@ -2,7 +2,7 @@
                                        :kaocha.testable/id   :unit
                                        :kaocha/ns-patterns   ["clojure.core.typed.test.*"]
                                        :kaocha/source-paths  []
-                                       :kaocha/test-paths    ["src/test/clojure"]}]
+                                       :kaocha/test-paths    ["test"]}]
  :kaocha/fail-fast?                  true
  :kaocha/color?                      true
  ;:kaocha/reporter                    [kaocha.report/dots]

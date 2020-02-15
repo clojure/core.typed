@@ -30,12 +30,12 @@
                           ; for clojure.core.typed.test.common-utils
                           "../checker.jvm/test"
                           "../checker.jvm/test"]
-            :extra-deps {org.clojure/tools.nrepl {:mvn/version "0.2.6"
-                                                  :exclusions [org.clojure/clojure]}
-                         org.clojure/core.async {:mvn/version "0.3.465"
-                                                 :exclusions [org.clojure/tools.analyzer.jvm]}
-                         org.clojure/tools.trace {:mvn/version "0.7.5"
-                                                  :exclusions [org.clojure/clojure]}
+            :extra-deps {;org.clojure/tools.nrepl {:mvn/version "0.2.6"
+                         ;                         :exclusions [org.clojure/clojure]}
+                         ;org.clojure/core.async {:mvn/version "0.3.465"
+                         ;                        :exclusions [org.clojure/tools.analyzer.jvm]}
+                         ;org.clojure/tools.trace {:mvn/version "0.7.5"
+                         ;                         :exclusions [org.clojure/clojure]}
                          org.clojure/test.check {:mvn/version "0.9.0"}
                          com.gfredericks/test.chuck {:mvn/version "0.2.6"}}}
            :runner
