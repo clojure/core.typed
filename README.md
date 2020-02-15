@@ -9,6 +9,14 @@
 
 Optional typing in Clojure, as a library.
 
+## Latest news
+
+core.typed is under heavy development and restructuring, and will be released
+at some point under new version coordinates and namespace. Don't use it for
+anything important, or at least expect breaking changes.
+
+If you would like to try core.typed anyway, the old `org.clojure/core.typed.*`
+namespace is stable, and instructions on how to use it are below.
 
 ## Usage Overview
 
@@ -43,22 +51,22 @@ See modules for specific version coordinates:
 
 ### Core type system
 
-* [checker.jvm](core/checker.jvm/README.md): The JVM type checker
-* [runtime.jvm](core/runtime.jvm/README.md): JVM Runtime dependencies
-* [analyzer.jvm](core/analyzer.jvm/README.md): Analyzer for JVM Clojure
-* [analyzer.js](core/analyzer.js/README.md): Analyzer for JS Clojure (unreleased)
-* [checker.js](core/checker.js/README.md): The JS type checker (unreleased)
-* [analyzer.common](core/analyzer.common/README.md): Implementation-agnostic base for Clojure analyzers
+* [checker.jvm](typed/checker.jvm/README.md): The JVM type checker
+* [runtime.jvm](typed/runtime.jvm/README.md): JVM Runtime dependencies
+* [analyzer.jvm](typed/analyzer.jvm/README.md): Analyzer for JVM Clojure
+* [analyzer.js](typed/analyzer.js/README.md): Analyzer for JS Clojure (unreleased)
+* [checker.js](typed/checker.js/README.md): The JS type checker (unreleased)
+* [analyzer.common](typed/analyzer.common/README.md): Implementation-agnostic base for Clojure analyzers
 
 ### Library Annotations
 
-* [lib.clojure](lib/clojure/README.md): Base type annotations
-* [lib.core.async](lib/core.async/README.md): Annotations for core.async
+* [lib.clojure](typed/lib.clojure/README.md): Base type annotations
+* [lib.core.async](typed/lib.core.async/README.md): Annotations for core.async
 
 ### Utility libraries
 
-* [annotator.jvm](util/annotator.jvm/README.md): Automatic annotator
-* [lang.jvm](util/lang.jvm/README.md): Extensible languages
+* [annotator.jvm](typed/annotator.jvm/README.md): Automatic annotator
+* [lang.jvm](typed/lang.jvm/README.md): Extensible languages
 
 ## Compatibility
 
