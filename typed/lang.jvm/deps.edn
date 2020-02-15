@@ -1,5 +1,5 @@
 {:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.9.0"}
+ :deps {org.clojure/clojure {:mvn/version "1.10.1"}
         org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}}
  :aliases {:nREPL
            {:extra-paths ["script"]
