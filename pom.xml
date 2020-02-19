@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.clojure.typed</groupId>
   <artifactId>pom</artifactId>
-  <version>1.10.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <name>pom</name>
   <description>An optional type system for Clojure</description>
   <packaging>pom</packaging>
@@ -102,52 +102,52 @@
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>analyzer.common</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>analyzer.js</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>analyzer.jvm</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>checker.js</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>checker.jvm</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>runtime.jvm</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>lib.clojure</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>lib.core.async</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>annotator.jvm</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure.typed</groupId>
         <artifactId>lang.jvm</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>

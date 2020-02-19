@@ -4,7 +4,7 @@
   <artifactId>analyzer.common</artifactId>
   <description>A variant of tools.analyzer.</description>
   <name>typed.analyzer.common</name>
-  <version>1.10.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -17,7 +17,7 @@
   <parent>
     <groupId>org.clojure.typed</groupId>
     <artifactId>pom</artifactId>
-    <version>1.10.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <relativePath>../..</relativePath>
   </parent>
 
