@@ -4,7 +4,7 @@
   <artifactId>annotator.jvm</artifactId>
   <name>typed.annotator.jvm</name>
   <description>Runtime type inference algorithm for core.typed and clojure.spec.</description>
-  <version>1.10.0-alpha1</version>
+  <version>1.10.0-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -17,7 +17,7 @@
   <parent>
     <groupId>org.clojure.typed</groupId>
     <artifactId>pom</artifactId>
-    <version>1.10.0-alpha1</version>
+    <version>1.10.0-SNAPSHOT</version>
     <relativePath>../..</relativePath>
   </parent>
 
