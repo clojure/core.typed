@@ -4,7 +4,7 @@
   <artifactId>lib.core.async</artifactId>
   <name>typed.lib.core.async</name>
   <description>Type annotations and macros for core.async.</description>
-  <version>1.0.0</version>
+  <version>1.0.1-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -17,7 +17,7 @@
   <parent>
     <groupId>org.clojure.typed</groupId>
     <artifactId>pom</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1-SNAPSHOT</version>
     <relativePath>../..</relativePath>
   </parent>
 
