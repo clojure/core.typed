@@ -19,9 +19,9 @@ Latest stable release is 0.7.2.
 - Note: use `clj -Sresolve` to resolve the `:tag` to a `:sha`
 
 ```clj
-  org.clojure/core.typed.lang.jvm {:git/url "https://github.com/clojure/core.typed"
-                                   :deps/root "util/lang.jvm"
-                                   :tag "core.typed-pom-0.7.2"}
+  org.clojure.typed/lang.jvm {:git/url "https://github.com/clojure/core.typed"
+                              :deps/root "typed/lang.jvm"
+                              :tag "core.typed-pom-0.7.2"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
