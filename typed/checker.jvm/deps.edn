@@ -27,7 +27,7 @@
                "--middleware" "[cider.nrepl/wrap-complete]"
                ]},
   :test
-  {:extra-paths ["test"],
+  {:extra-paths ["test" "resources"],
    :extra-deps
    {org.clojure/tools.nrepl
     {:mvn/version "0.2.6", :exclusions [org.clojure/clojure]}}},
