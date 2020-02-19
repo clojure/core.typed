@@ -23,7 +23,7 @@ Latest stable release is 0.7.2.
 ```clj
   org.clojure.typed/analyzer.js {:git/url "https://github.com/clojure/core.typed"
                                  :deps/root "typed/analyzer.js"
-                                 :tag "core.typed-pom-0.7.2"}
+                                 :tag "0.7.2"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:

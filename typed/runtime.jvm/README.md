@@ -6,14 +6,14 @@ Runtime dependency needed to annotate Typed Clojure code in JVM Clojure.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.7.2.
+Latest stable release is 1.0.0.
 
 * [All Released Versions](https://search.maven.org/search?q=g:org.clojure%20AND%20a:core.typed.runtime.jvm)
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) JAR dependency information:
 
 ```clj
-  org.clojure.typed/runtime.jvm {:mvn/version "0.7.2"}
+  org.clojure.typed/runtime.jvm {:mvn/version "1.0.0"}
  ```
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) Git dependency information:
@@ -23,13 +23,13 @@ Latest stable release is 0.7.2.
 ```clj
   org.clojure.typed/runtime.jvm {:git/url "https://github.com/clojure/core.typed"
                                       :deps/root "core/runtime.jvm"
-                                      :tag "core.typed-pom-0.7.2"}
+                                      :tag "1.0.0"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure.typed/runtime.jvm "0.7.2"]
+[org.clojure.typed/runtime.jvm "1.0.0"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -38,7 +38,7 @@ Latest stable release is 0.7.2.
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed.runtime.jvm</artifactId>
-  <version>0.7.2</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 

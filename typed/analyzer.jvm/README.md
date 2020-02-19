@@ -6,14 +6,14 @@ Analyzer for JVM Clojure, tuned for consumption by an optional type checker.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.7.2.
+Latest stable release is 1.0.0.
 
 * [All Released Versions](https://search.maven.org/search?q=g:org.clojure%20AND%20a:core.typed.analyzer.jvm)
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) JAR dependency information:
 
 ```clj
-  org.clojure.typed/analyzer.jvm {:mvn/version "0.7.2"}
+  org.clojure.typed/analyzer.jvm {:mvn/version "1.0.0"}
 ```
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) Git dependency information:
@@ -23,13 +23,13 @@ Latest stable release is 0.7.2.
 ```clj
   org.clojure.typed/analyzer.jvm {:git/url "https://github.com/clojure/core.typed"
                                   :deps/root "typed/analyzer.jvm"
-                                  :tag "core.typed-pom-0.7.2"}
+                                  :tag "1.0.0"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure.typed/analyzer.jvm "0.7.2"]
+[org.clojure.typed/analyzer.jvm "1.0.0"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -38,7 +38,7 @@ Latest stable release is 0.7.2.
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed.analyzer.jvm</artifactId>
-  <version>0.7.2</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 

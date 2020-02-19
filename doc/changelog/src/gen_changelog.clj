@@ -47,7 +47,7 @@
                  (when-let [version (some (fn [prefix]
                                             (when (.startsWith s prefix)
                                               (subs s (count prefix))))
-                                          ["core.typed-pom-"])]
+                                          ["" "core.typed-pom-"])]
                    [version s])))
        (apply hash-map)))
 

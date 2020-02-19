@@ -6,12 +6,12 @@ Type annotations and macros for the base Clojure distribution.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.7.2.
+Latest stable release is 1.0.0.
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) JAR dependency information:
 
 ```clj
-  org.clojure.typed/lib.clojure {:mvn/version "0.7.2"}
+  org.clojure.typed/lib.clojure {:mvn/version "1.0.0"}
  ```
 
 [deps.edn](https://clojure.org/reference/deps_and_cli) Git dependency information:
@@ -21,13 +21,13 @@ Latest stable release is 0.7.2.
 ```clj
   org.clojure.typed/lib.clojure {:git/url "https://github.com/clojure/core.typed"
                                  :deps/root "typed/lib.clojure"
-                                 :tag "core.typed-pom-0.7.2"}
+                                 :tag "1.0.0"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure.typed/lib.clojure "0.7.2"]
+[org.clojure.typed/lib.clojure "1.0.0"]
 ```
 
 [Maven](https://maven.apache.org/) dependency information:
@@ -36,7 +36,7 @@ Latest stable release is 0.7.2.
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed.lib.clojure</artifactId>
-  <version>0.7.2</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
