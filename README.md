@@ -9,15 +9,6 @@
 
 Optional typing in Clojure, as a library.
 
-## Latest news
-
-core.typed is under heavy development and restructuring, and will be released
-at some point under new version coordinates and namespace. Don't use it for
-anything important, or at least expect breaking changes.
-
-If you would like to try core.typed anyway, the old `org.clojure/core.typed.*`
-namespace is stable, and instructions on how to use it are below.
-
 ## Usage Overview
 
 core.typed is separated into modules. You'll want the full type checker at development
@@ -26,8 +17,8 @@ time, and the runtime dependencies in production.
 In Clojure CLI's `deps.edn`, this will look something like this:
 
 ```clojure
-{:deps {org.clojure/core.typed.runtime.jvm {:mvn/version "1.0.0"}}
- :aliases {:dev {:extra-deps {org.clojure/core.typed.checker.jvm {:mvn/version "1.0.0"}}}}}
+{:deps {org.clojure.typed/runtime.jvm {:mvn/version "1.0.0"}}
+ :aliases {:dev {:extra-deps {org.clojure.typed/checker.jvm {:mvn/version "1.0.0"}}}}}
 ```
 
 You can then start a dev repl with `clj -A:dev`.
@@ -36,8 +27,8 @@ In Leiningen's `project.clj`, something like this:
 
 ```clojure
 (defproject a-project "0.0.1-SNAPSHOT"
-  :dependencies [[org.clojure/core.typed.runtime.jvm "1.0.0"]]
-  :profiles {:dev {:dependencies [[org.clojure/core.typed.checker.jvm "1.0.0"]]}})
+  :dependencies [[org.clojure.typed/runtime.jvm "1.0.0"]]
+  :profiles {:dev {:dependencies [[org.clojure.typed/checker.jvm "1.0.0"]]}})
 ```
 
 Then, `lein repl` will automatically activate the `:dev` profile. Verify the type
