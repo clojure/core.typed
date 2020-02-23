@@ -9,6 +9,14 @@
 
 Optional typing in Clojure, as a library.
 
+## Stable + Maintenance mode
+
+core.typed should be considered stable and has transitioned into maintenance mode.
+Further feature development has been moved to the [typedclojure](https://github.com/typedclojure/typedclojure) repository
+which was forked from this repository at core.typed `1.0.0`.
+
+See [here](https://github.com/typedclojure/typedclojure/blob/master/UPGRADING.md#from-coretyped-100-to-typedclojure-101) for upgrading instructions.
+
 ## Usage Overview
 
 core.typed is separated into modules. You'll want the full type checker at development
