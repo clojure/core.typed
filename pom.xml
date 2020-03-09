@@ -157,7 +157,7 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.namespace</artifactId>
-        <version>0.3.0-alpha4</version>
+        <version>1.0.0</version>
       </dependency>
       <dependency>
         <groupId>org.ow2.asm</groupId>
@@ -167,12 +167,12 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.analyzer</artifactId>
-        <version>0.7.0</version>
+        <version>1.0.0</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.analyzer.jvm</artifactId>
-        <version>0.7.0</version>
+        <version>1.0.0</version>
       </dependency>
       <dependency>
         <groupId>potemkin</groupId>
@@ -182,7 +182,7 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>math.combinatorics</artifactId>
-        <version>0.1.4</version>
+        <version>0.1.6</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
@@ -197,7 +197,7 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>core.async</artifactId>
-        <version>0.3.465</version>
+        <version>1.0.567</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>

@@ -4,17 +4,17 @@
         org.clojure.typed/analyzer.jvm {:local/root "../analyzer.jvm"
                                         :deps/manifest :deps}
         org.clojure/tools.reader {:mvn/version "1.1.1"}
-        org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"}
-        org.clojure/math.combinatorics {:mvn/version "0.1.4"
+        org.clojure/tools.namespace {:mvn/version "1.0.0"}
+        org.clojure/math.combinatorics {:mvn/version "0.1.6"
                                         :exclusions [org.clojure/clojure]}
-        org.clojure/tools.analyzer.jvm {:mvn/version "0.7.0"}
+        org.clojure/tools.analyzer.jvm {:mvn/version "1.0.0"}
         ;; can't vendor this as it includes Java sources that need to be compiled.
         ;; perhaps we can make it optional in the future.
         potemkin {:mvn/version "0.4.5"}}
  :mvn/repos {"sonatype-oss-public" {:url "https://oss.sonatype.org/content/groups/public/"}}
  :aliases {:test
            {:extra-paths ["test"]
-            :extra-deps {org.clojure/test.check {:mvn/version "0.9.0"}
+            :extra-deps {org.clojure/test.check {:mvn/version "1.0.0"}
                          com.gfredericks/test.chuck {:mvn/version "0.2.6"}}}
            :script {:extra-paths ["script"]}
            :nREPL

@@ -36,7 +36,7 @@
                          ;                        :exclusions [org.clojure/tools.analyzer.jvm]}
                          ;org.clojure/tools.trace {:mvn/version "0.7.5"
                          ;                         :exclusions [org.clojure/clojure]}
-                         org.clojure/test.check {:mvn/version "0.9.0"}
+                         org.clojure/test.check {:mvn/version "1.0.0"}
                          com.gfredericks/test.chuck {:mvn/version "0.2.6"}}}
            :runner
            {:extra-deps {org.typedclojure/test-runner

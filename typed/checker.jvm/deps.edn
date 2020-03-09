@@ -6,8 +6,8 @@
   org.clojure.typed/lang.jvm {:local/root "../lang.jvm" :deps/manifest :deps},
   org.clojure.typed/lib.clojure {:local/root "../lib.clojure" :deps/manifest :deps},
   org.clojure.typed/runtime.jvm {:local/root "../runtime.jvm" :deps/manifest :deps},
-  org.clojure/math.combinatorics {:mvn/version "0.1.4", :exclusions [org.clojure/clojure]},
-  org.clojure/tools.namespace {:mvn/version "0.3.0-alpha4"},
+  org.clojure/math.combinatorics {:mvn/version "0.1.6", :exclusions [org.clojure/clojure]},
+  org.clojure/tools.namespace {:mvn/version "1.0.0"},
   org.clojure/tools.reader {:mvn/version "1.1.1"}},
  :mvn/repos
  {"sonatype-oss-public"
