@@ -4,7 +4,7 @@
   <artifactId>runtime.jvm</artifactId>
   <description>An optional type system for Clojure — zero-dependency artifact for annotations only.</description>
   <name>typed.runtime.jvm</name>
-  <version>1.0.1-SNAPSHOT</version>
+  <version>1.0.1</version>
 
   <licenses>
     <license>
@@ -17,7 +17,7 @@
   <parent>
     <groupId>org.clojure.typed</groupId>
     <artifactId>pom</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
     <relativePath>../..</relativePath>
   </parent>
 </project>
