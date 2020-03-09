@@ -13,7 +13,7 @@ Optional typing in Clojure, as a library.
 
 core.typed should be considered stable and has transitioned into maintenance mode.
 Further feature development has been moved to the [typedclojure](https://github.com/typedclojure/typedclojure) repository
-which was forked from this repository at core.typed `1.0.0`.
+which was forked from this repository at core.typed `1.0.1`.
 
 See [here](https://github.com/typedclojure/typedclojure/blob/master/UPGRADING.md#from-coretyped-100-to-typedclojure-101) for upgrading instructions.
 
@@ -25,8 +25,8 @@ time, and the runtime dependencies in production.
 In Clojure CLI's `deps.edn`, this will look something like this:
 
 ```clojure
-{:deps {org.clojure.typed/runtime.jvm {:mvn/version "1.0.0"}}
- :aliases {:dev {:extra-deps {org.clojure.typed/checker.jvm {:mvn/version "1.0.0"}}}}}
+{:deps {org.clojure.typed/runtime.jvm {:mvn/version "1.0.1"}}
+ :aliases {:dev {:extra-deps {org.clojure.typed/checker.jvm {:mvn/version "1.0.1"}}}}}
 ```
 
 You can then start a dev repl with `clj -A:dev`.
@@ -35,8 +35,8 @@ In Leiningen's `project.clj`, something like this:
 
 ```clojure
 (defproject a-project "0.0.1-SNAPSHOT"
-  :dependencies [[org.clojure.typed/runtime.jvm "1.0.0"]]
-  :profiles {:dev {:dependencies [[org.clojure.typed/checker.jvm "1.0.0"]]}})
+  :dependencies [[org.clojure.typed/runtime.jvm "1.0.1"]]
+  :profiles {:dev {:dependencies [[org.clojure.typed/checker.jvm "1.0.1"]]}})
 ```
 
 Then, `lein repl` will automatically activate the `:dev` profile. Verify the type
@@ -44,7 +44,7 @@ checker is not included in uberjars with `lein with-profile uberjar deps :tree`.
 
 ## Releases and Dependency Information
 
-Latest stable release is 1.0.0.
+Latest stable release is 1.0.1.
 
 See modules for specific version coordinates:
 
