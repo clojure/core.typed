@@ -13,7 +13,7 @@
                         ]}
 
            :codox
-           {:extra-deps {codox {:mvn/version "0.10.5"}}
+           {:extra-deps {codox/codox {:mvn/version "0.10.5"}}
             :extra-paths ["script"]
             :main-opts ["-m" "gen-doc"]}
 
