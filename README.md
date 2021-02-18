@@ -1,6 +1,6 @@
 # core.typed
 
-<a href='http://typedclojure.org'><img src='doc/images/part-of-typed-clojure-project.png'></a>
+<a href='https://typedclojure.org'><img src='doc/images/part-of-typed-clojure-project.png'></a>
 
 <p>
   <a href='https://www.patreon.com/ambrosebs'><img src='doc/images/become_a_patron_button.png'></a>
@@ -79,9 +79,9 @@ Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!f
 
 See [wiki](https://github.com/clojure/core.typed/wiki).
 
-[API Reference](http://clojure.github.io/core.typed/)
+[API Reference](https://clojure.github.io/core.typed/)
 
-[Ambrose's blog](http://frenchy64.github.io/)
+[Ambrose's blog](https://frenchy64.github.io/)
 
 ## Leiningen Plugin
 
@@ -104,9 +104,9 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 - [Typed Clojure Contributor Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributing guidelines](CONTRIBUTING.md)
 - [GitHub Project](https://github.com/clojure/core.typed)
-- [Bug Tracker](http://dev.clojure.org/jira/browse/CTYP)
-- [Continuous Integration](http://build.clojure.org/job/core.typed/)
-- [Compatibility Test Matrix](http://build.clojure.org/job/core.typed-test-matrix/)
+- [Bug Tracker](https://clojure.atlassian.net/browse/CTYP)
+- [Continuous Integration](https://build.clojure.org/job/core.typed/)
+- [Compatibility Test Matrix](https://build.clojure.org/job/core.typed-test-matrix/)
 
 <!---
 ## Future work
@@ -159,8 +159,8 @@ YourKit is kindly supporting core.typed and other open source projects with its 
 YourKit, LLC is the creator of innovative and intelligent tools for profiling
 Java and .NET applications. Take a look at YourKit's leading software products:
 
-* <a href="http://www.yourkit.com/java/profiler/index.jsp">YourKit Java Profiler</a> and
-* <a href="http://www.yourkit.com/.net/profiler/index.jsp">YourKit .NET Profiler</a>.
+* <a href="https://www.yourkit.com/java/profiler/index.jsp">YourKit Java Profiler</a> and
+* <a href="https://www.yourkit.com/.net/profiler/index.jsp">YourKit .NET Profiler</a>.
 
 ## License
 
