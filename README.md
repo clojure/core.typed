@@ -9,9 +9,10 @@
 
 Optional typing in Clojure, as a library.
 
-## Stable + Maintenance mode
+## NEW REPO -- core.typed is deprecated as of Clojure 1.11
 
-core.typed should be considered stable and has transitioned into maintenance mode.
+core.typed supports up to Clojure 1.10. Clojure 1.11 introduced new destructuring expansion that is only supported by  [typedclojure](https://github.com/typedclojure/typedclojure).
+
 Further feature development has been moved to the [typedclojure](https://github.com/typedclojure/typedclojure) repository
 which was forked from this repository at core.typed `1.0.1`.
 
