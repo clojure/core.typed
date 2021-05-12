@@ -1,47 +1,48 @@
 name: Run tests with clj
-on: []
 
-#
-#on: [push]
-#
-#jobs:
-#  build:
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        clojure: 
-#          - 1.10.1
-#          #- 1.11.0-master-SNAPSHOT
-#        jdk: 
-#          - 1.8
-#          #- 1.11
-#          - 1.13
-#        submodule:
-#          - typed/analyzer.common
-#          - typed/analyzer.js
-#          - typed/analyzer.jvm
-#          #- typed/checker.js
-#          - typed/checker.jvm
-#          - typed/runtime.jvm
-#          - typed/annotator.jvm
-#          - typed/lang.jvm
-#          - typed/lib.clojure
-#          - typed/lib.core.async
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions/cache@v1
-#        with:
-#          path: ~/.m2/repository
-#          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }
-#          restore-keys: |
-#            ${{ runner.os }}-maven-
-#      - name: Set up JDK ${{ matrix.jdk }}
-#        uses: actions/setup-java@v1
-#        with:
-#          java-version: ${{ matrix.jdk }}
-#      - uses: DeLaGuardo/setup-clojure@2.0
-#        with:
-#          tools-deps: latest
-#      - name: Run ${{ matrix.submodule }} tests
-#        run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version "${{ matrix.clojure }}"}}}'
-#        working-directory: ${{ matrix.submodule }}
+on:
+  push:
+    branches:
+    - disable-build
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        clojure: 
+          - 1.10.1
+          #- 1.11.0-master-SNAPSHOT
+        jdk: 
+          - 1.8
+          #- 1.11
+          - 1.13
+        submodule:
+          - typed/analyzer.common
+          - typed/analyzer.js
+          - typed/analyzer.jvm
+          #- typed/checker.js
+          - typed/checker.jvm
+          - typed/runtime.jvm
+          - typed/annotator.jvm
+          - typed/lang.jvm
+          - typed/lib.clojure
+          - typed/lib.core.async
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v1
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.jdk }}
+      - uses: DeLaGuardo/setup-clojure@2.0
+        with:
+          tools-deps: latest
+      - name: Run ${{ matrix.submodule }} tests
+        run: ./script/test -Sdeps '{:deps {org.clojure/clojure {:mvn/version "${{ matrix.clojure }}"}}}'
+        working-directory: ${{ matrix.submodule }}
