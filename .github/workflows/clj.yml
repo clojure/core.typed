@@ -1,4 +1,6 @@
-#name: Run tests with clj
+name: Run tests with clj
+on: []
+
 #
 #on: [push]
 #
