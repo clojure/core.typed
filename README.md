@@ -98,7 +98,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 ## Examples
 
-[core.async Rock-paper-scissors](https://github.com/clojure/core.typed/blob/master/module-check/src/test/clojure/clojure/core/typed/test/rps_async.clj)
+[core.async Rock-paper-scissors](https://github.com/clojure/core.typed/blob/master/typed/lib.core.async/test/clojure/core/typed/lib/clojure/core/async/rps_async_test.clj)
 
 ## Developer Information
 
