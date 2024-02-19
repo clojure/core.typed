@@ -19,7 +19,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
-    <version>0.3.0</version>
+    <version>1.2.0</version>
   </parent>
 
   <properties>
@@ -221,7 +221,7 @@
     </repository>
     <repository>
       <id>clojars.org</id>
-      <url>http://clojars.org/repo</url>
+      <url>https://clojars.org/repo</url>
     </repository>
   </repositories>
 
