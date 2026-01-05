@@ -1,5 +1,5 @@
 {:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.10.1"}}
+ :deps {org.clojure/clojure {:mvn/version "1.11.4"}}
  :aliases {:merge-deps 
            {:main-opts ["-m" "typed.dev.merge-deps"]}
            :dev-repl 

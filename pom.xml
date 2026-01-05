@@ -19,12 +19,12 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
   </parent>
 
   <properties>
     <clojure.warnOnReflection>true</clojure.warnOnReflection>
-    <clojure.version>1.10.1</clojure.version>
+    <clojure.version>1.11.4</clojure.version>
     <clojure.source.dir>src</clojure.source.dir>
     <clojure.testSource.dir>test</clojure.testSource.dir>
   </properties>
@@ -92,7 +92,7 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>clojure</artifactId>
-        <version>1.10.1</version>
+        <version>1.11.4</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
@@ -152,12 +152,12 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>core.memoize</artifactId>
-        <version>1.1.266</version>
+        <version>1.2.273</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.namespace</artifactId>
-        <version>1.5.0</version>
+        <version>1.5.1</version>
       </dependency>
       <dependency>
         <groupId>org.ow2.asm</groupId>
@@ -167,12 +167,12 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.analyzer</artifactId>
-        <version>1.2.0</version>
+        <version>1.2.1</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.analyzer.jvm</artifactId>
-        <version>1.3.0</version>
+        <version>1.3.4</version>
       </dependency>
       <dependency>
         <groupId>potemkin</groupId>
@@ -182,22 +182,22 @@
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>math.combinatorics</artifactId>
-        <version>0.3.0</version>
+        <version>0.3.2</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>tools.reader</artifactId>
-        <version>1.4.0</version>
+        <version>1.6.0</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>core.cache</artifactId>
-        <version>1.1.234</version>
+        <version>1.2.249</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
         <artifactId>core.async</artifactId>
-        <version>1.6.681</version>
+        <version>1.8.741</version>
       </dependency>
       <dependency>
         <groupId>org.clojure</groupId>
